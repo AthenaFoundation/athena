@@ -230,7 +230,7 @@ fun getEscChar(char_list) =
      end
 
 fun error(str,pos_opt) = (open_comments:= 0;open_string := false;pos := 0; lines := 1;
-                          raise Abstract_Syntax.LexError(str,pos_opt))
+                          raise AbstractSyntax.LexError(str,pos_opt))
 
 fun inc(i) = i := !i + 1
 

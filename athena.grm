@@ -4,7 +4,7 @@ Athena's Yacc grammar.
 
 ===================================================*)
 
-structure A = Abstract_Syntax
+structure A = AbstractSyntax
 structure N = Names
 structure S = Symbol
 structure MS = ModSymbol
