@@ -1,0 +1,325 @@
+athena.sml: 
+  names.sml
+  repl.sml
+ab.sml: 
+  base.sml
+  prop.sml
+abstract_syntax.sml: 
+  ath_term_var.sml
+  base.sml
+  fterm.sml
+  general_re.sml
+  modsymbol.sml
+  names.sml
+  pos.sml
+  symbol.sml
+  symterm.sml
+ath_term.sml: 
+  abstract_syntax.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  gmap.sml
+  meta_ide.sml
+  modsymbol.sml
+  names.sml
+  sort_order.sml
+  symbol.sml
+  symterm.sml
+  util.sml
+ath_term_var.sml: 
+  base.sml
+  fterm.sml
+  inf_num.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+compiler.sml: 
+  abstract_syntax.sml
+  base.sml
+  modsymbol.sml
+  symbol.sml
+data.sml: 
+  abstract_syntax.sml
+  base.sml
+  fterm.sml
+  modsymbol.sml
+  names.sml
+  sort_order.sml
+  symbol.sml
+  symterm.sml
+  util.sml
+definition_processor.sml: 
+  ab.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  compiler.sml
+  data.sml
+  fterm.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+  paths.sml
+  pos.sml
+  prop.sml
+  prop_set.sml
+  semant_val.sml
+  semantics.sml
+  structure_analysis.sml
+  symbol.sml
+  symterm.sml
+  terms.sml
+  topenv_part2.sml
+fterm.sml: 
+  base.sml
+  inf_num.sml
+  inf_table.sml
+  modsymbol.sml
+  names.sml
+  sort_order.sml
+  symbol.sml
+  symterm.sml
+general_re.sml: 
+  symbol.sml
+inf_int_map.sml: 
+  inf_num.sml
+inf_num.sml: 
+  base.sml
+inf_table.sml: 
+  base.sml
+infix_parser.sml: 
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  names.sml
+  options.sml
+  pos.sml
+  semant_val.sml
+  symbol.sml
+meta_ide.sml: 
+  base.sml
+modsymbol.sml: 
+  base.sml
+  symbol.sml
+mt.sml: 
+  compat_11072.sml
+names.sml: 
+  modsymbol.sml
+  paths.sml
+  symbol.sml
+options.sml: 
+  util.sml
+parse.sml: 
+  abstract_syntax.sml
+  ath_term_var.sml
+  base.sml
+  error.sml
+  symbol.sml
+paths.sml: 
+  symbol.sml
+pos.sml: 
+  base.sml
+prop.sml: 
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  modsymbol.sml
+  names.sml
+  rs_array.sml
+  sat.sml
+  sort_order.sml
+  symbol.sml
+prop_set.sml: 
+  ab.sml
+  base.sml
+  prop.sml
+  semant_val.sml
+regex.sml: 
+  base.sml
+  general_re.sml
+  names.sml
+  symbol.sml
+repl.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  definition_processor.sml
+  error.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+  paths.sml
+  pos.sml
+  prop.sml
+  semant_val.sml
+  semantics.sml
+  sort_order.sml
+  structure_analysis.sml
+  symbol.sml
+  topenv_part2.sml
+  util.sml
+sat.sml: 
+  base.sml
+  symbol.sml
+search.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  prop.sml
+  terms.sml
+semant_val.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  maps.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+  paths.sml
+  prop.sml
+  rs_array.sml
+  symbol.sml
+  symterm.sml
+  terms.sml
+  util.sml
+semantics.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  maps.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+  prop.sml
+  prop_set.sml
+  rs_array.sml
+  semant_val.sml
+  stacks.sml
+  structure_analysis.sml
+  symbol.sml
+  terms.sml
+  util.sml
+server.sml: 
+  ath_term.sml
+  names.sml
+  semantics.sml
+  sockets.sml
+smt_output.sml: 
+  abstract_syntax.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  modsymbol.sml
+  names.sml
+  prop.sml
+  semant_val.sml
+  semantics.sml
+  symbol.sml
+sockets.sml: 
+  base.sml
+sort_order.sml: 
+  base.sml
+  modsymbol.sml
+  util.sml
+structure_analysis.sml: 
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  gmap.sml
+  modsymbol.sml
+  names.sml
+  options.sml
+  prop.sml
+  symbol.sml
+  symterm.sml
+symbol.sml: 
+  base.sml
+symterm.sml: 
+  base.sml
+  modsymbol.sml
+  symbol.sml
+terms.sml: 
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  inf_num.sml
+  modsymbol.sml
+  names.sml
+  symbol.sml
+  symterm.sml
+topenv_part1.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term.sml
+  ath_term_var.sml
+  base.sml
+  data.sml
+  fterm.sml
+  maps.sml
+  modsymbol.sml
+  mt.sml
+  names.sml
+  options.sml
+  paths.sml
+  prop.sml
+  search.sml
+  semant_val.sml
+  semantics.sml
+  smt_output.sml
+  structure_analysis.sml
+  symbol.sml
+  symterm.sml
+  terms.sml
+topenv_part2.sml: 
+  ab.sml
+  abstract_syntax.sml
+  ath_term.sml
+  base.sml
+  data.sml
+  fterm.sml
+  infix_parser.sml
+  maps.sml
+  names.sml
+  options.sml
+  paths.sml
+  prop.sml
+  prop_set.sml
+  sat.sml
+  semant_val.sml
+  semantics.sml
+  server.sml
+  sort_order.sml
+  structure_analysis.sml
+  symbol.sml
+  symterm.sml
+  topenv_part1.sml
+  util.sml
+util.sml:
+  modsymbol.sml
+  names.sml
+  pos.sml

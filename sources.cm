@@ -1,0 +1,93 @@
+(*======================================================================
+
+	Compilation-manager file for smlnj. 
+	Remember to also install ml-yacc: sudo apt-get install ml-yacc
+	
+=======================================================================*)
+
+Group is
+    $/basis.cm
+    $smlnj/compiler/compiler.cm     
+    $/smlnj-lib.cm
+    $/ml-yacc-lib.cm
+	compat_11072.sml
+	ord_map.sig
+	ord_map.sml
+	inf_num.sig
+	inf_num.sml
+	base.sig
+	base.sml
+	sockets.sml
+	inf_table.sig
+	inf_table.sml	
+	term.sig
+	sets.sig
+	sets.sml
+	table.sig
+	table.sml
+	maps.sig
+	maps.sml
+	symbol.sig
+	symbol.sml
+        meta_ide.sig
+        meta_ide.sml
+	modsymbol.sig
+	modsymbol.sml
+	symterm.sml
+	names.sml
+	pos.sml
+	util.sml
+	sort_order.sml
+	inf_int_map.sml
+	paths.sml
+	fterm.sml
+	options.sml
+	list.sig
+	list.sml
+	ath_term_var.sig	
+	ath_term_var.sml
+        general_re.sml
+	abstract_syntax.sml
+	stacks.sig
+	stacks.sml
+	proof_simplification.sml
+	gmap.sig
+	gmap.sml
+	ath_term.sig
+	data.sml
+	ath_term.sml
+	error.sml
+	sat.sml
+	rs_array.sig
+	rs_array.sml
+	prop.sig
+	prop.sml
+	ab.sig
+	ab.sml
+	terms.sml
+	re.sig 
+	regex.sml
+	semant_val.sml
+	prop_set.sig
+	prop_set.sml 
+	athena.lex
+	athena.grm
+	parse.sml
+	infix_parser.sml
+	structure_analysis.sml
+	mt.sig
+	mt.sml
+	state_space.sig
+	state_search.sig
+	state_search.sml
+	search.sml
+	semantics.sml
+	smt_output.sml
+	compiler.sml
+	server.sml
+	topenv_part1.sml
+	topenv_part2.sml
+	definition_processor.sml
+	repl.sml
+	athena.sml
+

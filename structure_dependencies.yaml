@@ -1,0 +1,289 @@
+Athena: 
+  Names
+  Repl
+ABase: 
+  Basic
+  Prop
+AbstractSyntax: 
+  AthTermVar
+  Basic
+  FTerm
+  GeneralRE
+  ModSymbol
+  Names
+  Position
+  SymTerm
+  Symbol
+AthTerm: 
+  AbstractSyntax
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  GMap
+  MetaId
+  ModSymbol
+  Names
+  SortOrder
+  SymTerm
+  Symbol
+  Util
+AthenaCompiler: 
+  AbstractSyntax
+  Basic
+  ModSymbol
+  Symbol
+Data: 
+  AbstractSyntax
+  Basic
+  FTerm
+  ModSymbol
+  Names
+  SortOrder
+  SymTerm
+  Symbol
+  Util
+DefinitionProcessor: 
+  ABase
+  AthTerm
+  AthTermVar
+  AthenaCompiler
+  Basic
+  Data
+  FTerm
+  ModSymbol
+  Names
+  Options
+  Paths
+  Position
+  Prop
+  PropSet
+  SemanticValues
+  Semantics
+  StructureAnalysis
+  SymTerm
+  Symbol
+  Terms
+  TopEnv
+FTerm: 
+  Basic
+  InfIntMapTable
+  InfNum
+  ModSymbol
+  Names
+  SortOrder
+  SymTerm
+  Symbol
+GeneralRE: 
+  Symbol
+InfIntMapTable: 
+  Basic
+InfNum: 
+  Basic
+InfixParse: 
+  AbstractSyntax
+  AthTermVar
+  Basic
+  ErrorMsg
+  Symbol
+InfixParser: 
+  AbstractSyntax
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  Names
+  Options
+  Position
+  SemanticValues
+  Symbol
+Key: 
+  InfNum
+MT: 
+  Array
+MetaId: 
+  Basic
+ModSymbol: 
+  Basic
+  Symbol
+Names: 
+  ModSymbol
+  Paths
+  Symbol
+Options: 
+  Util
+Paths: 
+  Symbol
+Position: 
+  Basic
+Prop: 
+  AbstractSyntax
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  ModSymbol
+  Names
+  RSA
+  Sat
+  SortOrder
+  Symbol
+PropSet: 
+  ABase
+  Basic
+  Prop
+  SemanticValues
+Repl: 
+  ABase
+  AbstractSyntax
+  AthTermVar
+  Basic
+  Data
+  DefinitionProcessor
+  ErrorMsg
+  ModSymbol
+  Names
+  Options
+  Paths
+  Position
+  Prop
+  SemanticValues
+  Semantics
+  SortOrder
+  StructureAnalysis
+  Symbol
+  TopEnv
+  Util
+SMTOutput: 
+  AbstractSyntax
+  AthTermVar
+  Basic
+  Data
+  ModSymbol
+  Names
+  Prop
+  SemanticValues
+  Semantics
+  Symbol
+Sat: 
+  Basic
+  Symbol
+Semantics: 
+  ABase
+  AbstractSyntax
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  LStack
+  Maps
+  ModSymbol
+  Names
+  Options
+  Prop
+  PropSet
+  RSA
+  SemanticValues
+  StructureAnalysis
+  Symbol
+  Terms
+  Util
+Server: 
+  AthTerm
+  Names
+  Semantics
+  Socket
+Socket: 
+  Basic
+SortOrder: 
+  Basic
+  ModSymbol
+  Util
+StructureAnalysis: 
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  GMap
+  ModSymbol
+  Names
+  Options
+  Prop
+  SymTerm
+  Symbol
+SymTerm: 
+  Basic
+  ModSymbol
+  Symbol
+Terms: 
+  AbstractSyntax
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  InfNum
+  ModSymbol
+  Names
+  SymTerm
+  Symbol
+TestRE: 
+  Basic
+  GeneralRE
+  Names
+  Symbol
+TopEnv: 
+  ABase
+  AbstractSyntax
+  AthTerm
+  Basic
+  Data
+  FTerm
+  InfixParser
+  Maps
+  Names
+  Options
+  Paths
+  Prop
+  PropSet
+  Sat
+  SemanticValues
+  Semantics
+  Server
+  SortOrder
+  StructureAnalysis
+  SymTerm
+  Symbol
+  TopEnv1
+  Util
+TopEnv1: 
+  ABase
+  AbstractSyntax
+  AthTerm
+  AthTermVar
+  Basic
+  Data
+  FTerm
+  MT
+  Maps
+  ModSymbol
+  Names
+  Options
+  Paths
+  Prop
+  SMTOutput
+  SemanticValues
+  Semantics
+  StructureAnalysis
+  SymTerm
+  Symbol
+  TermSearch
+  Terms
+Util: 
+  ModSymbol
+  Names
+  Position

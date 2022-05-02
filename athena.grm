@@ -1,0 +1,1774 @@
+(*==================================================
+
+Athena's Yacc grammar.
+
+===================================================*)
+
+structure A = Abstract_Syntax
+structure N = Names
+structure S = Symbol
+structure MS = ModSymbol
+
+type pos = int * int
+
+fun getPos((l,p)) = {line=l,pos=p,file=(!Paths.current_file)}
+
+%%    
+%term  EOF | PICK_ANY | PICK_WITNESS | PICK_WITNESSES | CHECK | DCHECK | ELSE | THEN | LOGICAL_AND | LOGICAL_OR | OP | EXPAND_INPUT | 
+       PRIVATE_ID of string | PRIVATE  | OPEN_MODULE | EXTEND_MODULE | ANY_ID of string | RE_STAR | RE_PLUS | RE_OPTIONAL | RE_LIT | RE_REP | RE_RANGE | 
+       ID of string | STRING of int list | SOME_FUNCTION | SOME_METHOD | EXIT_ATHENA | FROM | FOR | START_LOAD | END_LOAD | TRANSFORM_OUTPUT | 
+       CHARACTER of int | LOAD_FILE | DIF_ELSE | NAME | SOME_TERM | COLON  | OVERLOAD | OVERLOAD_INV | MODULE | DEFINE_STAR | DEFINE_MEMOIZED | 
+       SOME_ATOM | SOME_PROP | QMARK | EXCL_MARK | QUOTE_WORD |QUOTE_SYMBOL | EXPAND_NEXT_PROOF | LEFT_CURLY_BRACE | RIGHT_CURLY_BRACE | 
+       BACK_QUOTE_SYMBOL | LETREC | DLETREC | SPLIT_PAT | BY | PRINT_STACK_TRACE | SEMI_COLON | CONCLUDE | DOUBLE_LEFT_CURLY_BRACE | DOUBLE_RIGHT_CURLY_BRACE | 
+       LPAREN | RPAREN | COMMA | CLAIM | LEFT_BRACKET | RIGHT_BRACKET | SET | ARROW | WILDCARD | SOME_CHAR |
+       FUNCTION | METHOD | MATCH | LET | LET_UPPER | DLET | TRY | DTRY | APPLY_METHOD | SOME_VAR | SEQ | DSEQ | SOME_VECTOR | MAP_BEGIN | MAP_END | 
+       EQUAL_SIGN | ASSERT | ASSERT_CLOSE | ASSUME | ASSUME_LET | SUPPOSE_ABSURD | SUPPOSE_ABSURD_LET | ON | PROVE | 
+       DMATCH | EITHER | ABSURD | MP | DN | EQUIV | LEFT_IFF | RIGHT_IFF | BOTH  | ASGN | BY_CASES | 
+       META_ID | SOME_SYMBOL | LEFT_AND | RIGHT_AND | CD | VAL_OF | VAR | FUN_ARROW | DATATYPE | DATATYPES | DEFINE_SORT | 
+       SOME_LIST | SOME_CELL | SOME_SUB | SOME_TABLE | SOME_MAP | DEFINE | POUND | STRUCTURE | STRUCTURES | DOMAIN | WHERE | 
+       DECLARE | DDECLARE | DIRECTIVE_PREFIX | EGEN | BEGIN | WHILE | CLEAR | THE | DEFINE_SYMBOL | DOMAINS | 
+       EGEN_UNIQUE  | LEIBNIZ | EQ_REFLEX  | SOME_QUANT | USPEC | FETCH  | RETRACT | DEFINE_FUN | ADD_DEMON | ADD_DEMONS | 
+       SOME_PROP_CON | UNEQUAL_TERMS | INDUCTION | STRUCTURE_CASES | LIST | CELL | RULE  | GEN_OVER | WITH_PREDICATE | WITH_KEYS | 
+       WITH_WITNESS | MAKE_CELL | REF  | USE_TERM_PARSER | USE_PROP_PARSER | END | SPECIALIZE | SET_FLAG | 
+       EX_GENERALIZE | DATATYPE_CASES | DATATYPE_CASES_ON_TERM | SUBSORT  | SUBSORTS | VECTOR_INIT | VECTOR_SUB | VECTOR_SET | 
+       SET_CNF_CONVERTER | GET_CNF_CONVERTER | ANY_PAT | SET_PRECEDENCE | LEFT_ASSOC | RIGHT_ASSOC | BIN_OP | ADD_PATH
+
+%nonterm    input_stream of A.user_input list
+          | input_list of A.user_input list
+          | module of A.module_entry 
+          | moduleExtension of A.module_entry 
+          | user_input of A.user_input
+          | core_user_input of A.user_input
+          | directive of A.directive
+          | ath_structure of A.absyn_structure
+          | ath_datatype of A.absyn_structure
+          | infix_ath_datatype of A.absyn_structure
+          | infix_ath_structure of A.absyn_structure
+          | ath_structures of A.absyn_structure list
+          | ath_datatypes of A.absyn_structure list
+          | infix_ath_datatypes of A.absyn_structure list
+          | ath_struc_clause of A.absyn_structure
+          | infix_ath_struc_clause of A.absyn_structure
+          | rec_ath_struc_clause of A.absyn_structure
+          | one_or_more_rec_ath_struc_clauses of A.absyn_structure list
+          | one_or_more_rec_ath_datatype_clauses  of A.absyn_structure list
+          | ath_structure_profile of A.absyn_structure_profile
+          | ath_domain of A.absyn_domain
+          | ath_domains of A.absyn_domain list 
+          | subsort of A.mod_symbol * A.pos * A.mod_symbol * A.pos 
+          | subsorts of (A.mod_symbol * A.pos) list * (A.mod_symbol * A.pos) 
+          | ath_constant_sym of A.absyn_fsym list
+          | ath_fsym of A.absyn_fsym list
+          | ath_structure_constructor of A.absyn_structure_constructor 
+          | one_or_more_ath_structure_constructors of A.absyn_structure_constructor list
+          | infix_one_or_more_ath_structure_constructors of A.absyn_structure_constructor list
+          | one_or_more_type_vars of A.param list
+          | athena_object_type of A.absyn_term
+	  | user_sort of A.absyn_term
+	  | one_or_more_user_sorts of A.absyn_term list  
+          | selector_tagged_athena_object_type of (A.param option * A.absyn_term)
+          | one_or_more_athena_object_types of A.absyn_term list
+          | one_or_more_selector_tagged_athena_object_types of (A.param option * A.absyn_term) list
+          | athena_object_type_list of A.absyn_term list
+          | selector_tagged_athena_object_type_list of (A.param option * A.absyn_term) list
+          | param of A.param
+          | param_no_dots of A.param
+	  | map_binding of A.phrase
+	  | map_bindings of A.phrase list 
+          | input_transformer_declaration of A.expression list 
+          | possibly_wildcard_param of A.possibly_wildcard_param
+          | possibly_wildcard_param_no_dots of A.possibly_wildcard_param
+	  | possibly_wildcard_param_list of A.possibly_wildcard_param list 
+	  | possibly_wildcard_param_list_no_dots of A.possibly_wildcard_param list 
+          | possibly_typed_param of A.possibly_typed_param
+          | possibly_typed_param_no_dots of A.possibly_typed_param
+          | possibly_typed_params of A.possibly_typed_param list 
+          | possibly_typed_params_no_dots of  A.possibly_typed_param list 
+          | param_option of S.symbol option
+          | param_option_no_dots of S.symbol option
+          | params of A.param list
+          | one_or_more_params_maybe_with_reps of A.param list
+          | one_or_more_params_maybe_with_reps_no_dots of A.param list
+          | one_or_more_params of A.param list
+          | one_or_more_params_no_dots of A.param list
+          | one_or_more_comma_separated_params of A.param list 
+          | comma_separated_possible_obtype_params of A.param list 
+          | possible_obtype_params of A.param list 
+          | bracket_enclosed_possible_obtype_params of A.param list 
+          | one_or_more_ids of string list
+          | expression of A.expression
+          | any_id of string 
+          | one_or_more_expressions of A.expression list
+          | comma_separated_expression_list of A.expression list
+          | comma_separated_phrase_list  of A.phrase list
+          | opt_comma_separated_phrase_list  of A.phrase list
+          | one_or_more_phrases of A.phrase list
+          | deduction of A.deduction 
+          | inference of A.deduction 
+          | possibly_named_inference of A.optBinding
+          | inference_list of A.optBinding list 
+          | inference_block of A.deduction 
+          | case_clause of A.case_clause
+          | case_clauses of A.case_clause list
+          | deductions of A.deduction list 
+          | one_or_more_separated_deductions of A.deduction list
+          | one_or_more_separated_expressions of A.expression list
+          | one_or_more_deductions of A.deduction list
+          | phrase of A.phrase          
+          | phrases of A.phrase list
+          | infix_def_block of A.possibly_typed_param * A.expression
+          | infix_def_blocks of (A.possibly_typed_param * A.expression) list
+          | def_block of A.possibly_typed_param * A.expression
+          | def_blocks of (A.possibly_typed_param * A.expression) list
+          | definitions of (A.possibly_typed_param * A.expression) list
+          | pattern of A.pattern
+          | struc_pattern of A.pattern
+          | patterns of A.pattern list
+          | struc_patterns of A.pattern list
+          | check_clause of A.check_clause
+          | infix_check_clause of A.check_clause
+          | infix_check_clauses of A.check_clause list 
+          | check_clauses of A.check_clause list
+          | dcheck_clause of A.dcheck_clause
+          | infix_dcheck_clause of A.dcheck_clause
+          | infix_dcheck_clauses of A.dcheck_clause list 
+          | dcheck_clauses of A.dcheck_clause list
+          | condition of A.condition
+          | one_or_more_patterns of A.pattern list
+          | two_or_more_patterns of A.pattern list
+          | match_clause of A.match_clause
+          | match_clauses of A.match_clause list
+          | dmatch_clause of A.dmatch_clause
+          | infix_dmatch_clause of A.dmatch_clause
+          | infix_match_clause of A.match_clause
+          | sep_infix_match_clause of A.match_clause
+          | sep_infix_dmatch_clause of A.dmatch_clause
+          | sep_infix_match_clauses of A.match_clause list
+          | sep_infix_dmatch_clauses of A.dmatch_clause list 
+          | infix_match_clauses of A.match_clause list 
+          | dmatch_clauses of A.dmatch_clause list
+          | infix_dmatch_clauses of A.dmatch_clause list
+          | binding of A.binding 
+          | binding_assignment of A.binding 
+          | bindings of A.binding list
+          | semicolon_separated_bindings of A.binding list
+          | semicolon_separated_phrases of A.phrase list
+          | semicolon_separated_deductions of A.deduction list
+          | semicolon_separated_expressions of A.expression list
+          | assignment of A.binding
+          | assignments of A.binding list
+          | symbol_definition of A.absyn_symbol_definition
+          | athena_var of AthTermVar.ath_term_var 
+          | ath_var of A.expression 
+          | athena_meta_id of A.expression
+          | one_or_more_athena_vars of AthTermVar.ath_term_var list
+          | declaration_prec_assoc of {overload_sym:A.param option,precedence:int option,assoc:bool option,input_transformer: A.expression list option}
+          | sb_declaration_prec_assoc of {overload_sym:A.param option,precedence:int option,assoc:bool option,input_transformer: A.expression list option}
+          | associativity of bool 
+          | one_mod_symbol of A.mod_symbol * A.pos
+          | one_or_more_mod_symbols of (A.mod_symbol * A.pos) list
+          | one_or_more_mod_symbols_infix of (A.mod_symbol * A.pos) list
+          | single_logical_or of unit 
+          | phrase_pair of (A.phrase * A.phrase * A.pos * A.pos * A.pos) 
+          | phrase_pair_list of (A.phrase * A.phrase * A.pos * A.pos * A.pos) list 
+          | lcb of unit | rcb of unit 
+          | param_asgn_exp_list of (A.param * A.expression) list 
+
+%pos int * int 
+%verbose
+%start input_stream
+
+%eop EOF
+%noshift EOF
+
+%name Athena
+
+%keyword ASSUME SUPPOSE_ABSURD MATCH DMATCH EITHER FUNCTION METHOD 
+         
+%prefer LPAREN
+
+%value ID ("bogus")
+
+%%
+
+input_stream: input_list (input_list)
+
+single_logical_or: ID (let val res = if ID = "|" then () else raise  
+                                     A.SyntaxError("the character | was expected here",SOME(getPos IDleft))
+                       in res end)
+                             
+input_list: user_input ([user_input])
+            | user_input input_list (user_input::input_list)
+
+user_input : core_user_input (core_user_input)
+          |  core_user_input SEMI_COLON (core_user_input)
+
+core_user_input:  ath_structure (A.structureInput(ath_structure))
+               | ath_datatype (A.structureInput(ath_datatype))
+               | infix_ath_datatype (A.structureInput(infix_ath_datatype))
+               | ath_datatypes (A.structuresInput(ath_datatypes))
+               | infix_ath_datatypes (A.structuresInput(infix_ath_datatypes))
+               | ath_structures (A.structuresInput(ath_structures))
+               | module (A.moduleInput(module))
+               | moduleExtension (A.moduleExtension(moduleExtension))
+               | ath_domain (A.domainInput(ath_domain))
+               | ath_domains (A.domainsInput(ath_domains))
+               | subsort (A.subSortDeclaration(subsort))
+               | subsorts (A.subSortsDeclaration(subsorts))
+               | ath_fsym (A.functionSymbolInput(ath_fsym))
+               | ath_constant_sym (A.constantSymbolInput(ath_constant_sym))
+               | phrase (A.phraseInput(phrase))
+               | symbol_definition (A.symbolDefinitionInput(symbol_definition))
+               | directive (A.direcInput(directive))
+
+directive: LPAREN LOAD_FILE expression RPAREN 
+               (A.loadFile(expression,getPos(LOAD_FILEleft)))
+         | LPAREN ADD_PATH expression RPAREN
+               (A.addPath(expression, getPos(ADD_PATHleft)))
+         | LPAREN EXPAND_INPUT LPAREN one_or_more_phrases RPAREN phrase RPAREN 
+                (A.expandInput(one_or_more_phrases,phrase,getPos(EXPAND_INPUTleft)))
+         |  EXPAND_INPUT comma_separated_phrase_list phrase 
+                (A.expandInput(comma_separated_phrase_list,phrase,getPos(EXPAND_INPUTleft)))
+         | LPAREN TRANSFORM_OUTPUT phrase phrase RPAREN 
+                (A.transformOutput(phrase1,phrase2,{first_arg_pos=getPos(phrase1left),second_arg_pos=getPos(phrase2left),
+                                                    overall_pos=getPos(LPARENleft)}))
+
+         |  TRANSFORM_OUTPUT phrase phrase
+                (A.transformOutput(phrase1,phrase2,{first_arg_pos=getPos(phrase1left),second_arg_pos=getPos(phrase2left),
+                                                    overall_pos=getPos(TRANSFORM_OUTPUTleft)}))
+
+         | LPAREN OVERLOAD phrase phrase RPAREN (A.overload([(phrase1,phrase2,getPos(LPARENleft),
+                                                            getPos(phrase1left),getPos(phrase2left))],getPos(OVERLOADleft),{inverted=false}))
+
+         | LPAREN OVERLOAD_INV phrase phrase RPAREN (A.overload([(phrase1,phrase2,getPos(LPARENleft),
+                                                                 getPos(phrase1left),getPos(phrase2left))],getPos(OVERLOAD_INVleft),{inverted=true}))
+
+         | OVERLOAD phrase phrase  (A.overload([(phrase1,phrase2,getPos(OVERLOADleft),
+                                                getPos(phrase1left),getPos(phrase2left))],getPos(OVERLOADleft),{inverted=false}))
+
+         | OVERLOAD_INV phrase phrase  (A.overload([(phrase1,phrase2,getPos(OVERLOAD_INVleft),
+                                                    getPos(phrase1left),getPos(phrase2left))],getPos(OVERLOAD_INVleft),{inverted=true}))
+
+         | LPAREN OVERLOAD phrase_pair_list RPAREN (A.overload(phrase_pair_list,getPos(OVERLOADleft),{inverted=false}))
+
+         | LPAREN OVERLOAD_INV phrase_pair_list RPAREN (A.overload(phrase_pair_list,getPos(OVERLOAD_INVleft),{inverted=true}))
+
+         |  OVERLOAD phrase_pair_list (A.overload(phrase_pair_list,getPos(OVERLOADleft),{inverted=false}))
+
+         | LPAREN ADD_DEMON expression RPAREN (A.addDemon(expression,getPos(ADD_DEMONleft)))
+
+         | LPAREN ADD_DEMONS one_or_more_expressions RPAREN (A.addDemons(one_or_more_expressions,getPos(ADD_DEMONSleft)))
+
+         |  ADD_DEMON expression  (A.addDemon(expression,getPos(ADD_DEMONleft)))
+
+         | LPAREN SET_FLAG param STRING RPAREN 
+            (let val str = String.implode(map (Char.chr) STRING)
+             in
+               A.setFlag(param,(str,getPos(STRINGleft)))
+             end)
+         | SET_FLAG param STRING 
+            (let val str = String.implode(map (Char.chr) STRING)
+             in
+               A.setFlag(param,(str,getPos(STRINGleft)))
+             end)
+         | LOAD_FILE expression 
+               (A.loadFile(expression,getPos(LOAD_FILEleft)))
+         | ADD_PATH expression 
+               (A.addPath(expression, getPos(ADD_PATHleft)))
+         | LPAREN USE_TERM_PARSER param RPAREN (A.useTermParser({tp_name=param,file=(!Paths.current_file)}))
+         | LPAREN USE_PROP_PARSER param RPAREN (A.usePropParser({pp_name=param,file=(!Paths.current_file)}))
+         | LPAREN EXPAND_NEXT_PROOF RPAREN (A.expandNextProof(getPos(LPARENleft)))
+         | EXPAND_NEXT_PROOF  (A.expandNextProof(getPos(EXPAND_NEXT_PROOFleft)))
+         | LPAREN EXIT_ATHENA RPAREN (A.exitAthena(getPos(LPARENleft)))
+         | EXIT_ATHENA  (A.exitAthena(getPos(EXIT_ATHENAleft)))
+         | LPAREN PRINT_STACK_TRACE RPAREN (A.printStackTrace(getPos(PRINT_STACK_TRACEleft)))
+         | LPAREN SET_PRECEDENCE one_mod_symbol expression RPAREN (A.setPrecedence([one_mod_symbol],expression))
+         | LPAREN SET_PRECEDENCE LPAREN one_or_more_mod_symbols RPAREN expression RPAREN (A.setPrecedence(one_or_more_mod_symbols,expression))
+         | SET_PRECEDENCE one_mod_symbol expression (A.setPrecedence([one_mod_symbol],expression))
+         | SET_PRECEDENCE  LPAREN one_or_more_mod_symbols RPAREN expression (A.setPrecedence(one_or_more_mod_symbols,expression))
+         | LPAREN LEFT_ASSOC one_or_more_mod_symbols RPAREN (A.setAssoc(one_or_more_mod_symbols,true))
+         | LEFT_ASSOC one_or_more_mod_symbols  (A.setAssoc(one_or_more_mod_symbols,true))
+         | LPAREN RIGHT_ASSOC one_or_more_mod_symbols RPAREN (A.setAssoc(one_or_more_mod_symbols,false))
+         |  RIGHT_ASSOC one_or_more_mod_symbols (A.setAssoc(one_or_more_mod_symbols,false))
+         | PRINT_STACK_TRACE  (A.printStackTrace(getPos(PRINT_STACK_TRACEleft)))
+         | LPAREN OPEN_MODULE one_mod_symbol  RPAREN (A.openModule([one_mod_symbol]))
+         | LPAREN OPEN_MODULE one_or_more_mod_symbols  RPAREN (A.openModule(one_or_more_mod_symbols))
+         | OPEN_MODULE one_or_more_mod_symbols_infix (A.openModule(one_or_more_mod_symbols_infix))
+         | LPAREN ASSERT one_or_more_expressions RPAREN 
+               (A.assert(one_or_more_expressions))
+         | LPAREN ASSERT_CLOSE one_or_more_expressions RPAREN 
+               (A.assertClose(one_or_more_expressions))
+         | LPAREN ASSERT_CLOSE param_asgn_exp_list RPAREN
+               (A.assertCloseAsgn(param_asgn_exp_list))
+         | LPAREN ASSERT param ASGN expression RPAREN 
+               (A.assertAsgn(param,expression))
+         | ASSERT param ASGN expression 
+               (A.assertAsgn(param,expression))
+         | ASSERT_CLOSE param_asgn_exp_list 
+               (A.assertCloseAsgn(param_asgn_exp_list))
+         | ASSERT comma_separated_expression_list 
+               (A.assert(comma_separated_expression_list))
+         | ASSERT_CLOSE comma_separated_expression_list 
+               (A.assertClose(comma_separated_expression_list))
+	 | LPAREN RETRACT one_or_more_expressions RPAREN 
+               (A.retract(one_or_more_expressions))
+	 |  RETRACT comma_separated_expression_list
+               (A.retract(comma_separated_expression_list))
+         | LPAREN DEFINE_SORT ID phrase RPAREN (let val sym = S.symbol(ID)
+                                                    val _ = A.checkNoDots(ID,getPos IDleft)
+                                                in
+                                                   A.sortDefinition(sym,phrase,false)
+                                                end)
+         | DEFINE_SORT ID ASGN phrase (let val sym = S.symbol(ID)
+                                                    val _ = A.checkNoDots(ID,getPos IDleft)
+                                                in
+                                                   A.sortDefinition(sym,phrase,false)
+                                                end)
+         | LPAREN DEFINE ID phrase RPAREN (let 
+                                               val sym = S.symbol(ID)
+                                               val _ = A.checkNoDots(ID,getPos IDleft)
+
+                                           in
+                                              A.definition(sym,phrase,false)
+                                           end)
+         | LPAREN PRIVATE DEFINE ID phrase RPAREN (A.checkNoDots(ID,getPos IDleft);A.definition(S.symbol(ID),phrase,true))
+         | DEFINE LPAREN ID possibly_wildcard_param_list RPAREN ASGN expression 
+               (A.checkNoDots(ID,getPos IDleft);
+                A.definitions([A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)})],false))
+         | DEFINE LPAREN ID possibly_wildcard_param_list RPAREN ASGN deduction
+              (A.checkNoDots(ID,getPos 
+	      IDleft);
+	      A.definitions([A.makeMethodDefinition({meth_name={name=S.symbol(ID),
+	                                                       pos=getPos IDleft,
+						     	       sort_as_sym_term=NONE,
+                                               	     	       sort_as_fterm=NONE,
+						     	       sort_as_exp=NONE,
+						     	       op_tag=NONE},
+					             meth_params=possibly_wildcard_param_list,	
+						     meth_body=deduction,
+						     pos=getPos IDleft,
+						     file=(!Paths.current_file)})],false))
+         | DEFINE_MEMOIZED LPAREN ID possibly_wildcard_param_list RPAREN ASGN expression 
+               (A.checkNoDots(ID,getPos IDleft);
+	        if (length(possibly_wildcard_param_list) < 1)
+		   then raise A.SyntaxError("Procedures of zero arguments cannot be memoized",SOME (A.posOfExp(expression)))
+                else ();
+	        let val p:A.phrase = A.makeMemoizedFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                                                                  fun_params=possibly_wildcard_param_list,
+ 		                                                  fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)})
+                    val _ = print("\nThe memoized definition was desugared into this: " ^ (A.unparsePhrase p))								   
+                in
+                    A.definition(Symbol.symbol(ID),p,false)
+                end)
+         | LPAREN DEFINE LEFT_BRACKET patterns RIGHT_BRACKET  phrase RPAREN (A.definitionLst(patterns,NONE,phrase,getPos LEFT_BRACKETleft,false))
+         | LPAREN DEFINE LPAREN ID NAME LEFT_BRACKET patterns RIGHT_BRACKET RPAREN  phrase RPAREN 
+                   (A.definitionLst(patterns,SOME(Symbol.symbol ID),phrase,getPos LEFT_BRACKETleft,false))
+         | LPAREN PRIVATE DEFINE LEFT_BRACKET patterns RIGHT_BRACKET  phrase RPAREN (A.definitionLst(patterns,NONE,phrase,getPos LEFT_BRACKETleft,true))
+         | LPAREN PRIVATE DEFINE LPAREN ID NAME LEFT_BRACKET patterns RIGHT_BRACKET RPAREN phrase RPAREN 
+                (A.definitionLst(patterns,SOME(Symbol.symbol ID),phrase,getPos LEFT_BRACKETleft,true))
+         | DEFINE ID  ASGN phrase (A.checkNoDots(ID,getPos IDleft);A.definition(S.symbol(ID),phrase,false)) 
+         | PRIVATE DEFINE ID  ASGN phrase (A.checkNoDots(ID,getPos IDleft);A.definition(S.symbol(ID),phrase,true)) 
+         | DEFINE LEFT_BRACKET patterns RIGHT_BRACKET ASGN  phrase (A.definitionLst(patterns,NONE,phrase,getPos LEFT_BRACKETleft,false))
+         | DEFINE LPAREN ID NAME  LEFT_BRACKET patterns RIGHT_BRACKET RPAREN ASGN  phrase (A.definitionLst(patterns,SOME(Symbol.symbol ID),
+                                                                                                           phrase,getPos LEFT_BRACKETleft,false))
+         | PRIVATE DEFINE LEFT_BRACKET patterns RIGHT_BRACKET ASGN  phrase (A.definitionLst(patterns,NONE,phrase,getPos LEFT_BRACKETleft,true))
+         | PRIVATE DEFINE LPAREN ID NAME LEFT_BRACKET patterns RIGHT_BRACKET RPAREN ASGN  phrase 
+                     (A.definitionLst(patterns,SOME(Symbol.symbol ID),phrase,getPos LEFT_BRACKETleft,true))
+         | CLEAR  (A.clear_assum_base)
+         | LPAREN CLEAR RPAREN  (A.clear_assum_base)
+         | LPAREN DEFINE def_blocks RPAREN (A.definitions(def_blocks,false))
+         | DEFINE_STAR infix_def_blocks (A.definitions(infix_def_blocks,false))
+         | PRIVATE LPAREN DEFINE def_blocks RPAREN (A.definitions(def_blocks,true))
+         | LPAREN RULE LPAREN ID possibly_wildcard_param_list RPAREN expression RPAREN
+	      (A.ruleDefinition(S.symbol(ID),A.functionExp({params=possibly_wildcard_param_list,
+	       body=expression,pos=getPos IDleft})))
+         | RULE LPAREN ID possibly_wildcard_param_list RPAREN ASGN expression 
+	      (A.ruleDefinition(S.symbol(ID),A.functionExp({params=possibly_wildcard_param_list,
+	       body=expression,pos=getPos IDleft})))
+
+param_asgn_exp_list: param ASGN expression ([(param,expression)])
+                   | param ASGN expression  param_asgn_exp_list ((param,expression)::param_asgn_exp_list)
+
+one_mod_symbol: any_id (let val id_pos = getPos(any_idleft)
+                        in
+                          (A.makeMS(any_id,SOME id_pos),id_pos)
+                        end)
+
+one_or_more_mod_symbols: one_mod_symbol ([one_mod_symbol])
+                       | one_mod_symbol one_or_more_mod_symbols (one_mod_symbol::one_or_more_mod_symbols)
+
+one_or_more_mod_symbols_infix: one_mod_symbol ([one_mod_symbol])
+                             | one_mod_symbol COMMA one_or_more_mod_symbols_infix 
+			            (one_mod_symbol::one_or_more_mod_symbols_infix)
+
+def_block: LPAREN ID possibly_wildcard_param_list RPAREN expression
+               (A.checkNoDots(ID,getPos IDleft);
+                A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+
+         |  LPAREN ID possibly_wildcard_param_list RPAREN  ASGN expression
+               (A.checkNoDots(ID,getPos IDleft);
+                A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+
+
+         | LPAREN ID COLON LPAREN OP ID RPAREN possibly_wildcard_param_list RPAREN expression
+            (A.checkNoDots(ID,getPos IDleft);
+             case Int.fromString(ID2) of
+               SOME(i) => 
+                   (A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                                  sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=SOME(i,~1)},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+             | _ => Data.genEx("Operator annotation error: invalid arity",
+                                                  SOME(getPos ID2left),(!Paths.current_file)))
+
+         | LPAREN ID COLON LPAREN OP ID RPAREN possibly_wildcard_param_list RPAREN ASGN expression
+            (A.checkNoDots(ID,getPos IDleft);
+             case Int.fromString(ID2) of
+               SOME(i) => 
+                   (A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                                  sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=SOME(i,~1)},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+             | _ => Data.genEx("Operator annotation error: invalid arity",
+                                                  SOME(getPos ID2left),(!Paths.current_file)))
+
+
+         | LPAREN ID COLON LPAREN OP ID ID RPAREN possibly_wildcard_param_list RPAREN expression
+           (A.checkNoDots(ID1,getPos ID1left);
+            (case (Int.fromString(ID2),Int.fromString(ID3)) of
+             (SOME(i),SOME(j)) => 
+               (A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=SOME(i,j)},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+            | _ => Data.genEx("Operator annotation error",
+                              SOME(getPos ID2left),(!Paths.current_file))))
+         | LPAREN ID possibly_wildcard_param_list RPAREN deduction
+               (A.checkNoDots(ID,getPos IDleft);
+                A.makeMethodDefinition({meth_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                                        meth_params=possibly_wildcard_param_list,
+                                        meth_body=deduction,pos= getPos IDleft,file=(!Paths.current_file)}))
+
+
+infix_def_block: LPAREN ID possibly_wildcard_param_list RPAREN  ASGN expression
+               (A.checkNoDots(ID,getPos IDleft);
+                A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+         | LPAREN ID COLON LPAREN OP ID RPAREN possibly_wildcard_param_list RPAREN ASGN expression
+            (A.checkNoDots(ID,getPos IDleft);
+             case Int.fromString(ID2) of
+               SOME(i) => 
+                   (A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                                  sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=SOME(i,~1)},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+             | _ => Data.genEx("Operator annotation error: invalid arity",
+                                                  SOME(getPos ID2left),(!Paths.current_file)))
+         | LPAREN ID COLON LPAREN OP ID ID RPAREN possibly_wildcard_param_list RPAREN ASGN expression
+           (A.checkNoDots(ID1,getPos ID1left);
+            (case (Int.fromString(ID2),Int.fromString(ID3)) of
+             (SOME(i),SOME(j)) => 
+               (A.makeFunDefinition({fun_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=SOME(i,j)},
+                 fun_params=possibly_wildcard_param_list,
+		 fun_body=expression,pos=getPos IDleft,file=(!Paths.current_file)}))
+            | _ => Data.genEx("Operator annotation error",
+                              SOME(getPos ID2left),(!Paths.current_file))))
+         | LPAREN ID possibly_wildcard_param_list RPAREN ASGN deduction
+               (A.checkNoDots(ID,getPos IDleft);
+                A.makeMethodDefinition({meth_name={name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                               sort_as_fterm=NONE,sort_as_exp=NONE,op_tag=NONE},
+                                        meth_params=possibly_wildcard_param_list,
+                                        meth_body=deduction,pos= getPos IDleft,file=(!Paths.current_file)}))
+
+
+lcb: LEFT_CURLY_BRACE ()
+
+rcb: RIGHT_CURLY_BRACE ()
+
+module: LPAREN MODULE param input_list RPAREN (if Symbol.symEq(#name(param),Names.top_module_symbol) then 
+                                                  raise A.SyntaxError("The name Top cannot be used for a module",SOME(getPos paramleft))
+                                               else
+                                                   {module_name=param,module_file=ref(!Paths.current_file),module_contents=input_list}:A.module_entry)
+      | MODULE param lcb input_list rcb (if Symbol.symEq(#name(param),Names.top_module_symbol) then 
+                                                  raise A.SyntaxError("The name Top cannot be used for a module",SOME(getPos paramleft))
+                                         else {module_name=param,module_file=ref(!Paths.current_file),module_contents=input_list}:A.module_entry)
+
+moduleExtension: LPAREN EXTEND_MODULE param input_list RPAREN ({module_name=param,module_file=ref(!Paths.current_file),module_contents=input_list}:A.module_entry) 
+      | EXTEND_MODULE param lcb input_list rcb ({module_name=param,module_file=ref(!Paths.current_file),module_contents=input_list}:A.module_entry) 
+
+
+def_blocks: def_block ([def_block])
+          | def_block def_blocks (def_block::def_blocks)
+
+
+infix_def_blocks: infix_def_block ([infix_def_block])
+                | infix_def_block LOGICAL_AND infix_def_blocks (infix_def_block::infix_def_blocks)
+
+
+one_or_more_athena_vars: athena_var ([athena_var])
+                       | athena_var one_or_more_athena_vars (athena_var::one_or_more_athena_vars)
+
+any_id: ID (ID) | PRIVATE_ID (PRIVATE_ID)
+
+map_binding: phrase ASGN phrase (A.exp(A.listExp({members=[phrase1,phrase2],pos=getPos(phrase1left)})))
+
+map_bindings: ([])
+            | map_binding ([map_binding])
+            | map_binding COMMA map_bindings (map_binding::map_bindings)
+ 
+expression: any_id (let val id_pos = getPos(any_idleft) 
+                        val mod_sym = A.makeMS(any_id,SOME id_pos)
+                        val (mods,s) = MS.split(mod_sym)
+                    in
+                       A.idExp({msym=mod_sym,mods=mods,sym=s,no_mods=null(mods),pos=id_pos})
+                    end)
+          | DOUBLE_LEFT_CURLY_BRACE one_or_more_expressions  DOUBLE_RIGHT_CURLY_BRACE (hd one_or_more_expressions)
+	  | LPAREN OP expression RPAREN (A.opExp({op_exp=expression,pos=getPos LPARENleft}))
+	  | ID COLON user_sort (let val id_pos = getPos(IDleft)
+                                in
+                                   A.taggedConSym({name=A.makeMS(ID,SOME id_pos),pos=id_pos,sort_as_tagged_symterm=user_sort,sort_as_fterm=NONE})
+                                end)
+          | LPAREN RPAREN (A.unitExp({pos=getPos LPARENleft})) 
+          | CHARACTER (A.charExp({code=CHARACTER,pos=getPos CHARACTERleft}))
+          | STRING (A.stringExp({str=STRING,pos=getPos STRINGleft,mem_index=(~1)}))
+          | ath_var (ath_var) 
+          | athena_meta_id (athena_meta_id)
+          | LPAREN phrase LOGICAL_AND phrase RPAREN (A.logicalAndExp({args=[phrase1,phrase2],pos=getPos LOGICAL_ANDleft}))
+          | LPAREN LOGICAL_AND one_or_more_phrases RPAREN
+               (A.logicalAndExp({args=one_or_more_phrases,pos=getPos LOGICAL_ANDleft}))
+          | LPAREN LOGICAL_OR one_or_more_phrases RPAREN
+               (A.logicalOrExp({args=one_or_more_phrases,pos=getPos LOGICAL_ORleft}))
+          | LPAREN phrase LOGICAL_OR phrase RPAREN (A.logicalOrExp({args=[phrase1,phrase2],pos=getPos LOGICAL_ORleft}))
+          | LPAREN MAKE_CELL phrase RPAREN (A.cellExp({contents=phrase,pos=getPos MAKE_CELLleft}))
+
+          | MAKE_CELL phrase (A.cellExp({contents=phrase,pos=getPos MAKE_CELLleft}))
+
+          | LPAREN REF expression RPAREN (A.refExp({cell_exp=expression,pos=getPos REFleft}))
+
+          |  REF expression  (A.refExp({cell_exp=expression,pos=getPos REFleft}))
+
+          | LPAREN SET expression phrase RPAREN (A.setCellExp({cell_exp=expression,
+                                                               set_phrase=phrase,pos=getPos SETleft}))
+
+          |  SET expression phrase (A.setCellExp({cell_exp=expression,
+                                                               set_phrase=phrase,pos=getPos SETleft}))
+
+
+          | LPAREN VECTOR_INIT expression phrase RPAREN (A.vectorInitExp({length_exp=expression,
+                                                               init_val=phrase,pos=getPos VECTOR_INITleft}))
+
+          |  VECTOR_INIT expression phrase (A.vectorInitExp({length_exp=expression,
+                                                               init_val=phrase,pos=getPos VECTOR_INITleft}))
+
+          | LPAREN VECTOR_SET expression expression phrase RPAREN  (A.vectorSetExp({vector_exp=expression1,
+									index_exp=expression2,
+                                                               new_val=phrase,pos=getPos VECTOR_SETleft}))
+
+
+          | VECTOR_SET expression expression phrase (A.vectorSetExp({vector_exp=expression1,
+									index_exp=expression2,
+                                                               new_val=phrase,pos=getPos VECTOR_SETleft}))
+
+          | LPAREN VECTOR_SUB expression expression RPAREN (A.vectorSubExp({vector_exp=expression1,
+									    index_exp=expression2,
+                                                                            pos=getPos VECTOR_SUBleft}))
+
+          |  VECTOR_SUB expression expression (A.vectorSubExp({vector_exp=expression1,
+									    index_exp=expression2,
+                                                                            pos=getPos VECTOR_SUBleft}))
+
+          |  FUNCTION LPAREN possibly_wildcard_param_list_no_dots RPAREN expression 
+                (let val infix_flag = (length(possibly_wildcard_param_list_no_dots) = 2)
+                 in A.functionExp({params=possibly_wildcard_param_list_no_dots,body=expression,
+                      pos=getPos FUNCTIONleft})
+                 end)
+
+          | LPAREN FUNCTION LPAREN possibly_wildcard_param_list_no_dots RPAREN expression RPAREN  
+                (let val infix_flag = (length(possibly_wildcard_param_list_no_dots) = 2)
+                 in A.functionExp({params=possibly_wildcard_param_list_no_dots,body=expression,
+                      pos=getPos FUNCTIONleft})
+                 end)
+
+          | LPAREN WITH_KEYS LPAREN params RPAREN expression expression RPAREN 
+                 (A.desugarWithKeys(params,expression1,expression2,getPos WITH_KEYSleft))
+
+          | WITH_KEYS one_or_more_comma_separated_params FROM expression expression
+                 (A.desugarWithKeys(one_or_more_comma_separated_params,expression1,expression2,getPos WITH_KEYSleft))
+
+          | LPAREN phrase phrases RPAREN (A.appExp({proc=phrase,args=phrases,alt_exp=ref(NONE),pos=getPos LPARENleft}))
+                                                   
+          | LEFT_BRACKET phrases RIGHT_BRACKET (A.listExp({members=phrases,pos=getPos LEFT_BRACKETleft}))
+
+          |  MAP_BEGIN map_bindings MAP_END  (A.makeMapExp(map_bindings,getPos(MAP_BEGINleft)))
+
+          | LPAREN METHOD LPAREN possibly_wildcard_param_list_no_dots RPAREN deduction RPAREN
+                    (A.methodExp({params=possibly_wildcard_param_list_no_dots,body=deduction,pos=getPos METHODleft,
+                     name=ref("")}))
+          |  METHOD LPAREN possibly_wildcard_param_list_no_dots RPAREN deduction 
+                    (A.methodExp({params=possibly_wildcard_param_list_no_dots,body=deduction,pos=getPos METHODleft,
+                     name=ref("")}))
+          | LPAREN TRY one_or_more_expressions RPAREN
+                    (A.tryExp({choices=one_or_more_expressions,pos=getPos TRYleft}))      
+
+          |  TRY lcb one_or_more_separated_expressions rcb 
+                    (A.tryExp({choices=one_or_more_separated_expressions,pos=getPos TRYleft}))      
+
+          | LPAREN CHECK check_clauses RPAREN
+               (A.checkExp({clauses=check_clauses,pos=getPos CHECKleft}))
+
+          | CHECK lcb infix_check_clauses rcb  
+               (A.checkExp({clauses=infix_check_clauses,pos=getPos CHECKleft})) 
+
+          | MATCH phrase lcb infix_match_clauses  rcb 
+                    (A.matchExp({discriminant=phrase,clauses=infix_match_clauses,pos=getPos MATCHleft}))
+
+          | LPAREN MATCH phrase match_clauses RPAREN 
+                    (A.matchExp({discriminant=phrase,clauses=match_clauses,pos=getPos MATCHleft}))
+
+
+          | LET lcb semicolon_separated_bindings rcb  expression (A.letExp({bindings=semicolon_separated_bindings,body=expression,pos=getPos LETleft}))
+
+          | LETREC lcb semicolon_separated_bindings rcb  expression (A.letRecExp({bindings=semicolon_separated_bindings,body=expression,pos=getPos LETRECleft}))
+
+          | LPAREN LET LPAREN bindings RPAREN expression RPAREN
+                    (A.letExp({bindings=bindings,body=expression,pos=getPos LETleft}))
+          | LPAREN LETREC LPAREN bindings RPAREN expression RPAREN
+                    (A.letRecExp({bindings=bindings,body=expression,pos=getPos LETRECleft}))
+
+          | LPAREN SEQ one_or_more_phrases RPAREN 
+              (A.beginExp({members=one_or_more_phrases,pos=getPos SEQleft}))
+
+          | LPAREN WHILE phrase phrase RPAREN 
+               (A.whileExp({test=phrase1,body=phrase2,pos=getPos WHILEleft}))
+
+          |  WHILE phrase phrase 
+               (A.whileExp({test=phrase1,body=phrase2,pos=getPos WHILEleft}))
+
+deduction:  LPAREN expression BY deduction RPAREN (A.byDed({wanted_res=expression,body=deduction,conc_name=NONE,
+                                                   pos=getPos LPARENleft}))
+          | LPAREN CONCLUDE expression deduction RPAREN (A.byDed({wanted_res=expression,body=deduction,conc_name=NONE,
+                                                            pos=getPos LPARENleft}))
+
+          | CONCLUDE expression deduction (A.byDed({wanted_res=expression,body=deduction,conc_name=NONE,
+                                                    pos=getPos CONCLUDEleft}))
+
+          | LPAREN CONCLUDE param_no_dots ASGN expression deduction RPAREN  (A.byDed({wanted_res=expression,body=deduction,conc_name=SOME param_no_dots,
+                                                                              pos=getPos LPARENleft}))
+
+          | CONCLUDE param_no_dots ASGN expression deduction  (A.byDed({wanted_res=expression,body=deduction,conc_name=SOME param_no_dots,
+                                                                              pos=getPos CONCLUDEleft}))
+
+          | inference_block (inference_block)
+
+          | ASSUME phrase deduction 
+               (A.assumeDed({assumption=phrase,body=deduction,pos=getPos ASSUMEleft}))
+
+          | SUPPOSE_ABSURD phrase deduction 
+               (A.absurdDed({hyp=phrase,body=deduction,pos=getPos SUPPOSE_ABSURDleft}))
+
+
+          | ASSUME assignments deduction
+              (A.infixAssumeDed({bindings=assignments,body=deduction,pos=getPos ASSUMEleft}))        
+
+          | SUPPOSE_ABSURD  ID ASGN phrase deduction 
+                     (A.checkNoDots(ID,getPos IDleft);
+                      A.absurdLetDed({named_hyp={bpat=A.idPat({name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,op_tag=NONE,
+                                                                sort_as_fterm=NONE,sort_as_exp=NONE}),
+                                                  def=phrase,pos=getPos IDleft},
+                                      body=deduction,pos=getPos SUPPOSE_ABSURDleft}))
+
+          | BY_CASES phrase BEGIN case_clauses END 
+                (A.byCasesDed({disj=phrase,from_exps=NONE,
+                               arms=case_clauses,pos=getPos BY_CASESleft}))
+
+          | BY_CASES phrase lcb case_clauses rcb 
+                (A.byCasesDed({disj=phrase,from_exps=NONE,
+                               arms=case_clauses,pos=getPos BY_CASESleft}))
+
+
+          | BY_CASES phrase FROM comma_separated_expression_list BEGIN case_clauses END 
+              (A.byCasesDed({disj=phrase,from_exps=SOME(comma_separated_expression_list),
+                             arms=case_clauses,pos=getPos BY_CASESleft}))
+
+          | BY_CASES phrase FROM comma_separated_expression_list lcb case_clauses rcb 
+              (A.byCasesDed({disj=phrase,from_exps=SOME(comma_separated_expression_list),
+                             arms=case_clauses,pos=getPos BY_CASESleft}))
+
+          | PICK_ANY possibly_typed_params_no_dots deduction 
+                    (A.pickAnyDed({eigenvars=A.checkForDuplicateParams(possibly_typed_params_no_dots),
+	 		   body=deduction,pos=getPos PICK_ANYleft}))
+
+          | PICK_WITNESS ID FOR phrase param_option deduction  
+         	(A.checkNoDots(ID,getPos IDleft);
+                 A.pickWitnessDed({ex_gen=phrase,var_id=S.symbol(ID),inst_id=param_option,body=deduction,
+                                    pos=getPos PICK_WITNESSleft}))
+          | PICK_WITNESSES one_or_more_params_no_dots FOR phrase param_option_no_dots deduction 
+                     (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParams(one_or_more_params_no_dots),
+                                         inst_id=param_option_no_dots,body=deduction,
+                                          pos=getPos PICK_WITNESSESleft}))
+          | INDUCTION  phrase BEGIN infix_dmatch_clauses END 
+                    (let val res = A.inductionDed({prop=phrase,
+                                                   clauses=infix_dmatch_clauses,pos=getPos INDUCTIONleft})
+                     in
+                         res
+                     end)
+          | INDUCTION  phrase lcb infix_dmatch_clauses rcb 
+                    (let val res = A.inductionDed({prop=phrase,
+                                                   clauses=infix_dmatch_clauses,pos=getPos INDUCTIONleft})
+                     in
+                         res
+                     end)
+          | STRUCTURE_CASES phrase BEGIN infix_dmatch_clauses END
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                       clauses=infix_dmatch_clauses,pos=getPos STRUCTURE_CASESleft})
+                     in
+                        res
+                     end)
+          | STRUCTURE_CASES phrase lcb infix_dmatch_clauses rcb 
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                       clauses=infix_dmatch_clauses,pos=getPos STRUCTURE_CASESleft})
+                     in
+                        res
+                     end)
+          | DATATYPE_CASES phrase BEGIN infix_dmatch_clauses END
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                        clauses=infix_dmatch_clauses,pos=getPos DATATYPE_CASESleft})
+                      in
+                         res
+                      end)
+          | DATATYPE_CASES phrase lcb infix_dmatch_clauses rcb 
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                        clauses=infix_dmatch_clauses,pos=getPos DATATYPE_CASESleft})
+                      in
+                         res
+                      end)
+          | DATATYPE_CASES phrase ON expression lcb infix_dmatch_clauses rcb 
+                    (let val res = A.structureCasesDed({prop=phrase,term=SOME(expression),
+                                                       clauses=infix_dmatch_clauses,pos=getPos DATATYPE_CASESleft})
+                      in
+                         res
+                      end)
+          | LPAREN ASSUME ID ASGN phrase deduction RPAREN 
+                     (A.checkNoDots(ID,getPos IDleft);
+                      A.assumeLetDed({bindings=[({bpat=A.idPat({name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,op_tag=NONE,
+                                                                sort_as_fterm=NONE,sort_as_exp=NONE}),
+                                                  def=phrase,pos=getPos IDleft})],body=deduction,
+                      pos=getPos ASSUMEleft}))
+          | LPAREN ASSUME phrase deduction RPAREN 
+                     (A.assumeDed({assumption=phrase,body=deduction,pos=getPos ASSUMEleft}))
+          | LPAREN ASSUME_LET binding deduction RPAREN
+                     (A.assumeLetDed({bindings=[binding],body=deduction,
+                      pos=getPos ASSUME_LETleft}))
+          | LPAREN SUPPOSE_ABSURD phrase deduction RPAREN
+                     (A.absurdDed({hyp=phrase,body=deduction,pos=getPos SUPPOSE_ABSURDleft}))
+          | LPAREN SUPPOSE_ABSURD_LET binding deduction RPAREN
+                     (A.absurdLetDed({named_hyp=binding,body=deduction,pos=getPos SUPPOSE_ABSURD_LETleft}))
+          | LPAREN DCHECK dcheck_clauses RPAREN
+               (A.checkDed({clauses=dcheck_clauses,pos=getPos DCHECKleft}))
+
+          | LPAREN EXCL_MARK expression phrases RPAREN
+               (case expression of
+                    A.idExp({msym,...}) => 
+                      if Basic.isMember(MS.name(msym),["prim-mp", "prim-both"]) andalso length(phrases) = 2 then 
+                         (A.BMethAppDed({method=expression,arg1=hd phrases, arg2 = hd(tl(phrases)), pos=getPos LPARENleft}))
+                      else
+                           if Basic.isMember(MS.name(msym),["prim-conj-intro"]) andalso length(phrases) = 1 then 
+                             (A.UMethAppDed({method=expression,arg=hd phrases, pos=getPos LPARENleft}))                   
+                          else
+                         (A.methodAppDed({method=expression,args=phrases,pos=getPos LPARENleft}))
+                  | _ => (A.methodAppDed({method=expression,args=phrases,pos=getPos LPARENleft})))
+
+          | LPAREN APPLY_METHOD expression phrases RPAREN
+                     (A.methodAppDed({method=expression,args=phrases,pos=getPos expressionleft}))
+
+         | LPAREN DMATCH phrase dmatch_clauses RPAREN
+                   (A.matchDed({discriminant=phrase,clauses=dmatch_clauses,pos=getPos DMATCHleft}))
+
+         | LPAREN DLET LPAREN bindings RPAREN deduction RPAREN 
+                   (A.letDed({bindings=bindings,body=deduction,pos=getPos DLETleft}))
+
+          | LPAREN DLETREC LPAREN bindings RPAREN deduction RPAREN 
+                    (A.letRecDed({bindings=bindings,body=deduction,pos=getPos DLETRECleft}))
+
+          | LET lcb semicolon_separated_bindings rcb deduction 
+                    (A.letDed({bindings=semicolon_separated_bindings,body=deduction,pos=getPos LETleft}))
+
+
+          | DLET lcb semicolon_separated_bindings rcb deduction 
+                     (A.letDed({bindings=semicolon_separated_bindings,body=deduction,pos=getPos DLETleft}))
+
+          | LETREC lcb semicolon_separated_bindings rcb deduction (A.letRecDed({bindings=semicolon_separated_bindings,body=deduction,pos=getPos LETRECleft}))
+
+          | DLETREC lcb semicolon_separated_bindings rcb deduction (A.letRecDed({bindings=semicolon_separated_bindings,body=deduction,pos=getPos DLETRECleft}))
+
+          | TRY lcb one_or_more_separated_deductions rcb 
+                    (A.tryDed({choices=one_or_more_separated_deductions,pos=getPos TRYleft}))
+
+          | MATCH phrase BEGIN infix_dmatch_clauses  END 
+                    (A.matchDed({discriminant=phrase,clauses=infix_dmatch_clauses,pos=getPos MATCHleft}))
+
+          | MATCH phrase lcb infix_dmatch_clauses rcb 
+                    (A.matchDed({discriminant=phrase,clauses=infix_dmatch_clauses,pos=getPos MATCHleft}))
+
+          | DMATCH phrase lcb infix_dmatch_clauses rcb 
+                     (A.matchDed({discriminant=phrase,clauses=infix_dmatch_clauses,pos=getPos DMATCHleft}))
+
+          | CHECK lcb infix_dcheck_clauses rcb
+               (A.checkDed({clauses=infix_dcheck_clauses,pos=getPos CHECKleft}))
+
+
+          | DCHECK lcb infix_dcheck_clauses rcb
+               (A.checkDed({clauses=infix_dcheck_clauses,pos=getPos DCHECKleft}))
+
+          | LPAREN DTRY one_or_more_deductions RPAREN 
+                    (A.tryDed({choices=one_or_more_deductions,pos=getPos DTRYleft}))
+
+          | TRY BEGIN one_or_more_separated_deductions END 
+                    (A.tryDed({choices=one_or_more_separated_deductions,pos=getPos TRYleft}))
+
+
+          | LPAREN DSEQ one_or_more_deductions RPAREN 
+                    (A.beginDed({members=one_or_more_deductions,pos=getPos DSEQleft}))
+
+          | LPAREN GEN_OVER expression deduction RPAREN 
+                    (A.genOverDed({eigenvar_exp=expression,body=deduction,pos=getPos GEN_OVERleft}))
+          | GEN_OVER expression deduction
+                    (A.genOverDed({eigenvar_exp=expression,body=deduction,pos=getPos GEN_OVERleft}))
+
+          | LPAREN PICK_ANY possibly_typed_params_no_dots deduction RPAREN 
+                    (A.pickAnyDed({eigenvars=A.checkForDuplicateParams(possibly_typed_params_no_dots),
+				   body=deduction,pos=getPos PICK_ANYleft}))
+          | LPAREN WITH_WITNESS expression phrase deduction RPAREN
+                    (A.withWitnessDed({eigenvar_exp=expression,ex_gen=phrase,body=deduction,
+                                       pos=getPos WITH_WITNESSleft}))
+          | LPAREN PICK_WITNESS ID phrase param_option_no_dots deduction RPAREN   
+                    (A.checkNoDots(ID,getPos IDleft);
+                     A.pickWitnessDed({ex_gen=phrase,var_id=S.symbol(ID),inst_id=param_option_no_dots,body=deduction,
+                                       pos=getPos PICK_WITNESSleft}))
+          | LPAREN PICK_WITNESSES LPAREN one_or_more_params_no_dots RPAREN  phrase param_option_no_dots deduction RPAREN   
+                    (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParams(one_or_more_params_no_dots),
+                                        inst_id=param_option_no_dots,body=deduction,
+                                         pos=getPos PICK_WITNESSESleft}))
+          | LPAREN INDUCTION  phrase dmatch_clauses RPAREN 
+                    (let val res = A.inductionDed({prop=phrase,
+                                                   clauses=dmatch_clauses,pos=getPos INDUCTIONleft})
+                     in
+                        res
+                     end)
+          | LPAREN STRUCTURE_CASES phrase dmatch_clauses RPAREN 
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                       clauses=dmatch_clauses,pos=getPos STRUCTURE_CASESleft})
+                     in
+                        res
+                     end)
+          | LPAREN DATATYPE_CASES phrase dmatch_clauses RPAREN 
+                    (let val res = A.structureCasesDed({prop=phrase,term=NONE,
+                                                       clauses=dmatch_clauses,pos=getPos DATATYPE_CASESleft})
+                     in
+                        res
+                     end)
+          | LPAREN DATATYPE_CASES phrase ON expression dmatch_clauses RPAREN 
+                    (let val res = A.structureCasesDed({prop=phrase,term=SOME(expression),
+                                                       clauses=dmatch_clauses,pos=getPos DATATYPE_CASESleft})
+                     in
+                        res
+                     end)
+
+phrase_pair: LPAREN phrase phrase RPAREN ((phrase1,phrase2,getPos(LPARENleft), getPos(phrase1left), getPos(phrase2left)))
+
+phrase_pair_list: phrase_pair ([phrase_pair])
+                | phrase_pair phrase_pair_list (phrase_pair::phrase_pair_list)
+
+comma_separated_expression_list: expression ([expression])
+			       	 
+                               | expression COMMA comma_separated_expression_list 
+                                   (expression::comma_separated_expression_list)
+
+comma_separated_phrase_list: phrase ([phrase])
+                               | phrase COMMA comma_separated_phrase_list 
+                                   (phrase::comma_separated_phrase_list)
+
+opt_comma_separated_phrase_list: phrase ([phrase])
+                                | phrase COMMA opt_comma_separated_phrase_list
+                                       (phrase::opt_comma_separated_phrase_list)
+                                | phrase opt_comma_separated_phrase_list 
+                                       (phrase::opt_comma_separated_phrase_list)
+
+inference: expression FROM comma_separated_phrase_list 
+             (A.methodAppDed({method=A.idExp({msym=A.mSym N.spfPrimMethod_symbol,mods=[],sym=N.spfPrimMethod_symbol,no_mods=true,pos=getPos FROMleft}),
+                                           args=[A.exp(expression),
+                                                 A.exp(A.listExp({members=comma_separated_phrase_list,pos=getPos FROMright}))],
+                                                 pos=A.posOfExp(expression)}))
+
+         |  expression BY expression ON comma_separated_phrase_list  
+               (A.byDed({wanted_res=expression1,conc_name=NONE,body=A.methodAppDed({method=expression2,
+                         args=comma_separated_phrase_list,pos=A.posOfExp(expression)}),pos=getPos BYleft}))
+
+         |  expression ON comma_separated_phrase_list 
+               (A.methodAppDed({method=expression,args=comma_separated_phrase_list,pos=A.posOfExp(expression)}))
+
+         | deduction (deduction) 
+
+possibly_named_inference:  inference ({param=NONE,def=A.ded(inference),pos=A.posOfDed(inference)})
+                       | ID ASGN inference 
+                          ({param=SOME(A.someParam({name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,op_tag=NONE,
+                            sort_as_fterm=NONE,sort_as_exp=NONE})),
+			    def=A.ded(inference),pos=A.posOfDed(inference)})
+                       | ANY_PAT ASGN inference 
+                          ({param=SOME(A.wildCard(getPos ANY_PATleft)),
+			    def=A.ded(inference),pos=A.posOfDed(inference)})
+
+                       | ID ASGN expression 
+                          ({param=SOME(A.someParam({name=S.symbol(ID),pos=getPos IDleft,sort_as_sym_term=NONE,op_tag=NONE,
+                                                    sort_as_fterm=NONE,sort_as_exp=NONE})),
+			    def=A.exp(expression),pos=A.posOfExp(expression)})
+                       | ID COLON LPAREN OP ID RPAREN ASGN expression 
+                             (case Int.fromString(ID2) of
+                                  SOME(i) => 
+                                     ({param=SOME(A.someParam({name=S.symbol(ID1),pos=getPos IDleft,sort_as_sym_term=NONE,
+                                                               op_tag=SOME(i,~1),sort_as_fterm=NONE,sort_as_exp=NONE})),
+                                                               
+                                      def=A.exp(expression),pos=A.posOfExp(expression)})
+                                | _ => Data.genEx("Operator annotation error: invalid arity",
+                                                  SOME(getPos ID2left),(!Paths.current_file)))
+
+
+                       | ID COLON LPAREN OP ID ID RPAREN ASGN expression 
+                              (case (Int.fromString(ID2),Int.fromString(ID3)) of
+                                  (SOME(i),SOME(j)) => 
+                                    ({param=SOME(A.someParam({name=S.symbol(ID1),pos=getPos ID1left,sort_as_sym_term=NONE,op_tag=SOME(i,j),
+                                                    sort_as_fterm=NONE,sort_as_exp=NONE})),
+ 			              def=A.exp(expression),pos=A.posOfExp(expression)})
+                               | _ => Data.genEx("Operator annotation error",
+                                                 SOME(getPos ID2left),(!Paths.current_file)))
+
+                       | ANY_PAT ASGN expression 
+                          ({param=SOME(A.wildCard(getPos ANY_PATleft)), 
+			    def=A.exp(expression),pos=A.posOfExp(expression)})
+
+inference_list:  possibly_named_inference ([possibly_named_inference])
+               | possibly_named_inference SEMI_COLON inference_list 
+                  (possibly_named_inference::inference_list)
+
+case_clause: expression ARROW deduction ({case_name=NONE,alt=expression,proof=deduction})
+           | param ASGN expression ARROW deduction ({case_name=SOME(param),alt=expression,proof=deduction})
+
+case_clauses: case_clause ([case_clause])
+            | case_clause single_logical_or case_clauses (case_clause::case_clauses)
+
+inference_block: BEGIN inference_list END 
+                  (case rev(inference_list) of 
+                     (b:A.optBinding as {param,def=A.ded(d),pos})::rest => 
+                       A.letDed({bindings=A.getBindings(rev (rest)),body=d,pos=getPos BEGINleft})
+                   | (b as {param,def=A.exp(e),pos})::_ => 
+                        raise A.SyntaxError("expression found in the tail position of"^
+                                            "\na begin-end inference block---a deduction is"^
+                                            " required in that position",SOME pos))
+              | lcb inference_list rcb 
+                  (case rev(inference_list) of 
+                     (b:A.optBinding as {param,def=A.ded(d),pos})::rest => 
+                       A.letDed({bindings=A.getBindings(rev (rest)),body=d,pos=getPos lcbleft})
+                   | (b as {param,def=A.exp(e),pos})::_ => 
+                        raise A.SyntaxError("expression found in the tail position of"^
+                                            "\na begin-end inference block---a deduction is"^
+                                            " required in that position",SOME pos))
+
+deductions:  ([])
+           | deduction deductions (deduction::deductions)
+
+phrase: expression (A.exp(expression))
+      | deduction (A.ded(deduction))
+
+phrases:  ([]) 
+        | phrase phrases (phrase::phrases)
+
+one_or_more_expressions: expression ([expression])
+                       | expression one_or_more_expressions
+                             (expression::one_or_more_expressions)
+
+one_or_more_phrases: phrase ([phrase])
+                       | phrase one_or_more_phrases
+                             (phrase::one_or_more_phrases)
+
+one_or_more_deductions: deduction ([deduction])
+                       | deduction one_or_more_deductions
+                             (deduction::one_or_more_deductions)
+
+one_or_more_separated_deductions: deduction ([deduction])
+                                | deduction single_logical_or one_or_more_separated_deductions
+                                   (deduction::one_or_more_separated_deductions)
+
+one_or_more_separated_expressions: expression ([expression])
+                                | expression single_logical_or one_or_more_separated_expressions
+                                   (expression::one_or_more_separated_expressions)
+
+athena_meta_id: LPAREN META_ID ID RPAREN (A.quotedIdeExp({name=ID,pos=getPos META_IDleft}))
+              | QUOTE_SYMBOL ID (A.quotedIdeExp({name=ID,pos=getPos QUOTE_SYMBOLleft}))        
+              | QUOTE_SYMBOL STRING (let val escape = "\""
+                                         val str = implode(map Char.chr STRING)
+                                         val str' = escape ^ str ^ escape 
+                                     in
+                                        A.quotedIdeExp({name=str',pos=getPos QUOTE_SYMBOLleft})
+                                     end)
+
+athena_var: LPAREN VAR ID RPAREN (AthTermVar.athTermVar(ID))
+          | QMARK ID (AthTermVar.athTermVar(ID))
+
+ath_var:  LPAREN VAR ID RPAREN (A.termVarExp({term_var=AthTermVar.athTermVar(ID),user_sort=NONE,
+				pos=getPos LPARENleft}))
+          | LPAREN VAR ID COLON user_sort RPAREN (A.termVarExp({term_var=AthTermVar.athTermVar(ID),
+							       user_sort=SOME(user_sort),pos=getPos LPARENleft})) 
+          | QMARK ID (A.termVarExp({term_var=AthTermVar.athTermVar(ID),user_sort=NONE,pos=getPos QMARKleft}))
+	  | QMARK ID COLON user_sort (A.termVarExp({term_var=AthTermVar.athTermVar(ID),
+						   user_sort=SOME(user_sort),pos=getPos QMARKleft}))
+          | ANY_PAT (A.termVarExp({term_var=AthTermVar.fresh(),
+						   user_sort=NONE,pos=getPos ANY_PATleft}))
+
+user_sort: QUOTE_SYMBOL ID (SymTerm.makeTaggedVar(Symbol.symbol(ID),getPos(QUOTE_SYMBOLleft)))
+         | ID  (let val id_pos = getPos(IDleft)
+                in
+                   SymTerm.makeTaggedConstant(A.makeMS(ID,SOME id_pos),id_pos)
+                end)
+         | LPAREN ID one_or_more_user_sorts RPAREN
+		(let val id_pos = getPos(IDleft)
+                 in
+                   SymTerm.makeTaggedApp(A.makeMS(ID,SOME id_pos),id_pos,one_or_more_user_sorts)
+                 end)
+
+one_or_more_user_sorts: user_sort ([user_sort])
+                      | user_sort one_or_more_user_sorts (user_sort::one_or_more_user_sorts)
+
+one_or_more_ids: ID ([ID])
+               | ID one_or_more_ids (ID::one_or_more_ids)
+
+ath_domain: LPAREN DOMAIN ID RPAREN ({name=S.symbol ID,arity=0,sort_predicate=NONE,pos=getPos DOMAINleft}) 
+          | DOMAIN ID  ({name=S.symbol ID,arity=0,sort_predicate=NONE,pos=getPos DOMAINleft}) 
+          | LPAREN DOMAIN ID WITH_PREDICATE ID  RPAREN 
+               ( let val msym = A.makeMS(ID2,SOME (IDleft))
+                 in
+                    {name=S.symbol ID1,arity=0,sort_predicate=SOME(msym),pos=getPos DOMAINleft}
+                 end)
+          | LPAREN DOMAIN LPAREN ID one_or_more_params RPAREN RPAREN
+               ({name=S.symbol ID,arity=length(one_or_more_params),sort_predicate=NONE,pos=getPos DOMAINleft}) 
+          | DOMAIN LPAREN ID one_or_more_params RPAREN 
+               ({name=S.symbol ID,arity=length(one_or_more_params),sort_predicate=NONE,pos=getPos DOMAINleft}) 
+
+ath_domains: LPAREN DOMAINS one_or_more_params RPAREN  
+                (List.map (fn {name=n,pos=p} => {name=n,arity=0,sort_predicate=NONE,pos=p})
+			  one_or_more_params)
+           | DOMAINS one_or_more_comma_separated_params 
+                (List.map (fn {name=n,pos=p} => {name=n,arity=0,sort_predicate=NONE,pos=p})
+			  one_or_more_comma_separated_params)
+
+subsort: LPAREN SUBSORT param param RPAREN   
+           (let val (pos1,pos2) = (#pos(param1),#pos(param2))
+                val (name1,name2) = (#name(param1),#name(param2))
+                val (msym1,msym2) = (A.makeMS(Symbol.name(name1),SOME pos1),A.makeMS(Symbol.name name2,SOME pos2))
+            in
+               (msym1,pos1,msym2,pos2)
+            end)
+        | SUBSORT param param    
+           (let val (pos1,pos2) = (getPos(param1left),getPos(param2left))
+                val (name1,name2) = (#name(param1),#name(param2))
+                val (msym1,msym2) = (A.makeMS(Symbol.name name1,SOME pos1),A.makeMS(Symbol.name name2,SOME pos2))
+            in
+               (msym1,pos1,msym2,pos2)
+            end)
+
+subsorts: LPAREN SUBSORTS LPAREN one_or_more_params RPAREN param RPAREN 
+           (let val mod_sym_and_pos_list = map (fn {name,pos,...}:A.param => (A.makeMS(Symbol.name name,SOME pos),pos)) one_or_more_params
+                val (mod_sym,pos) = let val (name,pos) = (#name(param),#pos(param))
+                                    in 
+                                       (A.makeMS(Symbol.name name,SOME pos),pos)
+                                    end
+            in
+              (mod_sym_and_pos_list,(mod_sym,pos))
+            end)
+        | SUBSORTS LPAREN one_or_more_params RPAREN param
+           (let val mod_sym_and_pos_list = map (fn {name,pos,...}:A.param => (A.makeMS(Symbol.name name,SOME pos),pos)) one_or_more_params
+                val (mod_sym,pos) = let val (name,pos) = (#name(param),#pos(param))
+                                    in 
+                                       (A.makeMS(Symbol.name name,SOME pos),pos)
+                                    end
+            in
+              (mod_sym_and_pos_list,(mod_sym,pos))
+            end)
+
+associativity: LEFT_ASSOC  (true)
+             | RIGHT_ASSOC (false)
+
+input_transformer_declaration: LEFT_BRACKET one_or_more_expressions RIGHT_BRACKET (one_or_more_expressions)
+
+declaration_prec_assoc: ({precedence=NONE,assoc=NONE,overload_sym=NONE,input_transformer=NONE})
+                      | LPAREN input_transformer_declaration RPAREN ({precedence=NONE,assoc=NONE,overload_sym=NONE,input_transformer=SOME input_transformer_declaration})
+                      | LPAREN ID RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft)],NONE))
+                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID input_transformer_declaration RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft)],SOME(input_transformer_declaration)))
+                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN associativity RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId(associativity),getPos associativityleft)],NONE))
+                                                      handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN associativity input_transformer_declaration 
+                              RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId(associativity),getPos associativityleft)],SOME input_transformer_declaration))
+                                                      handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+
+                      | LPAREN ID ID RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left)],NONE))
+                                             handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID ID input_transformer_declaration RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left)],
+                                                                                                                         SOME input_transformer_declaration))
+                                             handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+                      | LPAREN ID  associativity RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft),
+                                                                                                        (A.makeAssocId associativity,getPos associativityleft)],NONE))
+                                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID  associativity input_transformer_declaration RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft),
+                                                                                                        (A.makeAssocId associativity,getPos associativityleft)],
+                                                                                                         SOME input_transformer_declaration))
+                                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+
+                      | LPAREN associativity ID  RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                                                       (ID,getPos IDleft)],NONE))
+                                                         handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN associativity ID input_transformer_declaration RPAREN ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                                                       (ID,getPos IDleft)],SOME input_transformer_declaration))
+                                                         handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+
+                      | LPAREN ID ID ID input_transformer_declaration RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left),(ID3,getPos ID3left)],SOME input_transformer_declaration))
+                                                     handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID ID ID RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left),(ID3,getPos ID3left)],NONE))
+                                                     handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+                      | LPAREN associativity ID ID RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                        (ID1,getPos ID1left),(ID2,getPos ID2left)],NONE))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN associativity ID ID input_transformer_declaration RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                        (ID1,getPos ID1left),(ID2,getPos ID2left)],SOME input_transformer_declaration))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+
+
+
+                      | LPAREN ID associativity ID RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (A.makeAssocId associativity,getPos associativityleft),(ID2,getPos ID2left)],NONE))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID associativity ID input_transformer_declaration RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (A.makeAssocId associativity,getPos associativityleft),(ID2,getPos ID2left)],SOME input_transformer_declaration))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+                      | LPAREN ID  ID associativity RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (ID2,getPos ID2left),(A.makeAssocId associativity,getPos associativityleft)],NONE))
+                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+                      | LPAREN ID  ID associativity input_transformer_declaration RPAREN 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (ID2,getPos ID2left),(A.makeAssocId associativity,getPos associativityleft)],SOME input_transformer_declaration))
+                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LPARENleft),(!Paths.current_file)))
+
+sb_declaration_prec_assoc: ({precedence=NONE,assoc=NONE,overload_sym=NONE,input_transformer=NONE})
+                      | LEFT_BRACKET input_transformer_declaration RIGHT_BRACKET  ({precedence=NONE,assoc=NONE,overload_sym=NONE,input_transformer=SOME input_transformer_declaration})
+
+                      | LEFT_BRACKET ID RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft)],NONE))
+                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID input_transformer_declaration RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft)],SOME input_transformer_declaration))
+                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET associativity RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId(associativity),getPos associativityleft)],NONE))
+                                                      handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET associativity input_transformer_declaration RIGHT_BRACKET 
+                           ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId(associativity),getPos associativityleft)],SOME input_transformer_declaration))
+                                                      handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+
+                      | LEFT_BRACKET ID ID RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left)],NONE))
+                                             handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID ID input_transformer_declaration RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left)],
+                                                                                         SOME input_transformer_declaration))
+                                             handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET ID  associativity RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft),
+                                                                                                        (A.makeAssocId associativity,getPos associativityleft)],NONE))
+                                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID  associativity input_transformer_declaration RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID,getPos IDleft),
+                                                                                                        (A.makeAssocId associativity,getPos associativityleft)],
+                                                                                                         SOME input_transformer_declaration))
+                                                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+
+                      | LEFT_BRACKET associativity ID  RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                                                       (ID,getPos IDleft)],NONE))
+                                                         handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET associativity ID  input_transformer_declaration 
+                        RIGHT_BRACKET ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                                                       (ID,getPos IDleft)],SOME input_transformer_declaration))
+                                                         handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET ID ID ID RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left),(ID3,getPos ID3left)],NONE))
+                                                     handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID ID ID input_transformer_declaration RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),(ID2,getPos ID2left),(ID3,getPos ID3left)],SOME input_transformer_declaration))
+                                                     handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET associativity ID ID RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                        (ID1,getPos ID1left),(ID2,getPos ID2left)],NONE))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET associativity ID ID input_transformer_declaration RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(A.makeAssocId associativity,getPos associativityleft),
+                                                                        (ID1,getPos ID1left),(ID2,getPos ID2left)],SOME input_transformer_declaration))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET ID associativity ID RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (A.makeAssocId associativity,getPos associativityleft),(ID2,getPos ID2left)],NONE))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID associativity ID input_transformer_declaration RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (A.makeAssocId associativity,getPos associativityleft),(ID2,getPos ID2left)],SOME input_transformer_declaration))
+                           handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+
+                      | LEFT_BRACKET ID  ID associativity RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (ID2,getPos ID2left),(A.makeAssocId associativity,getPos associativityleft)],NONE))
+                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+                      | LEFT_BRACKET ID  ID associativity input_transformer_declaration RIGHT_BRACKET 
+                         ((A.getPrecAssocOverloadSymFromFSymDeclaration([(ID1,getPos ID1left),
+                                                                        (ID2,getPos ID2left),(A.makeAssocId associativity,getPos associativityleft)],SOME input_transformer_declaration))
+                          handle _ => Data.genEx("Abbreviated precedence/associativity/overloading declaration error.",
+                                                                    SOME(getPos LEFT_BRACKETleft),(!Paths.current_file)))
+
+ath_constant_sym: LPAREN DECLARE LPAREN one_or_more_params RPAREN athena_object_type RPAREN
+                 (List.map (fn {name=n,pos=p} => 
+			  	{name=n,pos=p,obtype_params = [],argument_types=[],input_transformer=NONE,
+		                    range_type=athena_object_type,prec=NONE,assoc=NONE,overload_sym=NONE}) one_or_more_params)
+               | DECLARE one_or_more_comma_separated_params COLON athena_object_type
+                    (List.map (fn {name=n,pos=p} => 
+			  	{name=n,pos=p,obtype_params = [],argument_types=[],input_transformer=NONE,
+		                    range_type=athena_object_type,prec=NONE,assoc=NONE,overload_sym=NONE}) 
+                     one_or_more_comma_separated_params)
+               | LPAREN DECLARE param athena_object_type RPAREN 
+                  (let val n = #name(param) 
+                       val p = #pos(param)
+                    in [{name=n,pos=p,obtype_params = [],argument_types=[],range_type=athena_object_type,
+                         input_transformer=NONE,prec=NONE,assoc=NONE,overload_sym=NONE}]
+                   end)
+                       
+ath_fsym: LPAREN DECLARE LPAREN one_or_more_params RPAREN LPAREN possible_obtype_params FUN_ARROW
+          LPAREN athena_object_type_list RPAREN  athena_object_type RPAREN declaration_prec_assoc RPAREN
+            (let val ob_type_names = map #name possible_obtype_params
+                 val (prec_opt,assoc_opt,overload_sym_opt:A.param option,input_transformer_option)  = 
+                                   (#precedence(declaration_prec_assoc),#assoc(declaration_prec_assoc),
+                                    #overload_sym(declaration_prec_assoc),#input_transformer(declaration_prec_assoc))
+                 val new_arg_types = map (fn t => Terms.taggedSymConstantsToVars(t,ob_type_names)) 
+                                          athena_object_type_list
+                 val new_range_type = Terms.taggedSymConstantsToVars(athena_object_type,ob_type_names)
+             in
+               List.map (fn {name=n,pos=p} =>
+			  {name=n,pos=p,obtype_params = possible_obtype_params,prec=prec_opt,assoc=assoc_opt,overload_sym=overload_sym_opt,
+	                   input_transformer=input_transformer_option,argument_types=new_arg_types,range_type=new_range_type}) one_or_more_params
+             end)
+       | DECLARE one_or_more_comma_separated_params COLON comma_separated_possible_obtype_params  LEFT_BRACKET
+            athena_object_type_list RIGHT_BRACKET FUN_ARROW athena_object_type sb_declaration_prec_assoc
+            (let val ob_type_names = map #name comma_separated_possible_obtype_params
+                 val (prec_opt,assoc_opt,overload_sym_opt,input_transformer_option)  = 
+                            (#precedence(sb_declaration_prec_assoc),#assoc(sb_declaration_prec_assoc),
+                             #overload_sym(sb_declaration_prec_assoc),#input_transformer(sb_declaration_prec_assoc))
+                 val new_arg_types = map (fn t => Terms.taggedSymConstantsToVars(t,ob_type_names)) 
+                                          athena_object_type_list
+                 val new_range_type = Terms.taggedSymConstantsToVars(athena_object_type,ob_type_names)
+             in
+               List.map (fn {name=n,pos=p} =>
+			  {name=n,pos=p,obtype_params = comma_separated_possible_obtype_params,prec=prec_opt,assoc=assoc_opt,overload_sym=overload_sym_opt,
+	                   input_transformer=input_transformer_option,argument_types=new_arg_types,range_type=new_range_type})
+			  one_or_more_comma_separated_params
+             end)
+       | LPAREN DECLARE  param  LPAREN possible_obtype_params FUN_ARROW
+          LPAREN athena_object_type_list RPAREN  athena_object_type RPAREN  declaration_prec_assoc RPAREN
+            (let val ob_type_names = map #name possible_obtype_params
+                 val (prec_opt,assoc_opt,overload_sym_opt,input_transformer_option)  = 
+                                                              (#precedence(declaration_prec_assoc),#assoc(declaration_prec_assoc),
+                                                               #overload_sym(declaration_prec_assoc),#input_transformer(declaration_prec_assoc))
+                 val new_arg_types = map (fn t => Terms.taggedSymConstantsToVars(t,ob_type_names)) 
+                                          athena_object_type_list
+                 val new_range_type = Terms.taggedSymConstantsToVars(athena_object_type,ob_type_names)
+                 fun app_name(n) = Symbol.symbol((Symbol.name(n))^"goo")
+             in
+               List.map (fn {name=n,pos=p} =>
+                         {name=n,pos=p,obtype_params = possible_obtype_params,prec=prec_opt,assoc=assoc_opt,overload_sym=overload_sym_opt,
+                          input_transformer=input_transformer_option,argument_types=new_arg_types,range_type=new_range_type}) [param]
+             end)
+
+possible_obtype_params: ([])
+                      | LPAREN one_or_more_params RPAREN   (one_or_more_params)
+
+comma_separated_possible_obtype_params: ([])
+                                   | LPAREN one_or_more_comma_separated_params RPAREN (one_or_more_comma_separated_params)
+
+bracket_enclosed_possible_obtype_params: ([])
+                      |  LEFT_BRACKET one_or_more_params RIGHT_BRACKET (one_or_more_params)
+                     
+ath_structure_profile: ID ({name=S.symbol ID,pos=getPos IDleft,obtype_params=[]})
+                     | LPAREN ID one_or_more_params RPAREN 
+                          ({name=S.symbol ID,pos=getPos IDleft,
+                           obtype_params=one_or_more_params})
+
+ath_structure_constructor: ID ({name=S.symbol ID,pos=getPos IDleft,argument_types=[],selectors=[]})
+                         | LPAREN ID selector_tagged_athena_object_type_list RPAREN
+                              (let val (sels,otypes) = Basic.unZip(selector_tagged_athena_object_type_list)
+			       in
+				  {name=S.symbol ID,pos=getPos IDleft,selectors=sels,
+                                   argument_types=otypes}
+			       end)
+
+one_or_more_ath_structure_constructors: ath_structure_constructor ([ath_structure_constructor])
+               | ath_structure_constructor one_or_more_ath_structure_constructors
+                       (ath_structure_constructor::one_or_more_ath_structure_constructors)
+
+infix_one_or_more_ath_structure_constructors: ath_structure_constructor ([ath_structure_constructor])
+               | ath_structure_constructor single_logical_or infix_one_or_more_ath_structure_constructors
+                       (ath_structure_constructor::infix_one_or_more_ath_structure_constructors)
+
+ath_struc_clause: ath_structure_profile one_or_more_ath_structure_constructors 
+                 (let val name = #name ath_structure_profile
+                      val pos = #pos ath_structure_profile
+                      val obtype_params = #obtype_params ath_structure_profile 
+                      val obtype_names = map #name obtype_params
+                      fun constantsToVars({name,pos,argument_types,selectors}:A.absyn_structure_constructor) =
+                          let fun f(t) = Terms.taggedSymConstantsToVars(t,obtype_names)
+                              val new_ob_types = map f argument_types
+                          in
+                             {name=name,pos=pos,argument_types=new_ob_types,selectors=selectors}
+                          end
+                      in 
+                         {name=name,pos=pos,obtype_params=obtype_params,free=false,
+                          constructors=(map constantsToVars
+                                            one_or_more_ath_structure_constructors)}
+                  end)
+
+infix_ath_struc_clause: ath_structure_profile ASGN infix_one_or_more_ath_structure_constructors 
+                 (let val name = #name ath_structure_profile
+                      val pos = #pos ath_structure_profile
+                      val obtype_params = #obtype_params ath_structure_profile 
+                      val obtype_names = map #name obtype_params
+                      fun constantsToVars({name,pos,argument_types,selectors}:A.absyn_structure_constructor) =
+                          let fun f(t) = Terms.taggedSymConstantsToVars(t,obtype_names)
+                              val new_ob_types = map f argument_types
+                          in
+                             {name=name,pos=pos,argument_types=new_ob_types,selectors=selectors}
+                          end
+                      in 
+                         {name=name,pos=pos,obtype_params=obtype_params,free=false,
+                          constructors=(map constantsToVars
+                                            infix_one_or_more_ath_structure_constructors)}
+                  end)
+
+rec_ath_struc_clause: LPAREN ath_struc_clause RPAREN (ath_struc_clause)
+
+ath_structure: LPAREN STRUCTURE ath_struc_clause RPAREN (ath_struc_clause)
+
+ath_datatype: LPAREN DATATYPE ath_struc_clause RPAREN (A.makeFree(ath_struc_clause))
+
+infix_ath_datatype: DATATYPE infix_ath_struc_clause  (A.makeFree(infix_ath_struc_clause))
+                  | STRUCTURE infix_ath_struc_clause  (A.makeNonFree(infix_ath_struc_clause))
+
+one_or_more_rec_ath_struc_clauses: rec_ath_struc_clause ([rec_ath_struc_clause]) |
+                                   rec_ath_struc_clause one_or_more_rec_ath_struc_clauses
+                                      (rec_ath_struc_clause::one_or_more_rec_ath_struc_clauses)
+
+one_or_more_rec_ath_datatype_clauses: infix_ath_struc_clause ([infix_ath_struc_clause]) |
+                                      infix_ath_struc_clause LOGICAL_AND one_or_more_rec_ath_datatype_clauses
+                                      (infix_ath_struc_clause::one_or_more_rec_ath_datatype_clauses)
+
+ath_structures: LPAREN STRUCTURES one_or_more_rec_ath_struc_clauses RPAREN
+                   (one_or_more_rec_ath_struc_clauses)
+
+ath_datatypes: LPAREN DATATYPES one_or_more_rec_ath_struc_clauses RPAREN
+                   (List.map A.makeFree one_or_more_rec_ath_struc_clauses)
+
+infix_ath_datatypes:  DATATYPES one_or_more_rec_ath_datatype_clauses 
+                      (List.map A.makeFree one_or_more_rec_ath_datatype_clauses)
+
+athena_object_type: 
+                   ID (let val id_pos = getPos(IDleft)
+                       in 
+                          SymTerm.makeTaggedConstant(A.makeMS(ID,SOME id_pos),id_pos)
+                       end)
+                  | LPAREN ID one_or_more_athena_object_types RPAREN
+                       (let val id_pos = getPos(IDleft)
+                        in
+                           SymTerm.makeTaggedApp(A.makeMS(ID,SOME id_pos),id_pos,one_or_more_athena_object_types)
+                        end)
+
+selector_tagged_athena_object_type: athena_object_type ((NONE,athena_object_type))
+				| param COLON athena_object_type ((SOME(param),athena_object_type))
+
+athena_object_type_list: ([]) |
+                         athena_object_type athena_object_type_list 
+                         (athena_object_type::athena_object_type_list)
+
+selector_tagged_athena_object_type_list: ([]) |
+                         selector_tagged_athena_object_type selector_tagged_athena_object_type_list 
+                         (selector_tagged_athena_object_type::selector_tagged_athena_object_type_list)
+
+one_or_more_athena_object_types: athena_object_type ([athena_object_type])
+                              |  athena_object_type one_or_more_athena_object_types
+                                    (athena_object_type::one_or_more_athena_object_types)
+
+one_or_more_selector_tagged_athena_object_types: selector_tagged_athena_object_type 
+						  ([selector_tagged_athena_object_type])
+                              |  selector_tagged_athena_object_type one_or_more_selector_tagged_athena_object_types
+                           (selector_tagged_athena_object_type::one_or_more_selector_tagged_athena_object_types)
+
+param: ID ({name=S.symbol ID, pos=getPos IDleft})
+
+param_no_dots: ID (A.checkNoDots(ID,getPos IDleft);{name=S.symbol ID, pos=getPos IDleft})
+
+param_option: (NONE) | param (SOME(#name(param)))
+
+param_option_no_dots: (NONE) | param_no_dots (SOME(#name(param_no_dots)))
+
+params:  ([])  
+       | param params (param::params)
+
+possibly_typed_param: ID (
+                          {name=S.symbol ID, pos=getPos IDleft,sort_as_sym_term=NONE,sort_as_fterm=NONE,op_tag=NONE,sort_as_exp=NONE})
+                    | ID COLON user_sort (
+                                          {name=S.symbol ID, pos=getPos IDleft,sort_as_sym_term=SOME user_sort,op_tag=NONE,
+					    sort_as_fterm=NONE,sort_as_exp=NONE})
+                    | ID COLON LPAREN OP ID RPAREN 
+                              (
+                               (case Int.fromString(ID2) of
+                                  SOME(i) => 
+                                      ({name=S.symbol ID1, pos=getPos ID1left,sort_as_sym_term=NONE,op_tag=SOME(i,~1),
+  				        sort_as_fterm=NONE,sort_as_exp=NONE})
+                                | _ => Data.genEx("Operator annotation error: invalid arity",
+                                                  SOME(getPos ID2left),(!Paths.current_file))))
+                    | ID COLON LPAREN OP ID ID RPAREN 
+                              (
+                               (case (Int.fromString(ID2),Int.fromString(ID3)) of
+                                   (SOME(i),SOME(j)) => 
+                                       ({name=S.symbol ID1, pos=getPos ID1left,sort_as_sym_term=NONE,op_tag=SOME(i,j),
+  				         sort_as_fterm=NONE,sort_as_exp=NONE})
+                                 | _ => Data.genEx("Operator annotation error: invalid arity and/or precedence",
+                                                   SOME(getPos LPARENleft),(!Paths.current_file))))
+						   
+possibly_typed_param_no_dots: possibly_typed_param 
+                                  (let val res as {name,pos,...} = possibly_typed_param
+                                   in
+                                      (A.checkNoDots(S.name name,pos);res)
+                                   end)                  
+
+possibly_typed_params: possibly_typed_param ([possibly_typed_param])
+                     | possibly_typed_param possibly_typed_params (possibly_typed_param::possibly_typed_params)
+
+possibly_typed_params_no_dots: possibly_typed_param_no_dots ([possibly_typed_param_no_dots])
+                             | possibly_typed_param_no_dots possibly_typed_params_no_dots (possibly_typed_param_no_dots::possibly_typed_params_no_dots)
+
+possibly_wildcard_param: possibly_typed_param (A.someParam(possibly_typed_param))
+		       | ANY_PAT  (A.wildCard(getPos ANY_PATleft))
+
+possibly_wildcard_param_no_dots: possibly_typed_param_no_dots (A.someParam(possibly_typed_param_no_dots))
+ 		               | ANY_PAT  (A.wildCard(getPos ANY_PATleft))
+
+possibly_wildcard_param_list:  ([])
+                        | possibly_wildcard_param possibly_wildcard_param_list 
+			       (possibly_wildcard_param::possibly_wildcard_param_list)
+
+possibly_wildcard_param_list_no_dots:  ([])
+                        | possibly_wildcard_param_no_dots possibly_wildcard_param_list_no_dots 
+			       (possibly_wildcard_param_no_dots::possibly_wildcard_param_list_no_dots)
+
+one_or_more_comma_separated_params: param ([param]) 
+                                   | param COMMA one_or_more_comma_separated_params
+                                            (param::one_or_more_comma_separated_params)
+
+one_or_more_params_maybe_with_reps: param ([param])
+                                   | param one_or_more_params_maybe_with_reps 
+                                     (param::one_or_more_params_maybe_with_reps)
+
+one_or_more_params_maybe_with_reps_no_dots: param_no_dots ([param_no_dots])
+                                   | param_no_dots one_or_more_params_maybe_with_reps_no_dots 
+                                     (param_no_dots::one_or_more_params_maybe_with_reps_no_dots)
+
+one_or_more_params: one_or_more_params_maybe_with_reps (A.getParams1(one_or_more_params_maybe_with_reps))
+
+one_or_more_params_no_dots: one_or_more_params_maybe_with_reps_no_dots (A.getParams1(one_or_more_params_maybe_with_reps_no_dots))
+
+struc_pattern: ANY_PAT (A.anyPat({pos=getPos ANY_PATleft}))
+             | possibly_typed_param (A.idPat(possibly_typed_param))
+             | LEFT_BRACKET struc_patterns RIGHT_BRACKET  (A.listPats({member_pats=struc_patterns,pos=getPos LEFT_BRACKETleft}))
+             | LPAREN LIST struc_pattern struc_pattern RPAREN 
+                 (A.listPat({head_pat=struc_pattern1,tail_pat=struc_pattern2,pos=getPos LISTleft}))
+
+struc_patterns: ([]) | struc_pattern struc_patterns (struc_pattern::struc_patterns)
+
+pattern:  ANY_PAT (A.anyPat({pos=getPos ANY_PATleft}))
+        | EXCL_MARK expression (A.makeCharConstraintRE(expression,getPos(expressionleft)))
+        | LPAREN RPAREN (A.unitValPat({pos=getPos LPARENleft}))
+        | possibly_typed_param (A.idPat(possibly_typed_param))
+        | STRING (A.constantStringPat({str=STRING,pos=getPos STRINGleft}))
+        | LEFT_BRACKET patterns RIGHT_BRACKET 
+            (A.listPats({member_pats=patterns,pos=getPos LEFT_BRACKETleft}))  
+        | athena_var (A.constantTermVarPat({term_var=athena_var,pos=getPos athena_varleft}))
+        | QMARK ID COLON user_sort (A.constantTermVarPat({term_var=AthTermVar.athTermVarWithSort(ID,FTerm.translateFromSymTerm(SymTerm.stripTags user_sort)),
+						          pos=getPos QMARKleft}))
+        | LPAREN META_ID ID RPAREN (A.constantMetaIdPat({name=S.symbol ID,pos=getPos META_IDleft}))
+        | QUOTE_SYMBOL ID (A.constantMetaIdPat({name=S.symbol ID,pos=getPos QUOTE_SYMBOLleft}))
+        | CHARACTER (A.constantCharPat({ch=CHARACTER,pos=getPos CHARACTERleft}))
+        | LPAREN VAL_OF ID RPAREN (A.valOfPat({id={name=S.symbol ID,pos=getPos IDleft},lex_ad=NONE,
+                                               pos=getPos VAL_OFleft}))
+        | LPAREN SOME_VAR possibly_wildcard_param  RPAREN (A.someVarPat({id=possibly_wildcard_param,
+                                                   pos=getPos SOME_VARleft}))
+        | LPAREN SOME_VECTOR possibly_wildcard_param  RPAREN (A.someVectorPat({id=possibly_wildcard_param,
+                                                   pos=getPos SOME_VECTORleft}))
+        | LPAREN SOME_CHAR possibly_wildcard_param  RPAREN (A.someCharPat({id=possibly_wildcard_param,
+                                                   pos=getPos SOME_CHARleft}))
+        | LPAREN SOME_QUANT possibly_wildcard_param RPAREN (A.someQuantPat({id=possibly_wildcard_param,
+                                                       pos=getPos SOME_QUANTleft}))
+        | LPAREN SOME_PROP_CON possibly_wildcard_param RPAREN (A.somePropConPat({id=possibly_wildcard_param,
+                                                            pos=getPos SOME_PROP_CONleft}))
+        | LPAREN SOME_TERM possibly_wildcard_param RPAREN (A.someTermPat({id=possibly_wildcard_param,
+                                                     pos=getPos SOME_TERMleft}))
+        | LPAREN SOME_ATOM possibly_wildcard_param RPAREN (A.someAtomPat({id=possibly_wildcard_param,
+                                                     pos=getPos SOME_ATOMleft}))
+        | LPAREN SOME_PROP possibly_wildcard_param RPAREN (A.somePropPat({id=possibly_wildcard_param,
+                                                     pos=getPos SOME_PROPleft}))
+        | LPAREN SOME_FUNCTION possibly_wildcard_param RPAREN (A.someFunctionPat({id=possibly_wildcard_param,
+                                                             pos=getPos SOME_FUNCTIONleft}))
+        | LPAREN SOME_METHOD possibly_wildcard_param RPAREN (A.someMethodPat({id=possibly_wildcard_param,
+                                                         pos=getPos SOME_METHODleft}))
+        | LPAREN SOME_SYMBOL possibly_wildcard_param RPAREN (A.someSymbolPat({id=possibly_wildcard_param,
+                                                         pos=getPos SOME_SYMBOLleft}))
+        | LPAREN SOME_SUB possibly_wildcard_param RPAREN (A.someSubPat({id=possibly_wildcard_param,
+                                                   pos=getPos SOME_SUBleft}))
+        | LPAREN SOME_TABLE possibly_wildcard_param RPAREN (A.someTablePat({id=possibly_wildcard_param,pos=getPos SOME_TABLEleft}))
+        | LPAREN SOME_MAP possibly_wildcard_param RPAREN (A.someMapPat({id=possibly_wildcard_param,pos=getPos SOME_MAPleft}))
+        | LPAREN LIST pattern pattern RPAREN 
+             (A.listPat({head_pat=pattern1,tail_pat=pattern2,pos=getPos LISTleft}))
+        | LPAREN CELL pattern RPAREN (A.cellPat({pat=pattern,pos=getPos CELLleft}))
+	
+        | LPAREN SPLIT_PAT two_or_more_patterns  RPAREN 
+             (A.splitPat({pats=two_or_more_patterns,pos=getPos SPLIT_PATleft,re_form=GeneralRE.any0(GeneralRE.trivial_tag),code=A.getRECode()}))
+
+        | LPAREN RE_STAR pattern  RPAREN  (A.reStarPat({pat=pattern,pos=getPos RE_STARleft,re_form=GeneralRE.any0(GeneralRE.trivial_tag),code=A.getRECode()}))
+        | LPAREN RE_OPTIONAL pattern  RPAREN  (A.reOptPat({pat=pattern,pos=getPos RE_OPTIONALleft,re_form=GeneralRE.any0(GeneralRE.trivial_tag),code=A.getRECode()}))
+        | LPAREN RE_PLUS pattern  RPAREN  (A.rePlusPat({pat=pattern,pos=getPos RE_PLUSleft,code=A.getRECode(),re_form=GeneralRE.any0(GeneralRE.trivial_tag)}))
+        | LPAREN RE_LIT pattern  RPAREN  (A.reLitPat({pat=pattern,pos=getPos RE_LITleft}))
+
+        | LPAREN RE_RANGE pattern pattern  RPAREN  
+             (let val (l,h) = A.getPatCodes(pattern1,pattern2)
+              in
+                 A.reRangePat({from_pat=pattern1,to_pat=pattern2,lo=l,hi=h,pos=getPos RE_RANGEleft})
+              end)
+        | LPAREN RE_REP pattern ID RPAREN  (case Int.fromString(ID) of
+                                               SOME(i) => A.reRepPat({pat=pattern,times=i,pos=getPos RE_REPleft,re_form=GeneralRE.any0(GeneralRE.trivial_tag),code=A.getRECode()})
+                                             | _ => raise A.SyntaxError("an integer numeral was expected here",SOME(getPos IDleft)))
+        | LPAREN SOME_LIST possibly_wildcard_param RPAREN (A.someListPat({id=possibly_wildcard_param,
+                                                     pos=getPos SOME_LISTleft}))
+        | LPAREN SOME_CELL possibly_wildcard_param RPAREN (A.someCellPat({id=possibly_wildcard_param,
+                                                     pos=getPos SOME_CELLleft}))
+        | LPAREN pattern WHERE expression RPAREN 
+              (A.wherePat({pat=pattern,guard=expression,pos=getPos patternleft}))
+        | LPAREN LOGICAL_OR one_or_more_patterns RPAREN 
+              (A.disjPat({pats=one_or_more_patterns,pos=getPos one_or_more_patternsleft}))
+        | LPAREN pattern one_or_more_patterns RPAREN 
+              (A.compoundPat({head_pat=pattern,rest_pats=one_or_more_patterns,pos=getPos patternleft}))
+        | LPAREN NAME ID pattern RPAREN 
+              (A.namedPat({name=S.symbol ID,pat=pattern,pos=getPos NAMEleft}))
+        | LPAREN ID NAME pattern RPAREN 
+              (A.namedPat({name=S.symbol ID,pat=pattern,pos=getPos NAMEleft}))
+
+one_or_more_patterns:  pattern ([pattern]) 
+                     | pattern one_or_more_patterns (pattern::one_or_more_patterns)
+
+two_or_more_patterns:  pattern one_or_more_patterns (pattern::one_or_more_patterns)
+
+patterns: ([])
+        | pattern patterns (pattern::patterns)
+
+condition: phrase (A.boolCond(phrase))
+         | ELSE   (A.elseCond)
+
+check_clause: LPAREN condition expression RPAREN
+               ({test=condition,result=expression})
+
+
+infix_check_clause: condition ARROW expression ({test=condition,result=expression})
+
+infix_check_clauses: infix_check_clause ([infix_check_clause])
+                    | infix_check_clause single_logical_or infix_check_clauses  (infix_check_clause::infix_check_clauses)
+
+check_clauses: ([])  
+             | check_clause check_clauses (check_clause::check_clauses)
+
+dcheck_clause: LPAREN condition deduction RPAREN
+               ({test=condition,result=deduction})
+
+infix_dcheck_clause: condition ARROW deduction ({test=condition,result=deduction})
+               
+infix_dcheck_clauses: infix_dcheck_clause ([infix_dcheck_clause])
+                    | infix_dcheck_clause single_logical_or infix_dcheck_clauses  (infix_dcheck_clause::infix_dcheck_clauses)
+
+dcheck_clauses: ([])  
+             | dcheck_clause dcheck_clauses (dcheck_clause::dcheck_clauses)
+
+match_clause: LPAREN pattern expression RPAREN ({pat=pattern,exp=expression})
+
+dmatch_clause: LPAREN pattern deduction RPAREN ({pat=pattern,ded=deduction})
+
+infix_dmatch_clause: pattern ARROW deduction ({pat=pattern,ded=deduction})
+
+infix_match_clause: pattern ARROW expression ({pat=pattern,exp=expression})
+
+sep_infix_match_clause: single_logical_or pattern ARROW expression ({pat=pattern,exp=expression})
+
+sep_infix_dmatch_clause: single_logical_or pattern ARROW deduction ({pat=pattern,ded=deduction})
+
+match_clauses:  ([])
+               | match_clause match_clauses (match_clause::match_clauses)
+
+dmatch_clauses:  ([])
+               | dmatch_clause dmatch_clauses (dmatch_clause::dmatch_clauses)
+
+
+sep_infix_match_clauses: sep_infix_match_clause ([sep_infix_match_clause])
+                       | sep_infix_match_clause sep_infix_match_clauses (sep_infix_match_clause::sep_infix_match_clauses)
+
+sep_infix_dmatch_clauses: sep_infix_dmatch_clause ([sep_infix_dmatch_clause])
+                       | sep_infix_dmatch_clause sep_infix_dmatch_clauses (sep_infix_dmatch_clause::sep_infix_dmatch_clauses)
+
+infix_match_clauses:   infix_match_clause ([infix_match_clause])
+                     | sep_infix_match_clauses (sep_infix_match_clauses)
+                     | infix_match_clause sep_infix_match_clauses (infix_match_clause::sep_infix_match_clauses)
+
+infix_dmatch_clauses:  infix_dmatch_clause ([infix_dmatch_clause])
+                     | sep_infix_dmatch_clauses (sep_infix_dmatch_clauses)
+                     | infix_dmatch_clause sep_infix_dmatch_clauses
+                       (infix_dmatch_clause::sep_infix_dmatch_clauses)
+
+binding: LPAREN pattern phrase RPAREN (let val _ = A.checkNoDotsPat(pattern)
+                                       in
+                                          {bpat=pattern,def=phrase,pos=getPos LPARENleft}
+                                       end)
+
+binding_assignment: pattern ASGN phrase (let val _ = A.checkNoDotsPat(pattern)
+                                         in
+                                            {bpat=pattern,def=phrase,pos=getPos ASGNleft}
+                                         end)
+
+assignment: ID ASGN phrase ({bpat=A.makePosLessIdPat(S.symbol ID),def=phrase,pos=getPos IDleft})
+          | ANY_PAT ASGN phrase ({bpat=A.anyPat({pos=getPos ANY_PATleft}),def=phrase,pos=getPos ANY_PATleft})
+
+assignments: assignment ([assignment])
+           | assignment SEMI_COLON assignments (assignment::assignments)
+
+bindings:  ([]) 
+         | binding bindings (binding::bindings)
+
+semicolon_separated_bindings: binding_assignment ([binding_assignment]) | 
+                              binding_assignment SEMI_COLON semicolon_separated_bindings (binding_assignment::semicolon_separated_bindings)
+
+semicolon_separated_phrases: phrase ([phrase]) | 
+                              phrase SEMI_COLON semicolon_separated_phrases (phrase::semicolon_separated_phrases)
+
+semicolon_separated_deductions: deduction ([deduction]) | 
+                              deduction SEMI_COLON semicolon_separated_deductions (deduction::semicolon_separated_deductions)
+
+semicolon_separated_expressions: expression ([expression]) | 
+                              expression SEMI_COLON semicolon_separated_expressions (expression::semicolon_separated_expressions)
+          
+symbol_definition: LPAREN DEFINE_SYMBOL ID expression RPAREN
+                     ({name=S.symbol(ID),pos=getPos IDleft,abbreviated=false,condition=A.desugarUB(expression)})
+
+                 | DEFINE_SYMBOL ID expression
+                      ({name=S.symbol(ID),pos=getPos IDleft,abbreviated=false,condition=A.desugarUB(expression)})
+
+                 | LPAREN DEFINE_SYMBOL ID LPAREN THE athena_var expression RPAREN RPAREN 
+                     (let val id_pos = getPos IDleft
+                      in
+                      {name=S.symbol(ID),pos=id_pos,abbreviated=false,
+                       condition=A.desugarUB(A.makeConstantSymCondition({constant_name=A.makeMS(ID,SOME id_pos),
+                                                             the_var=athena_var,
+                                                             def_description=expression}))}
+                      end)
+                 | LPAREN DEFINE_SYMBOL LPAREN ID one_or_more_athena_vars RPAREN  
+                   LPAREN THE athena_var expression RPAREN RPAREN
+                     ({name=S.symbol(ID),pos=getPos IDleft,abbreviated=false,
+                       condition=A.desugarUB(A.makeFunSymCondition({fun_name=S.symbol(ID),
+                                                        arg_vars=one_or_more_athena_vars,
+                                                        the_var=athena_var,def_description=expression}))})
+                 | LPAREN DEFINE_SYMBOL LPAREN ID one_or_more_athena_vars RPAREN  
+                   expression RPAREN
+                    ({name=S.symbol(ID),pos=getPos IDleft,abbreviated=true,
+                       condition=A.desugarUB(A.makeFunOrRelSymCondition({fun_or_rel_name=S.symbol(ID),
+                                                             arg_vars=one_or_more_athena_vars,
+                                                             term_or_condition=expression}))})
