@@ -1,3 +1,10 @@
+(*======================================================================
+
+Simple preemptive thread implementation from http://mlton.org/MLtonThread.
+
+=======================================================================*)
+
+
 structure Queue:
    sig
       type 'a t
@@ -84,7 +91,6 @@ structure Thread:
          setItimer Time.zeroTime;
          ignore alrm;
          topLevel := NONE);
-
 
    end
 
