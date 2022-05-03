@@ -22,7 +22,7 @@ Also ensure `smlnj` is installed.
 
 Developing Athena is best done with smlnj. Bring up smlnj (after installing it), and then do: 
 
-`- CM.make("sources.cm");`
+`- CM.make("src/sources.cm");`
 
 This will compile the entire project. After compilation is done, type:
 
@@ -81,3 +81,8 @@ Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The
 By 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
 
 
+In early 2022, Tannr Allard - already familiar with Athena from a few years of personal use - began applying Athena to research efforts in collaboration with the Ethereum Foundation, MakerDAO, and other projects.
+ 
+In an effort to improve the verification tooling available for developers, Tannr formed the Athena Foundation, a non-profit organization dedicated to the maintenance and continued development of the Athena language, auxiliary tooling, and educational materials. The Athena Foundation also aims to facilitate R&D efforts related to formal verification across various organizations and industries.
+ 
+Tannr is now the core  maintainer of the Athena language and regularly collaborates with Konstantine, who serves as an expert advisor and board member of the Athena Foundation.
