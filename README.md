@@ -15,6 +15,7 @@ There are some resources in the repo that specify the dependencies between the v
 Note that `athena.sml` is at the top of the graph (it's essentially the 'main' file of the project), while
 `base.sml` is at the bottom.
 
+
 # Build Instructions
 
 ## Build Pre-requisites
@@ -85,6 +86,13 @@ the script runs with a heap image produced by smlnj as described above, but you 
 executable produced by MLton (these executables tend to be faster than the heap images produced by smlnj), <br>e.g., `python3 regressionTest.py './athena'`.
 
 
+# Learn Athena
+
+The most thorough resource for learning to use Athena is the book, [Fundamental Proof Methods in Computer Science](https://mitpress.mit.edu/books/fundamental-proof-methods-computer-science) or FPMICS, authored by Konstantine Arkoudas and David Musser.
+
+Examples of Athena can also be found in the `tests/regression/` directory, including all of the code examples provided with the book.
+
+Other tutorials and online courses are undergoing active development.
 # History of Athena
 
 Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled.
