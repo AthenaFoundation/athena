@@ -1,6 +1,6 @@
 (*======================================================================
 
-Fast terms ("fterm's") are are tree structures that represent Athena sorts.
+Fast terms ("fterm's") are tree structures that represent Athena sorts.
 Internal nodes of such terms are non-constant sort constructors and leaves
 are either constant sort constructors or sort variables, which are represented
 as infinite integers.
