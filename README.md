@@ -1,14 +1,14 @@
-# Athena Proof Assistant
+# Athena Proof Framework
 
 This repo contains the source code for Athena, a system for proof engineering based on polymorphic multi-sorted first-order logic.
 
-Athena supports natural deduction, proof organization & abstraction, theory development, equational reasoning & (conditional) rewriting, induction, and more. It has built-in integrations to automated theorem provers & SAT/SMT solvers as well.
+Athena supports natural deduction, proof organization and abstraction, theory development, equational reasoning and (conditional) rewriting, structural induction, and more. It is also seamlessly integrated with a number of automated theorem provers, as well as SAT and SMT solvers. 
 
 ## A Quick Example
 
 Athena is very close in style to the way humans naturally perform deduction.
 
-Below is a simple example of proving the *asymmetry* of the `<` (less-than) relation taken straight from the [Athena book](#learn-athena).
+Below is a simple example of proving the *asymmetry* of the `<` (less-than) relation, taken verbatim from the [Athena book](#learn-athena):
 
 
 ```
@@ -72,9 +72,7 @@ Examples of Athena can also be found in the `tests/regression/` directory, inclu
 Other tutorials and online courses are undergoing active development.
 # History of Athena
 
-Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled.
-
-By 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
+Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled by 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
 
 In early 2022, Tannr Allard - already familiar with Athena from a few years of personal use - began applying Athena to research efforts in collaboration with the Ethereum Foundation, MakerDAO, and other projects.
  
