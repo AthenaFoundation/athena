@@ -1,4 +1,4 @@
-## Athena Proof Assistant
+# Athena Proof Assistant
 
 This repo contains the source code for Athena, a system for proof engineering based on polymorphic multi-sorted first-order logic.
 
