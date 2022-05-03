@@ -1,0 +1,9 @@
+load "swap-implementation"
+
+define Mem-ops := no-renaming
+
+assert (Mem-ops (theory-axioms Memory.theory))
+
+(!prove-property Memory.swap-open-implementation Mem-ops Memory.theory)
+
+(!prove-property Memory.swap-implementation Mem-ops Memory.theory)

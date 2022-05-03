@@ -1,0 +1,14 @@
+load "ordered-range"
+
+open Ordered-Range
+
+assert (theory-axioms theory)
+
+(!prove-property ordered-rest-range no-renaming theory)
+
+(!prove-property ordered-empty-range no-renaming theory)
+
+#(!prove-property 'ordered-initial-range no-renaming theory)
+
+(!prove-property ordered-subranges no-renaming theory)
+

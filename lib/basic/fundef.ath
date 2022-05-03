@@ -1,0 +1,819 @@
+(define prover vprove-from)
+
+(define (make-eqn0 c l r)
+  (match c
+    (true (close (= l r)))
+    ((and [p]) (close (if p (= l r))))
+    (_ (close (if c (= l r))))))
+
+(define (make-combinations L1 L2)
+   (cprods L1))
+
+(define (con-term? t uvars)
+  (match t
+    ((((some-symbol _) (some-list _)) where (&& (for-each (syms t) constructor?) (subset? (vars t) uvars))) true)
+    (_ false)))
+   
+(define (dt-inequality? p uvars lvars)
+  (match p
+    ((not (= (some-term s) (some-term t)))
+           (&& (con-term? t uvars)))
+    (_ false)))
+       
+
+(define (collect lhsides)
+  (let ((T (table 7))
+        (_ (map-proc (lambda (lhs)
+                        (match lhs
+                          ((not (= l r)) (table-add T [l --> (add r (try (table-lookup T l) []))]))))
+                     lhsides)))
+    (table->list T)))
+    
+
+(define [cc lc rc] [(cell ()) (cell ()) (cell ())])
+
+(define (make-id p)
+  (match p
+    ([(some-term s) (some-term t)] (= s t))))
+ 
+(define (complement-constructors L)
+  (let ((allowed-constructors (list-diff (constructors-of (sort-of (first L)))
+                                         (map root L))))
+   (map (lambda (c) (let ((t (make-term c (map (lambda (_) (fresh-var)) (from-to 1 (arity-of c))))))
+                      (lhs (= t (first L)))))
+        allowed-constructors)))
+
+(define (apply-case L p)
+  (let ((sub (make-sub (map (lambda (id)
+                              [(lhs id) (rhs id)]) L))))
+    (sub p)))
+
+
+(define (make-subs ac lvars)
+  (let ((T (table 500))
+        (_ (map-proc (lambda (e)
+                       (let ((v (lhs e)))
+                          (table-add T [v --> (add (rhs e) (try (table-lookup T v) []))])))
+                     ac))
+        (list (map (lambda (p) [(first p) (rd (second p))]) 
+                   (table->list T))))
+   (flatten (map (lambda (pair)
+            (match pair
+               ([lside rsides] (map (lambda (rside) (make-sub [[lside rside]])) rsides))))
+          list))))
+
+(define (possibly-sole-disjunction? p)
+  (match p
+    ((some-sent _) true)
+    (_ false)))
+
+(define (wildcard-clause? l) 
+  (match l
+    ((((some-symbol _) (some-list args)) where (for-each args var?)) true)
+    (_ false)))
+
+(define (non-explicit-wildcard-patterns?)
+  (match (get-flag "explicit-wildcard-patterns")
+    ("0" true)
+    (_ false)))
+
+(define (grp L) (flatten (join (map (lambda (p) (get-remaining-patterns [p])) L))))
+
+(define (make-eqn c l r previous-lhsides)
+ (try 
+  (let (##(_ (print "\nCalling make-eqn on c: " c "\nand l: " l "\nand r: " r "\nand previous-lhsides:  " previous-lhsides "\n"))
+        (lvars (vars l)))
+    (match c
+      (((forall (some-list uvars) (body as (|| (and (some-list props))
+                                                (some-sent prop))))
+              where (let ((props (try props [prop])))
+                       (for-each props (lambda (p) (&& (possibly-sole-disjunction? p)
+                                                       (for-each (get-disjuncts p) 
+                                                                 (lambda (d) (dt-inequality? d uvars lvars))))))))
+       (check ((wildcard-clause? l)
+                 (match (get-flag "explicit-wildcard-patterns")
+                   ("1" (let (#(_ (print "\nWILDCARD CLAUSE DETECTED!\n"))
+                              (rem-pats (get-remaining-patterns previous-lhsides)))
+                              (map (lambda (pat)
+                                      (close (= pat r)))
+                                    rem-pats)))
+                  ("2" (let (#(_ (print "\nWILDCARD CLAUSE DETECTED!\n"))
+                             (rem-pats (get-remaining-patterns previous-lhsides)))
+                              (join [(make-eqn0 c l r)]
+                                    (map (lambda (pat)
+                                            (close (= pat r)))
+                                         rem-pats))))
+                 ("0" [(make-eqn0 c l r)])))
+         ((non-explicit-wildcard-patterns?)  [(make-eqn0 c l r)])
+         (else 
+        (let ((_ ())
+              (props (try props [prop]))
+#              (_ (print "\nLeft-hand side " l " is not a wildcard clause...\n"))
+#              (_ (print "\nc: " c "\nl: " l "\nr: " r "\n"))
+              (_ (seq (set! lc l) (set! rc r) (set! cc c)))
+#	      (_ (print "\nl: " l))
+#	      (_ (print "\nlvars: " lvars))
+              (combinations (make-combinations (map get-disjuncts props) lvars))
+	      (process-inequalities
+                  (lambda (inequalities)
+                     (let ((lhsides (collect inequalities))
+                           (allowed-eqns (map (lambda (p)
+                                                    [(first p) (let ((pats (second p)))
+                                                                (join (grp pats)
+                                                                      (complement-constructors pats)))])
+                                                 lhsides))
+                           (allowed-rhsides (cprods (map second allowed-eqns)))
+                           (allowed-lhsides (map first allowed-eqns)))
+                       (flatten (map (lambda (r)
+                                        (map make-id (match allowed-lhsides
+                                                        ([_] (cprod allowed-lhsides r))
+                                                        (_   (list-zip allowed-lhsides r)))))
+                                     (map (lambda (r)
+                                            (match r
+                                               ((some-list _) r)
+                                               (_ [r])))
+                                          allowed-rhsides))))))
+              (allowed-cases (map process-inequalities combinations))
+              (resulting-equations (table 500))
+              (_ (map-proc (lambda (ac)
+                             (match ac
+                               ([] ())
+                               (_ (let ((subs (make-subs ac lvars)))
+                                    (map-proc (lambda (sub)
+                                                 (let ((eq (close (sub (= l r)))))
+                                                   (table-add resulting-equations [eq --> true])))
+                                              subs)))))
+                           allowed-cases)))
+           (check ((equal? (get-flag "explicit-wildcard-patterns") "1") (map first (table->list resulting-equations)))
+                  (else (join [(make-eqn0 c l r)] (map first (table->list resulting-equations)))))))))
+    (_ (seq  [(make-eqn0 c l r)]))))
+    (seq [(make-eqn0 c l r)])))
+
+
+(define (apply-equation eqn t)
+  (match eqn
+     ((= (some-term left) (some-term right)) (replace-term-in-term left t right))
+     (_ t)))
+
+(define (apply-equations eqns t)
+  (letrec ((loop (lambda (eqns res)
+                    (match eqns
+                      ([] res)
+                      ((list-of e more) (loop more (apply-equation e res)))))))
+     (loop eqns t)))
+
+(define (make-eqn' c l r previous-lhsides)
+ (try 
+  (let ( ## (_ (print "\nCalling make-eqn on c: " c "\nand l: " l "\nand r: " r "\nand previous-lhsides:  " previous-lhsides "\n"))
+        (lvars (vars l)))
+    (match c
+      (((forall (some-list uvars) (body as (|| (and (some-list props))
+                                                (some-sent prop))))
+              where (let ((props (try props [prop])))
+                       (for-each props (lambda (p) (&& (possibly-sole-disjunction? p)
+                                                       (for-each (get-disjuncts p) 
+                                                                 (lambda (d) (dt-inequality? d uvars lvars))))))))
+       (check ((wildcard-clause? l)
+                 (match (get-flag "explicit-wildcard-patterns")
+                   ("1" (let (#(_ (print "\nWILDCARD CLAUSE DETECTED!\n"))
+                              (rem-pats (get-remaining-patterns previous-lhsides)))
+                              (map (lambda (pat)
+                                      (close (= pat r)))
+                                    rem-pats)))
+                  ("2" (let (#(_ (print "\nWILDCARD CLAUSE DETECTED!\n"))
+                             (rem-pats (get-remaining-patterns previous-lhsides)))
+                              (join [(make-eqn0 c l r)]
+                                    (map (lambda (pat)
+                                            (close (= pat r)))
+                                         rem-pats))))
+                 ("0" [(make-eqn0 c l r)])))
+         ((non-explicit-wildcard-patterns?)  [(make-eqn0 c l r)])
+         (else 
+        (let ((_ ())
+              (props (try props [prop]))
+#              (_ (print "\nLeft-hand side " l " is not a wildcard clause...\n"))
+#              (_ (print "\nc: " c "\nl: " l "\nr: " r "\n"))
+              (_ (seq (set! lc l) (set! rc r) (set! cc c)))
+#	      (_ (print "\nl: " l))
+#	      (_ (print "\nlvars: " lvars))
+## Each member of all-inequalities is now a list of of the form [s1 =/= t1 ... sn =/= tn] 
+              (all-inequalities (map get-disjuncts props))
+	      (unwanted-equations (map (lambda (inequality)
+                                          (map complement inequality))
+                                       all-inequalities))
+## So now each member of unwanted-equations is a list of the form [s1 = t1 ... sn = tn]
+              (make-pattern (lambda (unwanted-equation)
+                               (apply-equations unwanted-equation l)))
+              (unwanted-patterns (map make-pattern unwanted-equations))
+              (remaining-pats-and-subs (map-select 
+                                          (lambda (pat)
+                                             (match (unify pat l)
+                                               ((some-sub sub) [pat sub])
+                                               (_ ())))
+                                          (get-remaining-patterns unwanted-patterns)
+                                          (unequal-to ())))
+              (all-remaining-equations (map (lambda (pair) 
+                                              (match pair
+                                                ([pat sub] (close (sub (= pat r))))))
+                                            remaining-pats-and-subs)))
+           (check ((equal? (get-flag "explicit-wildcard-patterns") "1") all-remaining-equations)
+                  (else (join [(make-eqn0 c l r)] all-remaining-equations)))))))
+    (_ (seq  [(make-eqn0 c l r)]))))
+    (seq [(make-eqn0 c l r)])))
+
+(define (make-eqn c l r previous-lhsides)
+  (let ((res (make-eqn' c l r previous-lhsides)))
+    res))
+
+(define decompose-equation'
+  (lambda (eqn)
+    (match (rename eqn)
+      ((forall (some-list uvars) (if guard (= pattern res))) [pattern guard res])
+      ((forall (some-list uvars) (= pattern res)) [pattern () res]))))
+
+
+(define (make-equivalence-classes triples)
+  (letrec ((loop (lambda (remaining-triples classes-so-far)    
+                   (match remaining-triples
+                     ([] (rev classes-so-far))
+                     ((list-of (as triple [pat guard res]) more)                    
+                        (match (for-some' classes-so-far
+                                 (lambda (triple-list)
+                                    (unifiable pat (pat-of (first triple-list)))))
+                          ([classes-1 triple-list classes-2] 
+                             (let ((classes' (join classes-1 [(join triple-list [triple])] classes-2)))
+                               (loop more classes')))
+                          (_ (loop more (add [triple] classes-so-far)))))))))
+      (loop triples [])))
+
+(define (analyze equations)
+  (let ((all-triples (map decompose-equation' equations))
+        (list-of-classes (make-equivalence-classes all-triples))
+        (list-of-classes (map sort-class list-of-classes)))                              
+    (map sort-class (map process-equivalence-class list-of-classes))))
+                
+(define (conditionalize0 remaining-equations previous-lhsides results)
+                   (match remaining-equations
+                     ([] (rev results))
+                     ((list-of (l = r) more)
+                        (let ((c (diff* l previous-lhsides))
+                              (previous-vars (list-diff (vars c) (vars l)))
+                              (c (forall* (intersection (vars c) previous-vars) c)))
+                          (conditionalize0 more (add l previous-lhsides) 
+                                                (join (make-eqn c l r previous-lhsides) results))))
+                     ((list-of (g ==> (l = r)) more)                                   
+                        (let ((c (diff* l previous-lhsides))
+                              (c-vars (vars c))
+                              (previous-vars (list-diff c-vars (vars l)))
+                              (c (forall* (intersection c-vars previous-vars) c))
+                              (cond (normalize (simp-and [g c])))
+                              (eqns' (make-eqn cond l r previous-lhsides))
+                              (previous' (match more
+                                           ((list-of (= _ _) _) (add l previous-lhsides))
+                                           (_ previous-lhsides))))
+                          (conditionalize0 more previous' (join eqns' results))))))
+
+(define (conditionalize identities)
+   (conditionalize0 identities [] []))
+
+(define (get-left-terms L)
+  (letrec ((loop (lambda (L res)
+                   (match L
+                      ((list-of (some-term s) (list-of or more)) (loop more (add s res)))
+                      ((list-of (some-term s) []) (rev (add s res)))))))
+    (loop L [])))                  
+
+(define (proper-term? s)
+  (&& (term? s) (negate (equal? s -->))))
+
+(define (proper left-hand-sides)
+  (for-each left-hand-sides (lambda (x) (|| (proper-term? x) (equal? x or)))))
+
+
+ (define (negate-guard guard lhs-list) 
+  (let ((temp-prop (if guard (and (map (lambda (l) (= l (fresh-var))) lhs-list))))
+        (guard (antecedent temp-prop))
+        (temp-vars (list-diff (vars guard) (vars* lhs-list)))
+        (body (match guard
+                   (((|| (= s pattern) (= pattern s)) where (&& (equal-lists-as-sets (vars pattern) temp-vars)
+                                                                (equal-lists-as-sets [] (intersection temp-vars (vars s)))))
+                         (match pattern
+                           ((((some-symbol c) (some-list args)) where (&& (constructor? c) (for-each args var?)))
+                                 (match (list-remove c (constructors-of (constructor-range c)))
+                                   (([c'] where (equal? (arity-of c') 0)) (= s (c')))
+                                   (_ (not guard))))
+                           (_ (not guard))))
+                   (_ (not guard))))
+        (body' (match (get-flag "simplify-fun-defs")
+                  ("false" (not guard))
+                  (_ body))) 		 
+        (condition (forall* (intersection temp-vars (vars body')) body')))
+    condition))
+
+(define (simplify-condition' c rhs)
+  (match c
+    ((forall (some-list uvars) (|| (and (some-list conds)) (some-sent cond)))
+        (let ((conds (try conds [cond]))
+              (conds' (map app-dm-deep conds))
+              (constructor-equalities (filter conds' (lambda (c)
+                                                       (match c
+                                                         ((= (some-term s) (some-term t)) (&& (constructor? (root t)) (for-each (syms t) constructor?)))
+                                                         (_ false)))))
+              (lhsides (map lhs constructor-equalities))
+              (other-conds (list-diff conds' constructor-equalities))
+               (other-conds' (filter-out other-conds
+                              (lambda (cond)
+                                (match cond
+                                  ((|| (or (some-list inequalities)) (some-sent inequality))
+                                   (let ((inequalities (try inequalities [inequality])))
+                                    (for-some inequalities 
+                                       (lambda (i)
+                                          (match i
+                                            (((forall (some-list _) (not (= (some-term l) (some-term r)))) 
+                                                                                      where (for-some constructor-equalities
+                                                                                             (lambda (e)
+                                                                                               (match e
+                                                                                                 ((= (val-of l) t) (unequal? (root t) (root r)))
+                                                                                                 (_ false))))) true)
+                                            (_ false))))))
+                                  (_ false)))))
+              (all-conds (join constructor-equalities other-conds'))
+              (res (match all-conds 
+                    ([p] p)
+                    (L (and L)))))
+         res))
+    (_ c)))
+
+(define (simplify-condition c rhs)
+  (match (get-flag "simplify-fun-defs")
+     ("false" c)
+     (_ (let ((res (try (simplify-condition' c rhs)
+                        c))
+##            (_ (print "\nOriginal condition: " c "\nSimplified condition: " res))
+              (_ ()))
+         res))))
+ 
+
+(define (non-identity? x) (negate (identity? x)))
+
+(define (simplify-clause' clause)
+  (match clause
+    ((if (|| (and (some-list conds))
+             (some-sent cond))
+         (body as (= (some-term lhs) (some-term rhs))))
+      (let ((conds (try [cond] conds))
+#            (_ (print "\nAll conds: " conds "\n"))
+#            (_ (print "\nWhole clause: " clause))
+            (V (vars lhs))
+            (bindings (cell []))
+            (eqns (cell []))
+            (sub (let ((_ (map-proc (lambda (c)
+                                              (match c
+                                                ((= (some-var v) t) (seq (set! eqns (add c (ref eqns)))
+                                                                         (set! bindings (add [v t] (ref bindings)))))
+                                                (_ ())))
+                                           conds)))
+                          (make-sub (ref bindings))))
+           (sub-supp (supp sub))
+#	   (_ (print "\n(ref eqns): "  (ref eqns)))
+	   (non-equality-vars (filter (vars* conds)
+                                      (lambda (v)
+                                        (for-some conds (lambda (c)
+                                                          (&& (non-identity? c) (member? v (vars c))))))))
+           (movable-vars (cell []))							  
+	   (movable-eqns (filter (ref eqns)
+                                 (lambda (e)
+                                    (match e 
+                                       (((= (some-term s) (some-term t)) where (negate (member? s non-equality-vars))) (seq (set! movable-vars (add s (ref movable-vars))) true))
+                                       (_ false)))))
+           (conds' (list-diff conds movable-eqns))
+	   (supp' (filter sub-supp (lambda (v) (member? v (ref movable-vars)))))
+           (sub (make-sub (zip supp' (sub supp'))))
+	   (body' (sub body))
+           (conds' (filter-out conds' 
+                       (lambda (e)
+                          (match e
+                            (((= (some-var x) _) where (negate (member? x (vars body')))) true)
+                            (((not (= (some-var x) _)) where (&& (negate (member? x (vars body'))) (negate (member? x sub-supp)))) true)
+                            (_ false))))))
+       (check ((subset? (supp sub) V)
+                (match conds'
+                  ([] body')                  
+                  ([true] body')
+                  (_ (match conds'
+                       ([(some-sent p)] (if p body'))
+                       (_ (if (and conds') body'))))))
+              (else clause))))))
+
+
+(define 
+ (sent-cons p)
+    (match p
+      (((some-sent-con sc) (some-list args)) (add sc (sent-cons* args)))
+      (((some-quant q) (some-list _) (some-sentence body)) (sent-cons body))
+      (_ []))
+ (sent-cons* props)
+   (match props 
+     ([] [])
+     ((list-of p more) (join (sent-cons p) (sent-cons* more)))))
+
+(define (all-sent-cons p) (rd (sent-cons p)))
+
+(define (entails? premises goal axioms)
+  (let ((_ ())
+#        (_ (print "\nInside entails...\n"))
+#        (_ (print "\npremises: " premises "\ngoal: " goal "\naxioms: " axioms))
+        (smt-goal (match premises 
+                     ([] goal)
+                     ((some-list _) (if (and premises) goal))))
+#        (_ (print "\nsmt-goal: " smt-goal))
+        (_ ()))
+    (check ((contains-quants? smt-goal) 
+                (let ((goal (if (and (join premises axioms)) goal))
+                      (proved (cell false))
+                      (_ (dtry (dlet ((_ (!prover goal [] [['poly true] ['subsorting false] ['max-time 3]]))
+                                      (_ (set! proved true)))
+                                 (!true-intro))
+                               (!true-intro))))
+                  (ref proved)))
+           (else (match (smt-solve (not smt-goal) (table [['solver --> 'cvc]]))
+                   ('Unsatisfiable true)
+                   (_  false))))))
+
+(define (equivalent? p1 p2 axioms)
+  (let ((goal (make-monomorphic-instance (if (and axioms) (iff p1 p2))))
+#        (_ (print "\nInside equivalent. Goal: " goal "\n"))
+        (proved (cell false))
+        (_ (dtry (dlet ((_ (!prover goal [] [['poly true] ['subsorting false] ['max-time 3]]))
+                        (_ (set! proved true)))
+                   (!true-intro))
+                 (!true-intro))))
+    (ref proved)))
+
+
+(define (make-or props)
+  (match props
+    ([p] p)
+    (_ (or props))))
+
+(define (simplify-neg-cond p pos-conds axioms)
+  (match p
+    ((or (some-list _)) (let ((props (get-disjuncts p)))
+                          (make-or (filter-out props (lambda (d) (entails? pos-conds (complement d) axioms))))))
+    (_ p)))
+
+(define (extract-sub conds)
+  (letrec ((loop (lambda (rem-conds front-conds res)
+                   (match rem-conds
+                      ([] [front-conds res])
+#                      (((list-of (= (some-var x) (some-term t)) more) where (null? (intersection (add x (vars t)) (vars* (join front-conds more)))))
+                      (((list-of (= (some-var x) (some-term t)) more) where (negate (member? x (vars* (join front-conds more)))))
+                           (loop more front-conds (add [x t] res)))
+                      ((list-of c more) (loop more (add c front-conds) res))))))
+     (let (([conds' bindings] (loop conds [] [])))
+       [conds' (make-sub bindings)])))
+   
+
+(define (simplify-clause' clause)
+  (match clause
+    ((if (orig-cond as (|| (and (some-list conds))
+                           (some-sent cond)))
+         (body as (= (some-term lhs) (some-term rhs))))
+      (let ((conds (try [cond] conds))      	    
+            (constructors (filter (get-prop-syms clause) constructor?))
+            (axioms (rd (flatten (map datatype-axioms (map constructor-range constructors)))))
+            ([pos-conds neg-conds] (filter-and-complement conds (lambda (c) (negate (member? not (all-sent-cons c))))))
+            ([pos-conds' neg-conds'] [(map uquant-body pos-conds) (map uquant-body neg-conds)])
+#	    (_ (print "\nAbout to call entails on " (length neg-conds') " neg conds...\n"))
+            (neg-conds' (filter-out neg-conds' (lambda (p) (entails? pos-conds' p axioms))))
+# 	    (_ (print "\nDONE WITH ENTAILMENT...\n"))
+            (neg-conds'' (map (lambda (nc) (simplify-neg-cond nc pos-conds' axioms)) neg-conds'))
+            (new-conds (join pos-conds' neg-conds''))
+	    ([new-conds sub] (extract-sub new-conds))
+	    (final-new-cond (match new-conds
+                              ([(some-sent p)] p)
+			      ([] true)
+                              (_ (and new-conds))))
+            (new-clause (match new-conds
+                           ([] (sub body))
+                           ([true] (sub body))
+                           (_ (if final-new-cond (sub body)))))
+#           (_ (print "\nORIG CLAUSE: " clause))
+#           (_ (print "\nNEW CLAUSE: " new-clause))
+           (p1 (close clause))
+           (p2 (close new-clause))
+#	   (_ (print "\np1: " p1 "\np2: " p2 "\naxioms: " axioms "\n"))
+           (eq-test (try (equivalent? (close clause) (close new-clause) axioms) false))
+#          (_ (print "\neq-test-result: " eq-test))
+           (_ ())) 
+         (check (eq-test new-clause)
+                (else clause))))))
+
+(define (simplify-clause clause)
+  (match (get-flag "simplify-fun-defs")
+     ("false" clause)
+     (_ (let ((res  (try (simplify-clause' clause)
+                          clause))
+              (_ ()))
+          res))))
+
+(define (make-fresh-term e)
+  (match e
+    ((= l _) (let ((f (root l)))
+               (make-term f (map (lambda (_) (fresh-var)) (from-to 1 (arity-of f))))))
+    ((if _ c) (make-fresh-term c))))
+
+(define (desugar-element x)
+  (match x
+    ((list-of 'case (list-of discrim rest)) 
+        (let ((rest' (map desugar-element rest)))
+          (letrec ((loop (lambda (rem result)
+                            (match rem
+                               ([] (rev result))
+                               ((list-of left (list-of (id-op as (|| = -->)) more))
+                                 (loop more (add id-op (add (= discrim left) result))))
+                               ((list-of x more) (loop more (add x result)))))))
+             (loop rest' []))))
+   ((list-of 'cond rest) (map desugar-element rest))
+   ((some-list L) (map desugar-element L))
+   (_ x)))
+
+(define (desugar-list L)
+   (map desugar-element L))
+
+
+(define (make-new-list discrim match-clauses)
+  (letrec ((loop (lambda (clauses res)
+                   (match clauses 
+                     ([] res)
+                     ([(left as (some-var _)) (|| = -->) right] (join res clauses))
+                     ([or (left as (some-var _)) (|| = -->) right] (join res clauses))
+                     ((split [(left as (some-term _)) (id-op as (|| = -->)) right] more) (loop more (join res [(= discrim left) id-op right])))
+                     ((split [or (left as (some-term _)) (id-op as (|| = -->)) right] more) (loop more (join res [(= discrim left) id-op right])))
+                     ((split [(left as (some-term _)) (id-op as (|| = -->)) right] more) (loop more (join res [(= discrim left) id-op right])))
+                     ((split [or (left as (some-term _)) (id-op as (|| = -->)) right] more) (loop more (join res [(= discrim left) id-op right])))))))
+      (loop match-clauses [])))
+
+(define [case-of cond] ['case 'cond])
+
+(define (fun-def-ids L)
+  (letrec ((guard-ids (lambda (remaining previous-guards results bindings lhs-list)
+                         (match remaining
+                           ([] [results bindings])
+                           ((|| (split [guard --> rhs] (list-of or more))
+                                (split [guard --> rhs] [((some-term clause-name) where (meta-id? clause-name)) or] more)
+                                (split [guard --> rhs] [((some-term clause-name) where (meta-id? clause-name))] more)
+                                (split [guard --> rhs] more))
+                             (let ((guard' (match guard
+                                             ((some-var _) true)
+                                             (_ guard)))
+                                   (c (normalize (simp-and (add guard' (map (lambda (g) (negate-guard g lhs-list)) previous-guards)))))
+ 				 # (_ (print "\nNormalized guard condition to be simplified: " c "\nand the rhs: " rhs))
+				   (c (simplify-condition c rhs)) 
+ 				 # (_ (print "\nAnd the simplified result: " c))
+                                   (new-bindings (try (match lhs-list
+                                                        ([lhs] (add [clause-name (simplify-clause (if c (= lhs rhs)))] bindings))
+                                                        (_     (add [clause-name (map (lambda (lhs) (simplify-clause (if c (= lhs rhs)))) lhs-list)] bindings)))
+                                                      bindings)))
+                               (guard-ids more (add guard previous-guards) 
+                                                (join (map (lambda (lhs) (simplify-clause (if c (= lhs rhs)))) lhs-list) results) new-bindings lhs-list))))))
+           (loop (lambda (L res bindings)
+                   (match L 
+                     ([] [(rev res) (rev bindings)])
+
+
+                     ((split [(some-var lv) (|| --> =) (some-term r)] more)
+                        (let (#(_ (print "\nWILDCARD CLAUSE FOUND...\n"))
+                              (_ (match more
+                                   ((list-of _ _) (error "A wildcard pattern can only appear in the last clause."))
+                                   (_ ()))))
+                           (match (get-flag "mlstyle-fundef")
+                              ("true" (match res
+                                         ((list-of e _) (let ((_ ()))
+                                                          (loop (join [(= (make-fresh-term e) r)] more) res bindings)))))
+                              ("false" (let ((previous-lhsides (map lhs res)))
+                                          (match res
+                                             ((list-of e _) (let ((new-identity (= (make-fresh-term e) r))
+                                                                  (new-identities (conditionalize0 [new-identity] previous-lhsides [])))
+                                                               (loop more (join new-identities res) bindings)))))))))
+
+
+                     ((split [((|| = -->) l (some-term r))] (as nl (|| [] [((some-term n) where (meta-id? n))]))  (list-of or more))
+                        (match nl 
+                          ([] (loop more (add (l = r) res) bindings))
+                          ([(x where (meta-id? x))] 
+                              (loop more (add (l = r) res) (add [x (l = r)] bindings)))))
+                     ((list-of ((|| = -->) l (some-term r)) more)
+                         (match more 
+                           (((list-of x more') where (meta-id? x))
+                              (loop more' (add (l = r) res) (add [x (= l r)] bindings)))
+                           ((list-of (|| = -->) (list-of (some-term r') more')) 
+                              (loop more' (add (= (= l r) r') res) bindings))
+                           (_ (loop more (add (l = r) res) bindings))))
+
+
+                     (((split left-hand-sides [(|| --> =) (some-term r) or] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides)))
+                          (loop more (join (rev (map (lambda (left-term) (= left-term r)) left-terms)) res) bindings)))
+                     (((split left-hand-sides [(|| --> =) (some-term r) ((some-term n) where (meta-id? n)) or] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides))
+                              (eqns (map (lambda (left-term) (= left-term r)) left-terms))
+                              (bindings' (match left-terms
+                                           ([l] (add [n (= l r)] bindings))
+                                           (_   (add [n eqns] bindings)))))
+                          (loop more (join (rev eqns) res) bindings')))
+                     (((split left-hand-sides [(|| --> =) (some-term r) ((some-term n) where (meta-id? n))] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides))
+                              (eqns (map (lambda (left-term) (= left-term r)) left-terms))
+                              (bindings' (match left-terms
+                                           ([l] (add [n (= l r)] bindings))
+                                           (_   (add [n eqns] bindings)))))
+                          (loop more (join (rev (map (lambda (left-term) (= left-term r)) left-terms)) res)
+                                     bindings')))
+                     (((split left-hand-sides [(|| --> =) (some-term r)] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides)))
+                          (loop more (join (rev (map (lambda (left-term) (= left-term r)) left-terms)) res) bindings)))
+
+
+                     (((split left-hand-sides [(id-op as (|| --> =)) (list-of 'case (list-of discrim match-clauses)) or] more) where (proper left-hand-sides))
+                          (let ((new-list (make-new-list discrim match-clauses))
+                                (L (join left-hand-sides [id-op] [new-list] [or] more)))
+                            (loop L res bindings)))
+
+                     (((split left-hand-sides [(id-op as (|| --> =)) (list-of 'case (list-of discrim match-clauses))] more) where (proper left-hand-sides))
+                          (let ((new-list (make-new-list discrim match-clauses))
+                                (L (join left-hand-sides [id-op] [new-list] more)))
+                            (loop L res bindings)))
+
+
+                     (((split left-hand-sides [(id-op as (|| --> =)) (list-of 'cond cond-clauses) or] more) where (proper left-hand-sides))
+                        (loop (join left-hand-sides [id-op] [cond-clauses] [or] more) res bindings))
+
+                     (((split left-hand-sides [(id-op as (|| --> =)) (list-of 'cond cond-clauses)] more) where (proper left-hand-sides))
+                        (loop (join left-hand-sides [id-op] [cond-clauses] more) res bindings))
+
+                     (((split left-hand-sides [(|| --> =) (some-list g) or] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides))
+                              ([eqns bindings'] (guard-ids g [] [] bindings left-terms)))
+                          (loop more (join eqns res) bindings')))
+
+                     (((split left-hand-sides [(|| --> =) (some-list g)] more) where (proper left-hand-sides))
+                        (let ((left-terms (get-left-terms left-hand-sides))
+                              ([eqns bindings'] (guard-ids g [] [] bindings left-terms)))
+                          (loop more (join eqns res) bindings')))))))
+    (loop L [] [])))
+
+
+(define (get-symbol eqn)
+  (match eqn
+    ((forall (some-list _) (= ((some-symbol f) (some-list _)) _)) f)
+    ((forall (some-list _) (if _ (= ((some-symbol f) (some-list _)) _))) f)))
+
+(define (classify eqns)
+  (letrec ((loop (lambda (eqns results)
+                   (match eqns
+                      ([] results)
+                      ((list-of e more) (let ((f (get-symbol e)))
+                                          (match results
+                                            ((split L1 [[(val-of f) f-eqns]] L2) (loop more (join L1 [[f (join f-eqns [e])]] L2)))
+                                            (_ (loop more (add [f [e]] results))))))))))
+    (loop eqns [])))
+
+(define (redo-bindings eqns bindings)
+  (map (lambda (binding)          
+         (match binding
+           ([name eqn] (let ((eqn-index (member-index eqn eqns)))
+                         [name eqn eqn-index]))))
+       bindings))
+  
+(define (find-bindings eqns bindings)
+  (map (lambda (binding)
+         (match binding 
+           ([name old-eqn index] (let ((new-eqn (ith eqns index)))
+                                   [name new-eqn]))))
+       bindings))
+ 
+
+(define (prim-list? L)
+  (letrec ((loop (lambda (L)
+                    (match L
+                       ((list-of (|| --> =) rest) 
+                           (match rest
+                             ([] true)
+                             ((list-of (some-list _) _) false)
+                             ((list-of _ more) (loop more))))
+                       ((list-of x rest) (loop rest))
+                       (_ true)))))
+    (loop L)))
+
+(define (transform-left L f)
+  (letrec ((loop (lambda (L res)
+                    (match L
+                      ([] (rev res))
+                      ((list-of l (list-of (id-op as (|| --> =)) rest))
+                         (loop rest (add id-op (add (f l) res))))
+                      ((list-of x more) (loop more (add x res)))))))
+    (loop L [])))
+
+(define (transform-right L f)
+  (letrec ((loop (lambda (L res)
+                    (match L
+                      ([] (rev res))
+                      ((list-of left (list-of (id-op as (|| --> =)) (list-of right rest)))
+                         (loop rest (add (f right) (add id-op (add left res)))))
+                      ((list-of x more) (loop more (add x res)))))))
+    (loop L [])))
+
+(define (flatten-prim-triple g id-op prim-list)
+  (transform-left prim-list (lambda (guard) 
+                              (match guard 
+                                ((|| true (some-var _)) g)
+                                (_ (and g guard))))))
+ 
+(define (flatten-guard-list L)
+  (letrec ((loop (lambda (L)
+                    (match L
+                       ((list-of g (list-of (id-op as (|| --> =)) (list-of ((some-list gl) where (prim-list? gl)) rest)))
+                            (join (flatten-prim-triple g id-op gl) rest))
+                       ((list-of g (list-of (id-op as (|| --> =)) (list-of (some-list gl) rest)))
+                          (let ((gl' (loop gl)))
+                            (join (flatten-prim-triple g id-op gl') rest)))
+                       ((list-of g (list-of (id-op as (|| --> =)) (list-of t rest)))
+                         (join [g id-op t] (loop rest)))
+                       ((list-of x rest) (add x (loop rest)))
+                       (_ L)))))
+
+     (loop L)))
+
+(define (get-neg-pat p D)
+  (match p
+    ((forall (some-list uvars) (not (= (val-of D) (some-term pat)))) pat)))
+
+(define (split-diff-conds conds)
+ (try 
+    (match (find-in-list conds identity?)
+       ([left-part id right-part] 
+         (match id 
+           ((= (some-term D) _)
+              (let ((neg-pats (map (lambda (p)
+                                      (get-neg-pat p D))
+                                   (join left-part right-part))))
+                [id neg-pats])))))
+    ()))
+
+
+(define (diff-simplify eqn)
+  (match eqn
+    ((forall (some-list uvars) (if (some-sent guard) (conclusion as (= (some-term left) (some-term right)))))
+       (let ((conds (get-conjuncts guard))
+           # (_ (print "\nconclusion: " conclusion))
+             (_ ()))
+         (match (split-diff-conds conds)
+           ([(pos-cond as (= (some-term D) (some-term FORM))) (some-list neg-pats)]
+               (let ((new-conds (diff* FORM neg-pats)))
+                 (check ((member? D (subterms left))
+                           (forall* uvars (if (simp-and [new-conds]) (replace-term-in-term D conclusion FORM))))
+                        (else (forall* uvars (if (simp-and (add pos-cond [new-conds])) conclusion))))))
+          (_ eqn))))
+    (_ eqn)))
+
+
+(define (diff-simplify* eqns)
+  (try (map diff-simplify eqns)
+       eqns))
+
+(define (fun-def L0)
+  (let ((L (transform-right (desugar-list L0) flatten-guard-list))
+        ([eqns bindings] 
+             (match (get-flag "mlstyle-fundef")
+                ("true" (match  (fun-def-ids L)
+                          ([eqns bindings] (let ((bindings' (redo-bindings eqns bindings))
+						 (eqns (diff-simplify* eqns))
+                                                 (partitions (classify eqns))
+                                                 (eqns' (flatten (join (map (lambda (partition) (conditionalize (second partition))) partitions))))
+                                                 (bindings'' (find-bindings eqns' bindings')))
+                                             [eqns' bindings'']))))
+                (_ (map close (fun-def-ids L))))))
+     [(classify eqns) bindings]))
+
+# For use with axioms resulting from fun-def of a Boolean-valued function:
+
+define true-conv := (forall ?x . ?x = true ==> ?x)
+
+conclude true-conv
+  pick-any x
+    assume A := (x = true)
+      (!by-contradiction x
+       assume (~ x)
+         (!absurd
+	  (!true-intro)
+	  (!chain-last [(~ x) ==> (~ true) [A]])))
+
+define false-conv := (forall ?x . ?x = false ==> ~ ?x)
+
+conclude false-conv
+  pick-any x
+    assume A := (x = false)
+      (!by-contradiction (~ x)
+       assume x
+         (!chain-last [x ==> false [A]]))

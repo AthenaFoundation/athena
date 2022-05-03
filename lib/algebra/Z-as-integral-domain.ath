@@ -1,0 +1,9 @@
+load "integral-domain"
+load "integer-times"
+
+define Integer-Ring-1 :=
+    (renaming |{Semigroup.+ := Z.+, MSG.* := Z.*, Monoid.<0> := Z.zero,  
+                Group.U- := Z.negate, Group.- := Z.-, MM.<1> := Z.one}|)
+
+(print-instance-check Integer-Ring-1 Integral-Domain.theory)
+

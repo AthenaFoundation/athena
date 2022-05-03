@@ -1,0 +1,12 @@
+load "replace-range"
+
+open Forward-Iterator
+
+define ops := no-renaming
+
+assert (ops (theory-axioms theory))
+
+#(set-debug-mode "rewriting")
+
+(!prove-property replace.correctness ops theory)
+

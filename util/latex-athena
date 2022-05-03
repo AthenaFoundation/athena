@@ -1,0 +1,20 @@
+#! /bin/sh
+#
+# latex-athena <filename>
+
+# Create a listing of an Athena source file as a pdf file, using
+# list-athena.tex (which uses athena-listing, which in turn defines
+# Athena as a listings package language). The source file name
+# is the single command-line argument. 
+
+filename=$1
+
+latex \\newcommand{\\filename}{$filename} \\input{util/list-athena}
+rm list-athena.aux
+rm list-athena.log
+echo "Moving list-athena.dvi to listings/$filename.dvi"
+mv list-athena.dvi listings/$filename.dvi
+echo "Creating listings/$filename.pdf"
+dvipdf listings/$filename.dvi listings/$filename.pdf
+rm listings/$filename.dvi
+

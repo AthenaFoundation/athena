@@ -1,0 +1,373 @@
+load "random-access-iterator"
+#..........................................................................
+extend-module Random-Access-Iterator {
+  define join := List.join
+  define in := List.in
+
+  declare collect-locs: (S, X) [(Range X S)] -> (List (Memory.Loc S))
+
+  module collect-locs {
+    define [< <=] := [N.< N.<=]
+
+    define axioms :=  
+     (fun
+      [(collect-locs stop h) = nil
+       (collect-locs back r) = (deref start back r :: (collect-locs r))])
+    define [of-stop of-back] := axioms
+
+    (add-axioms theory axioms)
+
+  define [r''] := [?r'':(Range 'X 'S)]
+
+  define (split-range-prop n) :=
+    (forall i j r . 
+      (range i j) = SOME r & n <= length r 
+      ==> 
+      exists r' r'' .
+        (range i i + n) = SOME r' &
+	(range i + n j) = SOME r'' &
+	(collect-locs r) = (collect-locs r') join (collect-locs r''))
+
+  define split-range := (forall n . split-range-prop n)
+
+  define *in-relation := 
+    (forall r i . i *in r <==> deref i in collect-locs r)
+
+  define all-*in :=
+    (forall n i j r .
+      (range i j) = SOME r & n < length r ==> (i + n) *in r)
+
+  define *in-whole-range :=
+    (forall n i j k r r' .
+      (range i j) = SOME r &
+      n < length r &
+      (range i i + n) = SOME r' &
+      (k *in r' | k = i + n)
+      ==> k *in r)
+
+  define *in-whole-range-2 :=
+    (forall n i j k r r' .
+      (range i j) = SOME r &
+      n <= length r &
+      (range i + n j) = SOME r' &
+      (k *in r' | k = j)
+      ==> k *in r | k = j)
+
+define [n0 r0 r0'] := [?n0 ?r0 ?r0']
+
+define proofs :=
+  method (theorem adapt)
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}
+    match theorem {
+      (val-of split-range) => 
+      by-induction (adapt theorem) {
+        zero => 
+        pick-any i:(It 'X 'S) j:(It 'X 'S) r:(Range 'X 'S)
+          let {A1 := ((range i j) = SOME r);
+               A2 := (zero <= length r)}
+           assume (A1 & A2)
+            let {goal := (exists r' r'' .
+                           (range i i + zero) = SOME r' &
+                           (range i + zero j) = SOME r'' &
+                           (collect-locs r) = 
+                           (collect-locs r') join (collect-locs r''));
+                 EL := (!prove empty-range);
+                 B1 := (!chain
+			[(range i i + zero) 
+			 = (range i i)                        [I+0]
+			 = (SOME stop i)                      [EL]]);
+                 B2 := (!chain
+			[(range i + zero j)
+			 = (range i j)                        [I+0]
+			 = (SOME r)                           [A1]]);
+                 B3 := (!sym 
+			(!chain
+			 [((collect-locs stop i) join (collect-locs r))
+			  = (nil join (collect-locs r))	      [of-stop]
+			  = (collect-locs r)     [List.join.left-empty]]))}
+              (!chain-> [(B1 & B2 & B3) ==> goal [existence]])
+      | (n as (S n')) =>
+        pick-any i:(It 'X 'S) j:(It 'X 'S) r:(Range 'X 'S)
+         let {A1 := ((range i j) = SOME r);
+              A2 := (n <= length r)}
+          assume (A1 & A2)
+            let {goal := (exists r' r'' .
+                           (range i i + n) = SOME r' &
+			   (range (i + n) j) = SOME r'' &
+			   (collect-locs r) = 
+			   (collect-locs r') join (collect-locs r''));
+                 ind-hyp := (split-range-prop n');
+                 B1 := (!chain-> 
+			[A2 
+                     ==> (exists n0 . length r = S n0)    [N.Less=.S4]])}
+             pick-witness n0 for B1 B1-w
+              let {NL := (!prove nonzero-length);
+		   C1 := (!chain->
+			  [true ==> (S n0 =/= zero)       [N.S-not-zero]
+				==> (length r =/= zero)   [B1-w]
+				==> (exists r0 . 
+				      r = (back r0))      [NL]])}
+               pick-witness r0 for C1 C1-w
+                let {LB := (!prove range-back);
+                     D1 := (!chain->
+                            [(range i j) 
+                             = (SOME r)                   [A1]
+                             = (SOME (back r0))           [C1-w]
+                             ==> ((range (successor i) j) = 
+				  SOME r0)                [LB]]);
+                     D2 := (!chain-> 
+                            [A2 ==> (n <= length back r0) [C1-w]
+                                ==> (n <= S length r0)    [length.of-back]
+                                ==> (n' <= length r0) 
+                                                    [N.Less=.injective]]);
+                     D3 := (!chain->
+                            [(D1 & D2)
+			     ==>
+			     (exists r0' r'' .
+                               (range (successor i) (successor i) + n') = 
+                                       SOME r0' &
+                               (range (successor i) + n' j) = SOME r'' &
+                               (collect-locs r0) = 
+                               (collect-locs r0') join (collect-locs r''))
+                                                          [ind-hyp]])}
+                pick-witnesses r0' r'' for D3 D3-w
+                  let {D3-w1 := ((range (successor i) (successor i) + n')
+                                 = SOME r0');
+                       D3-w2 := ((range (successor i) + n' j) = SOME r'');
+                       D3-w3 :=
+                            ((collect-locs r0) = 
+                             (collect-locs r0') join (collect-locs r''));
+                       E1 := (!chain->
+                              [D3-w1 
+                               ==> ((range (successor i) i + n) = 
+				    SOME r0')                    [I+pos]
+                               ==> ((range i i + n) = 
+				    SOME back r0')               [LB]]);
+                       E2 := (!chain->
+                              [D3-w2
+                               ==> ((range i + n j) = 
+				    SOME r'')                    [I+pos]]);
+                       E3 :=  let {F1 := (!chain->
+                                          [E1 ==> (i = start back r0') 
+                                                      [range.start-back]]);
+                                   F2 := (!chain->
+                                          [(range i j) 
+                                           = (SOME r)            [A1]
+                                           = (SOME (back r0))    [C1-w]
+                                           ==> (i = start back r0)
+					              [range.start-back]]);
+                                   F3 := (!chain
+                                          [(start back r0)
+                                           = i                   [F2]
+                                           = (start back r0')    [F1]])}
+                              (!chain
+                               [(collect-locs r)
+				= (collect-locs (back r0))       [C1-w]
+				= ((deref start back r0) :: 
+				   (collect-locs r0))            [of-back]
+				= ((deref start back r0) :: 
+				   ((collect-locs r0') join 
+				    (collect-locs r'')))         [D3-w3]
+                                = (((deref start back r0) :: 
+				    (collect-locs r0')) join 
+				    (collect-locs r''))
+                                               [List.join.left-nonempty]
+                                = (((deref start back r0') :: 
+				    (collect-locs r0')) join 
+				    (collect-locs r''))          [F3]
+                                = ((collect-locs back r0') join
+				   (collect-locs r''))      [of-back]])}
+                    (!chain-> [(E1 & E2 & E3) ==> goal      [existence]])
+      }
+    | (val-of *in-relation) =>
+      by-induction (adapt theorem) {
+        (stop h) =>                                     
+        pick-any i
+          let {B1 := (!chain-> 
+		      [true ==> (~ i *in stop h)        [*in.of-stop]
+			    ==> (i *in stop h <==> false) [prop-taut]]);
+               B2 := (!chain-> 
+		      [true ==> (~ deref i in nil)      [List.in.empty]
+			    ==> (deref i in nil <==> false)
+                                                        [prop-taut]])}
+            (!chain
+	     [(i *in stop h)
+	      <==> false                                [B1]
+	      <==> (deref i in nil)                     [B2]
+	      <==> (deref i in (collect-locs stop h))   [of-stop]])
+      | (r as (back r')) =>
+        let {ind-hyp := (forall i . 
+                          i *in r' <==> deref i in (collect-locs r'))}
+         pick-any i
+          (!chain
+	   [(i *in r) <==> (deref i = deref start r | 
+                                 i *in r')              [*in.of-back]
+                           <==> (deref i = deref start r | 
+                                 deref i in (collect-locs r')) 
+			                                [ind-hyp]
+                           <==> (deref i in (deref start r) ::
+		                 collect-locs r')       [List.in.nonempty]
+                           <==> (deref i in (collect-locs r))
+                                                        [of-back]])
+      }
+    | (val-of all-*in) =>
+      by-induction (adapt theorem) {
+        zero =>
+        pick-any i:(It 'X 'S) j:(It 'X 'S) r:(Range 'X 'S)
+         let {A1 := ((range i j) = SOME r);
+              A2 := (zero < length r);
+	      NL := (!prove nonzero-length)}
+          assume (A1 & A2)
+            let {B1 := (!chain->
+                        [A2 
+			 ==> (zero =/= length r)        [N.Less.not-equal]
+			 ==> (length r =/= zero)        [sym]
+			 ==> (exists r0 . r = back r0)  [NL]])}
+             pick-witness r0 for B1 B1-w
+              let {C1 := (!chain->
+                          [(range i j) 
+                           = (SOME r)               [A1]
+                           = (SOME back r0)         [B1-w]
+                           ==> (i = start back r0)  [range.start-back]]);
+                   C2 := (!chain->
+                          [(deref i) = (deref start back r0)      [C1]])}
+              (!chain->
+               [C2 ==> (C2  | i *in r0)             [alternate]
+                   ==> (i *in back r0)              [*in.of-back]
+                   ==> (i *in r)                    [B1-w]
+                   ==> ((i + zero) *in r)           [I+0]])
+      | (n as (S n')) =>
+       let {ind-hyp := (forall i j r .
+                         (range i j) = SOME r & n' < length r
+                         ==> (i + n') *in r)}
+        pick-any i:(It 'X 'S) j:(It 'X 'S) r:(Range 'X 'S)
+         let {A1 := ((range i j) = SOME r);
+              A2 := (S n' < length r)}
+          assume (A1 & A2)
+           conclude (i + n *in r)
+            let {NL := (!prove nonzero-length);
+		 B1 := (!chain-> 
+                        [true ==> (zero < n)           [N.Less.zero<S]
+                              ==> (zero < n & A2)      [augment]
+                              ==> (zero < length r)    [N.Less.transitive]
+                              ==> (zero =/= length r)  [N.Less.not-equal]
+                              ==> (length r =/= zero)  [sym]
+                              ==> (exists r0 . 
+			            r = back r0)       [NL]])}
+            pick-witness r0 for B1 B1-w
+              let {LB := (!prove range-back);
+                   C1 := (!chain->
+                          [A1 ==> ((range i j) = SOME back r0) [B1-w]
+                              ==> ((range (successor i) j) = 
+				   SOME r0)                    [LB]]);
+                   C2 := (!chain->
+                          [A2 ==> (n < length back r0)         [B1-w]
+                              ==> (n < S length r0)  [length.of-back]
+                              ==> (n' < length r0)   [N.Less.injective]]);
+                   RE := (!prove *in.range-expand)}
+                 (!chain->
+                  [(C1 & C2) 
+                   ==> (((successor i) + n') *in r0) [ind-hyp]
+                   ==> ((i + n) *in r0)              [I+pos]
+                   ==> ((i + n) *in back r0)         [RE]
+                   ==> ((i + n) *in r)               [B1-w]])
+      }
+     | (val-of *in-whole-range) =>
+       pick-any n i:(It 'X 'S) j:(It 'X 'S) k:(It 'X 'S) 
+                r:(Range 'X 'S) r':(Range 'X 'S) 
+         let {A1 := ((range i j) = SOME r);
+              A2 := (n < length r);
+              A3 := ((range i i + n) = SOME r');
+              A4 := (k *in r' | k = i + n)}
+         assume (A1 & A2 & A3 & A4) 
+           let {B1 := (!chain-> [A2 ==> (n <= length r)
+                                               [N.Less=.Implied-by-<]]);
+                SR := (!prove split-range);
+                B2 := (!chain->
+                       [(A1 & B1)
+                        ==> (exists r' r'' .
+                              (range i i + n) = SOME r' &
+                              (range i + n j) = SOME r'' &
+                              (collect-locs r) = 
+                              (collect-locs r') join (collect-locs r''))
+                                                      [SR]])}
+           pick-witnesses r1 r2 for B2 B2-w
+             let {B2-w1 := ((range i i + n) = SOME r1);
+                  B2-w2 := ((range i + n j) = SOME r2);
+                  B2-w3 := ((collect-locs r) =
+                            (collect-locs r1) join (collect-locs r2));
+                  C1 := (!chain->
+                         [(SOME r') 
+                          = (range i i + n)           [A3]
+                          = (SOME r1)                 [B2-w1]
+                          ==> (r' = r1)               [DAO]]);
+                      ICL := (!prove *in-relation)}
+             (!cases A4
+               (!chain
+                [(k *in r')
+                 <==> (k *in r1)   [C1]
+                 <==> (deref k in (collect-locs r1))  [ICL]
+                 ==> (deref k in (collect-locs r1) | 
+                      deref k in (collect-locs r2))   [alternate]
+                 ==> (deref k in ((collect-locs r1) join
+				  (collect-locs r2))) [List.in.of-join]
+                 <==> (deref k in (collect-locs r))   [B2-w3]
+                 <==> (k *in r)                       [ICL]])
+               assume (k = i + n)
+                 let {AI := (!prove all-*in)}
+                   (!chain->
+		    [(A1 & A2) ==> (i + n *in r)      [AI]
+		               ==> (k *in r)          [(k = i + n)]]))
+     | (val-of *in-whole-range-2) =>
+       pick-any n i:(It 'X 'S) j:(It 'X 'S) k:(It 'X 'S) 
+                r:(Range 'X 'S) r':(Range 'X 'S) 
+         let {A1 := ((range i j) = SOME r);
+              A2 := (n <= length r);
+              A3 := ((range i + n j) = SOME r');
+              A4 := (k *in r' | k = j)}
+         assume (A1 & A2 & A3 & A4) 
+           let {SR := (!prove split-range);
+                B2 := (!chain->
+                       [(A1 & A2)
+                        ==> (exists r' r'' .
+                             (range i i + n) = SOME r' &
+                             (range i + n j) = SOME r'' &
+                             (collect-locs r) = 
+                             (collect-locs r') join (collect-locs r''))
+                                                      [SR]])}
+           pick-witnesses r1 r2 for B2 B2-w
+             let {B2-w1 := ((range i i + n) = SOME r1);
+                  B2-w2 := ((range i + n j) = SOME r2);
+                  B2-w3 := ((collect-locs r) =
+                            (collect-locs r1) join (collect-locs r2));
+                  C1 := (!chain->
+                         [(SOME r') 
+                          = (range i + n j)           [A3]
+                          = (SOME r2)                 [B2-w2]
+                          ==> (r' = r2)               [DAO]]);
+                  ICL := (!prove *in-relation)}
+              (!cases A4
+               (!chain
+                [(k *in r')
+                 <==> (k *in r2)   [C1]
+                 <==> (deref k in (collect-locs r2))  [ICL]
+                 ==> (deref k in (collect-locs r1) | 
+                      deref k in (collect-locs r2))   [alternate]
+                 ==> (deref k in ((collect-locs r1) join
+                                  (collect-locs r2))) [List.in.of-join]
+                 <==> (deref k in (collect-locs r))   [B2-w3]
+                 <==> (k *in r)                       [ICL]
+                 ==> (k *in r | k = j)                [alternate]])
+               (!chain
+                [(k = j) ==> (k *in r | k = j)        [alternate]]))
+     }
+
+  (add-theorems theory |{[split-range *in-relation all-*in *in-whole-range
+                          *in-whole-range-2] := proofs}|)
+
+ } # collect-locs
+} # Random-Access-Iterator
+

@@ -1,0 +1,48 @@
+(define empty-map [])
+
+(define (add-binding x y map)
+  (add [x y] map))
+
+
+(define (extend map pairs)
+  (match pairs
+    ([] map)
+    ((list-of [x y] more) (extend (add-binding x y map) more))))
+
+(define (remove-binding x map)
+  (match map
+    ([] [])
+    ((list-of [key value] more) (check ((equal? key x) more)
+                                        (else (add-binding key value (remove-binding x more)))))))
+
+(define (apply-map map x)
+  (match map
+    ([] ())
+    ((list-of [a b] more) (check ((equal? a x) b)
+                                 (else (apply-map more x))))))
+
+(define (dom m)
+  (letrec ((loop (lambda (m res) 
+                   (match m
+                     ([] res)
+                     ((list-of [a b] more) (check ((member? a res) (loop more res))
+                                                  (else (loop more (add a res)))))))))
+    (loop m [])))
+
+
+(define (map-range m)
+  (map (lambda (x) (apply-map m x))
+       (dom m)))
+
+(define (dom-range-list m)
+  (map (lambda (x) [x (apply-map m x)])
+       (dom m)))
+
+
+(define (in-dom? a m)
+  (match m
+    ([] false)
+    ((list-of [x _] rest) (|| (equal? a x)
+                              (in-dom? a rest)))))
+
+

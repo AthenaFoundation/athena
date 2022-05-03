@@ -1,0 +1,5004 @@
+define (map f L) := 
+  letrec {loop := lambda (L results)
+                    match L {
+                      [] => (rev results)
+                    | (list-of x rest) => (loop rest (add (f x) results))
+                    }}
+    (loop L [])
+    
+(define o (lambda (f g) (lambda (x) (f (g x)))))
+
+(define first head)
+
+(define second (o first tail))
+
+(define third (o second tail))
+
+(define fourth (o third tail))
+(define fifth  (o fourth tail))
+(define sixth  (o fifth tail))
+(define seventh  (o sixth tail))
+(define eigth  (o seventh tail))
+
+(define last (o head rev))
+
+(define list-last (o head rev))
+
+module HashTable {
+define table := table
+define lookup := table-lookup
+define remove := table-remove
+define clear := table-clear
+define size := table-size
+define table->string := table->string 
+define table->list := table->list 
+define (in x T) := try { let {_ := (table-lookup T x)} true | false }
+define (keys T) := (map first (table->list T))
+define (map-to-keys T f) := 
+   letrec {loop := lambda (pairs res)
+                     match pairs {
+		       [] => res
+                     | (list-of [k _] more) => (loop more (add (f k) more))
+                     }}
+      (loop (table->list T) [])
+define add := table-add
+}
+
+module Map {
+
+define make := make-map
+define add := map-add
+define remove := map-remove
+define size := map-size
+define (empty? m) := ((size m) equal? 0)
+define keys := map-keys
+define values := map-values
+define key-values := map-key-values
+define map-to-values := map-to-values
+define map-to-key-values := map-to-key-values
+define apply-to-key-values := map-to-values
+define apply-or-same := lambda (m x) try { (m x) | x } 
+define apply-to-both := lambda (m f) 
+                          (make-map (map lambda (pair)
+                                           match pair {
+			  	 	     [k v] => [(f k) (f v)]
+                                           }
+                                         (map-key-values m)))
+define foldl := map-foldl
+}
+
+define [table? map?] := 
+  [lambda (x) match x { (some-table _) => true | _ => false }
+   lambda (x) match x { (some-map _) => true | _ => false }]
+
+define prim-sort := sort
+
+define prop? := sentence? 
+
+(define (complement p)
+  (match p
+    ((not q) q)
+    (_ (not p))))
+
+(set-precedence complement 300)
+
+(define (complements? p q)
+  (|| (equal? p (complement q))
+      (equal? q (complement p))))
+
+define equals? := equal?
+
+(define added-to add)
+(set-precedence added-to 115)
+
+(define (resolve-redex s)
+  (let ((res (check ((prop? s) 
+                       (check ((holds? s) true)
+                              ((holds? (complement s)) false)
+                              (else ())))
+                    (else ()))))
+    (match res
+      (() (match (fetch (lambda (p)
+                           (match p 
+                             ((= (val-of s) _) true) 
+                             (_ false))))
+            ((= _ result) result)))
+      (_ res))))
+
+define debug :=
+  lambda (s v) 
+    let {_ := (print (join s " = "))}
+    (write v)
+
+(define id (lambda (x) x))
+
+(declare (--> <-- <-->) Boolean)
+
+(define (try-looking-up x ht)
+  (try [(table-lookup ht x)]
+       ()))
+
+
+
+(define (dmemoize-unary M)
+  (let ((ht (table 101)))
+    (method (x)
+       (dmatch (try-looking-up x ht)
+         ([y] (!claim y))
+         (_ (dlet ((y (!M x))
+                   (_ (table-add ht [x --> y])))
+              (!claim y)))))))
+
+
+(define absurd0 absurd)
+
+(define (absurd p q)
+  (dmatch [p q]
+    ([(some-sentence prem) (not prem)] (!absurd0 p q))
+    ([(not (some-sentence prem)) prem] (!absurd0 q p))
+    (_ (!absurd0 q p))))
+
+(define (ab) (get-ab))
+
+(define (ab') (fetch-all (lambda (_) true)))
+
+(define (flip b) match b {true => false | false => true})
+
+(define (switch sc negated) 
+  match [negated sc] {
+    [true and] => or
+  | [true or] => and
+  | [true forall] => exists
+  | [true exists] => forall
+  | _ => sc
+  })
+
+(define (map f L)
+  (letrec ((loop (lambda (L results)
+                   (match L
+                     ([] (rev results))
+                     ((list-of x rest) (loop rest (add (f x) results)))))))
+    (loop L [])))
+
+(define (nnf-linear p negated?)
+  match p {
+    (some-atom _) => check {negated? => (not p) | else => p}
+  | (not q) => (nnf-linear q (flip negated?))
+  | (p1 ==> p2) => (nnf-linear (or (not p1) p2) negated?)
+  | (p1 <==> p2) => (nnf-linear (or (and p1 p2) 
+                                    (and (not p1) (not p2))) negated?)
+  | ((some-sent-con sc) (some-list args)) => ((switch sc negated?) (map (lambda (p) (nnf-linear p negated?)) args))
+  | ((some-quant q) (some-var v) body) => 
+         ((switch q negated?) v (nnf-linear body negated?))
+  })
+
+##(define (nnf p) (nnf-linear p false))
+
+(define sprove-from0 sprove-from)
+
+(define vprove-from0 vprove-from)
+
+(define spf 
+  (method (goal premises) 
+    (!sprove-from goal premises [['poly true] ['subsorting false] ['max-time 10000]])))
+
+(define vpf 
+  (method (goal premises) 
+    (!vprove-from goal premises [['poly true] ['subsorting false] ['max-time 1000]])))
+
+(define (prove goal) (!spf goal (ab)))
+(make-private "prove")
+
+(define prove ())
+(define tspf 
+  (method (goal premises t) 
+    (!sprove-from goal premises [['poly true] ['subsorting false] ['max-time t]])))
+
+(define vpf 
+  (method (goal premises) 
+    (!vprove-from goal premises [['poly true] ['subsorting false] ['max-time 60]])))
+
+(define mvpf 
+  (method (goal premises) 
+    (!vprove-from goal premises [['poly false] ['subsorting false] ['max-time 60]])))
+
+(define mspf 
+  (method (goal premises) 
+    (!sprove-from goal premises [['poly false] ['subsorting false] ['max-time 60]])))
+
+(define vderive vpf)
+(define sderive spf)
+
+(define (qvar-of P)
+  (match P
+    (((some-quant Q) x _) x)))
+
+(make-private "qvar-of")
+
+(define (property-from-induction-goal g)
+  (match g
+    ((forall (some-var v) body)  
+       (lambda (x) (replace-var v x (rename body))))))
+
+(make-private "property-from-induction-goal")
+
+## Old definition of get-symbol: 
+(define (get-symbol f)
+  (match f 
+    ((some-symbol _) f)
+    ((some-proc _) (string->symbol (proc-name f)))
+    (_ f)))
+
+## Experimental new definition of get-symbol, Sept. 12, 2015:
+
+(load-file "list.ath")
+
+define (list->table L) :=
+  let {T := (HashTable.table);
+       _ := (map-proc lambda (x) (HashTable.add T [x --> true])
+                      L)}
+    T
+
+define (pairs->table L) :=
+  let {T := (HashTable.table);
+       _ := (map-proc lambda (pair) 
+                        match pair {
+                          [x y] => (HashTable.add T [x --> y])
+                        }
+                      L)}
+    T
+
+
+(define (constant? t) 
+  (&& (symbol? t) (equal? (arity-of t) 0)))
+
+(define (get-symbol f)
+  (match f 
+    (((some-term t) where (constant? f)) (root f))
+    ((some-symbol _) f)
+    ((some-proc _) (let ((ar (arity-of f)))
+                      (match (app-proc f (map (lambda (_) (fresh-var)) (from-to 1 (arity-of f))))
+                        ((some-term t) (root t))
+                        (_ (string->symbol (proc-name f))))))
+    (_ f)))
+
+(declare <> ((S) -> (S S) Boolean))
+
+(set-precedence <> 100)
+
+#(define (===> p q) (if p q))
+#(define (<===> p q) (iff p q))
+#(define (<=== p q) (if q p))
+
+(define ==> if)
+(define <==> iff)
+(define & and)
+#(define (& p1 p2) (and p1 p2))
+
+(define | or)
+#(define (| p1 p2) (or p1 p2))
+(define (<== p q) (if q p))
+
+#(define (==> p q) (if p q))
+#
+#(define (<===> p q) (iff p q))
+
+
+
+(define (~ p) (not p))
+(set-precedence ~ 50)
+(set-precedence <== 10)
+#(set-precedence (===> <=== ==> <==) 10)
+#(set-precedence (<===> <==>) 10)
+(set-precedence & 30)
+(set-precedence | 20)
+
+(define match-sentences match-props)
+
+(define (negation? p)
+  (match p
+    ((not _) true)
+    (_ false)))
+
+(define (conjunction? p)
+  (match p
+    ((and (some-list _)) true)
+    (_ false)))
+
+(define (disjunction? p)
+  (match p
+    ((or (some-list _)) true)
+    (_ false)))
+
+(define (conditional? p)
+  (match p
+    ((if _ _) true)
+    (_ false)))
+
+(define (biconditional? p)
+  (match p
+    ((iff _ _) true)
+    (_ false)))
+
+(define (quant? p)
+  (match p
+   (((|| forall exists) _ _) true)
+   (_ false)))
+
+(define (mark str)
+  (let (([str N] (check ((char? str) [[str] 40])
+                        (else [str 20]))))
+    (letrec ((loop (lambda (i res)
+  	  	     (check ((equal? i 0) res)
+   			    (else (loop (minus i 1) (join str res)))))))
+      (print (join "\n" (loop N str) "\n")))))
+
+(define (negate t)
+  (match t 
+    (true false)
+    (false true)))
+
+(define (matches? x y)
+  (let ((test-with (lambda (f)
+                     (match (f x y)
+                       ((some-sub _) true)
+                       (_            false)))))
+    (match [x y] 
+      ([(some-term _) (some-term _)] (test-with match-terms))
+      (_ (test-with match-sentences)))))
+
+(define (greater-or-equal? x y)
+  (|| (less? y x) (equal? x y)))
+
+(define (less-or-equal? x y)
+  (|| (less? x y) (equal? x y)))
+
+(define (leq? x y)
+  (|| (less? x y) (equal? x y)))
+
+(define (decompose1 P M)
+  (dmatch P 
+     ((and (list-of _ rest))
+  	(dlet ((L (!left-and P)))
+	   (!decompose1 L (method (left-conjuncts) 
+                           (dmatch rest
+                             ([] (!M (add L left-conjuncts)))
+                             (_  (dlet ((R (!right-and P)))
+ 		                   (!decompose1 R 
+			              (method (right-conjuncts) 
+                                        (!M (join [L R] left-conjuncts right-conjuncts)))))))))))
+     (_ (!M [P]))))
+
+
+(define (decompose P M)
+  (!decompose1 P (method (props) (!M (remove-duplicates props)))))
+
+(define (decompose* conjunctions M)
+   (dletrec ((loop (method (props results)
+                     (dmatch props
+                        ([] (!M results))
+                        ((list-of C more) (!decompose C (method (results')
+                                                          (!loop more (join results' results)))))))))
+      (!loop conjunctions [])))
+
+(define (conj-intro goal)
+  (dmatch goal 
+    ((and (some-list args)) (!map-method conj-intro args (method (_) (!and-intro args))))
+    ((some-list args) (!map-method conj-intro args (method (_) (!and-intro args))))
+    ((some-sent p) (!claim p))))
+
+(define (conj-elim p C)
+  (dmatch C 
+    ((and (some-list args)) (!decompose C (method (_) (!claim p))))
+    (_ (!claim p))))
+
+(define (dhalt)
+  (dlet ((_ (halt)))
+    (!true-intro)))
+
+(define (claim-test p)
+  (dtry (dlet ((mprint (lambda (x) ()))
+               (_ (!claim p))
+               (_ (print (join "\nSuccess: " (val->string p) " holds...\n"))))
+          (!claim p))
+        (dlet ((mprint (lambda (x) ()))
+               (_ (mprint (join "\nFailure: " (val->string p) " does not hold...\n"))))
+         (!dhalt))))
+
+(define (numeric? c)
+  (member? c "0123456789"))
+
+(define composed-with 
+   (lambda (f1 f2)
+     (check ((method? f1) (method (p) (!f2 (!f1 p))))
+            (else (lambda (x) (f2 (f1 x)))))))
+
+                 
+(define compose composed-with)
+
+(define (lhs atom)
+  (match atom 
+    (((some-symbol _) s _)  s)
+    ((not ((some-symbol _) s _))  s)
+    ((if _ ((some-symbol _) s _)) s)))
+
+(define (rhs atom)
+  (match atom
+    (((some-symbol _) _ t)  t)
+    ((not ((some-symbol _) _ t))  t)))
+
+(define (left-rule-side rule)
+  (match rule 
+    ((forall (some-list _) (= left _)) left)
+    ((forall (some-list _) (if _ (= left _))) left)))
+
+(define (right-rule-side rule)
+  (match rule 
+    ((forall (some-list _) (= _ right)) right)))
+
+(define (binary-proc? p)
+  (&& (proc? p) (equal? (arity-of p) 2)))
+
+
+(define (has-unique-ex P)
+  (match P
+    ((some-atom A) false)
+    ((not Q) (has-unique-ex Q))
+    (((some-sent-con pc) (some-list props)) (for-some props has-unique-ex))
+    ((exists-unique _ _) true)
+    (((some-quant q) x P') (has-unique-ex P'))))
+
+(define (hold? props)
+  (match props
+    ([] true)
+    ((list-of P more) (&& (holds? P) (hold? more)))))
+
+(define prove-from vprove-from)
+
+(define pf prove-from)
+
+(define (integer? n)
+  (match n
+    (x:Int true)
+    (_ false)))
+
+(define (real? n)
+  (match n
+    (x:Real true)
+    (_ false)))
+
+(define (integer-numeral? n)
+  (&& (numeral? n) (integer? n)))
+
+(define (integer-numeral? n)
+  (&& (numeral? n) (integer? n)))
+
+(define (real-numeral? n)
+  (&& (numeral? n) (real? n)))
+
+(define (var? v) 
+  (match v
+    ((some-var x) true)
+    (_ false)))
+
+
+(define (uspec* P terms)
+  (dmatch terms
+    ([] (!claim P))
+    ((list-of t more-terms) (!uspec* (!uspec P t) more-terms))))
+
+
+
+(define (vars* terms)
+  (match terms
+    ([] [])
+    ((list-of t rest) (rd (join (vars t) (vars* rest))))))
+
+(define (uncurry P)
+  (dmatch P
+    ((if P1 (if P2 P3)) (assume (and P1 P2)
+			  (!mp (!mp P (!left-and (and P1 P2))) 
+			       (!right-and (and P1 P2)))))))
+
+
+(define (wl l) 
+  (check ((null? l) (print "None")) (else (map-proc write l))))
+
+(define (make-and props)
+  (dmatch props
+    ([P] (!claim P))
+    ((list-of P rest) (!both P (!make-and rest)))))
+
+(define (urep P terms)
+  (match [P terms]
+    ([(forall x Q) (list-of t more)] (urep (replace-var x t Q) more))
+    (_ P)))
+
+(define (body-of P)
+  (match P
+    (((some-quant Q) _ body) body)))
+
+
+(define (quant-body P)
+  (match P
+    (((some-quant _) (some-list _) body) body)))
+
+(define (quant-vars P)
+  (match P
+    (((some-quant _) (some-list vars) _) vars)))
+
+(define (uquant-body P)
+  (match P
+    ((forall (some-list _) (some-sent body)) body)))
+
+
+
+
+(define (get-vars-manual t)
+  (match t 
+    ((some-var v) (let ((_ ())) # (_ (print "\nVar: " v)))
+                    [v]))
+    (((some-symbol f) (some-list args)) (let ((_ ())) # (_ (print "\nRoot Symbol: " f " and args: " args)))
+                                          (rd (flatten (join (map get-vars-manual args))))))))
+
+(define (qvars-of P)
+  (match P
+    (((some-quant Q) (list-of (some-var x) rest) _) (add x rest))))
+
+(define (get-all-vars arg)
+  (match arg
+    ((some-term t) (vars t))
+    ((some-sent P) (vars P))
+    ((some-list args) (foldr join [] (map get-all-vars args)))))
+
+(define (get-vars arg) (remove-duplicates (get-all-vars arg)))
+
+(define (conjoin props)
+  (match props
+    ([(some-sent P)] P)
+    ((list-of (some-sent P) rest) (and P (conjoin rest)))))
+
+(define (disjoin props)
+  (match props
+    ([P] P)
+    ((list-of P rest) (or P (disjoin rest)))))
+
+(define (disj-intro goal)
+  (dtry (!claim goal)
+        (dmatch goal 
+          ((or (some-list args)) (!map-method-non-strictly disj-intro args (method (_) (!either args)))))))
+
+
+(define (equality s t)
+ (dlet ((res (check ((equal? s t) (= s t)))))
+   (!force res)))
+
+(define (equal-args? L1 L2)
+  (match [L1 L2]
+    ([[] []] true)
+    ([(list-of t rest) (list-of t' rest')] (check ((|| (holds? (= t t')) (holds? (= t' t)) (equal? t t'))
+                                                   (equal-args? rest rest'))
+						  (else false)))
+    (_ false)))
+
+(define (println s)
+  (print (join "\n" s "\n")))
+
+(define (writeln-val v)
+  (seq (print "\n")
+       (write-val v)
+       (print "\n")))
+
+(define (writeln-val1 msg v)
+  (seq (println msg)
+       (write-val v)
+       (print "\n")))
+
+(define (show str v)
+  (seq (println str) (write v)))
+
+(define fv free-vars)
+
+(define (show-read str v) (seq (print (join "\n" str "\n")) (write v) (read)))
+
+# This is now a primitive Athena procedure:
+
+#(define (subterms t)
+#  (add t (fold join (map subterms (children t)) [])))
+
+(define (proper-subterms t)
+  (tail (subterms t)))
+
+(define (constants&vars t)
+  (match t 
+    ((some-var v) [v])
+    (((some-symbol f) (some-list args)) (check ((null? args) [f])
+					       (else (fold join (map constants&vars args) []))))
+    (((some-sent-con sc) (some-list args)) 
+       (fold join (map constants&vars args) []))
+    (((some-quant _) (some-var _) body) (constants&vars body))))
+
+
+(define (from-terms P f)
+  (match P
+    ((some-atom A) (f A))
+    ((not body) (from-terms body f))
+    (((some-sent-con pc) P1 P2) (join (from-terms P1 f) (from-terms P2 f)))
+    (((some-quant q) _ body) (from-terms body f))))
+
+(define (from-terms* props f)
+  (fold join (map (lambda (P) (from-terms P f)) props) []))
+
+(define (prop-constants-and-vars props)
+  (from-terms* props constants&vars))
+
+(define (prop-subterms P)
+  (from-terms P subterms))
+
+(define (prop-subterms* props)
+  (remove-duplicates (from-terms* props subterms)))
+
+(define (non-var-term t)
+  (match t
+    (((some-symbol f) (some-list args)) true)
+    (_ false)))
+    
+(define (prop-constants-and-free-vars props)
+  (let ((fvars (fold join (map free-vars props) [])))
+   (remove-duplicates (filter (from-terms* props constants&vars) 
+			      (lambda (t) (|| (member? t fvars) (non-var-term t)))))))
+				
+
+(define (times* L)
+  (fold times L 1))
+
+(define (plus* L)
+  (fold plus L 0))
+
+(define (term-size t)
+  (match t
+    (((some-symbol f) (some-list args)) (plus* (add 1 (map term-size args))))
+    (_ 1)))
+
+(define (term-less? s t)
+  (less? (term-size s) (term-size t)))
+
+(define (no-free-vars? P)
+  (null? (free-vars P)))
+
+(define (interesting-prop-subterms P)
+  (check ((no-free-vars? P) (prop-constants-and-free-vars [P]))
+	 (else (prop-subterms P))))
+
+(define (interesting-prop-subterms* props)
+  (remove-duplicates (fold join (map interesting-prop-subterms props) [])))
+
+
+
+(define (do-props props M K)
+  (dletrec ((loop (method (props res)
+                    (dmatch props
+	  	      ([] (!K (rev res)))
+		      ((list-of (some-sent P) rest) (dlet ((th (!M P)))
+			  			      (!loop rest (add th res))))))))
+     (!loop props [])))
+
+(define (make-conjunction props)
+  (dmatch props
+    ([P] (!claim P))
+    ((list-of P more-props) (!both P (!make-conjunction more-props)))))
+
+
+(define (and* props)
+  (match props  
+    ([] true)
+    ([(some-sent p)] p)
+    ((list-of p rest) (and p (and* rest)))))
+
+(define (or* props)
+  (match props  
+    ([] false)
+    ([(some-sent p)] p)
+    ((list-of p rest) (or p (or* rest)))))
+
+(define (unify-props P1 P2)
+    (letrec ((f (lambda (P1 P2)
+		   (match [P1 P2]
+    		     ([(some-atom A1) (some-atom A2)] (unify A1 A2))
+		     ([(not Q1) (not Q2)] (f Q1 Q2))
+		     ([((some-sent-con pc) Q1 Q2) (pc Q3 Q4)] 
+			  (match (f Q1 Q3)
+                            ((some-sub sub1) (match (f (sub1 Q2) (sub1 Q4))
+                                               ((some-sub sub2) (compose-subs sub2 sub1))
+                                               (_ false)))
+                            (_ false)))
+		     ([((some-quant Q) x B1) (Q y B2)] 
+			  (let ((v (fresh-var)))
+			    (f (replace-var x v B1) (replace-var y v B2))))
+                     (_ false)))))
+       (f (rename P1) P2)))
+
+(define (unify-props-with-var-constants P1 P2 var-constants)
+    (letrec ((f (lambda (P1 P2)
+		   (match [P1 P2]
+    		     ([(some-atom A1) (some-atom A2)] (unify A1 A2 var-constants))
+		     ([(not Q1) (not Q2)] (f Q1 Q2))
+		     ([((some-sent-con pc) Q1 Q2) (pc Q3 Q4)] 
+			  (match (f Q1 Q3)
+                            ((some-sub sub1) (match (f (sub1 Q2) (sub1 Q4))
+                                               ((some-sub sub2) (compose-subs sub2 sub1))
+                                               (_ false)))
+                            (_ false)))
+		     ([((some-quant Q) x B1) (Q y B2)] 
+			  (let ((v (fresh-var)))
+			    (f (replace-var x v B1) (replace-var y v B2))))
+                     (_ false)))))
+       (f (rename P1) P2)))
+
+(define up unify-props)
+
+
+(define (unify* v1 v2)
+  (match [v1 v2]
+    ([(some-term t1) (some-term t2)] (unify t1 t2))
+    ([(some-sent P1) (some-sent P2)] (unify-props P1 P2))))
+
+(define unified-with unify)
+(define rvp replace-var)
+(define rvt replace-var)
+
+(define (replace-vars vars terms p)
+  (match [vars terms]
+    ([[] _] p)
+    ([(list-of v more-vars) (list-of t more-terms)] 
+      (replace-vars more-vars more-terms (replace-var v t p)))))
+
+(define (get-conjuncts-recursive p)
+  (match p
+    ((and (some-list props)) (fold join (map get-conjuncts-recursive props) []))
+    ((some-sent _) [p])))
+
+(define get-conjuncts get-conjuncts-recursive)
+
+(define (get-all-conjuncts p)
+  (match p
+    ((and (some-list props)) (add p (fold join (map get-all-conjuncts props) [])))
+    ((some-sent _) [p])))
+
+(define (get-disjuncts-recursive p)
+  (match p
+    ((or (some-list props)) (fold join (map get-disjuncts-recursive props) []))
+    ((some-sent _) [p])))
+
+(define get-disjuncts get-disjuncts-recursive)
+
+(define (get-disjuncts* props)
+  (letrec ((loop (lambda (props res)
+                    (match props
+                       ([] (rd res))
+                       ((list-of (some-sent p) more) (loop more (join (get-disjuncts p) res)))))))  
+     (loop props [])))
+
+
+(define (consistent-ab? time-limit)
+  (let ((c (cell [])))
+    (match (dtry (!vprove-from false (ab) [c ['poly true] ['subsorting false] ['max-time time-limit]]) (!true-intro))
+      (false [false (ref c)])
+      (_ true))))
+    
+
+(define (byCases P1 P2 hyps)
+  (dmatch [P1 P2]
+     ([(if P Q) (if P' Q)] 
+        (dlet ((one-of-two (!spf (or P P') hyps)))
+          (!cases one-of-two P1 P2)))))
+
+###############--------------------------------------------------------------
+
+(define (by-contradiction conclusion p)
+  (dmatch [conclusion p]
+    ([q (if (not q) false)] (dseq (suppose-absurd (not q)
+                                    (!mp p (not q)))
+                                  (!dn (not (not q)))))
+    ([(not q) (if q false)] (suppose-absurd q 
+                              (!mp p q)))))
+
+(define by-contradiction' by-contradiction)
+
+(define (contradiction p)
+  (dmatch p
+    ((if (not q) false) (dseq (suppose-absurd (not q)
+                                    (!mp p (not q)))
+                                  (!dn (not (not q)))))
+    ((if q false) (suppose-absurd q (!mp p q)))))
+
+
+(define (from-false goal)
+  (!by-contradiction goal
+    (assume (not goal)
+      (!claim false))))
+
+(define (from-complements p q1 q2)
+  (dlet ((M (method (goal q not-q)
+              (dseq (!absurd q not-q)
+                    (!from-false goal)))))
+    (dmatch [q1 q2]
+      ([q (not q)] (!M p q1 q2))
+      ([(not q) q] (!M p q2 q1)))))
+
+
+(define (false-elim)
+  (!by-contradiction (~ false)
+   assume false
+     (!claim false)))
+
+(define (contradiction-from H)
+  (method (_ q)
+    (!by-contradiction q
+       (assume (complement q)
+         (!from-complements false H (complement H))))))
+
+(define inconsistent-with contradiction-from)
+
+(define (idn premise) 
+  (!by-contradiction (not (not premise))
+      assume -premise := (not premise)
+         (!absurd premise -premise)))
+
+(define (bdn premise)
+  (dmatch premise
+    ((not (not _)) (!dn premise))
+    (_ (!idn premise))))
+
+(define (and-comm premise)
+  (dmatch premise
+    ((and p q) (!both (!right-and premise)
+                      (!left-and premise)))))
+
+(define (or-comm premise)
+  (dmatch premise
+    ((or p q) (!cases (or p q)
+                      (assume p 
+                        (!right-either q p))
+                      (assume q 
+                        (!left-either q p))))))
+
+(define (iff-comm premise)
+   (dmatch premise
+     ((iff p q) (!equiv (!right-iff premise) (!left-iff premise)))))
+
+
+(define (unequal-sym premise)
+  (dmatch premise
+    ((not (= (some-term s) (some-term t)))
+      (!by-contradiction (not (= t s))
+        (assume hyp := (t = s)
+           (!absurd (!sym hyp) premise))))))
+
+(define ineq-sym unequal-sym)
+
+(define (comm premise)
+  (dmatch premise
+    ((and _ _) (!and-comm premise))
+    ((= _ _) (!sym premise))
+    ((not (= _ _)) (!unequal-sym premise))
+    ((or _ _)  (!or-comm premise))
+    ((iff _ _) (!iff-comm premise))))
+
+(define (contra-pos premise)
+  (dmatch premise
+    ((if p q) (assume (complement q)
+                (!by-contradiction (complement p)
+                   (assume p
+                     (dseq (conclude q
+                             (!mp premise p))
+                           (!from-complements false q (complement q)))))))))
+
+(define (dsyl-1 premise-1 premise-2)
+  (dmatch [premise-1 premise-2]
+    ([(or p q) p'] 
+        (dcheck ((complements? p p')
+                   (!cases premise-1
+                          (assume p 
+                            (!from-complements q p p'))
+                          (assume q
+                            (!claim q))))))))
+
+(define (dsyl premise-1 premise-2)
+  (dmatch [premise-1 premise-2]
+    ([(or p q) r] (dcheck ((complements? p r) (!dsyl-1 premise-1 premise-2))
+                          (else (!dsyl-1 (!comm premise-1) premise-2))))))
+
+             
+(define (neg-cond premise)
+  (dmatch premise
+    ((not (if (some-sent p) (some-sent q)) )
+      (!both (!by-contradiction p
+                 (assume (not p)
+                   (!absurd (assume p 
+                              (!from-complements q p (not p)))
+                            premise)))
+            (!by-contradiction (not q)
+               (assume q
+                 (!absurd (assume p (!claim q))
+                          premise)))))))
+
+(define (neg-cond-ant premise)
+  (dmatch premise
+    ((not (if p q)) (!by-contradiction p 
+                       (assume (not p)
+                         (dseq (assume p
+                                 (!from-complements q p (not p)))
+                               (!absurd (if p q) premise)))))))
+
+(define (neg-cond-con premise)
+  (dmatch premise
+    ((not (if p q)) (!by-contradiction (not q)
+                       (assume q 
+                         (dseq (assume p (!claim q))
+                               (!absurd (if p q) premise)))))))
+
+
+(define (neg-cond-conv premise)
+  (dmatch premise
+    ((and p (not q)) (!by-contradiction (not (if p q))
+                        (assume-let (hyp (if p q))
+
+                          (dseq (conclude q
+                                  (!mp hyp (!left-and premise)))
+                                (!absurd q (!right-and premise))))))))
+                       
+(define (neg-cond premise)
+  (dmatch premise
+    ((not (if _ _)) (!both (!neg-cond-ant premise)
+                           (!neg-cond-con premise)))
+    (_ (!neg-cond-conv premise))))
+
+(define neg-cond1 neg-cond-ant)
+(define neg-cond2 neg-cond-con)
+
+
+(define (ex-middle-1 p)
+  (dlet ((goal (or p (not p))))
+    (!by-contradiction goal
+       (assume (not goal)
+         (dseq (!by-contradiction p
+                  (assume (not p)
+                    (!absurd (!either p (not p))
+                             (not goal))))
+               (!by-contradiction (not p)
+                  (assume p 
+                    (!absurd (!either p (not p))
+                             (not goal))))
+               (!absurd p (not p)))))))
+
+(define (ex-middle p)
+  (dmatch p 
+    ((or (some-sent q) (not q)) (!ex-middle-1 q))
+    (_ (!ex-middle-1 p))))
+
+(define excluded-middle ex-middle)
+
+
+(define (two-cases cond-1 cond-2)
+  let {M := method (p q)
+              (!cases conclude (p | ~ p)
+                        (!ex-middle p)
+               (p ==> q)
+               (~ p ==> q))}
+  match [cond-1 cond-2] {
+    [(if p q) (if (not p) q)] => (!M p q)
+  | [(if (not p) q) (if p q)] => (!M p q)
+  })
+
+(define (normalize-disjunction disj norm-disj normalized-disjuncts)
+   (!map-method (method (d)
+                   (assume d (!either norm-disj)))
+                normalized-disjuncts
+               (method (L)
+                 (!cases disj L))))
+
+###############--------------------------------------------------------------
+#
+#		NEW DEFINITION OF DE MORGAN AND COND-DEF
+#
+###############--------------------------------------------------------------
+
+(define (make-dm-3 complement)
+  (method (premise)
+    (dlet ((c complement))
+      (dmatch premise
+        ((not (disjunction as (or (some-list args))))
+           (!map-method (method (p)
+                          (!by-contradiction (c p)
+                             (assume p
+                                (!absurd (!either disjunction) premise))))
+                        args
+                        (method (complemented-args)
+                          (!conj-intro (and complemented-args)))))))))
+
+(define dm-3 (make-dm-3 not))
+(define dm-3' (make-dm-3 complement))
+
+(define (make-dm-1 c)
+ (method (premise) 
+   (dmatch premise
+     ((not (premise-body as (and (some-list conjuncts))))
+        (dlet ((goal (or (map c conjuncts))))
+            (!by-contradiction goal
+               (assume -goal := (not goal)
+	         (dlet ((p1 (!(make-dm-3 not) -goal))
+                        (dn (method (p) (dtry (!dn p) (!claim p)))))
+                    (!map-method dn 
+                                 (get-conjuncts p1)
+                                 (method (_)
+                                    (!absurd (!conj-intro premise-body) premise)))))))))))
+
+(define dm-1 (make-dm-1 not))
+(define dm-1' (make-dm-1 complement))
+
+(define (make-dm-2 c)
+ (method (premise) 
+   (dmatch premise
+     ((or (some-list args))
+        (dlet ((goal (not (and (map c args)))))
+          (!by-contradiction goal
+             (assume -goal := (not goal)       
+                (dlet ((_ (!dn -goal))) ## Now have (and (map c args))
+                  (!map-method (method (p_i)
+                                 (assume p_i
+                                    (!from-complements false p_i (c p_i))))
+                               args
+                               (method (conditionals)
+                                 (!cases premise conditionals)))))))))))
+
+
+(define dm-2 (make-dm-2 not))
+(define dm-2' (make-dm-2 complement))
+
+(define (make-dm-4 c)
+  (method (premise)
+    (dmatch premise 
+      ((and (some-list args))
+         (dlet ((-args  (map c args))
+                (goal (not (or -args))))
+           (!by-contradiction goal
+              (assume -goal := (not goal)
+                (dlet ((disjunction (!dn -goal)))
+                  (!decompose premise
+                     (method (_)
+                       (!map-method (method (-p_i)
+                                      (assume -p_i
+                                        (dmatch -p_i
+                                           ((not (some-sent q))  
+                                              (dtry (!absurd q -p_i)
+                                                    (!absurd -p_i (not -p_i))))
+                                           (_ (!absurd -p_i (not -p_i))))))
+                                    -args
+                                    (method (conditionals)      
+                                       (!cases disjunction 
+                                               conditionals)))))))))))))
+
+
+(define (make-dm c)
+  (method (premise)
+    (dmatch premise
+      ((not (and (some-list _))) (!(make-dm-1 c) premise))
+      ((not (or (some-list _))) (!(make-dm-3 c) premise))
+      ((and (some-list _)) (!(make-dm-4 c) premise))
+      ((or (some-list _)) (!(make-dm-2 c) premise)))))
+
+
+(define dm (make-dm complement))
+(define dm' (make-dm not))
+
+
+(define (dm-rec p)
+  (dmatch p 
+    ((and (some-list _)) (!dm' p))
+    ((or (some-list _)) (!dm' p))
+    ((not (and (some-list _))) (!dm' p))
+    ((not (or (some-list _))) (dmatch (!dm' p)
+                                 ((res as (and (some-list args))) 
+                                     (!decompose res (method (_) (!map-method dm-rec args (method (results) (!conj-intro results))))))))
+    (_ (!claim p))))
+
+
+                                       
+(define (dm2c premise target)
+   (dmatch [premise target]
+     ([(or (some-list disjuncts)) (not (big-c as (and (some-list conjuncts))))]
+        (dlet ((d-c (list-zip disjuncts conjuncts)))
+          (!by-contradiction target
+             (assume big-c
+                  (!map-method (method (pair)
+                                 (dmatch pair
+                                    ([d c]
+                                       (assume d
+                                         
+                                          (!from-complements false c d)))))
+                               d-c
+                               (method (conditionals)
+                                 (!cases premise conditionals)))))))))
+
+
+
+
+(define (dm3c premise target)
+      (dmatch [premise target]
+        ([(not (disjunction as (or (some-list disjuncts)))) (and (some-list conjuncts))]
+           (dlet ((d-c (list-zip disjuncts conjuncts)))
+             (!map-method (method (pair)
+                             (dmatch pair
+                                ([(some-sent p) (some-sent q)]
+                                   (!by-contradiction q
+                                      (assume p
+                                        (!absurd (!either disjunction) premise))))))
+                          d-c
+                          (method (complemented-args)
+                            (!conj-intro (and complemented-args))))))))
+
+
+(define (dm1c premise target)
+   (dmatch [premise target]
+     ([(not (premise-body as (and (some-list conjuncts)))) (or (some-list disjuncts))]
+        (dlet ((c-d  (list-zip conjuncts disjuncts)))
+            (!by-contradiction target
+               (assume -target := (not target)
+                  (!absurd (!dm3c -target premise-body) 
+                           premise)))))))
+
+(define (dm4c premise target)
+  (dmatch [premise target]
+    ([(and (some-list conjuncts)) (not (disjunction as (or (some-list disjuncts))))]
+      (!by-contradiction target
+        (assume disjunction
+          (!map-method (method (pair)
+                         (dmatch pair
+                           ([c d] (assume d
+                                    (!from-complements false c d)))))
+                       (list-zip conjuncts disjuncts)
+		       (method (conditionals)
+                         (!cases disjunction conditionals))))))))
+                                      
+(define (dm-binary premise target)
+  (dmatch premise
+    ((not (and (some-list _))) (!dm1c premise target))
+    ((not (or (some-list _))) (!dm3c premise target))
+    ((and (some-list _)) (!dm4c premise target))
+    ((or (some-list _)) (!dm2c premise target))))
+
+define dm-2 := dm-binary 
+define (make-cond-def-1 neg) := 
+  method (premise) 
+    match premise {
+      (p ==> q) => let {p' := (neg p);
+                        goal := (p' | q)}
+                     (!by-contradiction goal
+                        assume -goal := (~ goal)
+                          let {_ := (!dm' -goal);
+                               p := try { (!dn (~ ~ p)) | (!claim p) }}
+                            (!absurd (!mp premise p) 
+                                     (~ q)))
+     }
+
+
+define (make-cond-def-2 neg) := 
+  method (premise)
+    match premise {
+       (p | q) => assume p' := (neg p)
+                    (!cases premise
+                            assume p 
+                              (!from-complements q p p')
+                            assume q
+                              (!claim q))
+     }
+
+define (make-cond-def neg) :=
+  method (premise) 
+     match premise {
+       (_ ==> _) => (!(make-cond-def-1 neg) premise)
+     | (_ | _)   => (!(make-cond-def-2 neg) premise)
+     }
+
+
+define cond-def := (make-cond-def complement)
+define cond-def' := (make-cond-def not)
+
+## Binary version of cond-def
+
+define cond-def-2 :=
+  method (premise goal) 
+    match [premise goal] {
+      [(p ==> q) (p' | q)] => 
+         (!two-cases
+            (assume p 
+              (!right-either p' (!mp premise p)))
+            assume h := (not p)
+              let {_ := match p {
+                           (not _) => (!dn h)
+                         | _ => (!claim h)}}
+                (!left-either p' q))
+    | [(p | q) (p' ==> q)] => 
+         (!cases premise
+                 assume p 
+                   assume p' 
+                     (!from-complements q p p')
+                 assume q 
+                   assume p' 
+                     (!claim q))
+    }
+###############--------------------------------------------------------------
+##
+##			END OF NEW DM DEFINITION
+##
+###############--------------------------------------------------------------
+
+#==================================================================
+# In the following implementation of dsyl, the first argument is an 
+# arbitrarily structured disjunction with (get-disjuncts) [d1,...,dn]
+# and the second argument is a list of sentences N = [d_i_1',...d_i_k']
+# where each d_i_j' is complementary to some unique d_x.
+# E.g., the first argument might be (or A (not B) C (not D)) and 
+# N could be [(not A) (not (not B))]. All elements of N must be in
+# the assumption base, as must be the first argument (the disjunction).
+#
+# Let D be the list of those disjuncts in [d1,...,dn] that 
+# have no complementary entry in N (in left-to-right order as 
+# they appear in [d1 ... dn]). The method derives the conclusion 
+# (or D), or else false if D is empty. If D has only one element p, 
+# then p -- rather than (or p) -- is returned. 
+#
+# For added flexibility, the second argument could be a single 
+# conjunction of N = [d_i_1',...d_i_k'], rather than a list.
+# Or, in case n = 2 (which is the "traditional" formulation of disjunctive
+# syllogism, whereby the first premise is (p1 | p2) and the second
+# premise is either p1' or p2'), the second argument could also 
+# be a single sentence that is complementary to one of the two 
+# disjuncts. This accommodates the traditional (and simplest) 
+# way in which one would call this method.
+#==================================================================
+
+(define (derive-single-disjunct premise)
+  (dmatch premise 
+     ((or [(some-sentence q)]) 
+          (!cases premise
+                  (assume q (!claim q))))
+     (_ (!claim premise))))
+
+(define (dsyl big-disjunction N)
+ (!decompose N # Works even if N is a list. Will do real work 
+                           # only when N is a conjunction.
+   (method (_)
+      (dlet ((disjuncts (get-disjuncts big-disjunction))
+             (negation-list (check ((list? N) N)	     
+                                    ((sentence? N) 
+                                        (check ((for-some disjuncts 
+                                                          (lambda (d) (complements? d N)))
+                                                  [N])
+                                                (else (get-conjuncts N))))))
+             (remaining-disjuncts 
+	       (filter-out disjuncts 
+                           (lambda (p) 
+                              (for-some negation-list 
+                                        (lambda (q) (complements? p q))))))
+             (goal (check ((null? remaining-disjuncts) false) (else (or remaining-disjuncts))))
+             (_ (!by-contradiction goal
+                   (assume -goal := (not goal)
+                     (!decompose (dtry (!dm' -goal) (!claim -goal))
+                                 (method (_)
+                                     (!map-method (method (d)
+                                                    (assume d 
+                                                      (dtry (!from-complements false d (complement d))
+                                                            (!from-complements false d (not d)))))
+                                                  disjuncts
+                                                    (method (conditionals)
+                                                        (!cases big-disjunction
+                                                                conditionals)))))))))
+          (dmatch goal
+             ((or [_]) (!derive-single-disjunct goal))
+             (_ (!claim goal)))))))
+
+
+(define (dmark c)
+  (dlet ((_ (mark c)))
+    (!true-intro)))
+
+(define (horn-clause-antecedent p)
+  (match p
+    ((forall (some-list _) (if antecedent _)) antecedent)))
+
+(define (antecedent P)
+  (match P
+    ((if (some-sent p1) _)  p1)
+    ((iff (some-sent p1) _) p1)))
+
+(define get-antecedent antecedent)
+
+
+(define (consequent P)
+  (match P
+    ((if _ P2)  P2)
+    ((iff _ P2) P2)))
+
+(define dt-comp-method-cell (cell ()))
+
+(primitive-method (numeric-comparison p) 
+  (match p 
+    (((< x y) where (less? x y)) p)
+    (((> x y) where (less? y x)) p)
+    (((<= x y) where (leq? x y)) p)
+    (((>= x y) where (leq? y x)) p)))
+
+(define (prove-components-of P)
+  (dcheck ((holds? P) (!claim P))
+          (else (dmatch P
+		  (true (!true-intro))
+                  ((and P1 P2) (!both (!prove-components-of P1) 
+                                      (!prove-components-of P2)))
+                  ((and (some-list args)) (!do-props args prove-components-of (method (theorems) (!and-intro theorems))))
+                  ((or P1 P2)  (dtry (!either (!prove-components-of P1) P2)
+                                     (!either P1 (!prove-components-of P2))))
+                  ((or (some-list args)) (!map-method-non-strictly prove-components-of args (method (_) (!either args))))
+                  ((some-atom A) (dmatch A
+                                   ((= (some-term t) t) (!reflex t))
+                                   (_ (!numeric-comparison A))))
+                  ((= (some-term s) (some-term t)) (dtry (!(ref dt-comp-method-cell) P)
+                                                         (!sym (= t s))))
+                  ((not (= (some-term s) (some-term t))) (dtry (!(ref dt-comp-method-cell) P)
+                                                               (!by-contradiction P
+                                                                  (assume hyp := (s = t)
+                                                                    (!absurd (!sym hyp) (not (= t s)))))))                
+                  ((not (some-term s)) (!(ref dt-comp-method-cell) P))
+                  ((not (and (some-list args))) 
+                     (!map-method-non-strictly (method (arg)
+                                                  (!prove-components-of (complement arg)))
+                                                args 
+                                                (method (results)
+                                                  (!dm (!either (map complement args))))))
+                  ((not (or (some-list args))) (!map-method (method (arg)
+                                                              (!prove-components-of (complement arg)))
+                                                            args
+                                                            (method (results)
+                                                              (!dm (!conj-intro (and results))))))))))
+
+(define prove-components-harder prove-components-of)
+
+(define (all-components-hold P)
+  (try (match (!prove-components-of P)
+         ((val-of P) true)
+         (_ false))
+       false))
+
+(define (prove-antecedent P)
+  (!prove-components-of (antecedent P)))
+
+(define (fire premise terms)
+  (dmatch premise
+    ((forall (some-list vars) (if P _)) (dlet ((th (!uspec* premise terms)))
+                                          (!mp th (!prove-antecedent th))))
+    ((forall (some-list vars) (iff _ _)) 
+       (dlet ((th (!uspec* premise terms)))
+         (dtry (dlet ((P (!left-iff th))) 
+                 (!mp P (!prove-antecedent P)))
+               (dlet ((P (!right-iff th)))
+                 (!mp P (!prove-antecedent P))))))
+    ((forall (some-list vars) _) (!uspec* premise terms))))
+
+(define (fire-aux instance)
+  (dmatch instance
+    ((if _ _) (!mp instance (!prove-antecedent instance)))
+    ((iff _ _) (dtry (dlet ((p (!left-iff instance)))
+                       (!mp p (!prove-antecedent p)))
+                     (dlet ((p (!right-iff instance)))
+                       (!mp p (!prove-antecedent p)))))
+    (_ (!claim instance))))
+   
+# (define (instance p terms) 
+#   (dmatch terms
+#     ((some-list _) (!fire p terms))
+#     ((some-term t) (!fire p [t]))))
+
+(define (instance p terms) 
+  (dletrec ((named? (lambda (L)
+                      (match L
+                        ((list-of [_ --> _] _) true)
+                        (_ false))))
+            (make-vmap (lambda (L)
+                         (match L
+                           ([] (lambda (_) ()))
+                           ((list-of [v --> t] more)
+                             (lambda (v') (check ((equal? v v') t)
+                                                 (else ((make-vmap more) v'))))))))
+           (terms' (match terms 
+                     ((some-list _) terms)
+                     ((some-term t) [t]))))
+    (dmatch p 
+      ((forall (some-list uvars) _)
+        (dcheck ((named? terms') (dlet ((vmap (make-vmap terms')))
+                                    (!uspec* p (map vmap (take uvars (length terms'))))))
+                (else (!uspec* p terms')))))))
+
+(define (fire p terms) 
+  (dletrec ((named? (lambda (L)
+                      (match L
+                        ((list-of [_ --> _] _) true)
+                        (_ false))))
+            (make-vmap (lambda (L)
+                         (match L
+                           ([] (lambda (_) ()))
+                           ((list-of [v --> t] more)
+                             (lambda (v') (check ((equal? v v') t)
+                                                 (else ((make-vmap more) v'))))))))
+           (terms' (match terms 
+                     ((some-list _) terms)
+                     ((some-term t) [t]))))
+    (dmatch p 
+      ((forall (some-list uvars) _)
+        (dcheck ((named? terms') (dlet ((vmap (make-vmap terms'))
+                                        (instance (!uspec* p (map vmap (take uvars (length terms'))))))
+                                   (!fire-aux instance)))
+                (else (!fire-aux (!uspec* p terms'))))))))
+
+## (define (gp s) (match (and s s) ((and p p) p)))
+
+## Proves x = y from the assumption [x] in {[y]}
+
+
+(define (all-props) (fetch-all (lambda (P) true)))
+
+(define (not-equal x y) 
+  (negate (equal? x y)))
+
+(define get-assumption-base ab)
+
+(define (reflexive R)
+  (forall ?x (R ?x ?x)))
+
+(define (symmetric R)
+  (forall ?x ?y (if (R ?x ?y) (R ?y ?x))))
+
+(define (anti-symmetric R)
+  (forall ?x ?y 
+    (if (and (R ?x ?y) (R ?y ?x))
+	(= ?x ?y))))
+
+(define (asymmetric R)
+  (forall ?x ?y 
+    (if (R ?x ?y) 
+        (not (R ?y ?x)))))
+
+(define (irreflexive R)
+  (forall ?x (not (R ?x ?x))))
+
+(define (transitive R)
+  (forall ?x ?y ?z
+    (if (and (R ?x ?y) (R ?y ?z))
+	(R ?x ?z))))
+
+(define (connected R)
+  (forall ?x ?y
+    (or (= ?x ?y)
+        (R ?x ?y)
+        (R ?y ?x))))
+
+(define (unique-condition P)
+  (let ((x (fresh-var))
+	 (y (fresh-var)))
+    (forall x y
+      (if (and (P x) (P y))
+	(= x y)))))
+
+(define (show-unique-existence P)
+  (dmatch P
+    ((exists (some-var x) (some-sent Q))
+       (pick-witness w P 
+         (dlet ((v (fresh-var)))
+           (!egen-unique (exists-unique v (replace-var x v Q)) w))))))
+
+(define (pick-two-witnesses P M)
+  (pick-witness w1 P Q1
+    (pick-witness w2 Q1 Q2
+          (!M w1 w2 [Q1 Q2]))))
+
+(define (pick-three-witnesses P M)
+  (pick-witness w1 P Q1
+    (pick-witness w2 Q1 Q2
+      (pick-witness w3 Q2 Q3
+          (!M w1 w2 w3 [Q1 Q2 Q3])))))
+
+(define (pick-four-witnesses P M)
+  (pick-witness w1 P Q1
+    (pick-witness w2 Q1 Q2
+      (pick-witness w3 Q2 Q3
+        (pick-witness w4 Q3 Q4
+          (!M w1 w2 w3 w4 [Q1 Q2 Q3 Q4]))))))
+
+(define (pick-five-witnesses P M)
+  (pick-witness w1 P Q1
+    (pick-witness w2 Q1 Q2
+      (pick-witness w3 Q2 Q3
+        (pick-witness w4 Q3 Q4
+          (pick-witness w5 Q4 Q5
+            (!M w1 w2 w3 w4 w5 [Q1 Q2 Q3 Q4 Q5])))))))
+     
+
+(define (unequal? a b)
+  (check ((equal? a b) false)
+	 (else true)))
+
+(define (get-term-syms t)
+  (match t 
+    ((some-var x) [])
+    (_ (add (root t) (foldr join [] (map get-term-syms (children t)))))))
+
+(define (get-term-syms* terms)
+  (fold join (map get-term-syms terms) []))
+
+(define (get-prop-syms P)
+  (match P
+    ((some-atom A) (get-term-syms A))
+    ((not Q) (get-prop-syms Q))
+    (((some-sent-con pc) (some-list props)) (foldr join [] (map get-prop-syms props)))
+    (((some-quant q) x P') (get-prop-syms P'))))
+
+(define (get-prop-syms* props)
+  (rd (flatten (map get-prop-syms props))))
+
+(define (new-term-syms t syms)
+			    (match t
+			      ((some-var x) [])
+			      (((some-symbol f) (some-list args)) 
+			          (check ((member? f syms) (new-term-syms* args syms))
+				 	 (else (add f (new-term-syms* args (add f syms)))))))
+	   (new-term-syms* terms syms)
+			     (match terms
+			       ([] [])
+			       ((list-of t rest) (let ((syms' (new-term-syms t syms)))
+						   (join syms' (new-term-syms* rest (join syms' syms))))))
+	   (new-prop-syms P syms)
+		            (match P
+			      ((some-atom A) (new-term-syms A syms))
+			      ((not Q) (new-prop-syms Q syms))
+			      (((some-sent-con pc) (some-list props)) (new-prop-syms* props syms))
+			      (((some-quant q) x P') (new-prop-syms P' syms)))
+	   (new-prop-syms* props syms) 
+			     (match props
+			       ([] [])
+			       ((list-of P rest) (let ((syms' (new-prop-syms P syms)))
+						   (join syms' (new-prop-syms* rest (join syms' syms))))))
+	   (gs s syms) 
+		          (match (get-sym-def s)
+			     ((some-sent P) [P (new-prop-syms P syms)])
+			     (_ ())))
+
+(define (get-defs symbols)
+  (letrec ((loop (lambda (syms defs new-syms seen)
+                   (match syms
+		     ([] defs)
+		     ((list-of s rest) (check ((member? s seen) (loop rest defs (add s new-syms) (add s seen)))
+					      (else (match (gs s (join new-syms symbols))
+	  					      ([P syms'] (loop (join rest syms') (add P defs) 
+									(add s (join syms' new-syms)) (add s seen)))
+	  	 				      (_ (loop rest defs (add s new-syms) (add s seen)))))))))))
+    (loop symbols [] [] [])))
+
+(define (get-prop-sym-defs P)
+   (get-defs (get-prop-syms P)))
+
+(define gpsd get-prop-sym-defs)
+
+(define (gpsd* P)  (get-prop-sym-defs P))
+
+(define (test P) 
+    (map write (get-prop-sym-defs P)))
+
+(define (gsd props syms res)
+  (let ((syms' (foldr join [] (map get-prop-syms props)))
+	(new-syms (list-diff syms' syms))
+	(foo (write new-syms)))
+    (match new-syms
+      ([] res)
+      (_  (let ((new-sym-defs (map get-sym-def new-syms)))
+	    (gsd new-sym-defs (join new-syms syms) (join new-sym-defs res)))))))
+        
+
+(define (sym-defs P)
+  (gsd [P] [] []))
+
+
+(define (find-witness P facts M)
+  (dlet ((P1 (!vpf P facts)))
+    (pick-witness x P P1-inst
+      (!M x P1-inst))))
+
+## ZF VERSION:
+#(define (find-witness P facts M)
+#  (dlet ((P1 (!vpf* P facts)))
+#    (pick-witness x P P1-inst
+#      (!M x P1-inst))))
+
+(define (fw P facts M)
+  (dlet ((P1 (!vpf P facts)))
+    (pick-witness x P P1-inst
+      (!M x P1-inst))))
+
+(define (find-witness-2 f facts M)
+  (dlet ((v1 (fresh-var)) (v2 (fresh-var))
+        (statements (f v1 v2))
+        (P1 (exists v1 (first statements)))
+        (P2 (exists v2 (second statements))))
+   (!find-witness P1 facts 
+      (method (w1 P1-inst)
+        (dlet ((P2' (exists v2 (second (f w1 v2)))))
+          (!find-witness P2' (add P1-inst facts)
+             (method (w2 P2-inst)
+               (!M w1 w2 P1-inst P2-inst))))))))
+
+(define (spf* P facts)
+ (dlet ((Q (conjoin (add P facts))))
+   (!spf P (join facts (gpsd* Q)))))
+
+
+(define (vpf* P facts)
+ (dlet ((Q (conjoin (add P facts))))
+   (!vpf P (join facts (gpsd* Q)))))
+
+
+(define fm get-model)
+
+(define (univ-sort-axioms syms)
+  (letrec ((f (lambda (syms x)
+		(match syms
+		  ([P] (P x))
+		  ((list-of P rest) (or (P x) (f rest x))))))
+	   (g (lambda (fsyms bsyms res x)
+		(match fsyms
+		  ([] res)
+		  ((list-of P rest) (let ((new-prop (if (P x) 
+						     (conjoin (map (lambda (Q) (not (Q x)))
+								   (join rest bsyms))))))
+				     (g rest (add P bsyms) (add new-prop res) x)))))))
+    (let ((x (fresh-var)) (y (fresh-var))
+	  (gres (forall x (conjoin (g syms [] [] x))))
+	  (fres (forall y (f syms y))))
+      [fres gres])))
+
+(define (univ-sort-axioms syms)
+  (letrec ((f (lambda (syms x)
+		(match syms
+		  ([P] (P x))
+		  ((list-of P rest) (or (P x) (f rest x))))))
+	   (g (lambda (fsyms bsyms res x)
+		(match fsyms
+		  ([] res)
+		  ((list-of P rest) (let ((new-prop (if (P x) 
+						     (conjoin (map (lambda (Q) (not (Q x)))
+								   (join rest bsyms))))))
+				     (g rest (add P bsyms) (add new-prop res) x)))))))
+    (let ((x (fresh-var)) (y (fresh-var))
+	  (fres (forall y (f syms y))))
+      (match syms
+        ((list-of _ (list-of _ _)) [fres (forall x (conjoin (g syms [] [] x)))])
+        (_ [fres])))))
+
+(define (fresh-vars n)
+  (check ((less? n 1) [])
+	 (else (add (fresh-var) (fresh-vars (minus n 1))))))
+
+(define (sortify-prop P smap)
+  (match P
+    ((some-atom A) P)
+    ((not Q) (not (sortify-prop Q smap)))
+    (((some-sent-con pc) (some-list props)) (pc (map (lambda (P) (sortify-prop P smap)) props)))
+    ((forall x Q) (match (smap (sort-of-var-in-prop x Q))
+ 		    ((some-symbol D) (forall x (if (D x) (sortify-prop Q smap))))))
+    ((exists x Q) (match  (smap (sort-of-var-in-prop x Q))
+ 		    ((some-symbol D) (exists x (and (D x) (sortify-prop Q smap))))))))
+
+
+
+(define (exclusive-constructors sname)
+ (letrec  ((clist (constructors-of sname))
+           (f  (lambda (cl axioms)
+		 (match cl
+		   ([] axioms)
+		   ((list-of (some-symbol c) 
+			     (some-list more)) 
+				     (let ((PL (map (lambda (c') (let ((Q (excl-constructors c c')))
+								    Q)) more)))
+                                       (f more (join PL axioms))))))))
+    (f clist [])))
+    
+
+(define (datatype-axioms dname)
+  (let ((dname (qualify-sort-name dname))
+        (clist (constructors-of dname)))
+    (join (exclusive-constructors dname)
+          (map (lambda (c) (let ((P (!constructor-injectivity c))) P)) 
+	       (filter clist (lambda (c) (less? 0 (arity-of c)))))
+          [(!constructor-exhaustiveness dname)])))
+
+
+(define (structure-axioms sname)
+    (join (exclusive-constructors sname) [(!constructor-exhaustiveness sname)]))
+		       
+
+
+(define (show-props L)
+  (seq (print "\n")
+	 (map write L)
+	 (print "\n")))
+
+(define (show-ab)
+  (let ((n (length (ab))))
+    (seq (match n 
+	    (0 (print "\nThe assumption base is currently empty.\n"))
+	    (1 (print "\nThere is one sentence in the assumption base:\n\n"))
+	    (_ (seq (print (join "\nThere are " (val->string n)))
+		    (print " sentences in the assumption base:\n\n"))))
+         (map (lambda (P) (seq (write-val P) (print "\n\n"))) (ab))
+	 ())))
+
+(define show-assumption-base show-ab)
+
+(define (write-prop P) (write P))
+
+(define (show P props)
+  (dmatch props
+    ([] (!vpf P (ab)))
+    (_  (!vpf P props))))
+
+(define (em-cases cond goal props)
+  (!byCases (assume cond
+	       (!vpf goal (add cond props)))
+	     (assume (not cond)
+	       (!vpf goal (add (not cond) props))) []))
+
+
+(define (case-analysis cond1 cond2 goal props cprops)
+  (!byCases (assume cond1
+	       (!vpf goal (add cond1 props)))
+	     (assume cond2
+	       (!vpf goal (add cond2 props))) cprops))
+
+(define (force1 P props)
+  (!force P))
+
+(define force-from force1)
+
+(define (prove P)
+  (match (dtry (!sprove-from P (ab) [['poly true] ['subsorting false] ['max-time 5000]])
+               #(!spf P (ab))
+	       (!force (not P)))
+    ((not P) (seq (print "\nUnable to derive the sentence\n")
+		    (write-val P)
+		    (print "\nfrom the current assumption base.\n")))
+    (_ (seq (print "\nSuccess! The sentence\n")
+              (write-val P)
+	      (print "\nfollows from the current assumption base.\n")))))
+
+
+(primitive-method (ds P1 P2)
+  (match [P1 P2]
+    ([(or (some-sent P) (some-sent Q)) (not P)] (check ((hold? [P1 P2]) Q)
+	 					       (else (error "Error: Incorrect application of ds."))))
+    ([(or (some-sent P) (some-sent Q)) (not Q)] (check ((hold? [P1 P2]) P)
+	 					       (else (error "Error: Incorrect application of ds."))))
+    (_ (error "Error: Incorrect application of ds."))))
+
+
+(define (ds P1 P2)
+  (dlet ((res (match [P1 P2]
+                 ([(or (some-sent P) (some-sent Q)) (not P)] (check ((hold? [P1 P2]) Q)
+ 	 					                    (else (error "Error: Incorrect application of ds."))))
+                 ([(or (some-sent P) (some-sent Q)) (not Q)] (check ((hold? [P1 P2]) P)
+	 	 				                    (else (error "Error: Incorrect application of ds."))))
+                 (_ (error "Error: Incorrect application of ds.")))))
+     (!claim res)))
+
+
+(define (dni P)
+  (dlet ((res (check ((hold? [P]) (not not P))
+ 	             (else (error "Error: Incorrect application of dni.")))))
+    (!force res)))
+
+
+(primitive-method (false-intro)
+  (not (false)))
+
+(define (false-intro)
+  (!force (not (false))))
+
+(define (existentialize P)
+    (exists* (free-vars P) P))
+
+
+(define (byCases* disj ML)
+  (dmatch [disj ML]
+    ([(or P (bind rest1 (or _ _))) (list-of (some-method M) rest2)]
+	(!byCases (assume P (!M P))
+
+		   (assume rest1
+		     (!byCases* rest1 rest2))
+		   [disj]))
+   ([(or P1 P2) [M1 M2]] (!byCases (assume P1 (!M1 P1))
+				    (assume P2 (!M2 P2))
+				    [disj]))))
+
+(define (poly-sort s)
+  (match s
+    ((split _ (list-of `` _)) true)
+    (_ false)))
+
+(define (gnt t)
+  (letrec ((f (lambda (s-lst eqn-lst fv-lst)
+	        (match s-lst
+	          ((list-of s rest)
+	             (check ((var? s) (f rest eqn-lst fv-lst))
+			    (else (let ((fv (fresh-var))
+				        (new-eqns-fvs (check ((&& (null? (children s))
+ 						                  (poly-sort (sort-of (root s)))) eqn-lst)
+							 (else (add (= s fv) eqn-lst)))))
+							   
+				   (f rest new-eqns-fvs (add fv fv-lst))))))
+ 	          (_ [eqn-lst fv-lst])))))
+     (f (proper-subterms t) [] [])))
+
+
+(define (gnt1 t)
+  (letrec ((f (lambda (s-lst eqn-lst sigs)
+	        (match s-lst
+	          ((list-of s rest)
+	             (check ((var? s) (f rest eqn-lst sigs))
+			    (else (let ((root-sym (root s))
+					(args (children s))
+					(arg-num (length args))
+					(fv-args (fresh-vars arg-num))
+					(fv-res (fresh-var))
+				        (new-eqns-sigs (check ((&& (null? args)
+  							           (poly-sort (sort-of (root s))))
+ 							        [eqn-lst sigs])
+							      (else (letrec 
+								      ((make-ae (lambda (args afvs res)
+									  	   (match [args afvs]
+									             ([[] _] res)
+									             ([(list-of t1 rest) 
+										       (list-of fv rest1)]
+											 (make-ae rest rest1
+										           (add (= fv t1) res)))))))
+								       (let ((arg-eqns (make-ae args fv-args [])))
+									 [(join arg-eqns [(= s fv-res)] eqn-lst) 
+									  (add [root-sym [fv-args fv-res]] sigs)]))))))
+				      (f rest (first new-eqns-sigs) (second new-eqns-sigs))))))
+		 (_ [eqn-lst sigs])))))
+     (f (proper-subterms t) [] [])))
+
+##result for a given term s: A triple of the form [new-term eqns fvars]
+
+(define (make-eqns f args vars)
+  (let ((t (make-term f args)))
+    (letrec ((loop (lambda (front-args tail-args vars res)
+   		     (match [vars tail-args]
+		       ([[] _] res)
+		       ([(list-of (some-var x) rest) (list-of targ rest2)] 
+			   (loop (join front-args [targ]) rest2 rest 
+				 (add (= (make-term f (join front-args [x] rest2)) t) res)))))))
+      (loop [] args vars []))))
+
+(define (gnt2 t)
+  (letrec ((f (lambda (s)
+                (match s
+		  ((some-var x) [[s [] []] [] []])
+		  (((some-symbol g) (some-list args))
+		      (let ((fv-args (fresh-vars (length args)))
+			    (fv-res (fresh-var))
+			    (all-fvs (add fv-res fv-args))
+			    (eqns (make-eqns g all-fvs (add s args))))
+		        (match (fLst args [] [] [])
+			  ([new-terms new-eqns new-fvs] [[g (rev new-terms) [fv-args fv-res]] (join eqns new-eqns)
+							 (join all-fvs new-fvs)])))))))
+	    (fLst (lambda (terms new-terms new-eqns new-fvs)
+		    (match terms
+		      ([] [new-terms new-eqns new-fvs])
+		      ((list-of t rest) (match (f t)
+					  ([new-term eqns fvars] (fLst rest (add new-term new-terms)
+									    (join eqns new-eqns)
+									    (join fvars new-fvs)))))))))
+    (f t)))
+
+
+(define (gnt3 t)
+  (letrec ((f (lambda (s)
+                (match s
+		  ((some-var x) [[s [] []] [] []])
+		  (((some-symbol g) []) [[g [] []] [] []])
+		  (((some-symbol g) (some-list args))
+		      (let ((fv-args (fresh-vars (length args)))
+			    (fv-res (fresh-var))
+			    (all-fvs (add fv-res fv-args))
+			    (aeqns (make-eqns g args fv-args))
+			    (eqns (add (= fv-res s) aeqns)))
+		        (match (fLst args [] [] [])
+			  ([new-terms new-eqns new-fvs] [[g (rev new-terms) [fv-args fv-res]] (join eqns new-eqns)
+							 (join all-fvs new-fvs)])))))))
+	    (fLst (lambda (terms new-terms new-eqns new-fvs)
+		    (match terms
+		      ([] [new-terms new-eqns new-fvs])
+		      ((list-of t rest) (match (f t)
+					  ([new-term eqns fvars] (fLst rest (add new-term new-terms)
+									    (join eqns new-eqns)
+									    (join fvars new-fvs)))))))))
+    (f t)))
+
+## ##result for a given prop P: A triple of the form [big-P new-prop fvars],
+## where big-P is P plus the variable-sort equations
+
+(define (gnp2 P)
+  (letrec ((f (lambda (P)
+		(match P
+			((some-atom A) (match (gnt3 A)
+					 ([new-term eqns fvl] [(conjoin (add P eqns)) new-term fvl])))
+			((not (some-sent Q)) (match (f Q)
+					       ([big-prop new-prop fvl] [(not big-prop) [not [new-prop]] fvl])))
+			(((some-sent-con pc) P1 P2)
+				  (match [(f P1) (f P2)]
+				    ([[big-prop1 newP1 fvl1] [big-prop2 newP2 fvl2]]
+					 [(and big-prop1 big-prop2) [and [newP1 newP2]] (join fvl1 fvl2)])))
+			(((some-quant q) (some-var x) (some-sent B))
+				(match (f B)
+				  ([big-prop new-prop fvl] [(q x big-prop) [q [x new-prop]] fvl])))))))
+     (f P)))
+
+
+(define (sorts P)
+     (match (gnp2 P)
+       ([big-prop new-prop fvars] 
+	  (let ((sorts (rd (map (lambda (v) (sort-of-var-in-prop v big-prop)) fvars))))
+	    (map (lambda (sort) (print (join "\n" sort "\n"))) sorts)))))
+
+
+
+(define (nprop P)
+  (letrec ((loop (lambda (P)
+		   (match P
+		     ((some-atom A) (match (gnt A)
+				      ([eqns fvs] [(conjoin (add P eqns)) fvs])))
+		     ((not (some-sent Q)) (match (loop Q)
+					    ([Q' fvars'] [(not Q') fvars'])))
+		     (((some-sent-con pc) P1 P2)
+			  (match [(loop P1) (loop P2)]
+			    ([[P1' fvars1] [P2' fvars2]] [(pc P1' P2') (join fvars1 fvars2)])))
+		     (((some-quant q) (some-var x) B)
+			 (match (loop B)
+			   ([B' fvs] [(q x B') fvs])))))))
+     (loop P)))
+
+
+
+
+(define (nprop1 P)
+  (letrec ((loop (lambda (P)
+		   (match P
+		     ((some-atom A) (match (gnt1 A)
+				      ([eqns sigs] [(conjoin (add P eqns)) sigs])))
+		     ((not (some-sent Q)) (match (loop Q)
+					    ([Q' sigs'] [(not Q') sigs'])))
+		     (((some-sent-con pc) P1 P2)
+			  (match [(loop P1) (loop P2)]
+			    ([[P1' sigs1] [P2' sigs2]] [(pc P1' P2') (join sigs1 sigs2)])))
+		     (((some-quant q) (some-var x) B)
+			 (match (loop B)
+			   ([B' sigs] [(q x B') sigs])))))))
+     (loop P)))
+
+
+(define (prop-sorts P)  
+  (match (nprop P)
+    ([Q fvs] (rd (map (lambda (v) (sort-of-var-in-prop v Q)) fvs)))))
+
+
+(define lparen (head "("))
+(define lbrack (head "["))
+(define rbrack (head "]"))
+(define blank (head " "))
+(define rparen (head ")"))
+(define new-line "\n") 
+(define quote "\"")
+
+(define (join-strings sl sep)
+  (match sl
+    ([] "")
+    ([str] str)
+    ((list-of str rest) (join str [sep] (join-strings rest sep)))))
+
+
+(define (join-expl-strings sl sep)
+  (let ((quote (lambda (str) (join [`\"] str [`\"]))))
+    (match sl
+      ([] "")
+      ([str] (quote str))
+      ((list-of str rest) (join (quote str) [sep] (join-expl-strings rest sep))))))
+
+(define (is-left-paren c)
+  (equal? c lparen))
+ 
+(define (mono-symbol-sort s)
+  (let ((ar (arity-of s))
+	(arg-vars (fresh-vars (string->id (symbol->string ar))))
+	(res-var (fresh-var))
+	(P (= (make-term s arg-vars) res-var))
+	(sovp (lambda (v P)
+		(let ((sort (sort-of-var-in-prop v P)))
+		  (check ((is-left-paren (head sort)) 
+			    (error (join "Error---the sort of symbol " 
+				   (symbol->string s) " is polymorphic: " sort ".")))
+			 (else sort))))))
+    [(map (lambda (v) (sovp v P)) arg-vars) (sovp res-var P)]))
+     
+
+
+
+(define mss mono-symbol-sort)
+
+(define (mono-prop-sorts P)
+  (letrec ((syms (list-diff (rd (get-prop-syms P)) [true false =]))
+	   (predicate? (lambda (sig)
+			 (equal? (second sig) "Boolean")))
+	   (get (lambda (sl sorts sigs)
+	          (match sl
+		    ([] [(rd sorts) sigs])
+		    ((list-of s rest) (let ((sig (mono-symbol-sort s)))
+					(check ((predicate? sig) 
+						   (get rest (join sorts (head sig)) (add [s sig] sigs)))
+					       (else 
+				                 (get rest (join sorts (head sig) (tail sig)) 
+							   (add [s sig] sigs))))))))))
+     (join [syms] (get syms [] []))))
+
+
+(define mps mono-prop-sorts)
+
+(define (sortify-symbol f smap)
+  (let ((n (arity-of f))
+	(fvars (fresh-vars (plus n 1)))
+	(arg-vars (tail fvars))
+	(eqn (= (make-term f arg-vars) (head fvars)))
+	(sorts (map (lambda (v) (sort-of-var-in-prop v eqn)) fvars))
+	(arg-sort-syms (map smap (tail sorts))))
+    (match (head sorts)
+      ("Boolean" (forall* arg-vars 
+		   (if (make-term f arg-vars)
+  		       (conjoin (map (lambda (D-v) (match D-v
+	 				([D v] (D v)))) (zip arg-sort-syms arg-vars))))))
+      (_ (forall* arg-vars 
+           (check ((equal? n 0) ((smap (head sorts)) (lhs eqn)))
+		  (else (if (conjoin (map (lambda (D-v) (match D-v
+	 		                  ([D v] (D v)))) (zip arg-sort-syms arg-vars)))
+ 	                    ((smap (head sorts)) (lhs eqn))))))))))
+
+
+(define (makeSingleSortedModel props file)
+  (let ((univ "Single-Universe")
+	(lp lparen)
+	(rp rparen)
+	(lb lbrack)
+	(rb rbrack))
+    (letrec ((repeat (lambda (n)
+	   	       (check ((less? n 1) [])
+			      ((equal? n 1) univ)
+			      (else (join univ " " (repeat (minus n 1)))))))
+	     (write-line (lambda (s) (write-file file (join new-line s))))
+	     (declare-sort-sym (lambda (sort-name)
+                                 (join new-line [lparen] "declare is" sort-name
+		  		       [blank lparen] "(T) -> " [lparen] "T"
+			               [rparen blank] "Boolean" [rparen rparen] new-line)))
+	     (define-smap (lambda (sort-names)
+			    (seq
+                               (write-line (join [lp] "define " [lp] "sort-map str" [rp] new-line
+				   	         "  " [lp] "match str"))
+			       (map (lambda (sort-name) 
+				      (write-line (join "    " [lp] quote sort-name quote
+						  [blank] "is" sort-name [rp]))) sort-names)
+			       (write-file file [rp rp])))))
+     (match (mono-prop-sorts (conjoin props))
+      ([syms sort-names sigs] 
+	(let ((is-sort-names (map (lambda (sn) (join "is" sn)) sort-names))
+	      (syms-string (join-strings (map symbol->string syms) blank))
+	      (string-sigs (map (lambda (p)
+				  (match p
+				    ([s x] [(symbol->string s) x]))) sigs)))
+           (seq (map (lambda (s) (write-file file (declare-sort-sym s))) sort-names)
+	          (define-smap sort-names)
+		  (write-line (join new-line [lp] "define prop-list-1 " [lp] "univ-sort-axioms ["
+				    (join-strings is-sort-names blank) "]" [rp rp]))
+		  (write-line (join new-line [lp] "define prop-list-2 " [lp] 
+				    "map (lambda (f) (sortify-symbol f sort-map" [rp rp blank lb] 
+				     syms-string [rb rp rp]))
+		  (write-line (join new-line [lp] "define given-props " [lb] new-line
+		 		   (join-strings (map val->string props) `\n) [rb rp]))
+		  (write-line (join new-line [lp] "define prop-list-3 " [lp] 
+				    "map (lambda (P) (sortify-prop P sort-map" [rp rp blank] 
+				    "given-props" [rp rp]))
+		  (write-line (join new-line "(get-multi-sorted-model (join prop-list-1 prop-list-2 prop-list-3) "
+			            [lb] (join-expl-strings is-sort-names blank) [rb blank]
+				    (val->string string-sigs) [rp])))))))))
+					       
+
+
+(define mm makeSingleSortedModel)
+
+(define gms get-multi-sorted-model)
+
+(define prove-from vpf)
+
+(define derive vpf)
+
+(define (all-distinct terms)
+  (letrec ((loop (lambda (terms res)
+		   (match terms
+		     ([] res)
+		     ((list-of t more) 
+		      (loop more (join (map (lambda (s) (not (= t s))) more) res)))))))
+    (loop terms [])))
+
+
+(define (all-distinct-pairs terms)
+  (filter (cprod terms terms)
+          (lambda (pair)
+            (match pair
+              ([x y] (unequal? x y))))))
+
+(define (distinct x y) (not (= x y))) 
+
+(define all-props ab)
+
+(define show-all-props show-ab)
+
+(define (axiom P)
+  (forall* (rev (free-vars P)) P)) 
+
+# The following method proves and returns the n-th conjunct of P
+
+(define (conjunct n P)
+  (dmatch P
+    ((and (list-of _ _))
+     (dcheck ((equal? n 1) (!left-and P))
+	     (else (!conjunct (minus n 1) (!right-and P)))))
+    (_ (dcheck ((equal? n 1) (!claim P))
+	       (else (!proof-error "Error in conjunct call: index too large."))))))
+
+(define (put-together p C)
+  (dmatch C 
+    ((and (some-list args)) (!decompose C (method (_) (!conj-intro p))))
+    (_ (!claim p))))
+
+(define (print-vals L)
+  (map (lambda (v) (print (join "\n" (val->string v) "\n"))) L))
+
+(define (get P facts)
+  (dmatch P
+    ((some-atom A) (!vpf A facts))
+    ((not (some-sent Q)) (dtry (!vpf P facts)
+                           (suppose-absurd Q
+			     (!vpf false (add Q facts)))))
+    ((and (some-sent P1) (some-sent P2))  (dseq   (!get P1 facts)
+						  (!get P2 facts)
+						  (!both P1 P2)))
+    ((or (some-sent P1) (some-sent P2))
+       (dtry (dlet ((L1 (!get (if (not P1) P2) facts)))
+	       (!spf (or P1 P2) [L1]))
+             (!vpf (or P1 P2) facts)))
+    ((if (some-sent P1) (some-sent P2))   
+                  (assume P1 
+		     (!get P2)))
+    ((iff (some-sent P1) (some-sent P2))  
+       (dlet ((L1 (!get (if P1 P2) facts))
+	      (L2 (!get (if P2 P1) facts)))
+         (!equiv L1 L2)))
+    ((forall (some-var x) (some-var Q)) 
+                  (pick-any v
+                    (!get (replace-var x v Q) facts)))
+    (_ (!vpf P facts))))
+
+
+##		    (!decompose P1 (method (conjuncts) 
+##                                     (!get P2 (join (rd conjuncts) facts))))))
+
+
+(define (show-from P facts)
+  (dlet ((Q (conjoin (add P facts))))
+    (!get P (join facts (get-prop-sym-defs Q)))))
+
+(define  (functional R)
+  (let ((vars (fresh-vars (minus (arity-of R) 1)))
+	(r1 (fresh-var))
+	(r2 (fresh-var)))
+    (forall* (join vars [r1 r2])
+      (if (and (make-term R (join vars [r1]))
+	       (make-term R (join vars [r2])))
+ 	  (= r1 r2)))))
+
+(define (injectiveRel R)
+  (forall ?x ?y ?z
+    (if (and (R ?x ?z)
+	     (R ?y ?z))
+	(= ?x ?y))))
+
+
+(define (uclos P)
+  (forall* (free-vars P) P))
+
+(define (eol? c)
+  (equal? c `\n))
+
+(define (id-chain plist)
+  (dletrec ((loop (method (plist seed)
+		    (dmatch plist
+		      ([] (!claim seed))                      
+		      ([eq premises] (!derive eq (add seed premises)))
+	              ((list-of eq (list-of premises rest)) 
+			  (dlet ((new-seed (!derive eq (add seed premises))))
+		            (!loop rest new-seed)))))))
+    (dmatch plist
+      ((list-of eq (list-of premises rest)) 
+         (dlet ((seed (!derive eq premises)))
+           (!loop rest seed))))))
+
+(define (neq s t)
+  (not (= s t)))
+
+(define (tprove  P max) (!derive P (ab) max))
+
+
+(define (make-relation-prop R extension)
+  (let ((x (fresh-var))
+	(y (fresh-var)))
+    (forall x y 
+       (iff (R x y)
+   	    (or (map (lambda (pair)
+		        (match pair
+		          ([a b] (and (= x a) (= y b))))) extension))))))
+
+
+(define (commutative f)
+  (forall ?x ?y
+    (= (f ?x ?y) (f ?y ?x))))
+
+(define (associative f)
+  (forall ?x ?y ?z
+    (= (f ?x (f ?y ?z))
+	(f (f ?x ?y) ?z))))
+
+(define (AC f) 
+  (and (commutative f) (associative f)))
+
+(define (not-equal? x y) (negate (equal? x y)))
+
+(define (repeat f n)
+  (check ((equal? n 0) (f))
+         (else (seq (f) (repeat f (minus n 1))))))
+
+
+
+(define (univ-absurd P)
+  (dmatch P
+    ((forall (some-list vars) false) (false BY (!uspec* P (map (lambda (_) ?foo) vars))))))
+
+
+(define (egen* goal witnesses)
+  (dmatch [goal witnesses]
+    ([_ [t]] (!egen goal t))
+    ([(exists x body) (list-of t more)] 
+        (dseq (!egen* (replace-var x t body) more)
+              (!egen goal t)))))
+
+(define (continue)
+  (seq (print "\nPress any key to continue...\n")
+       (read) ()))
+
+########################################################################
+#	 	       SOME NEW METHODS (June 2008)
+########################################################################
+
+
+(define (or-same p)
+  (dmatch p
+    ((or _q _q)
+     (!cases p
+       (assume _q
+         (!claim _q))
+       (assume _q
+         (!claim _q))))))
+
+(define newline "\n")
+
+(define (quant-swap premise)
+  (dmatch premise
+    ((forall _ (forall _ (some-sent _)))
+      (pick-any y x
+        (!uspec* premise [x y])))
+    ((exists x (exists y (some-sent p)))
+      (pick-witnesses (w1 w2) premise 
+        (!egen* (exists y x p) [w2 w1])))
+    ((exists x (forall _ (some-sent p)))
+      (pick-any y
+        (pick-witness w premise witness-hyp 
+          (dlet ((q (!uspec witness-hyp y)))
+            (!egen (exists x (replace-var w x q)) w)))))))
+       
+        
+
+
+
+(define (neg-bicond prop)
+  (dmatch prop
+    ((not (iff P Q)) 
+       (!two-cases (assume (if P Q) 
+                     (!either (not (if P Q))
+                              (suppose-absurd (if Q P)
+                                (!absurd (!equiv (if P Q) (if Q P)) prop))))
+               (assume (not (if P Q))
+                 (!either (not (if P Q)) (not (if Q P))))))))
+
+                                                    
+                     
+(define (generalize vars M)
+  (dletrec ((loop (method (vars eigen-vars)
+                    (dmatch vars
+                      ([] (!M (rev eigen-vars)))
+                      ((list-of _ rest) (pick-any x 
+                                          (!loop rest (add x eigen-vars))))))))
+    (!loop vars [])))
+
+
+(define (mt premise-1 premise-2)
+  (dmatch [premise-1 premise-2]
+    ([(if (some-sent p) (some-sent q)) _] 
+      (dcheck ((complements? premise-2 q)
+                (!by-contradiction (complement p)
+                  (assume p 
+                    (!from-complements false 
+				       (conclude q (!mp premise-1 p)) 
+				       premise-2))))
+              (else (!fail (join "\nInvalid second argument given to mt: " (val->string premise-2))))))))
+
+(define (app-dm p)
+  (match p 
+    ((not (and (some-list args))) (or  (map app-dm (map complement args))))
+    ((not (or (some-list args)))  (and (map app-dm (map complement args))))
+    ((and (some-list args))  (not (or  (map app-dm (map complement args)))))
+    ((or (some-list args))   (not (and (map app-dm (map complement args)))))
+    (_ p)))
+
+(define (quant-star q)
+  (match q
+    (forall forall*)
+    (exists exists*)))
+
+(define (app-dm-deep p)
+  (match p 
+    ((not (and (some-list args))) (or  (map app-dm (map complement args))))
+    ((not (or (some-list args)))  (and (map app-dm (map complement args))))
+    (((some-sent-con pc) (some-list props)) (pc (map app-dm-deep props)))
+    (((some-quant q) (some-list qvars) (some-sent body))
+       ((quant-star q) qvars (app-dm-deep body)))
+    (_ p)))
+
+
+define (negated-bicond-1 premise) := 
+  match premise {
+    (~ (p1 <==> p2)) => 
+      (!two-cases
+         assume p1
+           let {-p2 := (!by-contradiction (~ p2)
+                          assume p2 
+                            (!absurd (!equiv assume p1 (!claim p2)
+                                             assume p2 (!claim p1))
+                                     premise))}
+             (!left-either (!both p1 -p2) (~ p1 & p2))
+         assume -p1 := (~ p1)
+           let {p2 := (!by-contradiction p2
+                         assume (~ p2)
+                          (!absurd (!equiv assume p1
+		                             (!from-complements p2 p1 (~ p1))
+                                           assume p2 
+  		                             (!from-complements p1 p2 (~ p2)))
+                                   premise))}
+             (!right-either (p1 & ~ p2) (!both -p1 p2)))
+  }
+
+define (negated-bicond-2 premise) :=
+  match premise {
+    ((p1 & (~ p2)) | ((~ p1) & p2)) => 
+      let {goal := (~ (p1 <==> p2));
+           M := method (equiv-detach case)
+                      (!by-contradiction goal
+                          assume goal' := (p1 <==> p2)
+                            (!absurd (!equiv-detach goal')
+                                     (!neg-cond case)))}         
+         (!cases premise
+                 assume case1 := (p1 & ~ p2)
+                    (!M left-iff case1)
+                 assume case2 := (~ p1 & p2)
+                    (!M right-iff (!comm case2)))
+  }
+
+define (negated-bicond premise) :=
+  match premise {
+    (~ (_ <==> _)) => (!negated-bicond-1 premise)
+  | _ => (!negated-bicond-2 premise)
+  }
+
+(define eq-sym sym)
+
+define (bicond-def premise) := 
+  match premise {
+    (p <==> q) => (!both (!left-iff premise) 
+                         (!right-iff premise))
+  | ((p ==> q) & (q ==> p)) => (!equiv (!left-and premise)
+                                       (!right-and premise))
+  }
+
+(define (bicond-def-2 premise)
+  (dmatch premise
+    ((iff p q) 
+      (!two-cases (assume p 
+                    (dseq (conclude q
+                            (!mp (!left-iff premise) p))
+                          (!either (!both p q) 
+                                   (and (not p) (not q)))))
+                  (assume (not p)
+                    (dseq (conclude (not q)
+                            (!mt (!right-iff premise) (not p)))
+                          (!either (and p q) 
+                                   (!both (not p) (not q)))))))
+   ((or (and p q) (and (not p) (not q))) 
+     (!cases premise
+        (assume-let (case1 (and p q))
+          (!equiv (assume p 
+                    (!right-and case1))
+                  (assume q
+                    (!left-and case1))))
+        (assume-let (case2 (and (not p) (not q)))
+          (!equiv (assume p 
+                    (!from-complements q p (!left-and case2)))
+                  (assume q 
+                    (!from-complements p q (!right-and case2)))))))))
+
+
+define (bicond-def' premise) := 
+  match premise {
+    (p <==> q) =>
+      let {[p' q'] := [(complement p) (complement q)]}
+        (!two-cases 
+          assume p 
+            let {q := (!mp (!left-iff premise) p)}
+              (!left-either (!both p q) (p' & q'))
+          assume p'
+            let {_ := conclude q'
+                        (!mt (!right-iff premise) p')}
+             (!right-either (p & q) (!both p' q')))
+  | ((p & q) | (p' & q')) => 
+      (!cases premise
+         assume (p & q)
+           (!equiv assume p (!claim q)
+                   assume q (!claim p))                     
+         assume (p' & q')
+           (!equiv assume p (!from-complements q p p')
+                   assume q (!from-complements p q q')))
+  }
+
+
+define (bicond-def-2 premise goal) := 
+  match [premise goal] {
+    [(p <==> q) (or (and p q) (and p' q'))] =>
+        (!two-cases 
+          assume p 
+            let {q := (!mp (!left-iff premise) p)}
+              (!left-either (!both p q) (p' & q'))
+          assume p'
+             (!two-cases assume q  (!from-complements goal (!mp (!right-iff premise) q) p')
+                         assume q' (!right-either (and p q) (!both p' q'))))
+  | [((p & q) | (p' & q')) _] =>
+      (!cases premise
+         assume (p & q)
+           (!equiv assume p (!claim q)
+                   assume q (!claim p))                     
+         assume (p' & q')
+           (!equiv assume p (!from-complements q p p')
+                   assume q (!from-complements p q q')))
+  }
+
+
+(define (neg-bicond-def premise)
+  (dmatch premise
+    ((iff p q) (!equiv (assume h := (complement p)
+                         (!mp (!contra-pos (!right-iff premise)) h))
+                       (assume h := (complement q)
+                         (!mp (!contra-pos (!left-iff premise)) h))))))
+
+
+
+define (cd-dist-1 premise) := 
+  match premise {
+    (p & (q | r)) =>
+      let {_ := (!left-and premise)}
+        (!cases ((q | r) by (!right-and premise))
+           assume q 
+             (!left-either (!both p q) (p & r))
+           assume r
+            (!right-either (p & q) (!both p r)))
+  }
+
+define (cd-dist-2 premise) := 
+  match premise {
+    ((p & q) | (p & r)) =>
+      (!cases premise
+         assume (p & q)
+           (!both p (!left-either q r))
+         assume (p & r)
+           (!both p (!right-either q r)))
+  }
+
+define (dc-dist-1 premise) := 
+  match premise {
+    (p | (q & r)) =>
+      (!cases premise
+        assume p 
+          (!both (!left-either p q) (!left-either p r))
+        assume (q & r)
+          (!both (!right-either p q)
+                 (!right-either p r)))
+  }
+
+define (dc-dist-2 premise) := 
+  match premise {
+    ((p | q) & (p | r)) =>
+      let {_ := (!left-and premise);
+           _ := (!right-and premise)}
+        (!cases (p | q)
+          assume p 
+            (!left-either p (q & r))
+          assume q
+            (!cases (p | r)
+               assume p 
+                 (!left-either p (q & r))
+               assume r
+                 (!right-either p (!both q r))))
+  }
+
+define (dist premise) := 
+  match premise {
+    ((p | _) & (p | _)) => (!dc-dist-2 premise)
+  | (_ & (_ | _))       => (!cd-dist-1 premise)
+  | ((p & _) | (p & _)) => (!cd-dist-2 premise)
+  | (p | (q & r))       => (!dc-dist-1 premise)
+  }
+
+(define (sym premise)
+  (dmatch premise
+    ((= _ _) (!eq-sym premise))
+    ((not (= s t)) (!by-contradiction (not (= t s))
+                      (assume (= t s)
+                        (!absurd (!eq-sym (= t s)) premise))))))
+
+(define (ref-equiv p)
+  (!equiv (assume p (!claim p))
+          (assume p (!claim p))))
+
+(define (equiv-tran premise-1 premise-2)
+  (dmatch [premise-1 premise-2]
+    ([(iff p1 p2) (iff p2 p3)] (!equiv (assume p1
+                                         (!mp (!left-iff premise-2) 
+                                              (!mp (!left-iff premise-1) p1)))
+                                       (assume p3
+                                         (!mp (!right-iff premise-1)
+                                              (!mp (!right-iff premise-2) p3)))))))
+
+
+
+(define (not-cong premise)
+  (dmatch premise
+    ((iff p1 p2) 
+      (dlet ((cond-1 (assume (not p1)
+                       (!by-contradiction (not p2)
+                         (assume p2 
+                           (!absurd (!mp (!right-iff premise) p2) 
+                                    (not p1))))))
+             (cond-2 (assume (not p2)
+                       (!by-contradiction (not p1)
+                          (assume p1
+                            (!absurd (!mp (!left-iff premise) p1) 
+                                     (not p2)))))))
+         (!equiv cond-1 cond-2)))))
+
+(define (not-cong' premise)
+  (dmatch premise
+    ((iff p1 p2) 
+      (dlet (([p1' p2'] [(complement p1) (complement p2)])
+             (cond-1 (assume p1'
+                       (!by-contradiction p2'
+                         (assume p2 
+                           (!from-complements false (!mp (!right-iff premise) p2) p1')))))
+             (cond-2 (assume p2'
+                       (!by-contradiction p1'
+                          (assume p1
+                            (!from-complements false (!mp (!left-iff premise) p1) p2'))))))
+         (!equiv cond-1 cond-2)))))
+
+
+(define (and-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(iff p1 q1) (iff p2 q2)]
+        (dlet ((cond-1 (assume (and p1 p2)
+                         (!both (!mp (!left-iff premise1)
+                                     (!left-and (and p1 p2)))
+                                (!mp (!left-iff premise2) 
+                                     (!right-and (and p1 p2))))))
+               (cond-2 (assume (and q1 q2)
+                         (!both (!mp (!right-iff premise1) 
+                                     (!left-and (and q1 q2)))
+                                (!mp (!right-iff premise2) 
+                                     (!right-and (and q1 q2)))))))
+          (!equiv cond-1 cond-2)))))
+
+(define (uni-and-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(if p1 q1) (if p2 q2)]
+      (assume (and p1 p2)
+        (!both (!mp premise1
+                    (!left-and (and p1 p2)))
+               (!mp premise2
+                    (!right-and (and p1 p2))))))))
+
+(define (decompose-conditionals Cs)
+   (letrec ((loop (lambda (Cs antecedents consequents)
+                      (match Cs
+                        ([] [(rev antecedents) (rev consequents)])
+                        ((list-of (if (some-sent p1) (some-sent p2)) more)
+                            (loop more (add p1 antecedents) (add p2 consequents)))))))
+       (loop Cs [] [])))
+       
+(define (uni-and-cong* premises)
+    (dlet (([antecedents consequents] (decompose-conditionals premises)))
+       (assume (and antecedents)
+         (!map-method (method (cond)
+                         (!mp cond (antecedent cond)))
+                      premises
+                      (method (_)
+                        (!and-intro consequents))))))
+
+(define (or-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(iff p1 q1) (iff p2 q2)] 
+      (dlet ((cond-1 (assume (or p1 p2)
+                        (!cases (or p1 p2)
+                                (assume p1 
+                                  (!either (!mp (!left-iff premise1) 
+                                                p1) 
+                                           q2))
+                                (assume p2
+                                  (!either q1 
+                                           (!mp (!left-iff premise2) 
+                                                p2))))))
+             (cond-2 (assume (or q1 q2)
+                       (!cases (or q1 q2)
+                               (assume q1
+                                 (!either (!mp (!right-iff premise1) 
+                                               q1) 
+                                          p2))
+                               (assume q2
+                                 (!either p1 
+                                          (!mp (!right-iff premise2) 
+                                               q2)))))))
+        (!equiv cond-1 cond-2)))))
+
+
+(define (uni-or-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(if p1 q1) (if p2 q2)] 
+      (assume (or p1 p2)
+        (!cases (or p1 p2)
+                (assume p1 
+                  (!either (!mp premise1 p1) q2))
+                (assume p2
+                  (!either q1 
+                    (!mp premise2 p2))))))))
+
+(define (uni-or-cong* premises)
+    (dlet (([antecedents consequents] (decompose-conditionals premises)))
+       (assume h := (or antecedents)
+          (!map-method (method (cond)
+                          (dmatch cond
+                             ((if (some-sent p1) (some-sent p2)) 
+                                (assume p1
+                                   (dlet ((_ (!mp cond p1)))
+                                     (!either consequents))))))                 
+                        premises
+                        (method (conditionals)
+                          (!cases h conditionals))))))
+
+(define (if-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(iff p1 q1) (iff p2 q2)] 
+        (dlet ((cond-1 (assume (if p1 p2)
+                         (assume q1
+                            (!mp (!left-iff premise2)
+                                 (!mp (if p1 p2)
+                                      (!mp (!right-iff premise1) q1))))))
+               (cond-2 (assume (if q1 q2)
+                         (assume p1
+                           (!mp (!right-iff premise2)
+                                (!mp (if q1 q2)
+                                     (!mp (!left-iff premise1) p1)))))))
+          (!equiv cond-1 cond-2)))))
+
+
+(define (iff-cong premise1 premise2)
+  (dmatch [premise1 premise2]
+    ([(iff p1 q1) (iff p2 q2)] 
+         (dlet ((cond-1 (assume (iff p1 p2)
+                          (!equiv (assume q1
+                                    (!mp (!left-iff premise2)
+                                         (!mp (!left-iff (iff p1 p2))
+                                              (!mp (!right-iff premise1) q1))))
+                                  (assume q2
+                                    (!mp (!left-iff premise1)
+                                         (!mp (!right-iff (iff p1 p2))
+                                              (!mp (!right-iff premise2) q2)))))))
+                (cond-2 (assume (iff q1 q2)
+                          (!equiv (assume p1
+                                    (!mp (!right-iff premise2)
+                                         (!mp (!left-iff (iff q1 q2))
+                                              (!mp (!left-iff premise1) p1))))
+                                  (assume p2
+                                    (!mp (!right-iff premise1)
+                                         (!mp (!right-iff (iff q1 q2))
+                                              (!mp (!left-iff premise2) p2))))))))
+           (!equiv cond-1 cond-2)))))
+
+
+(define (ugen-cong p q M)
+  (dmatch [p q]
+    ([(forall (some-var v1) body1) (forall (some-var v2) body2)]
+       (conclude (iff p q)
+         (!equiv (assume p
+                   (pick-any v 
+                     (dlet ((r (!uspec p v))
+                           (body2' (replace-var v2 v body2))                
+                           (th (!M r body2')))
+                       (!mp (!left-iff th) r))))
+                 (assume q 
+                   (pick-any v 
+                     (dlet ((r (!uspec q v))
+                            (body1' (replace-var v1 v body1))
+                            (th (!M r body1')))
+                       (!mp (!left-iff th) r)))))))))
+
+(define (egen-cong p q M)
+  (dmatch [p q]
+    ([(exists (some-var v1) body1) (exists (some-var v2) body2)]
+       (conclude (iff p q)
+         (!equiv (assume p
+                   (pick-witness v p 
+                     (dlet ((body1' (replace-var v1 v body1))
+                            (body2' (replace-var v2 v body2))                
+                            (th (!M body1' body2'))
+                            (_  (!mp (!left-iff th) body1')))
+                       (!egen q v))))
+                 (assume q
+                   (pick-witness v q
+                     (dlet ((body2' (replace-var v2 v body2))
+                            (body1' (replace-var v1 v body1))                
+                            (th (!M body2' body1'))
+                            (_  (!mp (!left-iff th) body2')))
+                       (!egen p v)))))))))
+
+(define (choose-cong-method pc)
+  (match pc
+    (and and-cong)
+    (or  or-cong)
+    (if  if-cong)
+    (iff iff-cong)))
+
+# (define (prove-equiv p q methods)
+#   (dtry (!find-some methods
+#                     (method (M) 
+#                       (!equiv (assume p (!M p))
+#                               (assume q (!M q))))
+#                     (method (_) (!true-intro)))
+#         (dcheck ((equal? p q) (!ref-equiv p))
+#                 (else (dmatch [p q]
+#                         ([(not p1) (not q1)] 
+#                           (!not-cong (!prove-equiv p1 q1 methods)))
+#                         ([((some-sent-con pc) p1 p2) (pc q1 q2)] 
+#                           (!(choose-cong-method pc) 
+#                             (!prove-equiv p1 q1 methods)
+#                             (!prove-equiv p2 q2 methods))))))))
+
+(define (prove-equiv p q methods)
+  (dtry (!find-some methods
+                    (method (M)                        
+                        (dtry (!equiv (assume p (!M p))
+                                      (assume q (!M q)))
+			      (!equiv (assume p (!M p q))
+                                      (assume q (!M q p)))))
+                    (method (_) (!true-intro)))
+        (dcheck ((equal? p q) (!ref-equiv p))
+                (else (dlet ((M (method (p1 p2) 
+                                  (!prove-equiv p1 p2 methods))))
+                        (dmatch [p q]
+                          ([(not p1) (not q1)] 
+                            (!not-cong (!prove-equiv p1 q1 methods)))
+                          ([((some-sent-con pc) p1 p2) (pc q1 q2)] 
+                            (!(choose-cong-method pc) 
+                              (!prove-equiv p1 q1 methods)
+                              (!prove-equiv p2 q2 methods)))
+                          ([(forall _ _) (forall _ _)]
+                            (!ugen-cong p q M))
+                          ([(exists _ _) (exists _ _)]
+                            (!egen-cong p q M))))))))
+
+ (define (replace p q methods)
+   (dseq (conclude (iff p q)
+           (!prove-equiv p q methods))
+         (conclude q
+           (!mp (!left-iff (iff p q)) p))))
+
+(define transform replace)
+
+(define (method? x)
+  (match x 
+    ((some-method _) true)
+    (_ false)))
+
+(define 
+  (term-leaves t)
+    (match t 
+      (((some-symbol _) (list-of s rest)) (flatten (map term-leaves (add s rest))))
+      (_ [t]))
+  (prop-leaves p)
+    (match p 
+      ((some-atom _) (term-leaves p))
+      (((some-sent-con _) (some-list args)) (flatten (map prop-leaves args)))
+      (((some-quant _) (some-var _) body) (prop-leaves body))))
+
+(define (leaves v)
+  (match v
+    ((some-term t) (rd (term-leaves t)))
+    ((some-sent p) (rd (prop-leaves p)))))
+
+(define (dedup L)
+  (let ((T (table 500))
+        (_ (map-proc (lambda (x) (let ((already (try (table-lookup T x) false))) (check (already ()) (else (table-add T [x --> true]))))) L)))
+    (map first (table->list T))))
+
+(define (dedup L)
+  (let ((T (table 500))
+        (L-out (cell []))
+        (_ (map-proc (lambda (x) (let ((already (try (table-lookup T x) false))) 
+                                  (check (already ()) 
+                                         (else (let ((_ (table-add T [x --> true]))
+                                                     (_ (set! L-out (add x (ref L-out)))))
+                                                 ())))))
+                     L)))
+    (rev (ref L-out))))
+
+(define (atoms p)
+  (letrec ((atoms (lambda (p)
+                     (match p 
+                       ((some-atom _) [p])
+                       (((some-sent-con _) (some-list args)) (flatten (map atoms args)))
+                       (((some-quant _) (some-list _) (some-sent body)) (atoms body))))))
+    (dedup (atoms p))))
+
+(define 
+  (replace-atoms-aux p new-atoms)
+    (match p  
+       ((some-atom _) [(first new-atoms) (tail new-atoms)])
+       (((some-sent-con pc) (some-list args)) (match (replace-atoms-lst args new-atoms [])
+                                                ([args' rest] [(pc args') rest]))) 
+       (((some-quant q) (some-var x) body) (match (replace-atoms-aux body new-atoms)
+                                             ([body' rest] [(q x body') rest]))))
+  (replace-atoms-lst props new-atoms res)
+   (match props 
+     ([] [(rev res) new-atoms])
+     ((list-of p more) (match (replace-atoms-aux p new-atoms)
+                         ([p' rest-atoms] (replace-atoms-lst more rest-atoms (add p' res)))))))
+
+(define (replace-atoms p new-atoms) 
+   (first (replace-atoms-aux p new-atoms)))
+
+(define (get-subterms t vars)
+  (letrec ((f  (lambda (t L)
+                 (match t
+                   (((some-symbol f) (some-list args)) (f* args (add t L)))
+                   (_ (add t L)))))
+           (f* (lambda (terms L)
+                 (match terms
+                   ([] L)
+                   ((list-of t rest) (f* rest (f t L)))))))
+    (f t vars)))
+
+(define (choice-prop-subterms p)
+  (letrec ((f (lambda (p var-list)
+                (match p
+                  ((some-atom A) (remove A (get-subterms A var-list)))
+                  ((not Q) (f Q var-list))
+                  (((some-sent-con pc) p1 p2) (f p2 (f p1 var-list)))
+                  (((some-quant Q) (some-var x) (some-sent B))
+                    (filter (f B var-list)
+                            (lambda (t) (negate (member? x (vars t))))))))))
+    (rd (f p []))))
+
+(define (choice-prop-subterms p)
+  (letrec ((f (lambda (p)
+                (match p
+                  ((some-atom A) (remove A (get-subterms A [])))
+                  ((not Q) (f Q))
+                  (((some-sent-con pc) (some-list props)) (fold join (map f props) []))
+                  (((some-quant Q) (some-var x) (some-sent B))
+                    (filter (f B)
+                            (lambda (t) (negate (member? x (vars t))))))))))
+    (rd (f p))))
+
+(define (choice-prop-subterms* props)
+  (fold join (map choice-prop-subterms props) []))
+
+
+## (find-max L f success failure) takes a list L 
+## and a unary scoring procedure f that can receive
+## any element x of L and will return a non-negative integer
+## (f x). If L is empty or if there is no element x in L 
+## with a positive score (i.e., such that (f x) > 0), then
+## the nullary 'failure' continuation is invoked. Otherwise,
+## the element of L with the maximum score is passed
+## to the unary 'success' continuation.
+
+(define (find-max L f success failure)
+  (letrec ((loop (lambda (L current-best current-max)
+                   (match L 
+                     ([] [current-best current-max])
+                     ((list-of x rest) (let ((x-score (f x)))
+                                         (check ((less? current-max x-score) 
+                                                 (loop rest x x-score))
+                                                (else (loop rest current-best current-max)))))))))
+    (match L 
+      ([] (failure))
+      ((list-of x _) (match (loop L x (- 1))
+                       ([best max] (check ((less? 0 max) (success best)) 
+                                          (else (failure)))))))))
+
+
+(define (log-floor n)
+  (check ((less? n 2) 0)
+         (else (plus 1 (log-floor (div n 2))))))
+
+## The method breadth-first takes a starting premise 'start' (in the a.b.);
+## a target sentence 'target'; a list of unary methods [M_1... M_k], 
+## 'methods', each of which takes a single premise as input; a maximum 
+## depth 'max-depth'; and a nullary failure continuation 'failure'. 
+## The method will derive the target iff the latter can be obtained
+## from the starting premise via any finite sequence of applications 
+## of methods taken from the set {M_1,...,M_k}, provided that the
+## said sequence is of length <= max_depth (the max_depth parameter 
+## is there to ensure termination, since, if the target is not
+## in fact obtainable from the premise via the given methods, the
+## search would go on indefinitely. The search tree is expanded
+## in a breadth-first manner to ensure completeness. If we have
+## exceeded max-depth without yet deriving the target, the failure
+## continuation is invoked. [Note that any method M_i can freely
+## fail on any sentence. The search will simply discount such
+## failures. This means that the list [M_1 ... M_k] can actually 
+## contain methods of arbitrary arity; in fact it can contain 
+## values of any type, e.g. copies of the unit value ().]
+
+(define (breadth-first start target methods max-depth failure)
+  (dletrec ((loop (method (queue n)
+                    (dmatch queue
+                      ((list-of p rest) 
+                        (dcheck ((equal? p target) (!claim p))
+                                ((less? max-depth (log-floor n)) (!failure))
+                                (else (!map-method (method (M) (dtry (!M p)
+                                                               (!true-intro))) 
+                                                    methods 
+                                                    (method (new-theorems)
+                                                      (!loop (join rest new-theorems) (plus n 1)))))))))))
+     (!loop [start] 1)))
+
+(define bf breadth-first)
+
+# Examples: 
+#
+# (define start (and ?A (and ?B (and ?C ?D))))
+#
+# (define target ?D)
+#
+# (define (failure)
+#   (!proof-error "Failure..."))
+#
+# (assume start
+#   (!bf start target [right-and] 4 failure))
+#
+# (define start 
+#   (not (not (not (not (and ?A (and ?B (and ?C ?D))))))))
+#
+# (define target ?C)
+#
+# (assume start
+#   (!bf start target [dn right-and left-and] 10 failure))
+#
+# (define start (and ?A (and ?B ?C)))
+# (define target (or ?C ?D))
+#
+# (assume start 
+#   (!bf start target [right-and comm true-intro (method (p) (!either p ?D))] 5 failure))
+
+(define (rule-antecedent R)
+  (match R 
+    ((forall (some-list _) (if p _)) p)
+    ((forall (some-list _) (iff p _)) p)))
+
+(define (rule-consequent R)
+  (match R 
+    ((forall (some-list _) (if _ q)) q)
+    ((forall (some-list _) (iff _ q)) q)))
+
+(define (rule->method R)
+  (method (p)
+    (dmatch (match-props p (rule-antecedent R))
+      ((some-sub sub) (!instance R (sub (qvars-of R))))
+      (_ (dmatch (match-props p (rule-consequent R))
+           ((some-sub sub) (dlet ((p (!right-iff (!uspec* R (sub (qvars-of R))))))
+                             (!mp p (!prove-antecedent p)))))))))
+                                
+(define (fact->cond fact)
+  (dmatch fact
+    ((forall (some-list uvars) body)
+      (dmatch body
+        ((if _ _) (!fail))
+        ((iff _ _) (!fail))
+        (_ (!generalize uvars 
+              (method (eigen-vars)
+                 (assume true 
+                   (!uspec* fact eigen-vars)))))))))
+
+(define (ufact->cond fact)
+  (dmatch fact
+    ((forall (list-of _ _) _)
+      (!fact->cond fact))))
+
+(define (fact->bicond fact)
+  (dmatch fact
+    ((forall (some-list uvars) body)
+      (dmatch body 
+       ((if _ _) (!fail))
+       ((iff _ _) (!fail))
+       (_ (!generalize uvars 
+            (method (eigen-vars)
+               (!equiv (assume true 
+                         (!uspec* fact eigen-vars))
+                       (assume (replace-vars uvars eigen-vars body)
+                         (!true-intro))))))))))
+
+
+## K: New, tentative definition of fact->bicond, June 15, 2010: 
+
+(define (fact->bicond fact)
+ (dlet ((M (method (uvars body)
+              (!generalize uvars 
+                 (method (eigen-vars)
+                    (!equiv (assume true 
+                              (!uspec* fact eigen-vars))
+                            (assume (replace-vars uvars eigen-vars body)
+                              (!true-intro))))))))
+  (dmatch fact
+    ((forall (some-list uvars) body)
+      (dmatch [body (null? uvars)] 
+       ([(if _ _) false] (!fail))
+       ([(if _ _) true] (!M uvars body))
+       ([(iff _ _) false] (!fail))
+       ([(iff _ _) true] (!M uvars body))
+       (_ (!M uvars body)))))))
+
+(define (ufact->bicond fact)
+  (dmatch fact
+    ((forall (list-of _ _) _)
+       (!fact->bicond fact))))
+
+(define (identity? p)
+  (match p 
+    ((= _ _) true)
+    (_ false)))
+
+(define old-egen egen)
+
+(define (egen' target)
+  (dmatch target
+    ((exists (some-var x) (some-sent body))
+       (dlet ((sub-cell (cell ()))
+              (_ (fetch (lambda (p) 
+                          (match (match-props p body)
+                            ((some-sub sub) (seq (set! sub-cell sub) true)) 
+                            (_ false))))))
+         (dmatch (ref sub-cell)
+           ((some-sub sub) (!old-egen target (sub x))))))))
+
+
+
+(define (augment-left p)
+  (method (q)
+    (!both p q)))
+
+(define augment augment-left)
+
+(define (augment-right q)
+  (method (p)
+    (!both p q)))
+
+(define (alternate left right)
+  (!either right))
+
+(define (comm-absurd P1 P2)
+  (dmatch [P1 P2]
+    ([P (not P)] (!absurd P1 P2))
+    ([(not P) P] (!absurd P2 P1))))
+
+
+(define (qn-2 premise)
+  (dmatch premise
+    ((exists x p)
+       (!by-contradiction' (not (forall x (complement p)))
+         (assume (forall x (complement p))
+           (pick-witness w premise witness-premise 
+              (!from-complements false
+				 (!uspec (forall x (complement p)) w)
+                                 witness-premise)))))))
+
+(define (qn2-strict premise)
+  (dmatch premise
+    ((exists x (not (some-sent P)))
+       (suppose-absurd (forall x P)
+         (pick-witness w premise
+            (!absurd (!uspec (forall x P) w)
+                     (replace-var x w (not P))))))))
+
+(define (qn-3 premise)
+  (dmatch premise
+    ((not (exists x (some-sent p)))
+      (pick-any y
+        (dlet ((q (replace-var x y p)))
+          (!by-contradiction' (complement q)
+            (assume q
+              (!absurd (!egen (exists y q) y)
+                       premise))))))))
+
+
+(define (qn3-strict premise)
+  (dmatch premise
+    ((not (exists x (some-sent p)))
+       (pick-any y
+         (suppose-absurd-let (hyp (replace-var x y p))
+           (!absurd (!egen (exists x p) y) premise))))))
+
+(define (qn-1 premise)
+  (dmatch premise 
+    ((not (forall x (some-sent p)))
+       (!by-contradiction' (exists x (complement p))
+         (assume-let (hyp (not (exists x (complement p))))
+           (!absurd (conclude (forall x p)
+                      (pick-any x (!uspec (!qn-3 hyp) x)))
+                    premise))))))
+
+(define (qn1-strict premise)
+  (dmatch premise 
+    ((not (forall x P))
+       (!dn (suppose-absurd-let (hyp (not (exists x (not P))))
+              (!absurd (pick-any x (!dn (!uspec (!qn3-strict hyp) x))) premise))))))
+          
+
+
+(define (qn-4 premise) 
+  (dmatch premise
+    ((forall x (some-sent p))
+       (!by-contradiction' (not (exists x (complement p)))
+          (assume-let (hyp (exists x (complement p)))
+            (pick-witness w hyp witness-premise
+              (!from-complements false witness-premise
+                                 (!uspec premise w))))))))
+
+
+(define (qn4-strict premise) 
+  (dmatch premise
+    ((forall x (not (some-sent p)))
+       (suppose-absurd-let (hyp (exists x p))
+         (pick-witness w hyp
+           (!absurd (replace-var x w p) 
+                    (!uspec premise w)))))))
+
+(define (qn premise)
+  (dmatch premise
+    ((not (forall x P)) (!qn-1 premise)) 
+    ((exists x (not P)) (!qn-2 premise))
+    ((not (exists x P)) (!qn-3 premise))
+    ((forall x (not P)) (!qn-4 premise))))
+
+
+(define (qn-strict premise)
+  (dmatch premise
+    ((not (forall x P)) (!qn1-strict premise)) 
+    ((exists x (not P)) (!qn2-strict premise))
+    ((not (exists x P)) (!qn3-strict premise))
+    ((forall x (not P)) (!qn4-strict premise))
+    (_ (!claim premise))))
+
+
+## qn* is a version of the qn ("quantifier negation") methods that works
+## iteratively, with arbitrarily long chains of quantifiers preceded by a 
+## negation symbol. For instance, suppose that p := (not (forall ?x (forall ?y q))) 
+## is in the a.b. Then (!qn p) will produce (exists ?x (not (forall ?y q))),
+## i.e., it will only push the negation sign inward by one position, flipping
+## only one (the very first) quantifier in the process. By constrast,
+## (!qn* p) will produce (exists ?x (exists ?y (not q))). 
+## Likewise, (!qn* (not (forall ?x (exists ?y (forall ?z q))))) will produce
+## (exists ?x (forall ?y (exists ?z (not q)))), and so on.
+## There is also a strict version of the method, called qn-strict*, 
+## which, like the strict version of qn (qn-strict), determines whether
+## the matrix of the given sentence (the body of the quantified sentence)
+## will be explicitly negated or not. For instance, 
+## (!qn-strict* (not (forall ?x (forall ?y (not q))))) will produce
+## (exists ?x (exists ?y (not (not q)))), explicitly negating the body
+## (not q), whereas the non-strict version of the method will apply 
+## double negation, resulting in (exists ?x (exists ?y q)). 
+
+(define (qn*-comp p)
+  (match p
+    ((not (forall (some-var x) body)) (exists x (qn*-comp (not body))))
+    ((not (exists (some-var x) body)) (forall x (qn*-comp (not body))))
+    ((not (not q)) q)
+    ((forall (some-var x) body) (not (exists x (qn*-comp (not body)))))
+    ((exists (some-var x) body) (not (forall x (qn*-comp (not body)))))
+    (_ p)))
+
+(define (qn*-comp-strict p)
+  (match p
+    ((not (forall (some-var x) body)) (exists x (qn*-comp-strict (not body))))
+    ((not (exists (some-var x) body)) (forall x (qn*-comp-strict (not body))))
+    ((forall (some-var x) body) (not (exists x (qn*-comp-strict (not body)))))
+    ((exists (some-var x) body) (not (forall x (qn*-comp-strict (not body)))))
+    (_ p)))
+
+(define (qn0* premise)
+  (dmatch premise
+    ((not (forall (some-var x) (some-sent body)))
+      (dmatch (!qn premise)
+        ((th as (exists y (body' as (not ((some-quant _) (some-var _) (some-sent _))))))
+          (pick-witness w th witness 
+ 	   (dlet ((body'' (!qn0* (replace-var y w body'))))
+              (!egen (exists w body'') w))))
+        (res (!claim res))))
+    ((not (exists (some-var x) (some-sent body)))
+      (dmatch (!qn premise)
+        ((th as (forall (some-var y) (body' as (not ((some-quant _) (some-var _) (some-sent _))))))
+           (pick-any w:(sort-of y)
+             (!qn0* (!uspec th w))))
+        (res (!claim res))))
+    (_ (!qn premise))))
+
+(define (qn* p)
+ (conclude (qn*-comp p)
+    (!qn0* p)))
+
+(define (qn-strict0* premise)
+  (dmatch premise
+    ((not (forall (some-var x) (some-sent body)))
+      (dmatch (!qn-strict premise)
+        ((th as (exists y body'))
+          (pick-witness w th witness ## 
+ 	   (dlet ((body'' (!qn-strict0* (replace-var y w body'))))
+             (!egen (exists w body'') w))))
+        (res (!claim res))))
+    ((not (exists (some-var x) (some-sent body)))
+      (dmatch (!qn-strict premise)
+        ((th as (forall (some-var y) body'))
+          (pick-any w:(sort-of y)
+            (!qn-strict0* (!uspec th w))))
+        (res (!claim res))))
+    (_ (!qn-strict premise))))
+
+(define (qn-strict* p)
+  (conclude (qn*-comp-strict p)
+    (!qn-strict0* p)))
+
+(define (inc c) 
+  (let ((res (ref c)))
+    (seq (set! c (plus res 1)) 
+         res)))
+
+
+(define (reiterate p)
+  (method (_) 
+    (!claim p)))
+
+(define (look-up table str)
+  ((table "look-up") str))
+
+(define (enter table str v)
+  ((table "enter") str v))
+
+(define (remove table str)
+  ((table "remove") str))
+
+(define (hash-table-size table)
+  ((table "size")))
+
+(define (show-table table)
+  ((table "show")))
+
+(define (term-look-up table t)
+  ((table "look-up") t))
+
+(define (term-enter table t v)
+  ((table "enter") t v))
+
+(define (term-table-remove table t)
+  ((table "remove") t))
+
+(define (term-enter table t v)
+  ((table "enter") t v))
+
+(define (term-table-size table)
+  ((table "size")))
+
+(define (show-term-table table)
+  ((table "show")))
+
+(define make-var-hash-table make-hash-table)
+
+(define (look-up-var table v)
+  (look-up table (var->string v)))
+
+(define (enter-var table variable key)
+  (enter table (var->string variable) key))
+
+(define (var-table-size table)
+  (table-size table))
+
+(define (show-var-table table)
+  (show-table table))
+
+(define make-symbol-hash-table make-hash-table)
+
+(define (look-up-symbol table v)
+  (look-up table (symbol->string v)))
+
+(define (enter-symbol table sym v)
+  (enter table (symbol->string sym) v))
+
+(define (symbol-table-size table)
+  (table-size table))
+
+(define (show-symbol-table table)
+  (show-table table))
+
+
+## The following returns all permutations of k elements 
+## taken from list L. 
+
+(define (permutations L k)
+  (letrec ((f (lambda (x) 
+                (let ((perms (permutations L (minus k 1))))
+                  (map (lambda (P) (add x P)) perms)))))
+   (check ((equal? k 0) [[]])
+          (else (fold join (map f L) [])))))
+
+(define 
+  (prop-size p)
+    (match p 
+      ((some-atom _) 1)
+      (((some-sent-con _) (some-list props)) (plus 1 (prop-size* props)))
+      (((some-quant _) (some-var _) (some-sent q)) (plus 2 (prop-size q))))
+  (prop-size* props)
+    (match props
+      ([] 0)
+      ((list-of p more) (plus (prop-size p) (prop-size* more)))))
+
+
+(define 
+  (prop-size1 p)
+    (match p 
+      ((some-atom t) (term-size t))
+      (((some-sent-con _) (some-list props)) (plus 1 (prop-size1* props)))
+      (((some-quant _) (some-var _) (some-sent q)) (plus 2 (prop-size1 q))))
+  (prop-size1* props)
+    (match props
+      ([] 0)
+      ((list-of p more) (plus (prop-size1 p) (prop-size1* more)))))
+
+
+
+
+(define (fcong1 id fsym)
+  (dmatch id 
+    ((= s t) (!fcong (= (fsym s) (fsym t))))))
+
+(define (cong-method fsym) 
+  (method (id) (!fcong1 id fsym)))
+
+
+(define (ground? t)
+  (&& (term? t) 
+      (null? (vars t))))
+
+(define (all-ground? terms)
+   (for-each terms ground?))
+
+(define (syms t)
+  (rd (get-term-syms t)))
+
+(define (canonical? t)
+  (&& (ground? t) 
+      (for-each (syms t) constructor?)))
+
+(define (super-canonical? t)
+  (&& (ground? t) 
+      (for-each (syms t) (lambda (c) (|| (constructor? c) (real-numeral? c) (meta-id? c))))))
+
+(primitive-method (int-comp i j)
+  (check ((&& (integer-numeral? i) (integer-numeral? j))
+           (check ((num-equal? i j) (= i j))
+                  (else (not (= i j)))))))
+
+(define (int-comp i j)
+  (!force (check ((&& (integer-numeral? i) (integer-numeral? j))
+           (check ((num-equal? i j) (= i j))
+                  (else (not (= i j))))))))
+
+(primitive-method (real-comp i j)
+  (check ((&& (real-numeral? i) (real-numeral? j))
+           (check ((num-equal? i j) (= i j))
+                  (else (not (= i j)))))))
+
+(define (real-comp i j)
+  (!force (check ((&& (real-numeral? i) (real-numeral? j))
+                 (check ((num-equal? i j) (= i j))
+                        (else (not (= i j))))))))
+
+
+(primitive-method (id-comp i j)
+  (check ((&& (meta-id? i) (meta-id? j))
+           (check ((equal? i j) (= i j))
+                  (else (not (= i j)))))))
+
+(define (id-comp i j)
+  (!force (check ((&& (meta-id? i) (meta-id? j))
+           (check ((equal? i j) (= i j))
+                  (else (not (= i j))))))))
+
+(primitive-method (show-unequal t1 t2)
+  (check ((&& (canonical? t1) 
+              (canonical? t2) 
+              (equal? (sort-of t1) (sort-of t2))
+              (negate (equal? t1 t2)))
+             (not (= t1 t2)))
+         ((&& (meta-id? t1) (meta-id? t2) (negate (equal? t1 t2)))
+            (not (= t1 t2)))))
+
+(define (show-unequal t1 t2)
+  (!force (check ((&& (canonical? t1) 
+              (canonical? t2) 
+              (equal? (sort-of t1) (sort-of t2))
+              (negate (equal? t1 t2)))
+             (not (= t1 t2)))
+         ((&& (meta-id? t1) (meta-id? t2) (negate (equal? t1 t2)))
+            (not (= t1 t2))))))
+
+(define (symbol-lemmas f)
+  (fetch-all (lambda (p)
+               (match p 
+                 ((forall (some-list _) ((val-of f) (some-list _)))           true)
+                 ((forall (some-list _) (= ((val-of f) (some-list _)) _))     true)
+                 ((forall (some-list _) (= _ ((val-of f) (some-list _))))     true)
+                 ((forall (some-list _) (if _  ((val-of f) (some-list _))))   true)
+                 ((forall (some-list _) (if _  (= ((val-of f) (some-list _)) _))) true)
+                 ((forall (some-list _) (if _  (= _ ((val-of f) (some-list _))))) true)
+                 ((forall (some-list _) (iff _ ((val-of f) (some-list _))))   true)
+                 ((forall (some-list _) (iff   ((val-of f) (some-list _)) _)) true)
+                 ((forall (some-list _) (iff _  (= ((val-of f) (some-list _)) _))) true)
+                 ((forall (some-list _) (iff _  (= _ ((val-of f) (some-list _))))) true)
+                 (_ false)))))
+
+(define (lemmas arg)
+  (match arg
+    ((some-symbol _) (remove-duplicates (symbol-lemmas arg)))
+    ((some-list _)   (remove-duplicates (fold join (map symbol-lemmas arg) [])))))
+
+
+(define properties lemmas)
+
+(define (list->vector L)
+  (let ((V (make-vector (length L) ())))
+    (letrec ((loop (lambda (L i)
+                     (match L 
+                       ([] V)
+                       ((list-of x rest) (seq (vector-set! V i x)
+                                              (loop rest (plus i 1))))))))
+      (loop L 0))))
+
+(define (vector->list V)
+ (let ((max (vector-size V)))
+   (letrec ((loop (lambda (i L)
+                    (check ((less? i max) (loop (plus i 1) (add (vector-sub V i) L)))
+                           (else (rev L))))))
+    (loop 0 []))))
+  
+
+(define (vec-app f vector)
+  (letrec ((n (vector-size vector))
+           (loop (lambda (i)
+                   (check ((less? i n) (seq (f i (vector-sub vector i))
+                                            (loop (plus i 1))))
+                          (else ())))))
+     (loop 0)))
+
+
+(define (vector-copy v1 v2)
+  (vec-app (lambda (i x)
+             (vector-set! v2 i x)) v1))
+  
+(define (vector-swap V i j)
+  (let ((x (vector-sub V i))
+        (_ (vector-set! V i (vector-sub V j))))
+    (vector-set! V j x)))
+
+(define (smallest i j)
+  (check ((less? i j) i)
+         (else j)))
+
+(define (greatest i j)
+  (check ((less? i j) j)
+         (else i)))
+
+(define (fix f p)
+  (let ((p' (f p)))
+    (check ((equal? p' p) p)
+           (else (fix f p')))))
+
+(define (dfix M p)
+  (dlet ((p' (!M p)))
+    (dcheck ((equal? p p') (!claim p))
+            (else (!dfix M p')))))
+
+
+## The following applies a procedure f to a sentence p
+## top-down, at most once:
+
+(define (top-down f p)
+  (match (f p)
+   ((val-of p) (match p 
+                 ((some-atom _) p) 
+                 (_ ((root p) (map (lambda (p) (top-down f p))
+                                   (children p))))))
+   (res res)))
+
+## The following applies a procedure f to a sentence p
+## bottom-up, at most once:
+
+(define (bottom-up f p)
+  (letrec ((g (lambda (p)
+                (match (f p)
+                   ((val-of p) [p false])
+                  (q [q true]))))
+           (f* (lambda (p)
+                 (match p 
+                  ((some-atom _) (g p))
+                  (((some-sent-con pc) (some-list args))
+                    (let ((args' (map f* args)))
+                      (check ((for-some args' (lambda (x) (second x))) [(pc (map first args')) true])
+                             (else (g p)))))))))
+    (first (f* p))))
+
+(define (abs x)
+  (check ((less? x 0) (times (- 1) x))
+         (else x)))
+
+
+(define (raise x n)
+  (check ((less? n 1) 1)
+         (else (times x (raise x (minus n 1))))))
+
+define raised-to := raise
+      
+(define (transform* p q rules methods)
+  (dletrec ((limit 100)
+            (same-connective? (lambda (p1 p2)
+                                (equal? (root p1) (root p2))))
+            (distance (lambda (r)
+                        [r (plus (check ((same-connective? r q) 0)
+                                        (else 1000))
+                                 (abs (minus (prop-size r) (prop-size q))))]))
+            (loop (method (current i)
+                   (dcheck ((greater? i limit) (dlet ((_ (writeln-val i))) (!claim current)))
+                           ((equal? current q) (dlet ((_ (writeln-val i))) (!claim current)))
+                           (else (dlet  ((results (filter (map (lambda (R) (top-down R current)) rules)
+                                                          (lambda (res) (negate (equal? res current)))))
+                                         (res-distances  (map distance results))
+                                         (pair-min (lambda (x y) 
+                                                      (check ((less? (second x) (second y)) x)
+                                                             (else y))))
+                                         (best (min-or-max res-distances (first res-distances)
+                                                          pair-min)))
+                                   (dcheck ((equal? best current) (dlet ((_ (writeln-val i))) (!claim current)))
+                                           (else (!loop (!transform current (first best) methods) 
+                                                        (plus i 1))))))))))
+    (!loop p 0)))
+
+(define t* transform*)
+
+# (!t* p q [R] [bdn])
+
+
+# (define p (if (not A) B))
+# (define q (or A B))
+# (define rules [(lambda (p) (match p ((if p1 p2) (or (not p1) p2)) (_ p))) 
+#                (lambda (p) (match p ((not (not q)) q) (_ p)))])
+
+# (assert p)
+
+# (!t* p q rules [cond-def bdn])
+
+                                    
+(define (make-sub bindings)
+  (letrec ((loop (lambda (bindings sub)
+                   (match bindings
+                     ((list-of [(some-var v) (some-term t)] rest) (loop rest (extend-sub sub v t)))
+                     (_ sub)))))
+     (loop bindings empty-sub)))
+
+(define (id->atom p)
+  (dmatch p
+   ((= s true) (!by-contradiction s
+                 (assume (not s)
+                   (!absurd (!(evaluate "chain-last") [true ==> s [p]])
+                            (not s)))))
+   ((= s false) (!by-contradiction (not s)
+                   (!(evaluate "chain") [s ==> false [p]])))))
+                      
+
+(define (identity->atom p)
+  (dmatch p
+   ((= _ true) (!id->atom p))
+   ((= true _) (!id->atom (!sym p)))
+   ((= _ false) (!id->atom p))
+   ((= false _) (!id->atom (!sym p)))))
+
+(define (height t)
+  (match t 
+    (((some-symbol _) (bind args (list-of _ _))) (plus 1 (max* (map height args))))
+    (_ 0)))
+
+(set-precedence (+ - plus minus) 200)
+(set-precedence (* times / div mod) 300)
+(set-precedence = 100)
+(set-precedence Cons 280)
+#(set-precedence Pair 200)
+
+(define (augment p q) 
+  (dmatch q
+    ((and p1 p2) (!both p1 p2))))
+
+(define (augment p q) 
+  (!prove-components-harder q))
+
+(define (unequal x y) (not (x = y)))
+                   
+(set-precedence unequal (get-precedence =))
+
+(define =!= unequal)
+(define =/ unequal)
+(define /= unequal)
+
+(define =/= unequal)
+
+(define (unequal-to x)
+  (lambda (y) (unequal? y x)))
+
+(define (equal-to x)
+  (lambda (y) (equal? y x)))
+
+(define (combined-with M args)
+  (method (p q) (dlet ((args' (match args
+                                ((some-list _) args)
+                                (_ [args]))))
+                   (!find-some (weave p args')
+                               (method (arg-combo) (conclude q (!app-method M arg-combo)))
+                               fail))))
+
+(define with combined-with)
+
+(define (canonical-components p get-components)
+   (sort (get-components p)
+         (lambda (p1 p2)
+            (match (compare-strings (val->string p1) (val->string p2))
+              ('less true)
+              (_ false)))))
+  
+(define (match-props-modulo-CD p q)
+  (match [p q]
+    ([(and (some-list _)) (and (some-list _))] (match-props (and* (canonical-components p get-conjuncts)) (and* (canonical-components q get-conjuncts))))
+    ([(or (some-list _)) (or (some-list _))] (match-props (or* (canonical-components p get-disjuncts)) (or* (canonical-components q get-disjuncts))))
+    (_ (match-props p q))))
+
+## The above, sort-based definition of match-props-modulo-CD fails
+## on inputs like these (which should match but don't): 
+## p = (m N.< n & n N.< n S m)
+## q = (m N.< ?FOO & ?FOO N.< S m)
+## Thus reverting to the old, simpler definition.
+
+(define (match-props-modulo-CD p q)
+  (match-props p q))
+
+(define (simplify p q)
+  (!decompose p (method (_) (!claim q))))
+
+(define (complement-conjunction C p)
+  (!by-contradiction (complement C)
+    (assume C
+      (!from-complements false p (!conj-elim (complement p) C)))))
+
+(define (comm-opt p)
+  (dmatch p
+    ((and _ _) (!comm p))
+    ((or _ _) (!comm p))
+    (_ (!claim p))))
+
+(define (negate-disjunct negated-disjunction complemented-component)
+  (!by-contradiction complemented-component
+    (assume hyp := (complement complemented-component)
+      (dlet ((_ (!comm-opt hyp)))
+         (!from-complements false negated-disjunction (!disj-intro (complement negated-disjunction)))))))
+
+(define (disjuncts-of p)
+  (match p 
+    ((or (some-list args)) args)
+    (_ [p])))
+
+(define (deep-disjuncts p)
+  (match p 
+    ((or (some-list args)) (flatten (map deep-disjuncts args)))
+    (_ [p])))
+
+(define (deep-conjuncts p)
+  (match p 
+    ((and (some-list args)) (flatten (map deep-conjuncts args)))
+    (_ [p])))
+
+(define (decompose-equation eqn)
+  (match eqn
+    ((forall (some-list uvars) (= left right))         [uvars left right])
+    ((forall (some-list uvars) (if _ (= left right)))  [uvars left right])
+    ((forall (some-list uvars) (iff _ (= left right))) [uvars left right])))
+
+(define (match-props-segment L1 L2 uvars)
+  (let (([n1 n2] [(length L1) (length L2)]))
+    (check ((leq? n1 n2) (match-props-3 L1 (take L2 n1) uvars))
+           (else false))))
+
+(define epf eprove-from)
+
+(define es make-e-prop-string)
+
+(define (running-time f n)
+  (let ((t1 (time))
+        (_  (repeat f n))
+        (t2 (time))
+        (t  (minus t2 t1))
+        (_ (print "\nTime: " t "\n")))
+     t))
+   
+(define test running-time)
+
+
+(define (expand-input-unary f converter)
+  (lambda (x)
+    (f (converter x))))
+
+(define (expand-input-binary f converter-1 converter-2)
+  (lambda (x y)
+    (f (converter-1 x) (converter-2 y))))
+
+(define (transform-output-unary f converter-list)
+  (lambda (x)
+    (let ((res (f x)))
+       (letrec ((loop (lambda (L last-result)
+                        (match L
+                         ([] last-result)
+                         ((list-of converter more) (let ((new (converter last-result)))
+                                                     (check ((equal? new last-result) (loop more new))
+                                                            (else new))))))))
+         (loop converter-list res)))))
+                      
+(define (self-equal p q)
+  (dmatch q
+    ((= _x _x) (!reflex _x))))
+
+(declare (returns --->) Boolean)
+
+(define (function clauses)
+  (letrec ((process
+	    (lambda (clauses)
+	      (match clauses
+		((split [_lhs returns _rhsides] _rest)
+		 (match _rhsides
+		   ([_id _rhs] 
+		    (join [_id (close (sentence _lhs _rhs))] (process _rest)))
+		   (_ (join (process-conditions _lhs _rhsides [])
+			    (process _rest)))))
+		([] []))))
+	   (process-conditions 
+	    (lambda (lhs rhsides negated-prior-conditions)
+	      (match rhsides
+		((split [_id _condition ---> _rhs] _more)
+		 (match _condition
+		   (true [_id (close (if (conjoin 
+					    (rev negated-prior-conditions))
+					 (sentence lhs _rhs)))])
+		   (_ (join [_id (close (if (conjoin
+					     (rev (add _condition 
+						       negated-prior-conditions)))
+					    (sentence lhs _rhs)))]
+			    (process-conditions 
+			     lhs _more 
+			     (add (not _condition) negated-prior-conditions))))))
+		([] []))))
+	   (sentence 
+	    (lambda (lhs rhs)
+	      (match (sort-of lhs)
+		("Boolean" 
+		 (match rhs
+		   (true lhs)
+		   (false (not lhs))
+		   (_ (iff lhs rhs))))
+		(_ (= lhs rhs))))))
+    (process clauses)))
+
+
+
+(define (pick-all-witnesses premise M)
+  (dletrec ((loop (method (premise witnesses)
+                    (dmatch premise
+                      ((exists x p) (pick-witness w premise w-premise
+                                       (!loop w-premise (add w witnesses))))
+                      (_ (!M (rev witnesses) premise))))))
+    (!loop premise [])))
+
+(set-precedence close 5)
+
+
+(define (lower-case-alpha-char? c)
+  (&& (member? (compare-chars c `a) ['greater 'equal])
+      (member? (compare-chars c `z) ['less 'equal])))
+
+(define (upcase c)
+  (check ((lower-case-alpha-char? c) (char (minus (char-ord c) 32)))
+         (else c)))
+
+(define (upcase-string str) 
+  (map upcase str))
+
+(define (alpha-char? c)
+  (|| (upper-case-alpha-char? c) (lower-case-alpha-char? c)))
+
+(define (numeric-char? c)
+  (&& (member? (compare-chars c `0) ['greater 'equal])
+      (member? (compare-chars c `9) ['less 'equal])))
+
+(define (alpha-numeric-char? c)
+  (|| (alpha-char? c) (numeric-char? c)))
+
+(define digit? numeric-char?)
+
+(define (all-digits? str)
+  (for-each str digit?))
+ 
+(define (alpha-numeric-string? str)
+  (for-each str alpha-numeric-char?))
+
+(define (delete-files files)
+  (seq (map delete-file files) ()))
+
+(define (datatype-sort? str)
+  (negate (equal? (constructors-of str) [])))
+
+(define (printable-char? c)
+  (&& (less? (char-ord c) 128)
+      (greater? (char-ord c) 32)))
+
+(define (printable-string? str)
+  (for-each str printable-char?))
+
+(define (selector? f)
+  (try (match (all-but-last (get-signature f))
+         ([arg-sort] (check ((datatype-sort? arg-sort) 
+                               (let ((f-name (symbol->string f))
+                                     (constructors (constructors-of arg-sort)))
+                                 (for-some constructors
+                                   (lambda (c)
+                                      (for-some (selector-names c)
+                                        (lambda (sel-name)
+                                          (equal? f-name sel-name)))))))
+                            (_ false))))
+       false))
+         
+
+(define (even? n)
+  (equal? (mod n 2) 0))
+
+(define (odd? n)
+  (negate (even? n)))
+
+(define (flip-coin)
+  (equal? (random-int 2) 1))
+
+(define (make-random-int)
+  (let ((i (random-int max-int)))
+    (check ((flip-coin) i)
+           (else (- i)))))
+
+(define (make-random-integer-valued-real)
+  (let ((r (plus (random-int max-int) 0.0)))
+    (check ((flip-coin) r)
+           (else (- r)))))
+
+(define (constructors? L)
+  (for-each L constructor?))
+
+
+
+
+(define (size' p)
+  (letrec ((loop (lambda (p sum)
+                    (match p 
+                      ((some-atom t) (plus sum (term-size t)))
+                      (((|| not and or if iff) (some-list args))
+                        (loop* args (plus sum 1)))
+                      (((some-quant _) (some-var _) (some-sent q))
+                        (loop q (plus 2 sum))))))
+           (loop* (lambda (props sum)
+                    (match props
+                      ([] sum)
+                      ((list-of p more) (loop* more (loop p sum)))))))
+     (loop p 0)))
+
+(define (alpha-variants? t1 t2)
+  (let ((sub1 (match-terms t1 t2))
+        (sub2 (match-terms t2 t1)))
+    (check ((|| (equal? sub1 false) (equal? sub2 false)) false)
+           (else sub1))))
+
+
+###=========================== NEW CODE FOR AUTO EVAL ===========================
+
+(define empty-map [])
+
+(define (add-binding x y map)
+  (add [x y] map))
+
+(define (extend map pairs)
+  (match pairs
+    ([] map)
+    ((list-of [x y] more) (extend (add-binding x y map) more))))
+
+(define (remove-binding x map)
+  (match map
+    ([] [])
+    ((list-of [key value] more) (check ((equal? key x) more)
+                                        (else (add-binding key value (remove-binding x more)))))))
+
+(define (apply-map map x)
+  (match map
+    ([] ())
+    ((list-of [a b] more) (check ((equal? a x) b)
+                                 (else (apply-map more x))))))
+
+(define (dom m)
+  (letrec ((loop (lambda (m res)  
+                   (match m 
+                     ([] res)
+                     ((list-of [a b] more) (check ((member? a res) (loop more res))
+                                                  (else (loop more (add a res)))))))))
+    (loop m [])))
+
+
+(define (map-range m)
+  (map (lambda (x) (apply-map m x))
+       (dom m)))
+
+(define (dom-range-list m)
+  (map (lambda (x) [x (apply-map m x)])
+       (dom m)))
+
+
+(define (in-dom? a m)
+  (match m 
+    ([] false)
+    ((list-of [x _] rest) (|| (equal? a x)
+                              (in-dom? a rest)))))
+
+
+(define [bar comma lp rp lb rb blank colon scolon quot-mark]
+        [" | " "," "(" ")" "[" "]" " " ":" ";" "\""])
+
+(define newline "\n")
+
+(define tab "  ")
+
+(define (conjuncts-of p)
+  (add p (get-conjuncts-recursive p)))
+
+(define (rename-term t)
+  (let ((fv (vars t))
+        (fv' (map (lambda (v)
+                    (fresh-var (sort-of v))) fv)))
+    (letrec ((loop (lambda (fvars t)
+                     (match fvars
+                       ([] t)
+                       ((list-of [v v'] more) (loop more (replace-var v v' t)))))))
+      (loop (zip fv fv') t))))
+
+(set-precedence And 30)
+(set-precedence Or 20)
+(set-precedence If 10)
+(set-precedence Iff 10)
+(set-precedence Not 50)
+
+(define (simp-or L)
+   (letrec ((loop (lambda (L res)
+                    (match L
+                      ([] res)
+                      ((list-of true _) [true])
+                      ((list-of false more) (loop more res))
+                      ((list-of p more) (loop more (add p res)))))))
+     (match (loop L [])
+       ([] false)
+       ([p] p)
+       (L' (or L')))))
+
+(define (simp-and L)
+   (letrec ((loop (lambda (L res)
+                    (match L
+                      ([] res)
+                      ((list-of false _) [false])
+                      ((list-of true more) (loop more res))
+                      ((list-of p more) (loop more (add p res)))))))
+     (match (loop L [])
+       ([] true)
+       ([p] p)
+       (L' (and L')))))
+
+
+(define (normalize p)
+  (match p 
+    ((or (some-list _))  (or (rev (rd deep-disjuncts p))))
+    ((and (some-list _)) (and (rev (rd deep-conjuncts p))))
+    ((forall (as uvars (list-of _ _)) body) (forall* uvars (normalize body)))
+    (_ p)))
+
+
+(define (sole-constructor? f t)
+   (match (constructors-of (sort-of t))
+     ([(val-of f)] true)
+     (_ false)))
+
+(define (one-of-each? f g)
+  (|| (&& (constructor? f) (selector? g))
+      (&& (selector? f) (constructor? g))))
+
+(define (diff1 s t)
+  (match [s t]
+    ([(some-var _) (f (some-list args))] (check ((sole-constructor? f t) 
+                                                  (check ((for-each args var?) false)
+                                                         (else (try (let ((selectors (map string->symbol (selector-names f)))
+                                                                           (left-term (make-term f (map (lambda (sel) (sel s)) selectors))))
+                                                                       (diff1 left-term t))
+                                                                    false))))
+                                                (else (not (= s t)))))
+    ([((some-symbol f) (some-list args1)) ((some-symbol g) (some-list args2))]
+       (check ((for-each [f g] (lambda (c) (|| (constructor? c) (selector? c))))
+                (let ((_ ())
+                      ##(_ (print "\nHere is f: " f " and here is g: " g "\n"))
+                      (_ ()))
+                (check ((one-of-each? f g) (not (= s t)))
+                       ((negate (equal? f g)) true)
+                       (else (simp-or (map (lambda (pair)
+                                         (match pair
+                                           ([s' t'] (diff1 s' t'))))
+                                       (zip args1 args2)))))))
+              (else (error (join "\nNon-constructors found in a function definition clause: " (val->string f) " and " (val->string g) "\n")))))
+    (_ false)))
+
+(define (diff lhs lhs')
+  (letrec ((loop (lambda (L1 L2 res)
+                   (match [L1 L2]
+                     ([[] []] (rev res))
+                     ([(list-of s1 rest1) (list-of s1' rest1')]
+                        (loop rest1 rest1' (add (diff1 s1 s1') res)))))))
+    (match [lhs lhs']
+      ([(f (some-list args)) (f (some-list args'))] 
+         (normalize (simp-or (loop args args' [])))))))
+
+(define (diff* lhs lh-list)
+   (normalize (simp-and (map (lambda (lhs')
+                               (diff lhs (rename-term lhs')))
+                             lh-list))))
+
+
+(define (filter-out L pred)
+  (filter L (lambda (x) (negate (pred x)))))
+
+(define (specify terms)
+  (method (P) (!instance P terms)))
+
+(define (file-path names)
+  (match (try (foldr make-path "" names) ())
+    (() (error (join "\nUnable to make a path from these:\n" (separate names ", "))))
+    (res res)))
+
+define ATHENA_LIB := (file-path [ATHENA_HOME "lib" "basic"])
+
+(define (&&* L) (for-each L (lambda (x) x)))
+
+(define (||* L) (for-some L (lambda (x) x)))
+
+(define (&&R L)
+  (match L
+    ([] true)
+    ((list-of x rest) (match x
+                        (true (&&R rest))
+                        (false false)
+                        (_ (and* L))))))
+
+(define (||R L)
+  (match L
+    ([] false)
+    ((list-of x rest) (match x
+                        (true true)
+                        (false (||R rest))
+                        (_ (or* L))))))
+
+(define (arg-sorts c)
+  (all-but-last (get-signature c)))
+
+(define (arg-sorts-unified c sort)
+  (all-but-last (get-signature-unified c sort)))
+
+(define (constructor-range c)
+  (match (last (get-signature c))
+    ((split "(" struc-name " " _) struc-name)
+    (struc-name struc-name)))
+
+(define (reflexive? c)
+          (takes-args-of-sort c (last (get-signature c)))
+        (takes-args-of-sort c S)
+          (let ((sig (get-signature c))
+                (range-sort (last sig))
+                (arg-sorts (all-but-last sig)))
+            (|| (for-some arg-sorts (lambda (T) (unifiable-sorts? S T)))
+                (for-some (filter-out arg-sorts (lambda (asort) (equal? asort range-sort)))
+                          (lambda (asort)
+                            (for-some (constructors-of asort)
+                                      (lambda (c')
+                                       (takes-args-of-sort c' S))))))))
+
+
+(define [reflexive-unif? takes-args-of-sort]
+  (let (([ht1 ht2] [(table 31) (table 31)])
+        ([arg-ht1 arg-ht2] [(table 31) (table 31)]))
+    (letrec ((ref-u (lambda (c sort)
+                       (let ((arg [c sort])
+                             (already-called? (try (table-lookup arg-ht1 arg) false)))
+                         (check (already-called? 
+                                  (let ((memoized-result (try (table-lookup ht1 arg) ())))
+                                    (match memoized-result
+                                      (() false)
+                                      (_  memoized-result))))
+                                (else  (let ((_ (table-add arg-ht1 [arg --> true]))
+                                             (result (accepts-args-of-sort c (last (get-signature-unified c sort))))
+                                             (_ (table-add ht1 [arg --> result]))) 
+                                         result))))))
+             (accepts-args-of-sort 
+                (lambda (c S)
+                   (let ((arg [c S])
+                         (already-called? (try (table-lookup arg-ht2 arg) false)))
+                    (check (already-called? 
+                            (let ((memoized-result (try (table-lookup ht2 arg) ())))
+                              (match memoized-result
+                                (() false)
+                                (_  memoized-result))))
+                           (else  (let ((_ (table-add arg-ht2 [arg --> true]))
+                                        (result (try 
+                                                  (let ((sig (get-signature-unified c S))
+                                                        (range-sort (last sig))
+                                                        (arg-sorts (all-but-last sig)))
+                                                    (|| (for-some arg-sorts (lambda (T) (unifiable-sorts? S T)))
+                                                        (for-some (filter-out arg-sorts (lambda (asort) (equal? asort range-sort)))
+                                                                  (lambda (asort)
+                                                                    (for-some 
+                                                                      (constructors-of asort)
+                                                                      (lambda (c')
+                                                                        (&& (unequal? c' c) (accepts-args-of-sort c' S))))))))
+                                                  false))
+                                        (_ (table-add ht2 [arg --> result])))
+                                    result)))))))
+       [ref-u accepts-args-of-sort])))
+
+(define (irreflexive? c)
+  (negate (reflexive? c)))
+
+(define (irreflexive-unif? c sort)
+  (negate (reflexive-unif? c sort)))
+
+(define (reflexive-constructors-of dt)
+  (filter (constructors-of dt) (lambda (c) (reflexive-unif? c dt))))
+
+(define (irreflexive-constructors-of dt)
+  (filter (constructors-of dt) (lambda (c) (irreflexive-unif? c dt))))
+
+(define (random-shuffle L)
+  (let (([e-first bit-o bit-e] [(flip-coin) (flip-coin) (flip-coin)])
+        ([odds evens] [(odd-positions L) (even-positions L)])
+        (odds' (check (bit-o (rev odds))
+                      (else odds)))
+        (evens' (check (bit-e (rev evens))
+                       (else evens))))
+    (check (e-first (join evens' odds'))
+           (else (join odds' evens')))))
+
+
+(define (choose L)
+  (nth (random-int (length L)) L))
+
+(define (choose-and-remove L)
+  (let ((x (choose L)))
+    [x (list-remove x L)]))
+
+(define (choose-without-reps k L)
+  (letrec ((loop (lambda (k L results)
+                   (check ((less? k 1) [results L])
+                          (else (let (([x L'] (choose-and-remove L)))
+                                   (loop (minus k 1) L' (add x results))))))))
+    (loop k L [])))
+
+(define (choose-subset L k)
+  (first (choose-without-reps k L)))
+
+(define (starify connective)
+  (lambda (terms)
+     (letrec ((loop (lambda (terms)
+                      (match terms
+                        ([t] t)
+                        ((list-of t more) (connective t (loop more)))))))
+       (loop terms))))
+
+(define And* (starify And))
+
+(define Or* (starify Or))
+
+(define (sent->term p)
+  (match p
+    ((and (some-list args)) (And* (map sent->term args)))
+    ((or (some-list args)) (Or* (map sent->term args)))
+    ((if p1 p2) (If (sent->term p1) (sent->term p2)))
+    ((iff p1 p2) (let ((p1' (sent->term p1))
+                       (p2' (sent->term p2)))
+                  (And (If p1' p2') (If p2' p1'))))
+    ((not p) (Not (sent->term p)))
+    (_ p)))
+
+()
+
+expand-input And [sent->term sent->term]
+expand-input Or [sent->term sent->term]
+expand-input If [sent->term sent->term]
+expand-input Iff [sent->term sent->term]
+expand-input ite [sent->term sent->term sent->term]
+expand-input Not [sent->term]
+
+
+define distinct-counter := (cell 0)
+
+(define (all-distinct-functor terms)
+  (match terms
+    ([] [])
+    ((list-of t _)
+       (let ((S (sort-of t))
+             (new-fsym-name (join "distinct-functor-" (val->string (inc distinct-counter))))
+             (command (join "(declare " new-fsym-name " (-> (" S ") Int))"))
+             (_ (process-input-from-string command))
+             (new-fsym (string->symbol new-fsym-name))
+             (counter (cell 0)))
+         (map (lambda (t) (= (new-fsym t) (inc counter))) terms)))))
+
+(define (ground p)
+  (match p
+    (((some-quant q) (some-var v) body) 
+        (let ((S (sort-of v)))
+          (check ((datatype-sort? S)
+                    (let ((C (constructors-of S)))
+                      (match q 
+                        (forall (and (map (lambda (c) (replace-var v c (ground body))) C)))
+                        (_ (or (map (lambda (c) (replace-var v c (ground body))) C))))))
+                 (else p))))
+    (((some-sent-con sc) (some-list args)) (sc (map ground args)))
+    (_ p)))
+
+
+
+
+(define (split-string str ch)
+    (letrec ((loop (lambda (str current results)
+                      (match str
+                        ([] (rev (add (rev current) results)))
+                        ((list-of c more) (check ((equal? c ch) (loop more [] (add (rev current) results)))
+                                                 (else (loop more (add c current) results))))))))
+      (loop str [] [])))
+
+
+(set-precedence join 105)
+define joined-with := join   
+
+define mapped-to := map 
+
+(set-precedence equal? 100)
+
+(define (from-negation left right)
+  (!by-contradiction right
+      (assume (not right)
+         (!absurd left (not left)))))
+
+
+(define (get-defined-prop p)
+  (match p 
+    ((forall (some-list uvars) (iff (= (some-term left) 
+                                       (some-var x))
+                                    (= x (some-term right))))
+       (let ((uvars' (list-remove x uvars)))
+         (forall* uvars' (= left right))))
+    (_ p)))
+    
+
+(define make-term' make-term)
+
+(define (make-term f args)
+  (match args 
+    ([] f)
+    (_ (make-term' f args))))
+
+(define (try-looking-up x ht)
+  (try [(table-lookup ht x)]
+       ()))
+
+(define (memoize-unary f)
+  (let ((ht (table 101)))
+    (lambda (x)
+       (match (try-looking-up x ht)
+         ([y] y)
+         (_ (let ((y (f x))
+                  (_ (table-add ht [x --> y])))
+              y))))))
+
+(define (memoize-unary f) f)
+
+(define (memoize-binary f)
+  (let ((ht (table 101)))
+    (lambda (x y)
+       (match (try-looking-up [x y] ht)
+         ([z] z)
+         (_ (let ((z (f x y))
+                  (_ (table-add ht [[x y] --> z])))
+              z))))))
+
+
+
+(define (memoize-ternary f)
+  (let ((ht (table 101)))
+    (lambda (x y z)
+       (match (try-looking-up [x y z] ht)
+         ([r] r)
+         (_ (let ((r (f x y z))
+                  (_ (table-add ht [[x y z] --> r])))
+              r))))))
+
+
+(define (memoize-ternary f) f)
+
+
+
+(define (string? L) 
+  (match L  
+    ((some-list _) (for-each L char?))
+    (_ false)))
+
+(define (log2 x) 
+  (check ((leq? x 0.0) (- 1.0))
+         (else (div (log10 x) (log10 2)))))
+
+(define (float x) (times 1.0 x))
+
+
+(define (find-min L compare)
+  (letrec ((loop (lambda (L min)
+                    (match L
+                      ([] min)
+                      ((list-of x more) (check ((compare x min) (loop more x))
+                                               (else (loop more min))))))))
+     (match L
+       ((list-of x rest) (loop rest x)))))
+
+
+
+(define (get-remaining-patterns pats)
+  (list-diff (get-all-remaining-patterns pats) pats))
+
+(define (contains-quants? p)
+  (match p 
+    (((some-quant q) (some-list _) _) true)
+    (((some-sent-con _) (some-list args)) (for-some args contains-quants?))
+    (_ false)))
+
+define and-conv :=
+  method (P)
+    match P {
+      (and P1 P2 P3) => 
+         (!both (!left-and P) (!both (!left-and (!right-and P)) 
+				     (!right-and (!right-and P))))
+    | (and P1 P2 P3 P4) => 
+         (!both (!left-and P) (!and-conv (and P2 P3 P4)))
+    }
+
+
+
+(define (sderive s props)
+    (!sprove-from s props [['poly true] ['subsorting false] ['max-time 1000]]))
+
+(define (vderive s props)
+    (!vprove-from s props [['poly true] ['subsorting false] ['max-time 1000]]))
+
+(define fsd0 fsd)
+
+(define (fsd f)
+  (match f 
+    ((some-proc _) (match (fsd0 (string->symbol (proc-name f)))
+                     (() (seq #(print "\nNo info for this function symbol: " (string->symbol (proc-name f)))
+                               ()))
+                     (res res)))
+    (_ (match (fsd0 f)
+         (() (seq  #(print "\nNo info for this function symbol: " (val->string f)) 
+                   ()))
+         (res res)))))
+
+(define (code f) 
+  (try 
+    (print ((fsd f) 'code))
+    (print (join "\nNo code for " (val->string f) ".\n"))))
+
+(define (dcode f)
+  (print ((fsd f) 'deduction-code)))
+
+(define (red-code f)
+  (print ((fsd f) 'red-code)))
+
+(define (needed-by f)
+  ((fsd f) 'needed-by-syms))
+
+(define (get-obsolete-axioms f)
+  ((fsd f) 'obsolete-axioms))
+
+(define (get-bicond-sources f)
+  ((fsd f) 'bicond-axiom-sources))
+
+(define (occurring f)
+  ((fsd f) 'occurring-syms))
+
+(define (guard-syms f)
+  ((fsd f) 'guard-syms))
+
+(define (eqns f)
+  ((fsd f) 'defining-equations))
+
+(define (ysolve p)
+ (let ((ht (table 10))
+       (_ (table-add ht ['solver --> 'yices])))
+   (match p
+     ((some-sent _) (let ((q (check ((poly? p) (make-monomorphic-instance p)) (else p))))
+                     (smt-solve q ht)))
+    ((some-list L) (let ((q (and (map (lambda (p) (check ((poly? p) (make-monomorphic-instance p)) (else p))) L))))
+                      (smt-solve q ht))))))
+
+
+(define (ground0 p N)
+  (letrec ((loop (lambda (p)
+                   (match p
+                     (((some-quant q) (some-var v) body) 
+                        (let ((S (sort-of v)))
+                          (check ((datatype-sort? S)
+                                    (let ((C (constructors-of S)))
+                                       (match q 
+                                        (forall (and (map (lambda (c) (replace-var v c (loop body))) C)))
+                                        (_ (or (map (lambda (c) (replace-var v c (loop body))) C))))))
+                                 ((equal? S "Int")
+                                     (match q 
+                                        (forall (and (map (lambda (c) (replace-var v c (loop body))) (from-to 0 N))))
+                                        (exists (or (map (lambda (c) (replace-var v c (loop body))) (from-to 0 N))))))
+                                 (else p))))
+                     (((some-sent-con sc) (some-list args)) (sc (map loop args)))
+                     (_ p)))))
+    (loop p)))
+
+
+(define defining-axioms0 defining-axioms)
+
+(define (defining-axioms f)
+ (try
+  (match f
+    ((some-symbol _) (defining-axioms0 f))
+    ((some-proc _) (defining-axioms0 (root (app-proc f (map (lambda (_) (fresh-var)) (from-to 1 (arity-of f)))))))
+    (_ (defining-axioms0 f))) []))
+
+(define (sholds? p)
+  (print "\nDoes\n" p "\nhold?: " (holds? p)))
+
+(define (shold? props)
+  (map-proc sholds? props))
+
+define when := 'when
+
+define (define-axiom L name) := 
+  let {new-axiom := match L {
+                      [(some-sent p)] => p
+                    | (some-list L) => L
+                    };
+       cmd := (join "(define " (id->string name) " " (val->string new-axiom) ")")}
+    (process-input-from-string cmd)
+
+define (fun-clause left op right) :=
+    letrec {var := (fresh-var);
+            aux := lambda (right)
+                     match right {
+		       (split [t 'when c ((some-term name) where (meta-id? name))] rest) =>  
+                            let {res := (if c (op var t));
+                                   _ := (define-axiom [res] name)}
+                              (add res (aux rest))
+		     | (split [t 'when c] rest) => 
+		          (add (if c (op var t)) (aux rest))
+		     | [] => []
+                     | (some-list _) => (error (join "\nIll-formed fun sub-clause(s):" (val->string right) "\n"))
+		     }}
+    match right {
+      (some-list r) =>
+        (close (map lambda (p) (urep (forall var p) [left]) 
+		    (aux r)))
+    | _ => [(close (op left right))]
+    }
+
+
+define (fun L) :=
+    match L {
+      (split [left = right] [((some-term name) where (meta-id? name))] rest) => 
+           let {L := (fun-clause left = right);
+                 _ := (define-axiom L name)} 
+             (join L (fun rest))
+    | (split [left = right] rest) => (join (fun-clause left = right) (fun rest))
+    | (split [left <==> right] [((some-term name) where (meta-id? name))] rest) => 
+           let {L := (fun-clause left <==> right);
+                 _ := (define-axiom L name)}
+             (join L (fun rest))
+    | (split [left <==> right] rest) => (join (fun-clause left <==> right) (fun rest))
+    | [] => []
+    | (some-list _) => (error (join "\nIll-formed fun call:" (val->string L) "\n"))
+    }
+
+define (overload-binary f1 f2) :=
+  lambda (x y)
+    try { (f2 x y) | (f1 x y) }
+
+(define (sort-starts-with t str)
+   (equal? str (first (tokenize (sort-of t) "() "))))
+
+(define (from-list structure-name pre-process)
+  (let (#(_ (print "\nInside from-list, given structure-name: " structure-name))
+        ([c1 c2] (constructors-of structure-name))
+        ([i r] (check ((less? (arity-of c1) 1) [c1 c2]) (else [c2 c1]))))
+    (letrec ((loop (lambda (f)
+                     (lambda (L)
+                       (match L
+                        ([] i)
+                        ((list-of x (some-list rest))
+                          (r (f x) ((loop f) rest)))
+                        (_ L))))))
+      (lambda (f) (lambda (L) ((loop f) (pre-process L)))))))
+
+(define (to-list structure-name post-process)
+  (let (([c1 c2] (constructors-of structure-name))
+        ([i r] (check ((less? (arity-of c1) 1) [c1 c2]) (else [c2 c1])))
+	(i-name (symbol->string i)))
+    (letrec ((loop (lambda (f)
+                     (lambda (t)
+                       (check ((equal? i-name (symbol->string (root t))) [])
+                              ((equal? (get-symbol (root t)) r)
+                                  (let (([x t'] (children t)))
+                                    (add (f x) ((loop f) t'))))
+                              (else t))))))
+       (lambda (f) (lambda (t) (try (post-process ((loop f) t)) t))))))
+
+(define (mod-ht-lookup mod-ht-pair names)
+  (let (([val-ht mod-ht] mod-ht-pair))
+    (match names
+        ([name] (table-lookup val-ht name))
+        ((list-of name rest) (mod-ht-lookup (table-lookup mod-ht name) rest)))))
+
+(define (module->proc M)
+    (lambda (x)
+      (let ((str (check ((meta-id? x) (id->string x))
+                        (else x)))
+            (name-parts (tokenize str "."))
+            (mod-ht-pair (module->table M)))
+        (mod-ht-lookup mod-ht-pair name-parts))))
+
+
+(define (hashable? v)
+  (|| (term? v) (prop? v) (char? v) (string? v) (unit? v) (symbol? v)
+        (match v
+          ((some-list _) (for-each v hashable?))
+          (_ false))))
+
+(define (get-mod-size mod-ht-pair mod-path)
+  (match mod-ht-pair
+    ([val-ht mod-ht] 
+       (match mod-path
+          ([M] (match (table-lookup mod-ht M)
+                 ([val-ht' mod-ht'] (plus (table-size val-ht') (table-size mod-ht')))))
+          ((list-of M rest) (get-mod-size (table-lookup mod-ht M) rest))))))
+
+(define inverted-index-structure [(cell ()) (table 100)])
+
+(define (build-inverted-index)
+  (let ((inverted-index (second inverted-index-structure)))
+     (letrec ((loop (lambda (mod-ht-pair mod-path)
+                       (match mod-ht-pair
+                         ([val-ht mod-ht] 
+                            (seq (map-proc (lambda (p)
+                                             (match p
+                                               ([name val] (check ((hashable? val) 
+                                                                    (let ((whole-name (separate (join mod-path [name]) ".")))
+                                                                      (try (let ((existing-names (table-lookup inverted-index val)))
+                                                                             (table-add inverted-index [val --> (add whole-name existing-names)]))
+                                                                           (table-add inverted-index [val --> [whole-name]]))))
+                                                                  (else ())))))
+                                           (table->list val-ht))
+                                 (map-proc (lambda (p)
+                                              (match p
+                                                ([submodule-name contents] (loop contents (join mod-path [submodule-name])))))
+                                           (table->list mod-ht))))))))
+         (let ((top-mod-ht-pair (module->table "Top"))
+               (_ (set! (first inverted-index-structure) top-mod-ht-pair)))
+           (loop top-mod-ht-pair [])))))
+
+(define (reverse-lookup v)
+  (try (rd (table-lookup (second inverted-index-structure) v)) []))
+
+(define module-ab0 module-ab)
+
+(define (module-ab-aux M props)
+  (let ((_ (match (ref (first inverted-index-structure))
+                     (() (build-inverted-index))
+                     (ht-pair (let ((size-1 (module-size M))
+                                    (size-2 (get-mod-size ht-pair (tokenize M "."))))
+                                (check ((unequal? size-1 size-2) (build-inverted-index))
+                                       (else ())))))))
+   (map (lambda (p) 
+           (let ((names (dedup (reverse-lookup p)))
+                 (kind (check ((assertion? p) 'AXIOM) (else 'THEOREM)))
+                 (result (make-map [['names names] ['kind kind] ['sentence p]]))
+                 (_ ()))
+             result))
+         props)))
+
+(define (module-theory M)
+   (module-ab-aux M (dedup (module-ab0 M))))
+
+(define (module-theory* M)
+  (letrec ((loop (lambda (M) 
+                   (join (module-ab0 M) 
+                         (flatten (map (lambda (mname) (loop (join M "." mname)))
+                                  (sub-modules M)))))))
+    (module-ab-aux M (dedup (loop M)))))
+
+(load "graph-draw")
+
+(define (draw-theory M)
+  (let ((L (module-theory M))
+        (props (map (lambda (record)
+                      (record 'sentence))
+                    L))
+         (G (Graph-Draw.make-graph 0))
+	 (_ (build-inverted-index))
+         (name (lambda (p)
+                 (match (reverse-lookup p)
+                   ([] p)
+                   (L (first (rev L))))))
+         (counter (cell 0))
+         (_ (map-proc (lambda (p)
+                       (let ((premises (match (dependencies p)
+                                         (() [])
+                                         (res res))))
+                         (map-proc (lambda (d)
+                                      (Graph-Draw.add-edge G (name p) (name d) (inc counter)))
+                                   premises)))
+                     props)))
+    (Graph-Draw.draw-and-show G Graph-Draw.viewer)))
+
+(define (literal? x)
+  (match x 
+    ((some-atom _) true)
+    ((not (some-atom _)) true)
+    (_ false)))
+
+
+(define (negation-body q) (match q ((not (some-sent body)) body)))
+
+
+(define (map-remove* m keys)
+  (letrec ((loop (lambda (m keys)
+                   (match keys
+                     ([] m)
+                     ((list-of k rest) (loop (map-remove m k) rest))))))  
+    (loop m keys)))
+
+(define (cnf p) (cnf-core p 'dimacs-list))
+
+(define (equiv? p q)
+  (try (seq (!vprove-from (iff p q) []) true) false))
+
+define (apply-top-down f) := 
+  lambda (p) 
+    match (f p) {
+     (some-sent q) => q
+    | _ => match p {
+             ((some-sent-con sc) (some-list args)) => 
+                (sc (map (apply-top-down f) args))
+           | _ => p
+           }
+    }
+
+(define [tc0 check-fun-def0] [tc check-fun-def])
+
+(define (tc f)
+  (tc0 (get-symbol f)))
+
+(define (check-fun-def f)
+  (check-fun-def0 (get-symbol f) (defining-axioms f)))
+
+
+(define (check-fun-defs fsyms)
+  (map-proc check-fun-def fsyms))
+
+(define (rearrange p)
+	                       (let ((move-to-front (lambda (L pred)
+        		                                              (letrec ((loop (lambda (L yes no)
+                                                                (match L
+                                                                   ([] (join (rev yes) (rev no)))
+                                                                   ((list-of x more) (check ((pred x) (loop more (add x yes) no))
+                                                                                            (else (loop more yes (add x no)))))))))
+                                                  (loop L [] [])))))
+                         (match p 
+                            ((forall (some-list uvars) body)  
+                                (let ((uvars' (move-to-front uvars (lambda (x) (datatype-sort? (sort-of x))))))
+                                  (forall* uvars' body)))
+                            (_ p))))
+
+
+(define (induction0* p)
+   (dmatch p
+     (((forall (some-var x) (some-sent body)) where (datatype-sort? (sort-of x)))
+        (dlet ((method-name (join (downcase-string (first (tokenize (sort-of x) " ()"))) "-induction-with"))
+               (M (evaluate method-name)))
+          (!M p induction0*)))
+     (_ (!vprove-from p (ab) [['poly true] ['subsorting false] ['max-time 300]]))))
+
+(define (induction* p)
+  (dlet ((q (rearrange p))
+         (_ (!induction0* q))
+         (cond (!vpf (if q p) [])))
+    (!mp cond q)))
+
+(define (induction-from0* p premises)
+   (dmatch p
+     (((forall (some-var x) (some-sent body)) where (datatype-sort? (sort-of x)))
+        (dlet ((method-name (join (downcase-string (first (tokenize (sort-of x) " ()"))) "-induction-with"))
+               (M (evaluate method-name)))
+          (!M p (method (g) (!induction-from0* g premises)))))
+     (_ (!sprove-from p premises [['poly true] ['subsorting false] ['max-time 4000]]))))
+
+(define (induction-from* p premises)
+  (dlet ((q (rearrange p))
+         (_ (!induction-from0* q premises))
+         (cond (!spf (if q p) [])))
+    (!mp cond q)))
+
+(define (induction-with p atp-method)
+   (dmatch p
+     (((forall (some-var x) (some-sent body)) where (datatype-sort? (sort-of x)))
+        (dlet ((method-name (join (downcase-string (first (tokenize (sort-of x) " ()"))) "-induction-with"))
+               (M (evaluate method-name)))
+          (!M p (method (g) (!induction-with g atp-method)))))
+     (_ (!atp-method p))))
+
+(define (induction*-with p atp-method)
+  (dlet ((q (rearrange p))
+         (_ (!induction-with q atp-method))
+         (cond  (!sprove-from (if q p) [] [['poly true] ['subsorting false] ['max-time 4000]])))
+    (!mp cond q)))
+
+(define (ite* L)
+  (letrec ((loop (lambda (L)
+                   (match L
+                      ((split [(some-term s) --> (some-term t) or] more)
+                         (ite s t (loop more)))
+                      ((|| [_ --> (some-term t)] 
+                           [(some-term t)])        t)))))
+    (loop L)))
+
+(define (module-results module-name)
+  (map (lambda (r) (r 'sentence))
+       (module-theory* module-name)))
+
+define (theory-results module-name) :=  
+   (map (lambda (r) (r 'sentence)) (module-theory module-name))
+
+define (test-eval x y) := 
+  (check ((equal? x y) (print "\nEval worked...\n"))
+         (else (print "\nEVAL FAILED!\n")))
+
+
+(define (get-horn-clauses p)
+  (match p 
+    ((forall (some-list _) (body as (if _ _))) [body])
+    ((forall (some-list uvars) (iff (some-sent ant) (some-sent con)))
+         (join (get-horn-clauses (forall* uvars (if ant con)))
+               (get-horn-clauses (forall* uvars (if con ant)))))
+    ((forall (some-list _) (some-atom _)) [])
+    ((forall (some-list _) (not (some-atom _)))  [])
+    ((and (some-list _)) [])
+    (_ [])))
+
+
+define [x y z w x' y' z' w'] := [?x ?y ?z ?w ?x' ?y' ?z' ?w']
+
+
+define (sub-sentences p) := 
+  match p { 
+   (some-atom _) => [p]
+ | ((some-sent-con _) (some-list args)) => (add p (flatten (map sub-sentences args)))
+ | ((some-quant _) (some-list _) body) => (add p (sub-sentences body))
+  }
+
+
+(define (idf f max-depth max-branches)
+  (letrec ((loop (lambda (i)
+                    (check ((less? i max-depth) (try (f i max-branches)
+                                                     (let ((_ (print "\nIncreading depth to: " (plus i 1) "\n"))) (loop (plus i 1)))))
+                           (else (print "\nOut of iterations, exiting idf...\n"))))))
+    (loop 1)))
+
+
+
+
+
+module Polarities { 
+
+define (flip pol) :=
+  match pol {
+    'p => 'n
+  | 'n => 'p
+  | 'pn => 'pn}
+
+
+define (polarities p q) :=
+  let {prepend-and-process := 
+         lambda (i f)
+           lambda (pos-pol-pair)
+             match pos-pol-pair {
+               [pos pol] => [(add i pos) (f pol)]
+             };
+       id := lambda (x) x;
+       make-pos-neg := lambda (_) 'pn}
+    match q {
+      (val-of p) => [[[] 'p]]
+    | (~ q1) => (map (prepend-and-process 1 flip)
+                     (polarities p q1))
+    | (q1 ==> q2) =>  (join (map (prepend-and-process 1 flip) 
+                                 (polarities p q1))
+                            (map (prepend-and-process 2 id)
+                                 (polarities p q2)))
+    | (q1 <==> q2) => (join (map (prepend-and-process 1 make-pos-neg)
+                              (polarities p q1))
+                         (map (prepend-and-process 2 make-pos-neg)
+                              (polarities p q2)))
+    | ((some-sent-con _) (some-list args)) =>
+        let {i := (cell 1)}
+          (flatten (map lambda (q)
+                           (map (prepend-and-process (inc i) id)
+                                (polarities p q))
+                        args))
+     | _ => []
+     }
+
+
+#(polarities (A ==> (C | D | A | B)) (A ==> (C | D | A | B)))
+
+} # close module Polarities
+
+
+define (quant-dist premise) :=
+  match premise {
+    (forall (some-var v) (p1 & p2)) =>
+       let {all-p1 := pick-any x                        
+                        conclude (replace-var v x p1)
+                          (!left-and (!uspec premise x));
+            all-p2 := pick-any x
+                         conclude (replace-var v x p2)
+                           (!right-and (!uspec premise x))}
+         (!both all-p1 all-p2)
+  | ((forall (some-var v1) (some-sent p1)) & (forall (some-var v2) (some-sent p2))) =>
+       pick-any x
+         (!both (!uspec (!left-and premise) x)
+	 	(!uspec (!right-and premise) x))
+  | (exists (some-var v) (p1 | p2)) =>
+      pick-witness w for premise wp 
+        (!cases wp
+              assume (replace-var v w p1)
+                let {some-p1 := (!egen (exists x (replace-var v x p1))  w)}
+                  (!either some-p1 (exists x (replace-var v x p2)))
+              assume (replace-var v w p2)
+                let {some-p2 := (!egen (exists x (replace-var v x p2)) w)}
+                  (!either (exists x (replace-var v x p1)) some-p2))
+		  
+  | ((exists (some-var v1) (some-sent p1)) | (exists (some-var v2) (some-sent p2))) =>
+      let {goal := (exists x (or (replace-var v1 x p1) (replace-var v2 x p2)))}
+        (!cases premise
+           assume case-1 := (exists v1 p1)
+              pick-witness w for case-1 wp # we now have (P w) in the a.b. 
+                let {p1w|p2w := (!either wp (replace-var v2 w p2))}
+                   (!egen goal w)
+           assume case-2 := (exists v2 p2)
+             pick-witness w for case-2 wp 
+               let {Pw|Qw := (!either (replace-var v1 w p1) wp)}
+                 (!egen goal w))
+  | (exists (some-var v) (p1 & p2)) =>
+      pick-witness w for premise wp
+         (!both (!egen (exists v p1) w)
+	 	(!egen (exists v p2) w))
+  | ((forall (some-var v1) p1) | (forall (some-var v2) p2)) =>     
+      pick-any x
+        (!cases premise
+	  assume case1 := (forall v1 p1)
+	    (!either (!uspec case1 x) (replace-var v2 x p2))
+	  assume case2 := (forall v2 p2)
+	    (!either (replace-var v1 x p1) (!uspec case2 x)))
+  }
+    
+define stopgap := force
+
+# Programmatic way to introduce a datatype by a given name and an arbitrary
+# name of constant constructors of the form c_1, c_2, ..., c_N, where both
+# the letter 'c' and the number N are specified as inputs:
+
+define (make-datatype datatype-name constructor-letter N) :=
+  let {constructors := (map lambda (i)
+                              (join constructor-letter (val->string i))
+			    (1 to N));
+       cmd := (join "datatype " datatype-name " := " (separate constructors " | "))}
+           (process-input-from-string cmd)
+    			    

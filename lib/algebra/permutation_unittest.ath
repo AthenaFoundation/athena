@@ -1,0 +1,31 @@
+load "group"
+load "algebra/permutation"
+
+open Permutation
+
+define perm-group :=
+   (renaming |{Group.+ := o, Group.<0> := identity,
+               Group.U- := inverse, Group.- := div}|)
+
+assert (theory-axioms Permutation.theory)
+
+define perm-prop := method (P) (!prove-property P no-renaming Permutation.theory)
+
+(!perm-prop consistent-inverse)
+(!perm-prop associative)
+(!perm-prop right-identity)
+(!perm-prop left-identity)
+(!perm-prop right-inverse-lemma)
+(!perm-prop right-inverse)
+
+(set-flag print-var-sorts "off")
+(print-instance-check perm-group Group.theory)
+
+define perm-group-prop :=  method (P) (!prove-property P perm-group Group.theory)
+
+(!perm-group-prop Group.left-inverse)
+(!perm-group-prop Group.double-negation)
+(!perm-group-prop Group.unique-negation)
+(!perm-group-prop Group.neg-plus)
+
+

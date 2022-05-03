@@ -1,0 +1,189 @@
+load "sets"
+load "testing"
+
+open Set
+open Testing
+
+(Testing   "(eval 23 in [1 5 23 98])" 
+  lambda () (eval 23 in [1 5 23 98])
+  [expecting 
+   true
+   ])
+
+(Testing   "(eval 23 in [1 5 98])"
+  lambda () (eval 23 in [1 5 98])
+  [expecting 
+   false
+   ])
+
+(Testing   "(eval 5 in [])"
+  lambda () (eval 5 in [])
+  [expecting 
+   false
+   ])
+
+(Testing   "(eval 5 in [5])"
+  lambda () (eval 5 in [5])
+  [expecting 
+   true
+])
+
+(Testing   "(eval [1 2] subset [3 2 4 1 5])"
+  lambda () (eval [1 2] subset [3 2 4 1 5])
+  [expecting 
+   true
+   ])
+
+(Testing   "(eval [1 2] subset [3 2])"
+  lambda () (eval [1 2] subset [3 2])
+  [expecting 
+   false
+   ])
+
+(Testing   "(eval [] subset [])"
+  lambda () (eval [] subset [])
+  [expecting 
+   true
+   ])
+
+(Testing   "(eval 1 ++ 2 ++ [] = 2 ++ 1 ++ [])"
+  lambda () (eval 1 ++ 2 ++ [] = 2 ++ 1 ++ [])
+  [expecting 
+   true
+   ])
+
+(Testing   "(eval 1 ++ 2 ++ 3 ++ 4 ++ [] = 3 ++ 2 ++ 1 ++ [])"
+  lambda () (eval 1 ++ 2 ++ 3 ++ 4 ++ [] = 3 ++ 2 ++ 1 ++ [])
+  [expecting 
+   false
+   ])
+
+(Testing   "(eval [1 2] proper-subset [2 3 1])"
+  lambda () (eval [1 2] proper-subset [2 3 1])
+  [expecting 
+   true
+   ])
+
+(Testing   "(eval [1 2] proper-subset [2 1])"
+  lambda () (eval [1 2] proper-subset [2 1])
+  [expecting 
+   false
+   ])
+
+(Testing   "(eval [1 2 3 2 5] - 2)"
+  lambda () (eval [1 2 3 2 5] - 2)
+  [expecting 
+   [1 3 5]
+   ])
+
+(Testing   "(eval [1 2 3] \\/ [4 5 6])"
+  lambda () (eval [1 2 3] \/ [4 5 6])
+  [expecting 
+   [1 2 3 4 5 6]
+   ])
+
+(Testing   "(eval [1 2] \\/ [1 2])"
+  lambda () (eval [1 2] \/ [1 2])
+  [expecting 
+   [1 2]
+   ])
+
+(Testing   "(eval [1 2 1] /\\ [5 1 3])"
+  lambda () (eval [1 2 1] /\ [5 1 3])
+  [expecting 
+   [1]
+   ])
+
+(Testing   "(eval [1 2 1] /\\ [5])"
+  lambda () (eval [1 2 1] /\ [5])
+  [expecting 
+   []
+   ])
+
+(Testing   "(eval 3 paired-with [2 8])"
+  lambda () (eval 3 paired-with [2 8])
+  [expecting 
+   [(pair 3 2) (pair 3 8)]
+   ])
+
+(Testing   "(eval [1 2] X ['foo 'bar 'car])"
+  lambda () (eval [1 2] X ['foo 'bar 'car])
+  [expecting 
+   [(pair 1 'foo) (pair 1 'bar) (pair 1 'car)
+    (pair 2 'foo) (pair 2 'bar) (pair 2 'car)]
+   ])
+
+(Testing   "(eval dom [('a @ 1) ('b @ 2) ('c @ 98)])"
+  lambda () (eval dom [('a @ 1) ('b @ 2) ('c @ 98)])
+  [expecting 
+   ['a 'b 'c]
+   ])
+
+(Testing   "(eval range [('a @ 1) ('b @ 2) ('c @ 98)])"
+  lambda () (eval range [('a @ 1) ('b @ 2) ('c @ 98)])
+  [expecting 
+   [1 2 98]
+   ])
+
+(Testing   "(eval 1 @ 2 composed-with [(2 @ 5) (7 @ 8) (2 @ 3)])"
+  lambda () (eval 1 @ 2 composed-with [(2 @ 5) (7 @ 8) (2 @ 3)])
+  [expecting 
+   [(pair 1 5) (pair 1 3)]
+   ])
+
+(Testing   "(eval 1 @ 2 composed-with [(7 @ 8) (9 @ 10)])"
+  lambda () (eval 1 @ 2 composed-with [(7 @ 8) (9 @ 10)])
+  [expecting 
+   []
+   ])
+
+(Testing   "(eval 1 @ 2 composed-with [])"
+  lambda () (eval 1 @ 2 composed-with [])
+  [expecting 
+   []
+   ])
+
+(Testing   "(eval [('nyc @ 'boston) ('houston @ 'dallas) ('austin @ 'dc)] o 
+                  [('boston @ 'montreal) ('dallas @ 'chicago) ('dc @ 'nyc)] o       
+                  [('chicago @ 'seattle) ('montreal @ 'london)])"
+  lambda () (eval [('nyc @ 'boston) ('houston @ 'dallas) ('austin @ 'dc)] o 
+		  [('boston @ 'montreal) ('dallas @ 'chicago) ('dc @ 'nyc)] o 
+		  [('chicago @ 'seattle) ('montreal @ 'london)])
+  [expecting 
+   [(pair 'nyc 'london) (pair 'houston 'seattle)]
+   ])
+
+(Testing   "let {R1 := [('nyc @ 'boston) ('austin @ 'dc)];
+                 R2 := [('boston @ 'montreal) ('dc @ 'chicago) ('chicago @ 'seattle)]}
+              (eval R1 o R2)"
+  lambda () let {R1 := [('nyc @ 'boston) ('austin @ 'dc)];
+                 R2 := [('boston @ 'montreal) ('dc @ 'chicago) ('chicago @ 'seattle)]}
+              (eval R1 o R2)
+  [expecting 
+   [(pair 'nyc 'montreal) (pair 'austin 'chicago)]
+   ])
+
+(Testing   "(eval [(1 @ 'foo) (2 @ 'b) (1 @ 'bar)] restrict1 1)"
+  lambda () (eval [(1 @ 'foo) (2 @ 'b) (1 @ 'bar)] restrict1 1)
+  [expecting 
+   [(pair 1 'foo) (pair 1 'bar)]
+   ])
+
+(Testing   "(eval [(1 @ 'foo) (2 @ 'b) (3 @ 'c) (4 @ 'd) (1 @ 'bar)] ^ [1 2])"
+  lambda () (eval [(1 @ 'foo) (2 @ 'b) (3 @ 'c) (4 @ 'd) (1 @ 'bar)] ^ [1 2])
+  [expecting 
+   [(pair 1 'foo) (pair 1 'bar) (pair 2 'b)]
+   ])
+
+(Testing   "(eval [(1 @ 'a) (2 @ 'b) (3 @ 'c)] ** [1 3])"
+  lambda () (eval [(1 @ 'a) (2 @ 'b) (3 @ 'c)] ** [1 3])
+  [expecting 
+   ['a 'c]
+   ])
+
+(Testing   "(eval card [1 2 3] \\/ [4 7 8])"
+  lambda () (eval card [1 2 3] \/ [4 7 8])
+  [expecting 
+   6
+   ])
+

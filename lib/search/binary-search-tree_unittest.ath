@@ -1,0 +1,7 @@
+load "binary-search-tree"
+
+assert (theory-axioms SWO.theory)
+
+(!prove-property SWO.BST.in.root no-renaming SWO.theory)
+(!prove-property SWO.BST.in.left no-renaming SWO.theory)
+(!prove-property SWO.BST.in.right no-renaming SWO.theory)

@@ -1,0 +1,41 @@
+load "binary-search"
+
+define Less1 := no-renaming
+
+assert (theory-axioms SWO.theory)
+
+(!prove-property SWO.binary-search.found Less1 SWO.theory)
+(!prove-property SWO.binary-search.not-found Less1 SWO.theory)
+(!prove-property SWO.binary-search.in-iff-result-not-null Less1 SWO.theory)
+
+declare bs-int: [Int (BinTree Int)] -> (BinTree Int)
+define swo1 := (renaming |{SWO.binary-search := bs-int, SWO.< := Real.<}|)
+assert (swo1 SWO.binary-search.axioms)
+
+define tree1 :=
+  (node (node null
+	      2
+	      (node (node null
+			  3
+			  null)
+		    5
+		    null))
+	7
+	(node (node null
+		    11
+		    null)
+	      13
+	      null))
+
+
+(eval (bs-int 5 null))
+
+(eval (bs-int 5 tree1))
+
+(eval (bs-int 13 tree1))
+
+(eval (bs-int 9 tree1))
+
+
+
+

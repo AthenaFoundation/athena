@@ -1,0 +1,9 @@
+#!/bin/bash
+rm ${ATHENA_HOME}/athena-run-temp.ath
+echo "(load \""$1".ath\")" >>${ATHENA_HOME}/athena-run-temp.ath
+echo "quit" >>${ATHENA_HOME}/athena-run-temp.ath
+echo " " >>${ATHENA_HOME}/athena-run-temp.ath
+time ${ATHENA_HOME}/athena <${ATHENA_HOME}/athena-run-temp.ath
+
+
+

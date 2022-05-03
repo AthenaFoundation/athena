@@ -1,0 +1,107 @@
+define (literal? p) :=
+  match p {
+    (|| (some-atom _) (~ (some-atom _)) (_ where (quant? p)) ((~ (some-sent q)) where (quant? q))) => true
+  | _  => false
+  }
+
+define (non-literal? p) := (negate literal? p)
+
+
+define (conjunctive-case p K) :=
+  match p {
+    (and (some-list _)) => (!decompose p K)
+
+  | (q <==> r) => let {p1 := (!left-iff p);
+                       p2 := (!right-iff p)}
+                    (!K [p1 p2])
+
+  | (~ (~ _)) => let {q := (!dn p)}
+                   (!K [q])
+
+  | (~ (or (some-list _))) => (!decompose (!dm p) K)
+
+  | (~ (q ==> r)) => let {p1 := conclude q 
+                                  (!neg-cond1 p);
+                          p2 := conclude (~ r) 
+                                  (!neg-cond2 p)}
+                       (!K [p1 p2])
+  }
+
+define (disjunctive-case p K) := 
+  match p {
+    (or (some-list L)) => (!K p L)
+  | (q ==> r) => let {q'|r := (!cond-def p)}
+                   (!K q'|r [(complement q) r])
+  | (~ (and (some-list L))) => (!K (!dm p) (map complement L))
+  | (~ (q <==> r)) => (!K (!negated-bicond p) [(q & (complement r)) 
+                                               ((complement q) & r)])
+  }
+
+define (inconsistent-literals L) :=
+ #let {_ := (print "\nCalling inconsistent-literals on this:\n" L "\n")}
+   (!find-some L method (p) 
+                   match p {
+                     false => (!claim false)
+                   | (not true) => (!absurd (!true-intro) p)
+                   | _ => (!from-complements false p (complement p))
+                   }
+               fail)
+
+define (refute L) := 
+  match L {
+    (split L1 [(p where (non-literal? p))] L2) =>
+       try { (!conjunctive-case p 
+                method (components) 
+                  (!refute (join L1 components L2))) 
+           | (!disjunctive-case p 
+               method (disjunction disjuncts) 
+                 (!map-method method (d)
+                                assume d
+                                  (!refute (join L1 [d] L2))
+                              disjuncts
+                              method (conds)
+                                (!cases disjunction conds)))
+           | #let {_ := (print "\nFailed on this non-literal: " (val->string p) "\n")} 
+             (!fail)
+           }
+  | _ => (!inconsistent-literals L)
+  }
+
+(define (prop-taut p)
+  (!by-contradiction' p 
+     (assume (not p)
+       (!refute [(not p)]))))
+
+(define (prop-taut-core p)
+  (!by-contradiction' p 
+     (assume (not p)
+       (!refute [(not p)]))))
+
+(primitive-method (sat-derive p)
+  (match (sat-solve [(not p)])
+    ('Unsat p)))
+     
+(define (sat-prop-taut p)
+  (!sat-derive p))
+
+(define (sat-prop-taut-from goal premises)
+   (dlet ((single-premise (dmatch premises
+                            ([] (!true-intro))
+                            ([p] (!claim p))
+                            (_ (!conj-intro premises))))
+          (goal' (if single-premise goal))
+          (conditional (!sat-derive goal')))
+     (!mp conditional single-premise)))
+
+(define (prop-taut-from goal premises)
+   (dlet ((single-premise (!conj-intro premises))
+          (goal' (if single-premise goal))
+          (conditional (!prop-taut goal')))
+     (!mp conditional single-premise)))
+
+
+(define (prop-taut premise goal)
+   (dtry (!prove-components-of goal)
+         (!prop-taut-from goal [premise])))
+
+EOF

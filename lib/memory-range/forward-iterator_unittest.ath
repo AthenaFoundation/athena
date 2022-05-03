@@ -1,0 +1,18 @@
+load "forward-iterator"
+
+open Forward-Iterator
+
+define ops := no-renaming
+
+assert (theory-axioms theory)
+
+(!prove-property start-shift ops theory)
+(!prove-property range-back ops theory)
+(!prove-property finish-not-*in ops theory)
+
+(!prove-property range-shift1 ops theory)
+(!prove-property range-shift2 ops theory)
+
+(!prove-property *in.range-shift1 ops theory)
+(!prove-property *in.range-shift2 ops theory)
+

@@ -1,0 +1,14 @@
+# Showing that power-series over Z form an additive group.
+
+load "integer-power-series"
+load "group"
+
+open ZPS
+
+define ZPSAdditive-Group := 
+  (renaming |{Group.+ := +, Group.<0> := zero, Group.U- := negate, Group.- := -}|)
+
+(print-instance-check ZPSAdditive-Group Group.theory)
+
+(!claim (get-property Semigroup.associative ZPSAdditive-Group Group.theory))
+

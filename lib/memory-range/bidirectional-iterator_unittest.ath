@@ -1,0 +1,9 @@
+load "bidirectional-iterator"
+
+open Bidirectional-Iterator
+
+define ops := no-renaming
+
+assert (theory-axioms theory)
+
+(!prove-property successor-of-predecessor ops theory)

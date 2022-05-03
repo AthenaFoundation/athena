@@ -1,0 +1,14 @@
+load "range-length"
+
+open Random-Access-Iterator
+
+define ops := no-renaming
+
+assert (ops (theory-axioms theory))
+
+(!prove-property length1 ops theory)
+(!prove-property length2 ops theory)
+(!prove-property length3 ops theory)
+(!prove-property length4 ops theory)
+(!prove-property contained-range ops theory)
+(!prove-property collect-split-range ops theory)

@@ -1,0 +1,13 @@
+load "trivial-iterator"
+
+open Trivial-Iterator
+
+define ops := no-renaming
+
+assert (theory-axioms theory)
+
+(!prove-property *in.range-expand ops theory)
+(!prove-property *in.range-reduce ops theory)
+
+(!prove-property collect.unchanged ops theory)
+

@@ -1,0 +1,55 @@
+\documentclass{article}
+\usepackage{times}
+
+\input{xstring}
+
+\verbtocs{\undersc}|_|
+\verbtocs{\slashundersc}|\_|
+\newcommand{\toslashunder}[1]{%
+  \scancs{\text}{#1}%
+  \StrSubstitute[0]{\text}{\undersc}{\slashundersc}[\newname]%
+  \tokenize{\result}{\newname}%
+  \result}
+
+\newcommand{\filenamex}{\toslashunder{\filename}}
+
+\setlength{\pdfpagewidth}{8.5in}
+\setlength{\pdfpageheight}{11in}
+\oddsidemargin -.35in
+\evensidemargin -.35in
+\textwidth 6.5in 
+\topmargin -0.6in
+\textheight 9.25in
+
+\pagestyle{headings}
+\markboth{\protect\filenamex}{\protect\filenamex}
+
+\input{book/athena-listing}
+
+\lstset{backgroundcolor=\color{white}}
+% \lstset{emph={[4]%% Theory names are set in their own font
+% Binary-Relation,Irreflexive,Transitive,Strict-Partial-Order,Transitive-Closure,
+% Cfg,Semigroup,Identity,Monoid,Abelian-Monoid,Actor-Cfg,
+% Transition-Path,Transition-Step-Relation,Transition-Path-Relation,
+% Transition-Sequence,Infinitely-Often-Enabled,Fair-Transition-Sequence,
+% IOE-Fair-Transition-Sequence,
+% Clock-Actors, Fair-Clock-System,
+% },emphstyle={[4]\textsc}}
+% \lstset{emph={[5]%% symbols in examples/actor-model files
+% receive,send,create,compute,
+% config,accept,make-receptive,ready-to,actor,actor',message,
+% Enabled,-->>,-->>+,-->>*,
+% receiver,sender,creator,computer,
+% ts,cts,
+% clocal,empty,Ticker,Clock1,
+% },emphstyle={[5]\sf}}
+
+\begin{document}
+
+\begin{center}
+{\LARGE \filenamex}
+\end{center}
+
+\lstinputlisting{\filename}
+
+\end{document}

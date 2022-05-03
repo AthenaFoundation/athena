@@ -1,0 +1,10 @@
+load "reverse-range"
+
+open Bidirectional-Iterator
+
+assert (theory-axioms theory)
+
+(!prove-property Reversing.reverse-range-reverse no-renaming theory)
+(!prove-property Reversing.collect-reverse no-renaming theory)
+(!prove-property Reversing.collect-reverse-corollary no-renaming theory)
+

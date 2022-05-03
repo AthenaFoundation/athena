@@ -1,0 +1,14 @@
+load "range"
+
+assert (theory-axioms Range.theory)
+
+(!prove-property Range.nonempty-back no-renaming Range.theory)
+(!prove-property Range.back-not-same no-renaming Range.theory)
+(!prove-property Range.empty-range no-renaming Range.theory)
+(!prove-property Range.empty-range1 no-renaming Range.theory)
+(!prove-property Range.nonempty-back1 no-renaming Range.theory)
+(!prove-property Range.zero-length no-renaming Range.theory)
+(!prove-property Range.nonzero-length no-renaming Range.theory)
+(!prove-property Range.in.range-expand no-renaming Range.theory)
+(!prove-property Range.in.range-reduce no-renaming Range.theory)
+

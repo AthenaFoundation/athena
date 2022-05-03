@@ -1,0 +1,7 @@
+load "copy-range-backward"
+
+open Bidirectional-Iterator
+
+assert (theory-axioms theory)
+
+(!prove-property copy-backward.correctness no-renaming theory)

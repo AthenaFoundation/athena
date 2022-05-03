@@ -1,0 +1,11 @@
+load "count-range"
+
+define ops := no-renaming
+
+assert (ops (theory-axioms Forward-Iterator.theory))
+
+#(set-debug-mode "rewriting")
+
+(!prove-property Forward-Iterator.count.correctness1 ops Forward-Iterator.theory)
+(!prove-property Forward-Iterator.count.correctness ops Forward-Iterator.theory)
+

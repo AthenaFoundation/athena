@@ -1,0 +1,405 @@
+#;;;;;;;;;;;;;;; Athena code for using CVC3 ;;;;;;;;;;;;;;;
+
+#### Simple maps (association lists). 
+
+(define empty-map [])
+
+(define (add-binding x y map)
+  (add [x y] map))
+
+(define (remove-binding x map)
+  (match map
+    ([] [])
+    ((list-of [key value] more) (check ((equal? key x) more)
+                                        (else (add-binding key value (remove-binding x more)))))))
+
+(define (apply-map map x)
+  (match map
+    ([] ())
+    ((list-of [a b] more) (check ((equal? a x) b)
+                                 (else (apply-map more x))))))
+
+(define (dom m)
+  (letrec ((loop (lambda (m res)  
+                   (match m 
+                     ([] res)
+                     ((list-of [a b] more) (check ((member? a res) (loop more res))
+                                                  (else (loop more (add a res)))))))))
+    (loop m [])))
+
+
+(define (map-range m)
+  (map (lambda (x) (apply-map m x))
+       (dom m)))
+
+(define (dom-range-list m)
+  (map (lambda (x) [x (apply-map m x)])
+       (dom m)))
+
+(define (in-dom? a m)
+  (match m 
+    ([] false)
+    ((list-of [x _] rest) (|| (equal? a x)
+                              (in-dom? a rest)))))
+
+############ SMT code:
+
+(define [bar comma lparen rparen lbrack rbrack blank colon scolon] 
+        [" | " "," "(" ")" "[" "]" " " ":" ";"])
+
+(define [c-comma c-lparen c-rparen] [`, `( `)])
+
+(define (get-signature' f)
+  (let ((rename (lambda (sort)
+                  (match sort
+                    ("Int" "INT")
+                    ("Real" "REAL")
+                    (_ sort)))))
+   (map rename (get-signature f))))
+ 
+(define counter (cell 0))
+
+(define (mprint x) ())
+
+(define (separate L token)
+  (match L 
+    ([] "")
+    ([s] s)
+    ((list-of s1 (bind rest (list-of _ _))) 
+      (join s1 token (separate rest token)))))
+
+(define (separate-all-but-last L token)
+  (match L 
+    ([] "")
+    ([_] "")
+    ((list-of s1 (bind rest (list-of _ _))) 
+      (let ((str (separate-all-but-last rest token)))
+        (check ((null? str) s1)
+               (else (join s1 token str)))))))
+
+(define (integer? n)
+  (match n
+    (x:Int true)
+    (_ false)))
+
+(define (real? n)
+  (match n
+    (x:Real true)
+    (_ false)))
+
+(define (proper-real? n)
+  (&& (real? n) (negate (integer? n))))
+
+(define (real->rational x)
+  (match (val->string x)
+    ((split integral (list-of `. decimal)) 
+       (let ((d (raise 10 (length decimal))))
+         [(string->num (join integral decimal)) d]))))
+
+(define (rational->real n-str d-str)
+  (let ((n (string->num (join n-str ".0")))
+        (d (string->num d-str)))
+   (div n d)))
+
+(define (integer-numeral? n)
+  (&& (numeral? n) (integer? n)))
+
+(define (real-numeral? n)
+  (&& (numeral? n) (real? n)))
+
+(define (make-fresh prefix counter vmap-range)
+  (let ((first-attempt (join prefix (val->string (inc counter)))))
+    (check ((for-some vmap-range 
+                      (lambda (v)
+                        (match v
+                          ((list-of vname _) (equal? vname first-attempt))
+                          (_ false)))) 
+             (make-fresh prefix counter vmap-range))
+           (else first-attempt))))
+
+(define (translate-var x vmap counter)
+  (match (apply-map vmap x)
+    (() (let ((var-name (check ((var? x) (var->string x))
+                               (else (val->string x))))
+             (c (first var-name))
+             (var-name' (check ((&& (alpha-char? c) (alpha-numeric-string? var-name)) var-name)
+                               (else (make-fresh counter (map-range vmap)))))
+             (var-sort (sort-of x))
+             (res (match var-sort
+                    ("Int"  [var-name' "INT"])
+                    ("Real" [var-name' "REAL"]) 
+                    (_      (match (constructors-of var-sort)
+                              ([] [var-name' var-sort])
+                              ((some-list cl) [var-name' var-sort (map val->string cl)]))))))
+         [var-name' (add-binding x res vmap)]))
+    ((list-of var-name _) [var-name vmap])))
+
+(define (binary-infix? f args)
+  (&& (equal? (length args) 2)
+      (member? f [< > <= >= = + - * /])))
+
+(define (make-generic-term-string f arg-strings)
+   (join (symbol->string f) lparen (separate arg-strings comma) rparen))
+
+(define (translate-term t vmap counter)
+  (match t 
+    (((some-symbol f) (bind args (list-of _ _))) 
+       (let (([arg-strings vmap'] (translate-terms args vmap counter))
+             (res-string (check ((binary-infix? f args) 
+                                  (join lparen (first arg-strings) blank (symbol->string f) blank 
+                                               (second arg-strings) rparen))
+                                (else (make-generic-term-string f arg-strings))))
+             (f-string (symbol->string f))
+             (vmap'' (match (apply-map vmap' f-string) 
+                       (() (check ((binary-infix? f [1 2]) vmap')
+                                  (else (add-binding f-string (add 'function (get-signature' f)) vmap'))))
+                       (_ vmap'))))
+         [res-string vmap'']))
+    ((some-var x) (translate-var x vmap counter))
+    (_ (check ((&& (real-numeral? t) (negate (integer? t)))
+                (let (([n d] (real->rational t))
+                      (str (join (val->string n) "/" (val->string d))))
+                 [str vmap]))
+              ((integer-numeral? t) [(val->string t) vmap])
+              (else (translate-var t vmap counter)))))
+   (translate-terms t's vmap counter)
+      (letrec ((loop (lambda (terms strings vmap counter)
+                       (match terms
+                         ([] [(rev strings) vmap])
+                         ((list-of t rest) 
+                            (let (([t-string vmap'] (translate-term t vmap counter)))
+                              (loop rest (add t-string strings) vmap' counter)))))))
+         (loop t's [] vmap counter)))
+
+
+(define (translate-relation-symbol R)
+  (join blank (symbol->string R) blank))
+
+(define (translate-atomic-constraint c var-map counter)
+  (match c
+    ((R (some-term t1) (some-term t2))
+         (let (([t1-string var-map']  (translate-term t1 var-map counter))
+               ([t2-string var-map''] (translate-term t2 var-map' counter))
+               (R-sign (translate-relation-symbol R))
+               (res-string (join lparen t1-string R-sign t2-string rparen)))
+           [res-string var-map'']))))
+
+(define (sc->string sc)
+  (match sc
+    (not "NOT")
+    (and "AND")
+    (or  "OR")
+    (if  "=>")
+    (iff "<=>")))
+    
+(define (make-constraint sc strings)
+   (let ((sc-string (sc->string sc)))
+     (letrec ((loop (lambda (strings)
+                      (match strings
+                        ([s] s)
+                        ((list-of s more) (join lparen s blank sc-string blank (loop more) rparen))))))
+        (loop strings))))
+
+(define (translate-constraint c counter)
+  (letrec ((tran (lambda (c var-map)
+                   (match c 
+                     ((some-atom _) (translate-atomic-constraint c var-map counter))
+                     ((not c') (let (([string var-map'] (tran c' var-map)))
+                                 [(join lparen "NOT " string rparen)
+                                  var-map']))
+                     (((some-sent-con sc) (some-list constraints)) 
+                        (let (([strings var-map'] (tran* constraints var-map [])))
+                          [(make-constraint sc strings) var-map']))
+                     ((forall (some-var x) body) 
+                        (let (([body-string var-map'] (tran body var-map))
+                              ([var-name var-sort] (match (apply-map var-map' x)
+                                                    (() [(var->string (fresh-var)) "INT"])
+                                                    (res [(first res) (second res)])))
+                              (str (join lparen "FORALL " lparen var-name colon var-sort rparen 
+                                                          colon blank body-string rparen))
+                              (var-map'' (remove-binding x var-map'))
+                              (var-map''' (add-binding x [(make-fresh "a_a_a" counter 
+                                                                      (map-range var-map'')) var-sort] var-map'')))
+                            [str var-map'''])))))
+           (tran* (lambda (constraints var-map strings)
+                    (match constraints
+                      ([] [strings var-map])
+                      ((list-of c more) (let (([c-string var-map'] (tran c var-map)))
+                                          (tran* more var-map' (add c-string strings))))))))
+    (tran c empty-map)))
+
+(define (tc c)
+  (translate-constraint c counter))
+
+(define (tct c)
+  (let (([str map] (tc c)) 
+        (_ (print "\nString: " str))
+        (_ (print "\n\nVmap: " map "\n\n")))
+    [str map]))
+
+(define (constructor-name? str)
+  (try (constructor? (string->symbol str))
+       false))
+
+(define (get-declarations c)
+  (let (([str vmap] (tc c))
+        (dom-range (dom-range-list vmap)))
+    (letrec ((loop (lambda (dom-range domains-so-far domain-decs var-decs reverse-vmap)
+                     (match dom-range
+                       ([] [domain-decs var-decs reverse-vmap])
+                       ((list-of [var (list-of 'function rest)] more)
+                           (let ((new-vdec (join var colon blank lparen (separate-all-but-last rest comma) rparen " -> " (last rest) scolon "\n")))
+                              (loop more domains-so-far domain-decs (add new-vdec var-decs) reverse-vmap)))
+                       ((list-of [var var-value] more)
+                         (let ((var-name (first var-value))
+                               (var-type (second var-value))
+                               (new-vdec (join var-name colon blank var-type scolon))
+                               ([reverse-vmap' var-decs'] (check ((constructor-name? var-name) [reverse-vmap var-decs])
+                                                                 (else [(add-binding var-name var reverse-vmap)
+                                                                        (add new-vdec var-decs)]))))
+                           (check ((|| (equal? var-type "INT") (equal? var-type "REAL"))
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  ((member? var-type domains-so-far) 
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  (else (let ((new-domain-dec (check ((datatype-sort? var-type)
+                                                                        (join "\nDATATYPE\n"  var-type " = " (separate (third var-value) bar) "\nEND;\n"))
+                                                                     (else (join "\n" var-type colon blank "TYPE;\n")))))
+                                           (loop more (add var-type domains-so-far) 
+                                                      (add new-domain-dec domain-decs)
+                                                      var-decs' reverse-vmap'))))))))))
+       (join [str vmap] (loop dom-range [] [] [] empty-map)))))
+
+
+(define (get-line str)
+  (letrec ((loop (lambda (str chars)
+                    (match str
+                      ([] [(rev chars) []])
+                      ((list-of `\n rest) [(rev (add `\n chars)) rest])
+                      ((list-of c rest)  (loop rest (add c chars)))))))
+    (loop str [])))
+
+
+(define (get-val str reverse-vmap)
+  (try (string->num str)
+       (match str
+         ((split n-str (split "/" d-str)) (rational->real n-str d-str))       
+         (_ (try ((string->symbol str))
+                 (apply-map reverse-vmap str))))))
+
+(define (get-val1 str)
+  (try (string->num str)
+       (match str
+         ((split n-str (split "/" d-str)) (rational->real n-str d-str))
+         (_ (string->symbol str)))))
+       
+(define (skip? left right)
+   (let ((skipable (lambda (str)
+                     (match str
+                       ((split "LET" _) true)
+                       ((split "(LAMBDA" _) true)
+                       (_ false)))))
+     (|| (skipable left) (skipable right)))) 
+
+
+(define (parse-cvc-term str reverse-map)
+  (letrec ((get-functor (lambda (str res)
+                          (match str 
+                            ((list-of (val-of c-lparen) rest) [(rev res) str])
+                            ((list-of (val-of c-rparen) rest) [(rev res) str])
+                            ((list-of (val-of c-comma) rest) [(rev res) str])
+                            ((list-of (some-char c) rest) (get-functor rest (add c res)))
+                            ([] [(rev res) []]))))
+           (get-term (lambda (str)
+                       (match (get-functor str [])
+                         ([functor (list-of (val-of c-lparen) rest)]
+                                         (let (([args rest'] (get-terms rest [])))
+                                           [(make-term (string->symbol functor) args) rest']))
+                         ([functor rest] (match (apply-map reverse-map functor)
+                                           (() (try [(get-val1 functor) rest]
+                                                    [1 rest]))
+                                           (x [x rest]))))))
+           (get-terms (lambda (str results) 
+                        (match str
+                          ([] [(rev results) []])
+                          (_ (match (get-term str)
+                               ([term (list-of (val-of c-comma) rest)] (get-terms rest (add term results)))
+                               ([term (list-of (val-of c-rparen) rest)] [(rev (add term results)) rest])))))))
+     (first (get-term str))))
+
+
+(define (process-cvc-output reverse-vmap file conjuncts)
+   (let ((data (read-file file))
+         ([line1 rest1] (get-line data)))
+     (letrec ((get-model (lambda (str L)
+                           (let (([line rest] (get-line str)))
+                             (match line
+                               ((split "ASSERT (" (split left (split " = " (split right ");\n"))))
+                                  (check ((skip? left right) (get-model rest L))
+                                         (else (let ((left-term (parse-cvc-term left reverse-vmap))
+                                                     (right-term (parse-cvc-term right reverse-vmap))
+                                                     (identity  (= left-term right-term)))
+                                                 (check ((equal? left-term right-term) (get-model rest L))
+                                                        ((&& (ground? identity) (member? identity conjuncts)) (get-model rest L))
+                                                        (else (get-model rest (add identity L))))))))
+                               ([] L)
+                               (_ (get-model rest L)))))))
+       (check ((equal? line1 "Valid.\n") 'Unsatisfiable)
+              ((equal? line1 "Unknown.\n") 'Unknown)
+              (else (get-model rest1 []))))))
+
+(define (athena->cvc c file)
+  (let (([str vmap d-decs v-decs reverse-vmap] (get-declarations c))
+        (_ (write-file file "%%% Type declarations:\n"))
+        (_ (write-file file (separate d-decs "\n")))
+        (_ (write-file file "\n%%% Variable declarations:\n\n"))
+        (_ (write-file file (separate v-decs "\n")))
+        (_ (write-file file "\n\n%%% Query the negation: \n\n"))
+        (_ (write-file file (join "QUERY NOT " str ";\n\n")))
+        (_ (write-file file (join "COUNTERMODEL;\n"))))
+    ()))
+
+
+(define (cvc-test c)
+  (let (([input-file output-file] ["input1.cvc" "output1.cvc"])
+        ([str vmap d-decs v-decs reverse-vmap] (get-declarations c))
+        (_ (print "%%% Type declarations:\n"))
+        (_ (print (separate d-decs "\n")))
+        (_ (print "\n%%% Variable declarations:\n\n"))
+        (_ (print (separate v-decs "\n")))
+        (_ (print (join "\n\nformula to be queried: " str ";\n\n")))
+        (_ (print "\n\nvmap: " vmap))
+        (_ (print "\n\nReverse vmap: " reverse-vmap)))
+    [str vmap d-decs v-decs reverse-vmap]))
+
+(define (cvc-solve-core c)
+  (let (([input-file output-file error-file] ["input1.cvc" "output1.cvc" "error.cvc"])
+        (_ (delete-files [input-file output-file error-file]))
+        ([str vmap d-decs v-decs reverse-vmap] (get-declarations c))
+        (_ (mprint "\nDone with translation...\n"))
+        (_ (write-file input-file "%% Type declarations:\n"))
+        (_ (write-file input-file (separate d-decs "\n")))
+        (_ (write-file input-file "\n%% Variable declarations:\n"))
+        (_ (write-file input-file (separate v-decs "\n")))
+        (_ (write-file input-file "\n%% Query the negation: \n"))
+        (_ (write-file input-file (join "QUERY NOT " str ";\n")))
+        (_ (write-file input-file (join "COUNTERMODEL;\n")))
+        (_ (mprint "\nSending OS command...\n"))
+        (_ (exec-command (join "cvc3 -timeout 60 " input-file " > " output-file " 2> " error-file))))
+    (process-cvc-output reverse-vmap output-file (get-conjuncts c))))
+
+(define (cvc-solve c)
+  (cvc-solve-core (rename c)))
+
+(define (cvc-multiple-models c max)
+  (let ((negate-model (lambda (model)
+                        (and* (map not model)))))
+    (letrec ((loop (lambda (c i models)
+                     (check ((less? i max) 
+                               (match (cvc-solve c)
+                                 ((some-list model) (loop (and c (negate-model model)) 
+                                                          (plus i 1)
+                                                          (add model models)))
+                                 (_ models)))
+                            (else models)))))
+       (loop c 0 []))))
+

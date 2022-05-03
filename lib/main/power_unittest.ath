@@ -1,0 +1,112 @@
+load "power"
+
+#--------------------------------------------------------------------------
+define M1 := no-renaming
+
+assert (theory-axioms Monoid.theory)
+
+(!prove-property Monoid.Power.right-plus M1 Monoid.theory)
+
+(!prove-property Monoid.Power.left-neutral M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-one M1 Monoid.theory)
+(!prove-property Monoid.Power.right-two M1 Monoid.theory)
+(!prove-property Monoid.Power.right-times M1 Monoid.theory)
+
+assert (get-property Abelian-Monoid.commutative M1 Abelian-Monoid.theory)
+
+(!prove-property Abelian-Monoid.Power-left-times M1 Abelian-Monoid.theory)
+
+#--------------------------------------------------------------------------
+load "nat-power"
+
+define M1 := (renaming |{Monoid.+* := N.**, Monoid.+ := N.*,
+                         Monoid.<0> := N.one}|)
+
+define [n x] := [?n:N ?x:'T]
+
+(!claim (forall n x . (N.** x (S n)) = x N.* (N.** x n)))
+
+(!prove-property Monoid.Power.right-plus M1 Monoid.theory)
+
+(!prove-property Monoid.Power.left-neutral M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-one M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-two M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-times M1 Monoid.theory)
+
+(!prove-property Abelian-Monoid.Power-left-times M1 Abelian-Monoid.theory)
+
+#--------------------------------------------------------------------------
+declare **: (T) [T N] -> T [400]
+
+define M1 := (renaming |{Monoid.+* := **}|)
+
+assert (M1 (theory-axioms MM.theory))
+
+(!prove-property Monoid.Power.right-plus M1 MM.theory)
+
+(!prove-property Monoid.Power.left-neutral M1 MM.theory)
+
+(!prove-property Monoid.Power.right-one M1 MM.theory)
+
+(!prove-property Monoid.Power.right-two M1 MM.theory)
+
+(!prove-property Monoid.Power.right-times M1 MM.theory)
+
+(assert (get-property Abelian-Monoid.commutative M1 MAM.theory))
+
+(!prove-property Abelian-Monoid.Power-left-times M1 MAM.theory)
+
+#--------------------------------------------------------------------------
+load "list-of.ath"
+
+declare Join*: (T) [(List T) N] -> (List T)
+
+define M1 := (renaming |{Monoid.+* := Join*, Monoid.+ := List.join,
+                         Monoid.<0> := nil}|)
+			       
+# Define Join* as an instance of **
+
+assert (map lambda (P) (M1 P)
+	    [Monoid.Power.right-zero Monoid.Power.right-nonzero])
+
+(!prove-property Monoid.Power.right-plus M1 Monoid.theory)
+
+(!prove-property Monoid.Power.left-neutral M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-one M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-two M1 Monoid.theory)
+
+(!prove-property Monoid.Power.right-times M1 Monoid.theory)
+
+# List.join isn't commutative, so we don't have Monoid.Power-left-times.
+
+#--------------------------------------------------------------------------
+open Monoid
+
+define L1 := (1 :: 2 :: nil)
+
+define three := (S N.two)
+
+#(set-debug-mode "rewriting")
+
+let {adapter := (renaming |{+* := Join*, + := List.join, <0> := nil}|);
+     [get prove chain chain-> chain<-] := (proof-tools adapter Monoid.theory);
+     [+ <0> +*] := (adapter [+ <0> +*]);
+     _ := (!prove Power.right-two)}
+  let {_ := (!claim Power.right-nonzero)}
+  (!chain [(L1 +* three)
+	   --> (L1 + (L1 +* N.two))      [Power.right-nonzero]
+	   --> (L1 + L1 + L1)            [Power.right-two]])
+
+(eval (L1 List.join L1 List.join L1))
+
+
+
+
+
+

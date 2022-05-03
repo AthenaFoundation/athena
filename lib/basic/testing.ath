@@ -1,0 +1,17 @@
+module Testing {
+declare expecting: Boolean
+
+define (Testing label test expected) :=
+ match expected {
+  [expecting value] =>
+    let {_ := (print "\n\nTesting "); _ := (print label); _ := (print ": ");
+         result := (test)}
+    check {
+      (equal? result value) => result
+    | else => 
+       let {_ := (write result);
+            _ := (print "*****Something's wrong. The expected result was")}
+       value
+    }
+ }
+} # Testing

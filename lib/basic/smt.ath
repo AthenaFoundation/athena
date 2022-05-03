@@ -1,0 +1,1739 @@
+#;;;;;;;;; Athena code for using Yices ;;;;;;;;;
+
+## Hash-table management for the mappings between the 
+## Athena and the Yices worlds:
+
+(define (make-empty-map) [(make-term-hash-table) (make-hash-table)])
+
+(define (add-binding x y map)
+  (match map
+    ([term-ht string-ht] (seq (match x
+                                ((some-term _) (term-enter term-ht x y))
+                                (_ (enter string-ht x y)))
+                              map))))
+
+(define (remove-binding key map)
+  (match map
+    ([term-ht string-ht] (match key
+                           ((some-term _) (seq (term-table-remove term-ht key)
+                                                map))
+                           (_ (seq (remove string-ht key)
+                                    map))))))
+
+(define (many-strings->one-string string-list)
+  (foldl (lambda (x y) (join x "\n" y)) [] string-list))
+
+(define (apply-map map x)
+  (match [map x]
+    ([[term-ht _] (some-term _)] (term-look-up term-ht x))
+    ([[_ string-ht] _] (look-up string-ht x))))
+
+
+(define (dom m)
+  (match m 
+    ([term-ht string-ht] (let ((string-entries (show-table string-ht))
+                               (term-entries   (show-table term-ht)))
+                           (join (map first term-entries) 
+                                 (map first string-entries))))))
+                                 
+(define (map-range m)
+  (match m 
+    ([term-ht string-ht] (let ((string-entries (show-table string-ht))
+                               (term-entries   (show-table term-ht)))
+                           (join (map second term-entries)
+                                 (map second string-entries))))))
+
+(define (dom-range-list m)
+  (match m 
+    ([term-ht string-ht] (let ((term-entries   (show-table term-ht))
+                               (string-entries (show-table string-ht)))
+                           (join term-entries string-entries)))))
+
+
+(define (in-dom? a m)
+  (match (apply-map m a)
+    (() false)
+    (_ true)))
+
+#### Pre-defined numeric relations and SMT code:
+
+#(declare (<= < >= >) (-> (Real Real) Boolean))
+
+#;;;;;;;;;;;;;;;;;;;;; SOME GLOBAL OPTIONS ;;;;;;;;;;;;;;;;;;;;
+
+#;;;;;;;;; The default time limit for any single call to Yices 
+#;;;;;;;; is currently 60 seconds. This can be changed as desired.
+#;;;;;;;; Simply do (set! yices-time-limit "n"), where n is the
+#;;;;;;;; desired number of seconds:
+
+(define yices-time-limit (cell "60"))
+
+# By default, Athena removes excess/superfluous information from the output model
+# in order to simplify its presentation. To get the full output model, set the
+# global variable show-whole-model? to true: 
+
+(define show-whole-model? (cell false))
+
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+#;;;;;;;; Uncomment the following definition of mprint in order
+#;;;;;;;; to get comments and statistics from the various procedures:
+
+# (define (mprint str) (print str))
+
+(define (mprint str) ())
+
+#;;;;;;;; Setting up the translation from Athena to Yices: 
+
+(define [bar comma lparen rparen lbrack rbrack blank colon scolon quot-mark] 
+        [" | " "," "(" ")" "[" "]" " " ":" ";" "\""])
+
+(define [c-comma c-lparen c-rparen c-blank c-newline] [`, `( `) `\blank `\n])
+
+(define (all-distinct terms)
+  (letrec ((try-all (lambda (t L res)
+                      (match L
+                        ([] res)
+                        ((list-of s more) (match (try (not (= t s)) ())
+                                            (() (try-all t more res))
+                                            (inequality (try-all t more (add inequality res))))))))
+           (loop (lambda (terms res)
+		   (match terms
+		     ([] res)
+		     ((list-of t more) 
+                         (loop more (join (try-all t more []) res)))))))
+    (loop terms [])))
+
+(define (in x range)
+ (match range
+   ([l h] (and (<= l x) (<= x h)))))
+
+(define (outside x range)
+ (match range
+   ([l h] (or (< x l) (< h x)))))
+
+(define (ite x y z) 
+  (and (or (not x) y)
+       (or x z)))
+
+(define (midpoint l h) 
+  (l plus ((h minus l) div 2)))
+
+(define yices-numeral-prefix "fresh-integer-numeral-")
+
+(define (get-signature' f)
+  (let ((rename (lambda (sort)
+                  (match sort
+                    ("Int" "int")
+                    ("Real" "real")
+                    ("Boolean" "bool")
+                    (_ sort)))))
+   (map rename (get-signature f))))
+ 
+(define (separate L token)
+  (match L 
+    ([] "")
+    ([s] s)
+    ((list-of s1 (bind rest (list-of _ _))) 
+      (join s1 token (separate rest token)))))
+
+(define (separate-all-but-last L token)
+  (match L 
+    ([] "")
+    ([_] "")
+    ((list-of s1 (bind rest (list-of _ _))) 
+      (let ((str (separate-all-but-last rest token)))
+        (check ((null? str) s1)
+               (else (join s1 token str)))))))
+
+(define (integer? n)
+  (equal? (sort-of n) "Int"))
+
+(define (real? n)
+  (match n
+    (x:Real true)
+    (_ false)))
+
+(define (proper-real? n)
+  (&& (real? n) (negate (integer? n))))
+
+(define (real->rational x)
+  (let ((x-str (val->string x))
+        (f (lambda (str)
+             (match str
+               ((split integral (list-of `. decimal)) 
+                  (let ((d (raise 10 (length decimal))))
+                    [(string->num (join integral decimal)) d]))))))
+    (f x-str)))
+
+
+(define (rational->real n-str d-str)
+  (let ((n (string->num (join n-str ".0")))
+        (d (string->num d-str)))
+   (div n d)))
+
+(define (integer-numeral? n)
+  (&& (numeral? n) (integer? n)))
+
+(define fresh-var-prefix "var")
+
+(define (real-numeral? n)
+  (&& (numeral? n) (real? n)))
+
+(define (make-fresh prefix counter vmap-range)
+  (let ((first-attempt (join prefix (val->string (inc counter)))))
+    (check ((for-some vmap-range 
+                      (lambda (v)
+                        (match v
+                          ((list-of vname _) (equal? vname first-attempt))
+                          (_ false)))) 
+             (make-fresh prefix counter vmap-range))
+           (else first-attempt))))
+
+(define built-in-symbols 
+   (map string->symbol ["<" ">" "<=" ">=" "=" "+" "-" "*" "/"]))
+
+(define (built-in? f)
+  (member? f built-in-symbols))
+
+(define (binary-infix? f args)
+  (&& (equal? (length args) 2)
+      (built-in? f)))
+
+(define (make-generic-term-string f arg-strings)
+   (join lparen (symbol->string f) blank (separate arg-strings blank) rparen))
+
+(define (translate-relation-symbol R)
+  (symbol->string R))
+
+(define (sc->string sc)
+  (match sc
+    (and "and")
+    (or  "or")))
+
+(define (make-constraint sc strings)
+   (let ((sc-string (sc->string sc)))
+     (match strings
+       ([s] s)
+       (_ (join lparen sc-string blank strings)))))
+
+(define (ok-string? name)
+  true)
+
+(define (translate-sort s)
+  (match s
+    ("Int"  "int")
+    ("Real" "real")
+    ("Boolean" "bool")
+    (_ s)))
+
+
+(define (translate-constraint c counter vmap bound-var?)
+ (let ((vm (match vmap
+             (() (make-empty-map))
+             (_ vmap)))
+       (debug? false))
+  (letrec ((translate-var
+             (lambda (x)
+               (match (apply-map vm x)
+                 (() (let ((var-name (check ((var? x) (var->string x))
+                                            (else (val->string x))))
+                           (c (first var-name))
+                           (var-name' (check ((ok-string? var-name) var-name)
+                                             (else (make-fresh fresh-var-prefix counter (map-range vm)))))
+                           (var-sort (sort-of x))
+                           (res (match var-sort
+                                  ("Int"  [var-name' "int"])
+                                  ("Real" [var-name' "real"]) 
+                                  ("Boolean"  [var-name' "bool"])
+                                  (_      [var-name' var-sort])))
+                           (_ (check ((bound-var? x) ())
+                                     (else (add-binding x res vm)))))
+                       var-name'))
+                 ((list-of var-name _) var-name))))
+           (translate-term 
+             (lambda (t)
+               (match t 
+                (((some-symbol f) (bind args (list-of _ _))) 
+                  (let ((arg-strings (translate-terms args))
+                        (res-string (check ((binary-infix? f args) 
+                                              (join lparen (symbol->string f) blank (first arg-strings)  blank 
+                                                    (second arg-strings) rparen))
+                                           (else (make-generic-term-string f arg-strings))))
+                        (res-string' (check ((&& (equal? f -) (equal? (length arg-strings) 1))
+                                              (join lparen "- 0 " (first arg-strings) rparen))
+                                            (else res-string)))
+                        (f-string (symbol->string f))
+                        (_ (match (apply-map vm f-string)
+                             (() (check ((binary-infix? f [1 2]) ())
+                                        ((constructor? f) ())
+                                        ((selector? f) ())
+                                        (else (add-binding f-string (add 'function (get-signature' f)) vm))))
+                             (_ ()))))
+                    res-string'))
+                ((some-var x) (translate-var x))
+                (_ (let ((_ (match debug?
+                              (true (print ("\nAbout to convert the following term t: " t)))
+                              (_ ()))))
+                     (check ((&& (real-numeral? t) (negate (integer? t)))
+                             (let (([n d] (real->rational t))
+                                   (str (join (val->string n) "/" (val->string d))))
+                               str))
+                          ((integer-numeral? t) (val->string t))
+                          (else (translate-var t))))))))
+           (translate-terms 
+             (lambda (t's)
+                (letrec ((loop (lambda (terms strings)
+                                 (match terms
+                                   ([] (rev strings))
+                                   ((list-of t rest) 
+                                       (let ((t-string (translate-term t)))
+                                         (loop rest (add t-string strings))))))))
+                           (loop t's []))))
+           (translate-atomic-constraint 
+             (lambda (c)
+               (match c
+                  (((some-symbol R) (some-term t1) (some-term t2))
+                     (let ((t1-string (translate-term t1))
+                           (t2-string (translate-term t2))
+                           (R-sign (translate-relation-symbol R))
+                           (_ (check ((built-in? R) ())
+                                     (else (add-binding (symbol->string R) (add 'function (get-signature' R)) vm))))
+                           (res-string (join lparen R-sign blank t1-string blank t2-string rparen)))
+                       res-string))
+                 (((some-symbol R) (some-term t))
+                    (let ((t-string (translate-term t))
+                          (R-sign (translate-relation-symbol R))
+                          (_ (add-binding (symbol->string R) (add 'function (get-signature' R)) vm))
+                          (res-string (join lparen R-sign blank t-string rparen)))
+                      res-string))
+                 ((some-symbol b) (translate-term b))
+                 (((some-symbol R) (some-list terms))
+                    (let ((term-strings (translate-terms terms))
+                          (R-sign (translate-relation-symbol R))
+                          (_ (check ((built-in? R) (add-binding (symbol->string R) (add 'function (get-signature' R)) vm))
+                                    (else (add-binding (symbol->string R) (add 'function (get-signature' R)) vm))))
+                          (res-string (make-generic-term-string R term-strings)))
+                      res-string))
+                 ((some-var b) (translate-term b)))))
+           (tran (lambda (c)
+                   (match c 
+                     ((some-atom _) (translate-atomic-constraint c))
+                     ((not c') (let ((string (tran c')))
+                                 (join lparen "not " string rparen)))
+                     (((some-sent-con sc) (some-list constraints))
+                        (match c
+                          ((if c1 c2) (let ((strings [(tran c1) (tran c2)]))
+                                        (join lparen "=>" blank (separate strings blank) blank rparen)))
+                          ((iff c1 c2) (tran (and (if c1 c2) (if c2 c1))))
+                          (_ (let ((strings (tran* constraints rparen)))
+                               (make-constraint sc strings)))))
+                     (((bind Q (|| forall exists)) (some-var x) body)
+                        (let ((body-string (tran body))
+                              ([var-name var-sort] (match (apply-map vm x)
+                                                    (() [(var->string (fresh-var)) "INT"])
+                                                    (res [(first res) (second res)])))
+                              (quant-str (match Q 
+                                           (forall "forall ") (_ "exists ")))
+                              (str (join lparen quant-str lparen var-name colon colon var-sort rparen 
+                                                         blank body-string rparen))
+                              (_ (remove-binding x vm))
+                              (_ (add-binding x [(make-fresh "a_a_a" counter 
+                                                                      (map-range vm)) var-sort] vm)))
+                            str))
+                      ((some-term _) (translate-term c)))))
+           (tran* (lambda (constraints strings)
+                    (match constraints
+                      ((list-of c more) (tran* more (join " " (tran c) strings)))
+                      ([] strings)))))
+    (let ((res (tran c)))
+      [res vm]))))
+
+(define (tc c)
+  (let ((counter (cell 0)))
+    (translate-constraint c counter () (lambda (_) false))))
+
+(define (translate-constraints constraints bound-var?)
+  (let ((counter (cell 0))
+        (vm (make-empty-map)))
+    (letrec ((loop (lambda (constraints vm results)
+                     (match constraints
+                       ([] [(rev results) vm])
+                       ((list-of c more) (let (([res vm'] (translate-constraint c counter vm bound-var?)))
+                                           (loop more vm' (add res results))))))))
+      (loop constraints vm []))))
+
+(define (tc-all constraints)
+  (translate-constraints constraints (lambda (_) false)))
+
+(define (constructor-name? str)
+  (try (constructor? (string->symbol str))
+       false))
+
+(define (get-constructor-decs var-sort)
+  (let ((constructors (constructors-of var-sort))
+        (get-con-string (lambda (c)
+                         (check ((equal? (arity-of c) 0) 
+                                  (symbol->string c))
+                                (else (let ((arg-sorts (all-but-last (get-signature' c)))
+                                            (sel-names (selector-names c))
+                                            (sel-strings (map (lambda (arg-sort)
+                                                                (let ((sel-name (join "sel" (var->string (fresh-var)))))
+                                                                  (join sel-name colon colon arg-sort)))
+                                                              arg-sorts))
+                                            (sel-strings (map (lambda (arg-sort-and-sel-name)
+                                                                (match arg-sort-and-sel-name
+                                                                  ([arg-sort []] 
+                                                                     (let ((sel-name (join "sel" (var->string (fresh-var)))))
+                                                                       (join sel-name colon colon arg-sort)))
+                                                                  ([arg-sort sel-name] (join sel-name colon colon arg-sort))))
+                                                                    (zip arg-sorts sel-names)))
+                                            (sel-string (foldl (lambda (x y) (join x " " y)) [] sel-strings)))
+                                        (join lparen (symbol->string c) sel-string rparen)))))))
+    (map get-con-string constructors)))
+
+(define (predefined-type? vtype)
+  (|| (equal? vtype "int") (equal? vtype "real") (equal? vtype "bool")))
+
+(define (make-domain-dec var-type)
+  (check ((datatype-sort? var-type)
+           (let ((constructor-decs (get-constructor-decs var-type)))
+                    (join "\n(define-type " var-type 
+                          " (datatype "  (separate constructor-decs blank) "))\n")))
+  (else (join "\n(define-type " var-type ")\n"))))
+
+(define (make-new-domain-decs remaining-domain-names domain-names-so-far domain-decs)
+  (match remaining-domain-names
+    ([] [domain-names-so-far domain-decs])
+    ((list-of domain-name rest)
+       (check ((member? domain-name domain-names-so-far) 
+                (make-new-domain-decs rest domain-names-so-far domain-decs))
+              ((predefined-type? domain-name)  [domain-names-so-far domain-decs])
+              (else (let ((new-domain-dec (make-domain-dec domain-name)))
+                      (make-new-domain-decs rest (add domain-name domain-names-so-far) 
+                                                 (join new-domain-dec domain-decs))))))))
+
+
+(define (defined-symbol? str symbol-definitions)
+  (member? str (map (lambda (x) (symbol->string (root (first x)))) symbol-definitions)))
+
+(define (get-decs-from-vmap dom-range symbol-definitions)
+  (letrec ((loop (lambda (dom-range domains-so-far domain-decs var-decs reverse-vmap)
+                     (match dom-range
+                       ([] [domain-decs var-decs reverse-vmap])
+                       ((list-of [var (list-of 'function rest)] more)
+                         (check 
+                          ((defined-symbol? var symbol-definitions) 
+                              (loop more domains-so-far domain-decs var-decs reverse-vmap))                             
+                          (else                            
+                            (let ((new-vdec (join newline lparen "define" blank var colon colon lparen "-> " (separate rest blank) rparen rparen "\n"))
+                                 ([domains-so-far' domain-decs'] (make-new-domain-decs rest domains-so-far domain-decs)))
+                                 # (_ (mprint (join "\nfunction declaration encountered, with rest signature: " (val->string rest))))
+                                 # (_ (mprint (join "\nDomains-so-far: " (val->string domains-so-far) "\nand new domains-so-far': " (val->string domains-so-far') 
+                                 #                  "\nand domain-decs: " (val->string domain-decs)
+                                 #                  "\nand new domain-decs': " (val->string domain-decs'))))
+                              (loop more domains-so-far' domain-decs' (join new-vdec var-decs) reverse-vmap)))))
+                       ((list-of [var var-value] more)
+                         (let ((var-name (first var-value))
+                               (var-type (second var-value))
+                               (new-vdec (join newline lparen "define " var-name colon colon var-type rparen))
+                               ([reverse-vmap' var-decs'] (check ((constructor-name? var-name) [reverse-vmap var-decs])
+                                                                 (else [(add-binding var-name var reverse-vmap)
+                                                                        (join new-vdec var-decs)]))))
+                           (check ((predefined-type? var-type)
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  ((member? var-type domains-so-far) 
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  (else (let ((new-domain-dec (make-domain-dec var-type)))
+                                           (loop more (add var-type domains-so-far)  
+                                                      (join new-domain-dec domain-decs)
+                                                      var-decs' reverse-vmap'))))))))))
+    (loop dom-range  [] [] [] (make-empty-map))))
+
+(define (get-declarations c)
+  (let (([char-vec vmap] (tc c))
+        (dom-range (dom-range-list vmap)))
+    (join [char-vec vmap] (get-decs-from-vmap dom-range []))))
+
+(define (get-declarations* constraint-list)
+  (let (([constraint-strings vmap] (tc-all constraint-list))
+        (dom-range (dom-range-list vmap)))
+    (letrec ((loop (lambda (dom-range domains-so-far domain-decs var-decs reverse-vmap)
+                     (match dom-range
+                       ([] [domain-decs var-decs reverse-vmap])
+                       ((list-of [var (list-of 'function rest)] more)
+                           (let ((new-vdec (join newline lparen "define" blank var colon colon lparen "-> " (separate rest blank) rparen rparen "\n"))
+                                 ([domains-so-far' domain-decs'] (make-new-domain-decs rest domains-so-far domain-decs)))
+                              (loop more domains-so-far' domain-decs' (join new-vdec var-decs) reverse-vmap)))
+                       ((list-of [var var-value] more)
+                         (let ((var-name (first var-value))
+                               (var-type (second var-value))
+                               (new-vdec (join newline lparen "define " var-name colon colon var-type rparen))
+                               ([reverse-vmap' var-decs'] (check ((constructor-name? var-name) [reverse-vmap var-decs])
+                                                                 (else [(add-binding var-name var reverse-vmap)
+                                                                        (join new-vdec var-decs)]))))
+                           (check ((predefined-type? var-type)
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  ((member? var-type domains-so-far) 
+                                    (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                  (else (let ((new-domain-dec (make-domain-dec var-type)))
+                                           (loop more (add var-type domains-so-far)  
+                                                      (join new-domain-dec domain-decs)
+                                                      var-decs' reverse-vmap'))))))))))
+       (join [constraint-strings vmap] (loop dom-range [] [] [] (make-empty-map))))))
+
+
+(define (gd c symbol-definitions)
+  (match symbol-definitions
+    ([] (get-declarations c))
+    (_ (let ((vmap (make-empty-map))
+             (counter (cell 0))
+             (def-strings (map (lambda (sd-pair) 
+                                  (let ((sym  (root (first sd-pair)))
+                                        (sym-name (symbol->string sym))
+                                        (sig (separate (get-signature' sym) " "))
+                                        (sym-name-and-sig (join sym-name colon colon lp "-> " sig rp))
+                                        (params (children (first sd-pair)))
+                                        (bound-var? (lambda (x) (member? x params)))
+                                        (parameter-list (separate (map (lambda (x) 
+                                                                         (let ((var-name (first (translate-constraint x counter vmap bound-var?)))
+                                                                               (sort (translate-sort (sort-of x))))
+                                                                            (join var-name colon colon sort)))
+                                                                       params) " "))
+                                        (body (first (translate-constraint (second sd-pair) counter vmap bound-var?))))
+                                    (join "\n(define " sym-name-and-sig blank 
+                                    "(lambda " lp parameter-list rp blank body "))\n")))
+                               symbol-definitions))
+             ([c-res _] (translate-constraint c counter vmap (lambda (_) false)))
+             (dom-range (dom-range-list vmap)))
+        (join [def-strings c-res vmap] (get-decs-from-vmap dom-range symbol-definitions))))))
+
+(define (get-declarations-faster constraints)
+ (let 
+  ((v-ht (make-hash-table))
+   (d-ht (make-hash-table))
+   (get-all-v-decs (lambda ()
+                     (map first (show-table v-ht))))
+   (get-all-d-decs (lambda ()
+                     (map first (show-table d-ht))))
+   (process-constraint 
+    (lambda (c rvmap)
+      (let (([str vmap] (tc c))
+            (dom-range (dom-range-list vmap)))
+        (letrec ((loop (lambda (dom-range domains-so-far domain-decs var-decs reverse-vmap)
+                         (match dom-range
+                           ([] [domain-decs var-decs reverse-vmap])
+                           ((list-of [var (list-of 'function rest)] more)
+                               (let ((new-vdec (join newline lparen "define" blank var colon colon lparen "-> " (separate rest blank) rparen rparen "\n")))
+                                  (loop more domains-so-far domain-decs (add new-vdec var-decs) reverse-vmap)))
+                           ((list-of [var var-value] more)
+                             (let ((var-name (first var-value))
+                                   (var-type (second var-value))
+                                   (new-vdec (join newline lparen "define " var-name colon colon var-type rparen))
+                                   ([reverse-vmap' var-decs'] (check ((constructor-name? var-name) [reverse-vmap var-decs])
+                                                                     (else [(add-binding var-name var reverse-vmap)
+                                                                            (add new-vdec var-decs)]))))
+                               (check ((|| (equal? var-type "int") (equal? var-type "real") (equal? var-type "bool"))
+                                        (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                      ((member? var-type domains-so-far) 
+                                        (loop more domains-so-far domain-decs var-decs' reverse-vmap'))
+                                      (else (let ((new-domain-dec (check ((datatype-sort? var-type)
+                                                                            (let ((constructor-decs (check ((poly? var) (error "\nPolymorphic datatypes are not supported by SMT solvers.\n"))
+                                                                                                           (else (get-constructor-decs var-type)))))
+                                                                              (join "\n(define-type " var-type 
+                                                                                    " (datatype "  (separate constructor-decs blank) "))\n")))
+                                                                         (else (join "\n(define-type " var-type ")\n")))))
+                                               (loop more (add var-type domains-so-far)  
+                                                          (add new-domain-dec domain-decs)
+                                                          var-decs' reverse-vmap'))))))))))
+           (join [str vmap] (loop dom-range [] [] [] rvmap)))))))
+      (letrec ((do-all (lambda (c-list all-strings rev-vmap)
+                         (match c-list
+                           ([] [(rev all-strings) (get-all-v-decs) (get-all-d-decs) rev-vmap])
+                           ((list-of c more) (let (([str vmap d-decs v-decs reverse-vmap] (process-constraint c rev-vmap))
+                                                   (_ (map (lambda (v-dec)
+                                                             (enter v-ht v-dec true))
+                                                            v-decs))
+                                                   (_ (map (lambda (d-dec)
+                                                             (enter d-ht d-dec true))
+                                                            d-decs)))
+                                               (do-all more (add str all-strings)
+                                                            reverse-vmap)))))))
+        (do-all constraints [] (make-empty-map)))))
+            
+                         
+(define (get-declarations' c)
+  (let (([str _] (tc c)))
+    str))
+
+(define (get-line str)
+  (letrec ((loop (lambda (str chars)
+                    (match str
+                      ([] [(rev chars) []])
+                      ((list-of `\n rest) [(rev (add `\n chars)) rest])
+                      ((list-of c rest)  (loop rest (add c chars)))))))
+    (loop str [])))
+
+
+(define lparen-char `\040)
+(define rparen-char `\041)
+
+(define (balanced? str)
+  (let ((lparens (filter str (lambda (c) (equal? c lparen-char))))
+        (rparens (filter str (lambda (c) (equal? c rparen-char)))))
+    (equal? (length lparens) (length rparens))))
+
+(define (get-line str)
+  (letrec ((loop (lambda (str chars)
+                    (match str
+                      ([] [(rev chars) []])
+                      ((list-of `\n rest) (let ((res (rev (add `\n chars))))
+                                            (check ((balanced? res) [res rest])
+                                                   (else (loop rest chars)))))
+                      ((list-of c rest)  (loop rest (add c chars)))))))
+    (loop str [])))
+
+(define (get-val str)
+  (try (string->num str)
+       (match str
+         ((split n-str (split "/" d-str)) (rational->real n-str d-str))
+         (_ (string->symbol str)))))
+       
+(define (skip? left right)
+   (let ((skipable (lambda (str)
+                     (match str
+                       ((split "LET" _) true)
+                       ((split "(LAMBDA" _) true)
+                       (_ false)))))
+     (|| (skipable left) (skipable right)))) 
+
+(define (parseTerm str reverse-map yices-integer-numerals)
+  (letrec ((get-functor (lambda (str res)
+                          (match str 
+                            ((list-of (val-of c-blank) rest) [(rev res) rest])
+                            ((list-of (val-of c-newline) rest) [(rev res) rest])
+                            ((list-of (val-of c-rparen) rest) [(rev res) str])
+                            ((list-of (some-char c) rest) (get-functor rest (add c res)))
+                            ([] [(rev res) []]))))
+           (get-term (lambda (str)
+                       (match str
+                         ((list-of (val-of c-lparen) rest) 
+                            (let (([functor rest] (get-functor rest [])))
+                              (match (get-terms rest [])
+                                ([args (list-of c-rparen rest')] 
+                                  (let ((fsym (string->symbol functor))
+                                        (term (try (make-term fsym args)
+                                                   (let ((arg-sorts (all-but-last (get-signature fsym)))
+                                                         (args' (map 
+                                                                  (lambda (arg-and-sort)
+                                                                     (match arg-and-sort
+                                                                       ([arg expected-sort] (check ((&& (integer-numeral? arg) 
+                                                                                                        (negate (equal? expected-sort "Int")))
+                                                                                                      (let ((ynt (string->var (join "fresh-" (downcase-string expected-sort) "-"
+                                                                                                                                    (val->string arg))
+                                                                                                                              expected-sort))
+                                                                                                            (_ (set! yices-integer-numerals
+                                                                                                                     (add ynt (ref yices-integer-numerals)))))
+                                                                                                         ynt))
+                                                                                                   (else arg)))))
+                                                                  (zip args arg-sorts))))
+                                                     (make-term fsym args')))))
+                                    [term rest']))
+                                ([args []] (let ((_ (mprint (join "\nfunctor: " functor))))
+                                             [(make-term (string->symbol functor) args) []])))))
+                         (_ (let (([functor rest] (get-functor str [])))
+                              (match (apply-map reverse-map functor)
+                                           (() (try [(get-val functor) rest]
+                                                    [1 rest]))
+                                           (x [x rest])))))))
+           (get-terms (lambda (str results) 
+                        (match str
+                          ([] [(rev results) []])
+                          (_ (match (get-term str)
+                               ([term (list-of (val-of c-blank) rest)] (get-terms rest (add term results)))
+                               ([term (bind all-rest (list-of (val-of c-rparen) rest))] [(rev (add term results)) all-rest])
+                               ([term (bind all-rest (list-of c rest))] (get-terms all-rest (add term results)))
+                               ([term []] [(rev (add term results)) []])))))))
+     (get-term str)))
+
+(define (parse-term str reverse-map)
+  (first (parseTerm str reverse-map)))
+
+
+
+(define (fresh-variable? t)
+  (match t 
+    ((some-var _) (prefix? "fresh-" (var->string t)))
+    (_ false)))
+
+ (define (simplify identity model)
+   (match identity
+     ((= l r) (check ((&& (fresh-variable? r) (input-leaf? l))
+                        (map (lambda (p)
+                               (replace-var r l p))
+                             model))
+                     (else model)))
+     (_ model)))
+                         
+                       
+
+(define (process-yices-output reverse-vmap file conjuncts simplify?)
+   (let ((data (read-file file))
+         ([line1 rest1] (get-line data))
+         (yices-integer-numerals (cell []))
+         (empty-table (make-empty-map))
+         (input-leaf? (lambda (x)
+                        (for-some conjuncts
+                           (lambda (c)
+                              (member? x (leaves c))))))
+         (simplify (lambda (identity model)
+                      (match identity
+                         ((= l r) (check ((&& (fresh-variable? r) (input-leaf? l))
+                                            [true (map (lambda (p)
+                                                         (replace-var r l p))
+                                                       model)])
+                                         (else [false model])))
+                         (_ [false model]))))
+         (get-unsat-assertions (lambda (num-string)
+                                  (letrec ((loop (lambda (str res)
+                                                   (match (skip-until str printable?)
+                                                     ([] res)
+                                                     (_ (match (parseTerm str empty-table yices-integer-numerals)
+                                                          ([n rest] (loop rest (add n res)))))))))
+                                     (loop num-string [])))))
+     (letrec ((get-model (lambda (str L)
+                           (let (([line rest-lines] (get-line (skip-until str printable?))))
+                             (match line 
+                               ((split "(= " rest)
+                                 (let (([left rest']   (parseTerm rest reverse-vmap yices-integer-numerals))
+                                       ([right (list-of (val-of c-rparen) rest'')] (parseTerm (skip-until rest' printable?) reverse-vmap yices-integer-numerals)))
+                                  (check ((skip? left right) (get-model rest-lines L))
+                                         (else (let ((left-term left)
+                                                     (right-term right)
+                                                     (identity  (try (= left-term right-term)
+                                                                     (check ((integer-numeral? right-term) 
+                                                                              (let ((var-sort (sort-of left-term))
+                                                                                    (ynt (string->var (join "fresh-" (downcase-string var-sort) "-" 
+                                                                                                            (val->string right-term))
+                                                                                                      var-sort))
+                                                                                    (_ (set! yices-integer-numerals
+                                                                                             (add ynt (ref yices-integer-numerals)))))
+                                                                                (= left-term ynt)))))))
+                                                 (check ((equal? left-term right-term) (get-model rest-lines L))
+                                                        ((&& (ground? identity) (member? identity conjuncts)) (get-model rest-lines L))
+                                                        (else (get-model rest-lines (add identity L)))))))))
+                               ([] L)
+                               (_ (get-model rest-lines L))))))
+               (simplify-model (lambda (L)
+                                  (letrec ((loop (lambda (remaining-equations latest-model)
+                                                   (match remaining-equations
+                                                      ([] latest-model)
+                                                      ((list-of eqn more) (let (([change? model] (simplify eqn latest-model)))
+                                                                            (check (change? (loop more model))
+                                                                                   (else (loop more latest-model))))))))
+                                           (remove-redundancies (lambda (L)
+                                                                   (filter-out L (lambda (id) 
+                                                                                    (|| (&& (member? id conjuncts)
+                                                                                            (negate (var? (lhs id))))
+                                                                                        (equal? (lhs id) (rhs id))))))))
+                                      (check (simplify? (remove-redundancies (loop L L)))
+                                             (else (loop L L)))))))
+        (let ((get-model' (lambda (str L)
+                             (match (get-model str L)
+                               ((bind answer [['satisfying-assignment res] ['unsatisfied-assertions unsat-assertions]])
+                                   (match (remove-duplicates (ref yices-integer-numerals))
+                                     ([] answer)
+                                     (ynterms [['satisfying-assignment (join (simplify-model res) (all-distinct ynterms))] ['unsatisfied-assertions unsat-assertions]])))
+                               ((some-list bindings)
+                                  (match (remove-duplicates (ref yices-integer-numerals))
+                                    ([] (simplify-model bindings))
+                                    (ynterms (join (simplify-model bindings) (all-distinct ynterms)))))))))
+          (match line1
+            ((split "unsat" _) 'Unsatisfiable)
+            ((split "Error" _) 'Unknown-error)
+            ((split "unknown" _) (try (let ((L (get-model' rest1 [])))
+                                        ['Unknown L])
+                                      'Unknown))
+            ((split "sat" _) (let (([line2 rest2] (get-line rest1))
+#                                   (_ (print "\nline2: " line2))
+#                                   (_ (print "\nrest2: " rest2))
+                                  )
+                               (match line2
+                                 ((split "unsatisfied assertion ids: " more) 
+                                     (let ((unsat-assertions (get-unsat-assertions more))
+                                           (res (get-model' rest2 [])))
+                                       [['satisfying-assignment res] ['unsatisfied-assertions unsat-assertions]]))
+                                 (_ (get-model' rest1 [])))))
+            (_ 'Unknown))))))
+
+(define (smt-solve-core c simplify?)
+  (let (([input-file output-file error-file] ["input1.ys" "output1.ys" "error.ys"])
+        (_ (delete-files [input-file output-file error-file]))
+        ([char-vec vmap d-decs v-decs reverse-vmap] (get-declarations c))
+#        (RL (dom-range-list reverse-vmap))
+#        (rv (second (first RL))) 
+#        (_ (print "\nReverse vmap: " RL))
+#        (_ (print "\nAnd here is the variable corresponding to a: " rv " and its sort: " (sort-of rv)))
+        (_ (mprint "\nDone with translation...\n"))
+        (_ (write-file input-file ";; Type declarations:\n"))
+        (_ (write-file input-file d-decs))
+        (_ (write-file input-file "\n;; Variable declarations:\n\n"))
+        (_ (write-file input-file v-decs))
+        (_ (write-file input-file "\n\n;; Query: \n\n"))
+        (_ (write-file input-file "(assert "))
+        (_ (write-file input-file char-vec))
+        (_ (write-file input-file ")\n"))
+        (_ (write-file input-file (join "\n(check)\n")))
+        (_ (mprint "\nSending OS command...\n"))
+        (time1 (time))
+        (_ (exec-command (join "yices --timeout=" (ref yices-time-limit) " -e " input-file " > " output-file " 2> " error-file)))
+        (time2 (time))
+        (_ (mprint (join "\nDone. Total solving time: " (val->string (minus time2 time1)))))
+        (res (process-yices-output reverse-vmap output-file (get-conjuncts c) simplify?)))
+    res))
+
+
+(define (smt-solve-core-with-defs c symbol-definitions simplify?)
+ (match symbol-definitions 
+   ([] (smt-solve-core c simplify?))
+   (_ 
+     (let (([input-file output-file error-file] ["input1.ys" "output1.ys" "error.ys"])
+           (_ (delete-files [input-file output-file error-file]))
+           ([defs char-vec vmap d-decs v-decs reverse-vmap] (gd c symbol-definitions))
+           (def-str (many-strings->one-string defs))
+           (_ (mprint "\nDone with translation...\n"))
+           (_ (write-file input-file ";; Type declarations:\n"))
+           (_ (write-file input-file d-decs))
+           (_ (write-file input-file "\n;; Variable declarations:\n\n"))
+           (_ (write-file input-file v-decs))
+           (_ (write-file input-file "\n\n;; Definitions:\n"))
+           (_ (write-file input-file def-str))
+           (_ (write-file input-file "\n\n;; Query: \n\n"))
+           (_ (write-file input-file "(assert "))
+           (_ (write-file input-file char-vec))
+           (_ (write-file input-file ")\n"))
+           (_ (write-file input-file (join "\n(check)\n")))
+           (_ (mprint "\nSending OS command...\n"))
+           (time1 (time))
+           (_ (exec-command (join "yices --timeout=" (ref yices-time-limit) " -e " input-file " > " output-file " 2> " error-file)))
+           (time2 (time))
+           (_ (mprint (join "\nDone. Total solving time: " (val->string (minus time2 time1)))))
+           (res (process-yices-output reverse-vmap output-file (get-conjuncts c) simplify?)))
+       res))))
+
+(define (translate-and-write-to-file c file file-to-include)
+  (let (([str vmap d-decs v-decs reverse-vmap] (get-declarations c))
+        (_ (write-file file ";; Type declarations:\n"))
+        (_ (write-file file d-decs))
+        (_ (write-file file "\n;; Variable declarations:\n\n"))
+        (_ (write-file file v-decs))
+        (_ (write-file file "\n\n;; Query: \n\n"))
+        (_ (write-file file (join "(include " quot-mark file-to-include quot-mark rparen newline)))
+        (_ (write-file file "(assert "))
+        (_ (write-file file str))
+        (_ (write-file file ")\n"))
+        (_ (write-file file (join "\n(check)\n"))))
+    reverse-vmap))
+
+(define (translate-and-write-to-file-simple c file)
+  (let (([str _] (tc c))
+        (_ (write-file file "\n(assert "))
+        (_ (write-file file str))
+        (_ (write-file file ")\n")))
+    ()))
+
+(define (smt-solve-core-repeat c n simplify?)
+  (let (([input-file output-file error-file] ["input1.ys" "output1.ys" "error.ys"])
+        (_ (delete-files [input-file output-file error-file]))
+        ([str vmap d-decs v-decs reverse-vmap] (get-declarations c))
+        (_ (mprint "\nDone with translation...\n"))
+        (_ (write-file input-file ";; Type declarations:\n"))
+        (_ (write-file input-file (separate d-decs "\n")))
+        (_ (write-file input-file "\n;; Variable declarations:\n\n"))
+        (_ (write-file input-file (separate v-decs "\n")))
+        (_ (write-file input-file "\n\n;; Query: \n\n"))
+        (_ (write-file input-file (join "(assert " str ")\n")))
+        (_ (write-file input-file (join "\n(check)\n")))
+        (_ (mprint "\nSending OS command...\n"))
+        (t (running-time (lambda () (exec-command (join "yices --timeout=" (ref yices-time-limit) 
+                                                        " -e " input-file " > " output-file " 2> " error-file))) n))
+        (_ (mprint "\nDONE! Performed " n " calls in " t " seconds...\n"))
+        (res (process-yices-output reverse-vmap output-file (get-conjuncts c) simplify?)))
+    res))
+
+# Interface for solving MaxSat problems w/ Yices: 
+
+(define (max-sat-smt-solve-core L simplify?)
+  (let ((assertions (map first L))
+        (weights (map second L))
+        ([input-file output-file error-file] ["minput1.ys" "moutput1.ys" "merror.ys"])
+        (_ (delete-files [input-file output-file error-file]))
+        ([assertion-strings v-decs d-decs reverse-vmap] (get-declarations-faster assertions))
+        (assertion-strings' (letrec ((loop (lambda (data weights res)
+                                             (match [data weights]
+                                               ([[] []] (rev res))
+                                               ([(list-of str rest-data) (list-of weight rest-weights)] 
+                                                  (let ((new-assertion-string 
+                                                           (match weight
+                                                             ('inf (join "\n(assert+ " str rparen newline))
+                                                             (_ (join "\n(assert+ " str blank (val->string weight) rparen newline)))))
+                                                    (loop rest-data rest-weights (add new-assertion-string res))))))))
+                              (loop assertion-strings weights [])))
+        (_ (mprint "\nDone with translation...\n"))
+        (_ (write-file input-file ";; Type declarations:\n"))
+        (_ (write-file input-file (separate d-decs "\n")))
+        (_ (write-file input-file "\n;; Variable declarations:\n\n"))
+        (_ (write-file input-file (separate v-decs "\n")))
+        (_ (write-file input-file "\n\n;; Assertions: \n"))
+        (_ (map (lambda (assertion-string)
+                  (write-file input-file assertion-string))
+                 assertion-strings'))
+        (_ (write-file input-file (join "\n(max-sat)\n")))
+        (_ (mprint "\nSending OS command...\n"))
+        (time1 (time))
+        (_ (exec-command (join "yices --timeout=" (ref yices-time-limit) " -e " input-file " > " output-file " 2> " error-file)))
+        (time2 (time))
+        (_ (mprint (join "\nDone. Total solving time: " (val->string (minus time2 time1)))))
+        (res (process-yices-output reverse-vmap output-file assertions simplify?)))
+    res))
+
+(define (solve-smt-constraint c simplify?)
+  (check ((poly? c) (error "Polymorphic constraints are not supported presently."))
+         (else (smt-solve-core (rename c) simplify?))))
+
+(define (solve-smt-constraint-with-defs c symbol-definitions simplify?)
+  (check ((poly? c) (error "Polymorphic constraints are not supported presently."))
+         (else (smt-solve-core-with-defs (rename c) symbol-definitions simplify?))))
+
+(define (smt-solve c)
+  (check ((ref show-whole-model?) (solve-smt-constraint c false))
+         (else (solve-smt-constraint c true))))
+
+(define (smt-solve-with-defs c symbol-defs)
+  (check ((ref show-whole-model?) (solve-smt-constraint-with-defs c symbol-defs false))
+         (else (solve-smt-constraint-with-defs c symbol-defs true))))
+
+(define (smt-solve-list constraints)
+  (let (([input-file output-file error-file] ["input1.ys" "output1.ys" "error.ys"])
+        (_ (delete-files [input-file output-file error-file]))
+        ([constraint-strings vmap d-decs v-decs reverse-vmap] (get-declarations* constraints))
+#        (_ (mprint "\nDone with translation...\n"))
+        (_ (write-file input-file ";; Type declarations:\n"))
+        (_ (write-file input-file d-decs))
+        (_ (write-file input-file "\n;; Variable declarations:\n\n"))
+        (_ (write-file input-file v-decs))
+#        (_ (mprint "\nDone writing the type and variable declarations, about to write the main assertions...\n"))
+#         (big-string (join "\n(assert (and "  
+#                           (separate constraint-strings " ")
+#                           "))\n"))
+#        (_ (mprint "\nDone computing big string...\n"))
+        (_ (write-file input-file "\n\n;; Query: \n\n"))
+         (_ (map-proc (lambda (constraint-string)
+                         (seq (write-file input-file "(assert ")
+                              (write-file input-file constraint-string)
+                              (write-file input-file ")\n")))
+                      constraint-strings))
+        (_ (write-file input-file (join "\n(check)\n")))
+        (_ (mprint "\nSending OS command...\n"))
+        (time1 (time))
+        (_ (exec-command (join "yices --timeout=" (ref yices-time-limit) " -e " input-file " > " output-file " 2> " error-file)))
+        (time2 (time))
+        (_ (mprint (join "\nDone. Total solving time: " (val->string (minus time2 time1)))))
+        (res (check ((ref show-whole-model?)  (process-yices-output reverse-vmap output-file (flatten (map get-conjuncts constraint)) false))
+                    (else (process-yices-output reverse-vmap output-file (flatten (map get-conjuncts constraints)) true)))))
+  res))
+
+(define (max-smt-solve L)
+  (check ((ref show-whole-model?)   (max-sat-smt-solve-core L false))
+         (else (max-sat-smt-solve-core L true))))
+
+(define (solve p)
+  (smt-solve (and* (add p (ab)))))
+
+(set-precedence (smt-solve solve max-smt-solve) 5)
+
+# Code for obtaining multiple models of a given constraint c: 
+
+(define (smt-multiple-models c max)
+  (let ((negate-model (lambda (model)
+                        (and* (map not model)))))
+    (letrec ((loop (lambda (c i models)
+                     (check ((less? i max) 
+                               (match (smt-solve c)
+                                 ((some-list model) (loop (and c (negate-model model)) 
+                                                          (plus i 1)
+                                                          (add model models)))
+                                 (_ models)))
+                            (else models)))))
+       (loop c 0 []))))
+
+(define (smt-satisfiable? c)
+  (try (match (smt-solve c)
+         ('Unknown 'Unknown)
+         ('Unsatisfiable false)
+         (_ true))
+       'Unknown))
+
+(define (smt-valid? c)
+  (try (match (smt-solve (not c))
+         ('Unknown 'Unknown)
+         ('Unsatisfiable true)
+         (_ false))
+       'Unknown))
+
+(define (smt-unsatisfiable? c)
+  (negate (smt-satisfiable? c)))
+
+(define (smt-implies? c1 c2)
+  (smt-unsatisfiable? (and c1 (not c2))))
+
+(define (smt-check c expected)
+  (let ((my-assert 
+         (lambda (result) 
+           (check ((equal? result expected) 
+                   (println (join "As expected: " (val->string expected))))
+                  (else
+                   (println
+                    (join "Error: Expected " (val->string expected) 
+                          ", but returned " (val->string result))))))))
+    (try (let ((result (smt-solve c)))
+           (match result
+             ((|| 'Unknown 'Unsatisfiable) (my-assert result))
+             (_ (my-assert 'Satisfiable))))
+         (println (join "SMT unit test '" (val->string c) "' timed out.")))))
+
+(define (size p)
+  (match p 
+    ((some-atom t) (term-size t))
+    (((|| not and or if iff) (some-list args))
+       (foldl plus 1 (map size args)))
+    (((some-quant _) (some-var _) (some-sent q)) 
+       (plus 2 (size q)))))
+
+
+(define (apply-solution L s)
+  (match (find-first' L
+           (lambda (id)
+             (match id
+               ((= (val-of s) (some-symbol t)) t)
+               ((= (some-symbol t) (val-of s)) t)
+               (_ false)))
+           (lambda () ()))
+   (() 'none)
+   (res res)))
+
+(define (get-cost solution cost-terms)
+  (let ((costs (map (lambda (cost-term) (apply-solution solution cost-term)) cost-terms)))
+    (eval (foldl + 0 costs))))
+
+(define (make-cost-term t)
+  (match t 
+   ((some-var x) (string->var (join "cost" (var->string x) ":Int")))
+   (((some-symbol f) (some-list _)) (string->var (join "cost" (symbol->string f) ":Int")))))
+
+(define (parameter-value-and-cost p desired p-change-cost)
+  (let ((p-cost-term (make-cost-term p)))
+    (ite (= p desired) (= p-cost-term 0) (= p-cost-term p-change-cost))))
+
+(define (sum-all terms)
+  (match terms
+    ([x] x)
+    ((list-of x (bind rest (list-of _ _))) (+ x (sum-all rest)))))
+
+(define (sum n)
+  (check ((less? n 1) 0)
+         (else (plus n (sum (minus n 1))))))
+
+(define (cost-term-leaves cost-term)
+  (match cost-term
+    (((some-symbol f) (some-list args)) 
+        (check ((member? f built-in-symbols) (flatten (map cost-term-leaves args)))
+               (else [cost-term])))
+    (_ [cost-term])))
+
+(define (smt-solve-and-minimize constraint cost-term max-cost)
+ (let ((counter (cell 0))
+       (cost-terms (cost-term-leaves cost-term))
+       (main-input-file "mininput.ys")
+       ([output-file error-file] ["minoutput.ys" "minerror.ys"])
+       (cost-constraint-file "cc.ys")
+       (_ (delete-files [main-input-file output-file error-file cost-constraint-file]))
+       (reverse-vmap (translate-and-write-to-file constraint main-input-file cost-constraint-file))
+       (main-conjuncts (get-conjuncts constraint))
+       (solve (lambda (cost-constraint) 
+                 (seq (inc counter)
+                      (delete-files [cost-constraint-file output-file error-file])
+                      (translate-and-write-to-file-simple cost-constraint cost-constraint-file)
+                      (mprint "\nSolver kicking in...\n")
+                      (let ((t1 (time))
+                            (_ (exec-command (join "yices --timeout=" (ref yices-time-limit) " -e " main-input-file " > " output-file " 2> " error-file)))
+                            (t2 (time)))
+                         (mprint (join "\nSolver done, total solving time " (val->string (minus t2 t1)) " seconds; about to process the output...\n")))
+                      (let ((res (process-yices-output reverse-vmap output-file (join (get-conjuncts cost-constraint) main-conjuncts) (ref show-whole-model?)))
+                            (_ (mprint "\nOutput processing done...\n")))
+                        res)))))
+  (letrec ((loop (lambda (l h)
+                  (let ((_ (mprint (join "\nlo : " (val->string l) ", hi: " (val->string h) ", and mid: " (val->string (midpoint l h))))))
+                   (check ((less? h l) (seq (mprint "\nNothing found...\n") 'Unsatisfiable))
+                          ((equal? h l) (solve (= cost-term h)))
+                          (else (let ((midpoint (midpoint l h))
+                                      (cost-constraint (and (>= cost-term l) (<= cost-term midpoint))))
+                                  (match (solve cost-constraint)
+                                    ((some-list L) (check ((less? l midpoint)  
+                                                             (let ((total-cost (get-cost L cost-terms))
+                                                                   (_ (mprint (join "\n   Total cost: " (val->string total-cost) " and midpoint: " (val->string midpoint)))))
+                                                               (loop l total-cost)))
+                                                          (else L)))
+                                    ('Unknown 'Unknown)
+                                    (_ (loop (plus midpoint 1) h))))))))))
+     (let ((res (loop 0 max-cost))
+           (_ (mprint (join "\n\nTotal calls: " (val->string (ref counter)) "\n\n"))))
+       res))))
+
+(define (smt-solve-and-minimize-afresh constraint cost-term max-cost)
+ (let ((counter (cell 0))
+       (cost-terms (cost-term-leaves cost-term))
+       (solve (lambda (c) (seq (inc counter)
+                               (smt-solve c)))))
+  (letrec ((loop (lambda (l h)
+                  (let ((_ (mprint (join "\nlo : " (val->string l) ", hi: " (val->string h) ", and mid: " (val->string (midpoint l h))))))
+                   (check ((less? h l) (seq (mprint "\nNothing found...\n") 'Unsatisfiable))
+                          ((equal? h l) (solve (and constraint (= cost-term h))))
+                          (else (let ((midpoint (midpoint l h))
+                                      (_ (print "\nmidpoint: " midpoint))
+                                      (cost-constraint (and (>= cost-term l) (<= cost-term midpoint))))
+                                  (match (solve (and constraint cost-constraint))
+                                    ((some-list L) (check ((less? l midpoint)  
+                                                             (let ((total-cost (get-cost L cost-terms))
+                                                                   (_ (mprint (join "\n   Total cost: " (val->string total-cost) " and midpoint: " (val->string midpoint)))))
+                                                               (loop l total-cost)))
+                                                          (else L)))
+                                    (_ (loop (plus midpoint 1) h))))))))))
+     (let ((_ ())
+           (res (loop 0 max-cost))
+           (_ (mprint (join "\n\nTotal calls: " (val->string (ref counter)) "\n\n"))))
+       res))))
+
+#;;;;;;;;; Some useful procedures for testing the above code:
+
+(define (apply-solution L s)
+  (match (find-first' L
+           (lambda (id)
+             (match id
+               ((= (val-of s) t) t)
+               (_ false)))
+           (lambda () ()))
+   (() 'none)
+   (res res)))
+
+(define (make-constraint n)
+  (let ((span (from-to 1 n))
+        (vars (map (lambda (_) (fresh-var "Int")) span))
+        (counter (cell 1))
+        (cost (cell 1))
+        (range-sentences-and-var-values-1
+            (map (lambda (v) 
+                   (let ((low ((inc counter) times 10))
+                         (hi  (plus low 5)))
+                     [(in v [low hi])
+                      (= v (plus low 1))]))
+                 vars))
+        (range-sentences-and-var-values-2
+           (map (lambda (v) 
+                  (let ((low ((inc counter) times 100))
+                        (hi  (plus low 10)))
+                    [(in v [low hi])
+                     (= v (plus low 2))]))
+                vars))
+        ([range-sentences-1 var-values-1] (unzip range-sentences-and-var-values-1))
+        ([range-sentences-2 var-values-2] (unzip range-sentences-and-var-values-2))
+        (constraint (or (and* range-sentences-1) (and* range-sentences-2)))
+        (mid (midpoint 1 n))
+        (values-1 (take var-values-1 mid))
+        (values-2 (second (split-list var-values-2 mid)))
+        (values (join values-1 values-2))
+        (cost-constraints (map (lambda (var-val)
+                                 (match var-val 
+                                   ((= v val) (let ((v-cost-term (make-cost-term v)))
+                                                (ite (= v val) (= v-cost-term 0) (= v-cost-term (inc cost)))))))
+                               values))
+       (cost-variables (map make-cost-term vars))
+       (cost-term (sum-all cost-variables))
+       (cost-constraint (and* cost-constraints))
+       (max-cost (sum (length vars))))
+    [constraint vars cost-constraint cost-term max-cost]))
+
+(define (make-max-constraint n)
+  (let ((span (from-to 1 n))
+        (vars (map (lambda (_) (fresh-var "Int")) span))
+        (counter (cell 1))
+        (cost (cell 1))
+        (range-sentences-and-var-values-1
+            (map (lambda (v) 
+                   (let ((low ((inc counter) times 10))
+                         (hi  (plus low 5)))
+                     [(in v [low hi])
+                      (= v (plus low 1))]))
+                 vars))
+        (range-sentences-and-var-values-2
+           (map (lambda (v) 
+                  (let ((low ((inc counter) times 100))
+                        (hi  (plus low 10)))
+                    [(in v [low hi])
+                     (= v (plus low 2))]))
+                vars))
+        ([range-sentences-1 var-values-1] (unzip range-sentences-and-var-values-1))
+        ([range-sentences-2 var-values-2] (unzip range-sentences-and-var-values-2))
+        (main-constraint [(or (and* range-sentences-1) (and* range-sentences-2)) 'inf])
+        (mid (midpoint 1 n))
+        (values-1 (take var-values-1 mid))
+        (values-2 (second (split-list var-values-2 mid)))
+        (values (join values-1 values-2))
+        (cost-constraints (map (lambda (var-val)
+                                 (match var-val 
+                                   ((= v val) [var-val (inc cost)])))
+                               values)))
+    [main-constraint vars cost-constraints]))
+  
+(define (test-max n)
+  (let (([constraint vars cost-constraints] (make-max-constraint n))
+        (L (add constraint cost-constraints)))
+    (max-smt-solve L)))
+
+(define (testtc n)
+  (let ((c (first (make-constraint n))))
+  (running-time (lambda () (tc c)) 0)))
+
+# MLton results: 
+# (testtc 300) -> 0.15 
+# (testtc 500) -> 0.33
+# (testtc 700) -> 0.66
+
+# SML-NJ results: 
+# (testtc 300) -> 0.32 seconds 
+# (testtc 500) -> 0.92 seconds 
+# (testtc 700) -> 1.90 
+
+EOF 
+
+# (load-file "smt.ath")
+
+(domains D1 D2)
+
+(declare f1 (-> (D1) D1))
+(declare g2 (-> (D1 D2) D1))
+
+(declare d1 D1)
+(declare d2 D2)
+
+(datatype Day
+  Mon Tue Wed Thu Fri Sat Sun)
+
+(declare nextDay (-> (Day) Day))
+
+(define nextDay-axioms
+   [(nextDay Mon = Tue)
+    (nextDay Tue = Wed)
+    (nextDay Wed = Thu)
+    (nextDay Thu = Fri)
+    (nextDay Fri = Sat)
+    (nextDay Sat = Sun)
+    (nextDay Sun = Mon)])
+
+(datatype Color
+  red blue green)
+
+(datatype IntList
+  nil 
+  (cons HEAD:Int IntList))
+
+(datatype IntList2
+  nil2 
+  (cons2 HEAD2:Int TAIL2:IntList2))
+
+(define (test n x) (running-time (lambda () (test-max n)) x))
+
+(define large-constraint
+  (let (([A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12 A13 A14 A15 A16 A17 A18 A19 A20]
+         [?A1:Int ?A2:Int ?A3:Int ?A4:Int ?A5:Int ?A6:Int ?A7:Int ?A8:Int ?A9:Int ?A10:Int 
+          ?A11:Int ?A12:Int ?A13:Int ?A14:Int ?A15:Int ?A16:Int ?A17:Int ?A18:Int ?A19:Int ?A20:Int]))
+    (or (and (A1 in [10 20])
+             (A2 in [30 40])
+             (A3 in [40 50])
+             (A4 in [50 60])
+             (A5 in [60 70])
+             (A6 in [70 80])
+             (A7 in [80 90])
+             (A8 in [90 100])
+             (A9 in [100 110])
+             (A10 in [110 120])
+             (A11 in [120 130])
+             (A12 in [130 140])
+             (A13 in [140 150])
+             (A14 in [150 160])
+             (A15 in [160 170])
+             (A16 in [170 180])
+             (A17 in [180 190])
+             (A18 in [190 200])
+             (A19 in [200 210])
+             (A20 in [210 220]))
+        (and (A1 in [210 220])
+             (A2 in [230 240])
+             (A3 in [240 250])
+             (A4 in [250 260])
+             (A5 in [260 270])
+             (A6 in [270 280])
+             (A7 in [280 290])
+             (A8 in [290 2100])
+             (A9 in [2100 2110])
+             (A10 in [2110 2120])
+             (A11 in [2120 2130])
+             (A12 in [2130 2140])
+             (A13 in [2140 2150])
+             (A14 in [2150 2160])
+             (A15 in [2160 2170])
+             (A16 in [2170 2180])
+             (A17 in [2180 2190])
+             (A18 in [2190 2200])
+             (A19 in [2200 2210])
+             (A20 in [2210 2220])))))
+
+(define cost-function
+  (and (ite (= ?A1:Int 13) (= ?costA1:Int 0)
+                           (= ?costA1:Int 3))
+       (ite (= ?A2:Int 35) (= ?costA2:Int 0)
+                           (= ?costA2:Int 2))
+       (ite (= ?A19:Int 2207) (= ?costA19:Int 0)
+                              (= ?costA19:Int 6))))
+
+(define cost-term (?costA1:Int + ?costA2:Int + ?costA19:Int))
+
+(smt-solve-and-minimize (and large-constraint cost-function)
+                        cost-term 11)
+
+(define [constraint-2 vars-2 cost-constraint-2 cost-term-2 max-cost-2] (make-constraint 2))
+
+(smt-solve-and-minimize (and constraint-2 cost-constraint-2) cost-term-2 max-cost-2)
+
+(define [constraint-30 vars-30 cost-constraint-30 cost-term-30 max-cost-30] (make-constraint 30))
+
+(smt-solve constraint-30)
+
+(running-time (lambda () (smt-solve-and-minimize (and constraint-30 cost-constraint-30) cost-term-30 max-cost-30)) 0)
+
+(define [constraint-50 vars-50 cost-constraint-50 cost-term-50 max-cost-50] (make-constraint 50))
+
+(smt-solve constraint-50)
+
+(running-time (lambda () (smt-solve constraint-50)) 0)
+
+(running-time (lambda () (smt-solve-and-minimize (and constraint-50 cost-constraint-50) cost-term-50 max-cost-50)) 0)
+
+(smt-solve-and-minimize (and constraint-50 cost-constraint-50) cost-term-50 max-cost-50)
+
+(define [constraint-70 vars-70 cost-constraint-70 cost-term-70 max-cost-70] (make-constraint 70))
+
+(running-time (lambda () (smt-solve-and-minimize (and constraint-70 cost-constraint-70) cost-term-70 max-cost-70)) 0)
+
+(define [constraint-100 vars-100 cost-constraint-100 cost-term-100 max-cost-100] (make-constraint 100))
+
+(running-time (lambda () (smt-solve constraint-100)) 0)
+
+(define [constraint-200 vars-200 cost-constraint-200 cost-term-200 max-cost-200] (make-constraint 200))
+
+(smt-solve constraint-200)
+
+(define [constraint-300 vars-300 cost-constraint-300 cost-term-300 max-cost-300] (make-constraint 300))
+
+(smt-solve constraint-300)
+
+(define [constraint-400 vars-400 cost-constraint-400 cost-term-400 max-cost-400] (make-constraint 400))
+
+(smt-solve constraint-400)
+
+(define [constraint-500 vars-500 cost-constraint-500 cost-term-500 max-cost-500] (make-constraint 500))
+
+(smt-solve constraint-500)
+
+(running-time (lambda () (smt-solve constraint-500)) 0)
+
+# MLton time -> 0.56 seconds  
+# SMLNJ time -> 1.14 seconds 
+
+#=============================================================================
+
+(define large-max-constraint
+  [[large-constraint 'inf]
+   [(= ?A1:Int 13) 2]
+   [(= ?A2:Int 35) 3]
+   [(= ?A3:Int 45) 4]
+   [(= ?A4:Int 55) 5]
+   [(= ?A5:Int 55) 6]
+   [(= ?A6:Int 1999) 5]
+   [(= ?A7:Int 82) 7]
+   [(= ?A8:Int 93) 8]
+   [(= ?A9:Int 105) 9]
+   [(= ?A10:Int 114) 10]
+   [(= ?A11:Int 123) 11]
+   [(= ?A12:Int 133) 30]
+   [(= ?A13:Int 145) 12]
+   [(= ?A14:Int 155) 13]
+   [(= ?A15:Int 0) 13]
+   [(= ?A16:Int 88888) 13]
+   [(= ?A17:Int 88888) 20]
+   [(= ?A18:Int 192) 20]
+   [(= ?A19:Int 200) 20]
+   [(= ?A20:Int 200) 20]])
+
+(max-smt-solve large-max-constraint)
+
+#=============================================================================
+
+(test-max 10)
+
+(test-max 20)
+
+(test-max 50)
+
+(test-max 70)
+
+(test-max 100)
+
+(test-max 140)
+
+(test-max 200)
+
+(test-max 300)
+
+#=============================================================================
+
+(define [min-diff-constraint total-diff]
+  (let (([A B C] [?A:Int ?B:Int ?C:Int])
+        ([minDiffA minDiffB minDiffC] [?minDiffA:Int ?minDiffB:Int ?minDiffC:Int])
+        (constraint (or (and (A in [10 20]) 
+                         (B in [1 20])
+                         (C in [720 800]))
+                    (and (A in [500 600]) 
+                         (B in [30 40])
+                         (C in [920 925]))))
+        (minDiffA-def (ite (> A 13) (= minDiffA (- A 13))
+                                    (= minDiffA (- 13 A)))) 
+        (minDiffB-def (ite (> B 15) (= minDiffB (- B 15))
+                                    (= minDiffB (- 15 B)))) 
+        (minDiffC-def (ite (> C 922) (= minDiffC (- C 922))
+                                     (= minDiffC (- 922 C)))))
+   [(and constraint minDiffA-def minDiffB-def minDiffC-def)
+    (sum-all [minDiffA minDiffB minDiffC])]))
+
+(max-smt-solve [[min-diff-constraint 'inf]
+                [(= ?A:Int 13) 10]
+                [(= ?B:Int 15) 20]
+                [(= ?C:Int 15) 25]])
+
+(smt-solve-and-minimize min-diff-constraint total-diff 5000)
+
+
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+                
+(define large-constraint
+  (let (([A1 A2 A3 A4 A5 A6 A7 A8 A9 A10 A11 A12 A13 A14 A15 A16 A17 A18 A19 A20]
+         [?A1:Int ?A2:Int ?A3:Int ?A4:Int ?A5:Int ?A6:Int ?A7:Int ?A8:Int ?A9:Int ?A10:Int 
+          ?A11:Int ?A12:Int ?A13:Int ?A14:Int ?A15:Int ?A16:Int ?A17:Int ?A18:Int ?A19:Int ?A20:Int]))
+    (or (and (A1 in [10 20])
+             (A2 in [30 40])
+             (A3 in [40 50])
+             (A4 in [50 60])
+             (A5 in [60 70])
+             (A6 in [70 80])
+             (A7 in [80 90])
+             (A8 in [90 100])
+             (A9 in [100 110])
+             (A10 in [110 120])
+             (A11 in [120 130])
+             (A12 in [130 140])
+             (A13 in [140 150])
+             (A14 in [150 160])
+             (A15 in [160 170])
+             (A16 in [170 180])
+             (A17 in [180 190])
+             (A18 in [190 200])
+             (A19 in [200 210])
+             (A20 in [210 220]))
+        (and (A1 in [210 220])
+             (A2 in [230 240])
+             (A3 in [240 250])
+             (A4 in [250 260])
+             (A5 in [260 270])
+             (A6 in [270 280])
+             (A7 in [280 290])
+             (A8 in [290 2100])
+             (A9 in [2100 2110])
+             (A10 in [2110 2120])
+             (A11 in [2120 2130])
+             (A12 in [2130 2140])
+             (A13 in [2140 2150])
+             (A14 in [2150 2160])
+             (A15 in [2160 2170])
+             (A16 in [2170 2180])
+             (A17 in [2180 2190])
+             (A18 in [2190 2200])
+             (A19 in [2200 2210])
+             (A20 in [2210 2220])))))
+
+(define cost-function
+  (and (ite (= ?A1:Int 13) (= ?costA1:Int 0)
+                           (= ?costA1:Int 3))
+       (ite (= ?A2:Int 35) (= ?costA2:Int 0)
+                           (= ?costA2:Int 2))
+       (ite (= ?A19:Int 2207) (= ?costA19:Int 0)
+                              (= ?costA19:Int 6))))
+
+(define cost-term (?costA1:Int + ?costA2:Int + ?costA19:Int))
+
+(smt-solve-and-minimize (and large-constraint cost-function)
+                        cost-term 11)
+
+(smt-solve-and-minimize (and large-constraint cost-function)
+                        cost-term  788000034)
+
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+(define L [[(or (and (= ?x 2) (= ?y 3.4))
+                (and (= ?x 5) (= ?d Mon))) 10]
+           [(or (and (= ?x 2) (= ?y 3.4))
+                (and (= ?a 5) (= ?d Mon))) 20]])
+
+(max-smt-solve L)
+
+(define L1 [[(or (and (= ?x 2) (= ?y 3.4))
+                (and (= ?x 5) (= ?d Mon))) 10]
+            [(and (= ?x 99) (= ?y 99.9) (= ?a 9999) (= ?d Sun)) 20]])
+
+(max-smt-solve L1)
+
+(define [constraint-2 vars-2 cost-constraint-2 cost-term-2 max-cost-2] (make-constraint 2))
+
+(smt-solve-and-minimize (and constraint-2 cost-constraint-2) cost-term-2 max-cost-2) 
+
+(define [constraint-5 vars-5 cost-constraint-5 cost-term-5 max-cost-5] (make-constraint 5))
+
+(smt-solve-and-minimize (and constraint-5 cost-constraint-5) cost-term-5 max-cost-5)
+
+(define [constraint-20 vars-20 cost-constraint-20 cost-term-20 max-cost-20] (make-constraint 20))
+
+(smt-solve-and-minimize (and constraint-20 cost-constraint-20) cost-term-20 max-cost-20)
+
+(define [constraint-30 vars-30 cost-constraint-30 cost-term-30 max-cost-30] (make-constraint 30))
+
+(define (thunk-30) 
+  (smt-solve-and-minimize (and constraint-30 cost-constraint-30) cost-term-30 max-cost-30))
+
+(running-time thunk-30 0)
+
+(define [constraint-50 vars-50 cost-constraint-50 cost-term-50 max-cost-50] (make-constraint 50))
+
+(define (thunk-50)
+  (smt-solve-and-minimize (and constraint-50 cost-constraint-50) cost-term-50 max-cost-50))
+
+(smt-solve (and constraint-50 cost-constraint-50))
+
+(running-time thunk-50 0)
+
+(define [constraint-60 vars-60 cost-constraint-60 cost-term-60 max-cost-60] (make-constraint 60))
+
+(running-time (lambda () (smt-solve-and-minimize (and constraint-60 cost-constraint-60) cost-term-60 max-cost-60)) 0)
+
+(define [constraint-70 vars-70 cost-constraint-70 cost-term-70 max-cost-70] (make-constraint 70))
+
+(define (thunk-70)
+  (smt-solve-and-minimize (and constraint-70 cost-constraint-70) cost-term-70 max-cost-70))
+
+(running-time thunk-70 0)
+
+(define [constraint-90 vars-90 cost-constraint-90 cost-term-90 max-cost-90] (make-constraint 90))
+
+(smt-solve constraint-90)
+
+(smt-solve (and constraint-90 cost-constraint-90))
+
+(define [constraint-150 vars-150 cost-constraint-150 cost-term-150 max-cost-150] (make-constraint 150))
+
+(smt-solve constraint-150)
+
+(smt-solve (and constraint-150 cost-constraint-150))
+
+(define [constraint-200 vars-200 cost-constraint-200 cost-term-200 max-cost-200] (make-constraint 200))
+
+(smt-solve constraint-200)
+
+(smt-solve (and constraint-200 cost-constraint-200))
+
+(define [constraint-300 vars-300 cost-constraint-300 cost-term-300 max-cost-300] (make-constraint 300))
+
+(smt-solve constraint-300)
+
+(smt-solve (and constraint-300 cost-constraint-300))
+
+(define [constraint-500 vars-500 cost-constraint-500 cost-term-500 max-cost-500] (make-constraint 500))
+
+(smt-solve constraint-500)
+
+##;;;;;;;;;
+
+(smt-solve (and constraint-30 cost-constraint-30))
+
+(smt-solve (and constraint-30 cost-constraint-30 (0 <= cost-term-30) (cost-term-30 <= 232)))
+(smt-solve (and constraint-30 cost-constraint-30 (232 <= cost-term-30) (cost-term-30 <= 465)))
+
+(smt-solve (and constraint-30 cost-constraint-30 (= ?TOTALCOST:Int cost-term-30)
+                                             (0 <= ?TOTALCOST:Int) 
+                                             (?TOTALCOST:Int <= 465)))
+
+
+(define [constraint-30 vars-30 cost-constraint-30 cost-term-30] (make-constraint 30))
+
+(define [constraint30 vars] (make-constraint 30))
+(define [constraint40 vars] (make-constraint 40))
+(define [constraint50 vars] (make-constraint 50))
+(define [constraint100 vars] (make-constraint 100))
+
+
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+# Some simple generic examples: 
+
+
+(define c1  (or (and (= ?x 2) (= ?y 3.4))
+                (and (= ?x 5) (= ?d Mon))))
+
+(smt-solve c1)
+
+(define c2  (or (and (= ?x 2) (= ?y 3.4))
+                (and (= ?a 5) (= ?d Mon))))
+
+(smt-check c2 'Satisfiable)
+
+(define c3 (and (nextDay ?d = Thu)
+                (?x:Int =/= 2)
+                (?x:Int =/= 5)
+                (?color1 = red)
+                (conjoin nextDay-axioms)))
+
+(smt-solve c3)
+
+(smt-check c3 'Satisfiable)
+
+(define c4  (or (and (= ?x 2) (= ?y 3.4))
+                (and (?c =/= blue) (?c =/= green))
+                (and (= ?x 5) (= ?d Mon))))
+
+(smt-solve c4)
+(smt-check c4 'Satisfiable)
+
+(define c5 (and (?x:Int <= 2)
+                (?x:Int >= 0)
+                (or (= ?w Mon)
+                    (not (= ?w Fri)))))
+
+(smt-solve c5)
+(smt-check c5 'Satisfiable)
+
+(define c6 (or (and (= ?x 2) (= ?a 3))
+               (and (= ?d Mon) (= Mon Tue))))
+
+
+(smt-solve c6)
+
+(smt-check c6 'Satisfiable)
+
+(define c7 (c6 & ~ c6))
+
+(smt-solve c7)
+(smt-check c7 'Unsatisfiable)
+
+(define c8 (and (f1 ?x = ?y)
+                (= ?y d1)
+                (forall ?foo . (not (= (f1 ?foo) d1)))))
+
+
+(smt-solve c8)
+(smt-check c8 'Unsatisfiable)
+
+(define (square x) (x * x))
+
+(define c9 (= (3 * (square ?x:Real)) 12))
+
+(smt-solve c9)
+(smt-check c9 'Satisfiable)
+
+(define c10 (and ((square ?x:Int) = 25)
+                 (?x:Int + ?y:Int = (2 * ?x:Int) - 1)))
+
+(smt-solve c10)
+(smt-check c10 'Satisfiable)
+(smt-check c10 'Unsatisfiable)
+
+
+(define c11
+  (?color =/= red & ?color =/= blue & ?color =/= green))
+
+(smt-solve c11)
+
+(define c12
+  (and (not (= ?l nil))
+       (not (exists ?h (exists ?t (= ?l (cons ?h ?t)))))))
+
+
+(smt-solve c12)
+
+(define c13
+   (not (= (HEAD (cons ?x ?y)) ?x)))
+
+(smt-solve c13)
+
+(domain U)
+
+(declare F (-> (U) U))
+(declare foo U)
+
+(define c14 (and (= (F foo) foo)
+                 (not (= (F ?x) ?x))))
+
+(smt-solve c14)
+
+
+(define c15 (and (= (F foo) foo)
+                 (not (= (F ?x) ?x))
+                 (= (F ?y) ?x)))
+
+(smt-solve c15)
+
+(datatype IntList
+  null (cons Int IntList))
+
+
+(declare append (-> (IntList IntList) IntList))
+
+(define ap-axiom-1
+  (close (= (append null ?l) ?l)))
+
+(define ap-axiom-2
+  (close (= (append (cons ?x ?l1) ?l2)  
+            (cons ?x (append ?l1 ?l2)))))
+
+(define ap-axioms [ap-axiom-1 ap-axiom-2])
+
+(assert ap-axioms)
+
+(define c1 (not (= (append ?c1 ?c2) (append ?c2 ?c1))))
+
+(smt-solve (and* (add c1 ap-axioms)))
+
+
+

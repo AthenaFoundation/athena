@@ -1,0 +1,13 @@
+load "integral-domain.ath"
+
+define ID := no-renaming
+
+assert (ID (theory-axioms Integral-Domain.theory))
+
+(!prove-property Group.left-inverse ID Integral-Domain.theory)
+
+(get-property No-Zero-Divisors.no-zero-divisors ID Integral-Domain.theory)
+
+(get-property Ring.left-distributive ID Integral-Domain.theory)
+
+()

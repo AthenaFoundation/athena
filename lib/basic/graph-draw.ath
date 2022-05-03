@@ -1,0 +1,329 @@
+(load-file "rsarray.ath")
+
+(load-file "maps.ath")
+
+module Graph-Draw { 
+
+private define vs := val->string
+
+define dot-executable := (cell "")
+
+define set-dot-executable := lambda (path) (set! dot-executable path)
+   
+(set-dot-executable "\"c:\\Program Files (x86)\\GraphViz 2.28\\bin\\dot.exe\"")
+
+private define string? := 
+ lambda (v) (&& (list? v) (for-each v char?))
+                
+private define val->string := 
+  lambda (v) check {(string? v) => v | else => (vs v)}
+
+private define val->string-nl :=
+ lambda (v)
+   let {res := (val->string v)}
+     (flatten (map lambda (c) 
+                    check {(equal? c `\n) => [`\\ `n]
+                         | else => [c]}
+                  res))
+
+# A graph is represented as a triple [ht node-vector counter]
+# where ht is a hash table mapping values to indices in node-vector, 
+# and counter is a cell used to generate fresh successive indices.
+# Node-vector is the resizable array that holds information about
+# the vertices. 
+
+(define (make-graph N)
+  (check ((less? N 1) [(make-hash-table 100) (make-rs-array 5000 () 1000) (cell 1)])
+         (else [(make-hash-table N) (make-rs-array N () 4096) (cell 1)])))
+
+private define [graph-ht graph-array graph-counter] := [first second third]
+
+private define inc-counter := 
+  lambda (counter)
+    let {x := (ref counter);
+         _ := (set! counter (x plus 1))}
+      x
+
+# A node (i.e. an element of the node-vector array) is a quadruple 
+# consisting of: (1) a value; (2) that value's string representation;
+# (3) a mapping from attribute labels (represented as meta-identifiers) to 
+# attribute values (represented as strings); and (4) a list of edges, where
+# an edge is a triple.
+
+# Specifically, an edge is a triple [unique-id index attribute-mapping] 
+# where unique-id is some value that can uniquely identify
+# the edge (distinguish it from all other edges in the graph);
+# the index number indicates the (index of the) target node; 
+# and attribute-mapping is a map from attribute labels
+# (represented as meta-identifiers) to attribute 
+# values (represented as strings).
+
+private define unique-edge-counter := (cell 0)
+
+private define make-unique-edge-id := 
+  lambda ()
+    let {res := (ref unique-edge-counter);
+         _ := (set! unique-edge-counter (plus res 1))}
+      res
+
+(define (make-node v str attr-map edge-list)
+   [v str attr-map edge-list])
+
+(define (make-default-node v str)
+  [v str empty-map []])
+
+private define [get-node-value get-node-value-string get-node-attribute-map get-node-edge-list] := 
+               [first second third fourth]
+
+# (define get-node-value first)
+# (define get-node-value-string second)
+# (define get-node-attribute-map third)
+# (define get-node-edge-list fourth)
+
+(define (make-default-edge i)
+  [(make-unique-edge-id) i empty-map])
+
+(define (make-edge i unique-id)
+  [unique-id i empty-map])
+
+(define (make-full-edge unique-id i attr-map)
+  [unique-id i attr-map])
+
+(define get-edge-unique-id first)
+(define get-edge-target second)
+(define get-edge-attribute-map third)
+ 
+(define (add-entry ht A counter v str)
+  (let ((index (inc-counter counter))
+        (_ (enter ht str index))
+        (new-node (make-default-node v str))
+        (_ (rs-array-set A index new-node)))
+    index))
+
+(define (add-node g v)
+  (let ((ht (graph-ht g))
+        (A  (graph-array g))
+        (counter (graph-counter g))
+        (str (val->string-nl v)))
+    (match (look-up ht str)
+      (() (seq (add-entry ht A counter v str) ()))
+      (_ ()))))
+
+# Note: pass the unit () as the value of the unique-edge-id parameter
+# if you do not care to give the edge a unique id: 
+
+(define (add-edge g v1 v2 unique-edge-id)
+  (let ((ht (graph-ht g))
+        (A  (graph-array g))
+        (counter (graph-counter g))
+        (str1 (val->string-nl v1))
+        (str2 (val->string-nl v2))
+        (index1 (match (look-up ht str1)
+                   (() (add-entry ht A counter v1 str1))
+                   (i i)))
+        (index2 (match (look-up ht str2)
+                   (() (add-entry ht A counter v2 str2))
+                   (i i)))
+        (node (rs-array-sub A index1))
+        (new-edge (check ((equal? unique-edge-id ()) (make-default-edge index2))
+                         (else (make-edge index2 unique-edge-id)))))
+   (rs-array-set A index1 
+      (make-node (get-node-value node)
+                 (get-node-value-string node)
+                 (get-node-attribute-map node)
+                 (add new-edge (get-node-edge-list node))))))
+   
+(define (make-node-id index)
+  (join "v" (val->string index)))
+
+(define (set-node-attribute G v attr attr-val)
+  (let ((ht (graph-ht G))
+        (A  (graph-array G))
+        (str (val->string-nl v)))
+    (match (look-up ht str)   
+      (() (error (join "The graph contains no such node currently: " str)))
+      (index (let ((node (rs-array-sub A index))
+                   (v (get-node-value node))
+                   (str (get-node-value-string node))
+                   (attr-map (get-node-attribute-map node))
+                   (edge-list (get-node-edge-list node))
+                   (attr-map' (add-binding attr attr-val attr-map))
+                   (node' (make-node v str attr-map' edge-list)))
+              (rs-array-set A index node'))))))
+
+
+(define (find-edge-with-unique-id node-edge-list unique-edge-id)
+  (letrec ((loop (lambda (rest visited)
+                   (match rest 
+                     ([] (error (join "find-edge-with-unique-id failed; no edge found with this unique-id: " (val->string-nl unique-edge-id))))
+                     ((list-of e more) (check ((equal? (get-edge-unique-id e) unique-edge-id) [e (join visited more)])
+                                              (else (loop more (add e visited)))))))))
+    (loop node-edge-list [])))
+
+(define (set-edge-attribute G v unique-edge-id attr attr-val)
+  (let ((ht (graph-ht G))
+        (A  (graph-array G))
+        (counter (graph-counter G))
+        (str (val->string-nl v))
+        (index (match (look-up ht str)
+                   (() (error (join "Failed set-edge-attribute operation; there is no such node in the graph yet: " (val->string-nl v))))
+                   (i i)))
+        (node (rs-array-sub A index))
+        (node-val (get-node-value node))
+        (node-val-str (get-node-value-string node))
+        (node-attr-map (get-node-attribute-map node))
+        (node-edge-list (get-node-edge-list node))
+        (node-edge-list' (let (([edge rest-edges] (find-edge-with-unique-id node-edge-list unique-edge-id))
+                               (edge-target-node (get-edge-target edge))
+                               (edge-attr-map (get-edge-attribute-map edge))
+                               (edge-attr-map' (add-binding attr attr-val edge-attr-map))
+                               (edge' (make-full-edge unique-edge-id edge-target-node edge-attr-map')))
+                           (add edge' rest-edges))))
+   (rs-array-set A index
+      (make-node node-val node-val-str node-attr-map node-edge-list'))))
+  
+
+(define (make-attr-line attr-map)
+  (let ((make-av-pair (lambda (a-v-pair)
+                        (match a-v-pair
+                          ([a v] (let ((a-str (tail (val->string-nl a)))
+                                       (v-str (val->string-nl v))
+                                       (line (join a-str "=" v-str)))
+                                   line)))))
+        (pair-list (map make-av-pair (dom-range-list attr-map))))
+   (join "[" (separate pair-list ",") "];\n")))
+
+(define (draw g file-name)
+  (let ((file (join file-name ".dot"))
+        (_ (delete-file file))
+        (ht (graph-ht g))
+        (A  (graph-array g))
+        (node-count (minus (ref (graph-counter g)) 1))
+        (draw-node (lambda (index)
+                     (let ((node (rs-array-sub A index))
+                           (node-id (make-node-id index))
+                           (v (get-node-value node))
+                           (str (get-node-value-string node))
+                           (attr-map (get-node-attribute-map node))
+                           (basic-node-line (join "\n" node-id " [label=\"" str "\"]" ";\n"))
+                           (_ (write-file file basic-node-line))
+                           (node-attribute-line (join "\n" node-id " " (make-attr-line attr-map)))
+                           (_ (write-file file node-attribute-line))
+                           (edge-list (get-node-edge-list node))
+                           (draw-edge (lambda (edge)
+                                         (let ((target-index (get-edge-target edge))
+                                               (edge-attr-map (get-edge-attribute-map edge))
+                                               (target-id (make-node-id target-index))
+                                               (edge-line (join "\n" node-id " -> " target-id " " (make-attr-line edge-attr-map))))
+                                           (write-file file edge-line)))))
+                       (map-proc draw-edge (rev edge-list)))))
+        (L (from-to 1 node-count))
+        (_ (write-file file "digraph G {\n"))
+        (_ (map-proc draw-node L)))
+    (write-file file "\n}\n")))
+
+
+(define viewer (cell ()))
+
+(define (set-viewer v) (set! viewer v))
+
+(set-viewer "\"c:\\Program Files (x86)\\Mozilla Firefox\\firefox.exe\"")
+
+(define (draw-and-view g file-name viewer)
+  (let ((_ (draw g file-name))
+        (dot-program (ref dot-executable))
+        (dot-file (join file-name ".dot"))
+        (gif-file (join file-name ".gif"))
+        (command-string-1 (join dot-program " -Tgif " dot-file " -o " gif-file))
+#        (_ (print "\nCommand-string-1: " command-string-1 "\n"))
+        (_ (exec-command command-string-1))
+        (command-string-2 (join viewer " " gif-file))
+#        (_ (print "\nCommand-string-2: " command-string-2 "\n"))
+        (_ (exec-command command-string-2))
+#        (_ (print "\nOK...\n"))
+      )
+   ()))
+
+(define (draw-and-show g viewer)
+  (draw-and-view g "tmp.dot" (ref viewer)))
+
+(define (draw-term-0 G counter t)
+  (let ((make-node (lambda (v)
+                      (let ((new-node (inc counter))
+                            (_ (add-node G new-node))
+                            (_ (set-node-attribute G new-node 'label (join "\"" (val->string-nl v) "\""))))
+                        new-node))))
+    (letrec ((add-info (lambda (t)
+                         (match t
+                           ((some-var v) (make-node v))
+                           (((some-symbol f) (some-list args))
+                               (let ((f-node (make-node f))
+                                     (_ (seq (map (lambda (root)
+                                                    (add-edge G f-node root ()))
+                                                  (map add-info args)))))
+                                 f-node))))))
+        (add-info t))))
+
+(define (draw-term t viewer)
+  (let ((G (make-graph (term-size t)))
+        (counter (cell 0)))
+   (seq (draw-term-0 G counter t)
+        (draw-and-view G "term-graph" viewer))))
+
+
+(define (draw-sentence p viewer)
+  (let ((G (make-graph (prop-size p)))
+        (counter (cell 0))
+        (make-node (lambda (v)
+                      (let ((new-node (inc counter))
+                            (_ (add-node G new-node))
+                            (_ (set-node-attribute G new-node 'label (join "\"" (val->string-nl v) "\""))))
+                        new-node))))
+    (letrec ((add-info (lambda (p)
+                         (match p
+                           ((some-atom t) (draw-term-0 G counter t))
+                           (((some-sent-con sc) (some-list args))
+                               (let ((sc-node (make-node sc))
+                                     (_ (seq (map (lambda (root)
+                                                    (add-edge G sc-node root ()))
+                                                  (map add-info args)))))
+                                 sc-node))
+                           (((some-quant Q) (some-list vars) (some-sentence body))
+                              (let ((q-node (make-node Q))
+                                    (_ (map (lambda (root)
+                                                    (add-edge G q-node root ()))
+                                            (join (map (lambda (t) (draw-term-0 G counter t)) vars)
+                                                  [(add-info body)]))))
+                                q-node))))))
+        (seq (add-info p)
+             (draw-and-view G "term-graph" viewer)))))
+
+(define (draw-sentence0 p)
+  (let ((G (make-graph (prop-size p)))
+        (counter (cell 0))
+        (make-node (lambda (v)
+                      (let ((new-node (inc counter))
+                            (_ (add-node G new-node))
+                            (_ (set-node-attribute G new-node 'label (join "\"" (val->string-nl v) "\""))))
+                        new-node))))
+    (letrec ((add-info (lambda (p)
+                         (match p
+                           ((some-atom t) (draw-term-0 G counter t))
+                           (((some-sent-con sc) (some-list args))
+                               (let ((sc-node (make-node sc))
+                                     (_ (seq (map (lambda (root)
+                                                    (add-edge G sc-node root ()))
+                                                  (map add-info args)))))
+                                 sc-node))
+                           (((some-quant Q) (some-list vars) (some-sentence body))
+                              (let ((q-node (make-node Q))
+                                    (_ (map (lambda (root)
+                                                    (add-edge G q-node root ()))
+                                            (join (map (lambda (t) (draw-term-0 G counter t)) vars)
+                                                  [(add-info body)]))))
+                                q-node))))))
+        (seq (add-info p) G))))
+
+
+
+}

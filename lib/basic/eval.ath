@@ -1,0 +1,233 @@
+## This file defines two normal-form evaluators for 
+## ground datatype terms. One of them, eval, is computational,
+## i.e., a procedure. The other, deval, is a method.
+## Both are rather slow, but the deductive version is
+## even slower. 
+
+(load-file "util.ath")
+
+(define rule-table (make-symbol-hash-table))
+
+(define (equational-rule? p)
+  (match p 
+    ((forall (some-list _) (= _ _)) true)
+    (_ false)))
+
+(define (cond-rule? p)
+  (match p 
+    ((forall (some-list vars) (if _ _)) true)
+    (_ false)))
+
+(define (orient-bc p f)
+  (match p 
+    ((forall (some-list vars) 
+      (iff ant (bind conclusion (= ((val-of f) (some-list args)) right))))
+        (match ant 
+          ((= ((val-of f) (some-list args')) right')
+            (let ((syms  (get-term-syms* args))
+                  (syms' (get-term-syms* args')))
+              (check ((&& (for-each syms constructor?)
+                         (|| (negate (null? syms)) (negate (for-each syms' constructor?))))
+                       (forall* vars (= ant conclusion)))
+                     ((for-each syms' constructor?) 
+                       (forall* vars (if conclusion ant)))
+                     (else ()))))
+          (_ (forall* vars (if ant conclusion)))))
+      (_ ())))
+
+
+(define (get-rule f p)
+ (match p 
+  ((forall (some-list vars) (= ((val-of f) (some-list args)) right))
+    (let ((left-syms (get-term-syms* args)))
+      (check ((&& (for-each left-syms constructor?)
+                  (|| (negate (null? left-syms)) (negate (member? f (get-term-syms right))))) [p])
+              (else []))))
+  ((forall (some-list vars) (if ant (bind conclusion (= ((val-of f) (some-list args)) right))))
+    (let ((left-syms (get-term-syms* args)))
+      (check ((for-each left-syms constructor?) [(forall* vars (if ant conclusion))])
+             (else []))))
+  ((forall (some-list vars) (iff ant (= ((val-of f) (some-list args)) right)))
+     [(orient-bc p f)])
+  ((forall (some-list vars) (iff (bind conclusion (= ((val-of f) (some-list args)) right)) cond))
+     [(orient-bc (forall* vars (iff cond conclusion)) f)])
+  ((forall (some-list vars) ((val-of f) (some-list args))) 
+    [(forall* vars (= (make-term f args) true))])
+  ((forall (some-list vars) (not ((val-of f) (some-list args))))
+    [(forall* vars (= (make-term f args) false))])
+  ((forall (some-list vars) (if ant ((val-of f) (some-list args))))
+    (get-rule f (forall* vars (if ant (= (make-term f args) true)))))
+  ((forall (some-list vars) (iff (bind left ((val-of f) (some-list _)))
+                                 (bind right ((val-of f) (some-list _)))))
+    (get-rule f (forall* vars (= left right))))
+  ((forall (some-list vars) (iff ant ((val-of f) (some-list args))))
+    (join (get-rule f (forall* vars (if ant (= (make-term f args) true))))
+          (get-rule f (forall* vars (if (not ant) (= (make-term f args) false))))))
+  ((forall (some-list vars) (iff ((val-of f) (some-list args)) conclusion))
+    (let ((p1 (forall* vars (iff (= (make-term f args) true) conclusion)))
+          (p2 (forall* vars (if (not conclusion) (= (make-term f args) false)))))
+      (join (get-rule f p1) (get-rule f p2))))
+  ((forall (some-list vars) (and (some-list props))) 
+       (flatten (map (lambda (p) (get-rule f (forall* vars p))) props)))
+  ((and (some-list props)) (flatten (map (lambda (p) (get-rule f p)) props)))
+  (_ [])))
+
+
+(define (get-rules f)
+  (let ((wv (lambda (x y) ()))
+        (all-rules (fold join (map (lambda (p) (check ((assertion? p) (let ((_ (wv "p: " p))
+                                                                            (res (get-rule f p))
+                                                                            (_ (wv "res: " res)))
+                                                                        res))
+                                                      (else []))) (ab)) []))
+        ([equational-rules rest] (filter-and-complement all-rules equational-rule?))
+        (cond-rules (filter rest cond-rule?)))
+    [equational-rules cond-rules]))
+
+
+(define (ugen-vars s uvars)
+  (filter (vars s) (lambda (v) (member? v uvars))))
+
+(define (var-condition uvars left right)
+  (let ((left-uvars   (ugen-vars left uvars))
+        (right-uvars  (ugen-vars right uvars))
+        (cond1 (subset? right-uvars left-uvars))
+        (uvar? (lambda (v) (member? v uvars)))
+        (cond2 (negate (uvar? left))))
+    (&& cond1 cond2)))
+
+(define (find-matching-rule rules t)
+  (match rules 
+    ([] ())
+    ((list-of (bind R (forall (some-list _vars) (= left right))) rest)
+      (match [(match-terms t left) (var-condition _vars left right)]
+        ([(some-sub sub) true] [R sub rest])
+        (_ (find-matching-rule rest t))))
+    ((list-of (bind R (forall (some-list _vars) (if _ (= left right)))) rest)
+      (match [(match-terms t left) (var-condition _vars left right)]
+        ([(some-sub sub) true] [R sub rest])
+        (_ (find-matching-rule rest t))))))
+
+(define (lookup-rules f)
+  (match (look-up-symbol rule-table f)
+    ((some-list L) L)
+    (_ (let ((L (get-rules f))
+            (_ (enter-symbol rule-table f L)))
+         L))))
+
+
+(define (update-rules f L)
+  (match L
+    ([eq-rules cond-rules] 
+      (match (look-up-symbol rule-table f)
+        ([old-eq-rules old-cond-rules] 
+          (let ((eq-test (lambda (R) (negate (member? R old-eq-rules))))
+                (cond-test (lambda (R) (negate (member? R old-cond-rules))))
+                (new-eq-rules (join old-eq-rules (filter eq-rules eq-test)))
+                (new-cond-rules (join old-cond-rules (filter cond-rules cond-test))))
+            (enter-symbol rule-table f [new-eq-rules new-cond-rules])))
+        (_ (enter-symbol rule-table f L))))
+    (_ ())))
+ 
+
+(define (built-in-constant? f args)
+  (&& (null? args) (|| (equal? (sort-of f) "Int") 
+                     (equal? (sort-of f) "Real")
+                     (equal? (sort-of f) "Ide"))))
+
+
+(define (numeric? f)
+   (member? f [+ - * /]))
+
+(define (apply-numeric f args)
+  (match [f args]
+    ([+ [t1 t2]] (plus t1 t2))
+    ([+ [t]] t)
+    ([- [t1 t2]] (minus t1 t2))
+    ([* [t1 t2]] (times t1 t2))
+    ([/ [t1 t2]] (div t1 t2))
+    ([- [t]] (- t))))
+
+(define (eval1 t)
+    (match t 
+      (((some-symbol f) (some-list args)) 
+        (check ((constructor? f) (make-term f (map eval1 args)))
+               ((equal? f =) (equal? (eval1 (first args)) (eval1 (second args))))
+               ((numeric? f) (apply-numeric f (map eval1 args)))
+               (else (let ((args' (map eval1 args))
+                           (t' (make-term f args'))
+                           ([eq-rules cond-rules] (lookup-rules f))
+                           (error-msg (join "Error: No matching rule found for the term\n" (val->string t))))
+                       (try-rules t' (join eq-rules cond-rules)
+                                (lambda () (check ((built-in-constant? f args) t)
+                                                  (else (halt)))))))))
+     ((not arg) (negate (eval1 arg)))
+     ((and (some-list args)) (fold (lambda (b1 b2) (&& b1 b2)) (map eval1 args) true))
+     ((or (some-list args)) (fold (lambda (b1 b2) (|| b1 b2)) (map eval1 args) false))
+     ((if arg1 arg2) (|| (negate (eval1 arg1)) (eval1 arg2)))
+     ((some-var _) t))
+  (try-rules s rules K)
+                        (match (find-matching-rule rules s)
+                          ([(forall (some-list _) (= _ right)) sub rest] (try (eval1 (sub right))
+                                                                              (try-rules s rest K)))
+                          ([(forall (some-list _) (if p (= _ right))) sub rest]
+                            (try (let (([res sub'] (eval-cond p sub)))
+                                   (check (res (eval1 (sub' (sub right))))
+                                          (else (try-rules s rest K))))
+                                 (try-rules s rest K)))
+                          (_ (K)))
+ (loop conditions sub type)
+   (match conditions
+      ([] (match type 
+            ('conjunction [true sub])
+            (_ [false sub])))
+      ((list-of cond more) (let (([res sub'] (eval-cond cond sub))
+                                 (sub''  (compose-subs sub' sub)))
+                             (match [type res]
+                               (['conjunction true]  (loop more sub'' type))
+                               (['disjunction false] (loop more sub'' type))
+                               (['conjunction false] [false sub''])
+                               (['disjunction true]  [true sub''])))))
+ (eval-cond cond sub)
+   (match cond
+     ((= left right) (let ((left'  (eval1 (sub left)))
+                           (right' (eval1 (sub right))))
+                       (match (match-terms left' right')
+                         ((some-sub sub') [true (compose-subs sub' sub)])
+                         (_ [false sub]))))
+     (((some-symbol R) (some-list terms)) [(eval1 (sub cond)) sub])
+     ((not p) (match (eval-cond p sub)
+                ([b sub'] [(negate b) sub'])))
+     ((and (some-list args)) (loop args sub      'conjunction))
+     ((or (some-list args))  (loop args sub      'disjunction))
+     ((if arg1 arg2) (eval-cond (or (not arg1) arg2) sub))))
+
+
+(define (eval2 t)
+  (let ((t' (eval1 t)))
+    (match t
+      ((some-term _) (rhs (= t t')))
+      (_ t'))))
+
+(define (decimal n)
+  (match n
+    (zero 0)
+    ((succ k) (plus (decimal k) 1))))
+
+(define (make-unary k)
+  (check ((equal? k 0) zero)
+	 (else (succ (make-unary (minus k 1))))))
+	 
+(define (eval t)
+  (try (eval2 t)
+       (println (join "Unable to reduce the term:\n" (val->string t) "\nto a normal form."))))
+
+
+(define (eval t)
+  (try (eval2 t)
+       (println (join "Unable to reduce the term:\n" (val->string t) "\nto a normal form."))))
+
+
+(set-precedence eval 100)
+
+

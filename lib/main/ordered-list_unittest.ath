@@ -1,0 +1,25 @@
+# Unit tests of ordered-lists.ath
+
+load-file "ordered-list"
+
+assert (theory-axioms SWO.theory)
+
+define order-ops := no-renaming
+
+#(set-debug-mode "rewriting")
+(!prove-property SWO.<EL.left-transitive order-ops SWO.theory)
+
+(!prove-property SWO.<EL.before-all-implies-before-first order-ops SWO.theory)
+(!prove-property SWO.<EL.append order-ops SWO.theory)
+(!prove-property SWO.<EL.append-2 order-ops SWO.theory)
+
+(!prove-property SWO.ordered.head order-ops SWO.theory)
+(!prove-property SWO.ordered.tail order-ops SWO.theory)
+
+(!prove-property SWO.ordered.first-to-rest-relation order-ops SWO.theory)
+(!prove-property SWO.ordered.cons order-ops SWO.theory)
+(!prove-property SWO.ordered.append order-ops SWO.theory)
+(!prove-property SWO.ordered.append-2 order-ops SWO.theory)
+
+()
+

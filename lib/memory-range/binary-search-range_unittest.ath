@@ -1,0 +1,15 @@
+load "binary-search-range"
+
+open Ordered-Range
+
+assert (theory-axioms theory)
+
+#(set-debug-mode "rewriting")
+
+(!prove-property lower-bound.position-found no-renaming theory)
+
+
+
+#(!property-test 'successor-in no-renaming Ordered-Range)
+
+

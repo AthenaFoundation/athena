@@ -1,0 +1,105 @@
+## Test abstract order concepts and theorems
+
+##########################
+
+open ST
+
+load "order"
+
+define Less1 := no-renaming
+
+assert (theory-axioms Strict-Partial-Order.theory)
+
+(!prove-property Strict-Partial-Order.asymmetric Less1 Strict-Partial-Order.theory)
+(!prove-property Strict-Partial-Order.implies-not-equal Less1 Strict-Partial-Order.theory)
+
+assert (theory-axioms SPO.theory)
+
+(!prove-property Strict-Partial-Order.asymmetric Less1 SPO.theory)
+
+(!prove-property Strict-Partial-Order.implies-not-equal Less1 SPO.theory)
+
+
+define Less-equal1 := no-renaming
+
+assert (Less-equal1 (theory-axioms SPO.theory))
+
+(!prove-property PO-from-SPO.implies-not-reverse Less-equal1 SPO.theory)
+(!prove-property PO-from-SPO.PO-reflexive Less-equal1 SPO.theory)
+(!prove-property PO-from-SPO.PO-antisymmetric Less-equal1 SPO.theory)
+(!prove-property PO-from-SPO.PO-transitive Less-equal1 SPO.theory)
+(!prove-property PO-from-SPO.PO-inverse Less-equal1 SPO.theory)
+
+(print-instance-check Less-equal1 PO.theory)
+
+###########################################################################
+
+define SWO1 := no-renaming
+
+(assert (theory-axioms SWO.theory))
+
+(!prove-property SWO.E-transitive SWO1 SWO.theory)
+(!prove-property SWO.E-reflexive SWO1 SWO.theory)
+(!prove-property SWO.E-symmetric SWO1 SWO.theory)
+(!prove-property SWO.<-E-transitive-1 SWO1 SWO.theory)
+(!prove-property SWO.<-E-transitive-2 SWO1 SWO.theory)
+(!prove-property SWO.not-<-property SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-1 SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-2 SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-3 SWO1 SWO.theory)
+(!prove-property SWO.not-<-is-transitive SWO1 SWO.theory)
+
+(!prove-property SWO.<E-reflexive SWO1 SWO.theory)
+
+(!prove-property SWO.<E-transitive SWO1 SWO.theory)
+
+###########################################################################
+
+define STO1 := no-renaming
+
+(assert (get-property STO.strict-trichotomy STO1 STO.theory))
+
+(!prove-property STO.E-iff-equal STO1 STO.theory)
+
+###########################################################################
+
+declare new<: (T) [T T] -> Boolean
+
+(define-symbol EE
+  (forall ?x ?y
+	  (iff (EE ?x ?y)
+	       (and (not (new< ?x ?y))
+		    (not (new< ?y ?x))))))
+
+define Less1 := (renaming |{SPO.< := new<, SPO.E := EE}|)
+
+assert (Less1 (theory-axioms SPO.theory))
+
+(!prove-property Strict-Partial-Order.asymmetric Less1 SPO.theory)
+
+define SWO1 := Less1
+
+(assert (SWO1 (theory-axioms SWO.theory)))
+
+(!prove-property SWO.E-transitive SWO1 SWO.theory)
+(!prove-property SWO.E-reflexive SWO1 SWO.theory)
+(!prove-property SWO.E-symmetric SWO1 SWO.theory)
+(!prove-property SWO.<-E-transitive-1 SWO1 SWO.theory)
+(!prove-property SWO.<-E-transitive-2 SWO1 SWO.theory)
+(!prove-property SWO.not-<-property SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-1 SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-2 SWO1 SWO.theory)
+(!prove-property SWO.<-transitive-not-3 SWO1 SWO.theory)
+(!prove-property SWO.not-<-is-transitive SWO1 SWO.theory)
+
+###########################################################################
+open STO
+
+(define STO1 SWO1)
+
+(assert (get-property strict-trichotomy STO1 theory))
+
+(!prove-property E-iff-equal STO1 theory)
+
+
+

@@ -1,0 +1,229 @@
+\usepackage{listings}
+\usepackage{listings-fix}
+\usepackage{color}
+
+\definecolor{backgroundColor}{HTML}{FDF5E6}
+\definecolor{kwdColor}{HTML}{000080}
+\definecolor{Sienna}{HTML}{A0522D}
+\definecolor{Maroon}{HTML}{800000}
+%Sienna: 
+%\definecolor{theoremColor}{HTML}{A0522D}
+
+%Maroon:
+%\definecolor{theoremColor}{HTML}{800000}
+
+%Purple:
+\definecolor{theoremColor}{HTML}{800080}
+
+\lstdefinelanguage{Athena}
+ % {alsoletter={-*'!~<=>},
+ {alsoletter={-*'~%,=>,:=,!,(,),\|,
+  %_,!\[,
+    %\{,\}
+    },
+   morekeywords={dlet,,method,lambda,domain,domains,with-witness,for,datatype-cases,on,%\!,| , 
+     by, BY, for, OP, apply-method,%:=,{]},
+generalize-over,datatypes,clear-assumption-base,assume,suppose-absurd,let,begin,end,by-cases,set-flag,%=>,\{,\},
+letrec,cell,ref,dseq,seq,set!,set,vector-set!,vector-set,vector-sub,make-vector,pick-any,pick-witness,pick-witnesses,by,assume-let,match,dmatch,conclude,%_,
+retract,suppose-absurd-let,assert,assert*,define,try,dtry,dcheck,check,else,while,split, set-precedence,
+left-assoc,right-assoc,list-of,bind,val-of,some-list,some-term,some-sentence,some-symbol,some-method,
+some-quant,some-sent-con,some-prop-con,some-atom,some-proc,some-var,some-cell,some-vector,some-sub,some-char,
+define-symbol,module,open,extend-module,private,quit,
+overload,secure-file,load-file,load,declare,datatype,structure,by-induction,datatype-cases},
+% otherkeywords={@,[,],!,(,)},
+ otherkeywords={%!,|,
+               %[,],(,),
+               %\{,\},_
+                },
+%keywordstyle=\bf\em,
+keywordstyle=\color{kwdColor}\bfseries,
+commentstyle={\rm},
+stringstyle=\ttfamily,
+morecomment=[l]{\#},
+morestring=[b]",
+}
+
+%% \colorbox{gray}{\parbox{\textwidth}{\textcolor{white}{text goes here}}}
+
+\definecolor{easyBlue}{rgb}{.85,.95,1}
+
+%Bisque:
+%\definecolor{backgroundColor}{HTML}{FFE4C4}
+
+%OldLace:
+\definecolor{backgroundColor}{HTML}{FDF5E6}
+
+\newcommand{\bangforce}[1]{{!{\bf\color{red}force}}}  % Ignore the argument
+%\newcommand{\betternot}[1]{$\sim$} % Ignore the argument
+%\newcommand{\betterimp}[1]{$\Longrightarrow$} % Ignore the argument
+%\newcommand{\betterequiv}[1]{$\Longleftrightarrow$} % Ignore the argument
+\lstset{language=Athena,
+literate={~} {$\textapprox$}{1}, 
+backgroundcolor=\color{backgroundColor},showstringspaces=false,
+%basicstyle=\small\ttfamily,numbers=left,identifierstyle=\tt,
+basicstyle=\footnotesize\ttfamily,numbers=left,identifierstyle=\tt,
+emph={[1]Theorem,\bf},emphstyle={[1]\color{Maroon}\bfseries},
+emph={[2]not,if,iff,and,or,forall,exists,exists-unique},emphstyle={[2]\tt},
+%emph={[3]},
+emphstyle={[3]\sf},
+emph={[4]force},emphstyle={[4]\bfseries\color{red}},
+emph={[5]!force},emphstyle={[5]\bangforce},
+%emph={[6]~},emphstyle={[6]\betternot},
+%emph={[7]==>},emphstyle={[7]\betterimp},
+%emph={[8]<==>},emphstyle={[8]\betterequiv},
+% emph={[3]%% Symbols are set in their own font:
+% % Introduction:
+% inv,*,zero,S,Plus,+,is-looking-at,married,Jack,Anne,George,~,rational,/=,/,-,Zzero,
+% % Intro to Athena:
+% true,false,zero,succ,pair,null,node,empty-list,tlist,
+% % Proving Equalities:
+% one,two,,Times,Power,**,zero',S',unnatural,Nil,Cons,nil,cons,append,Append,Reverse,Length,
+% Quotient,square,
+% % Sentential Logic:
+% % First Order Logic:
+% % Proving Ordering Properties:
+% pred,Less,Max,Less-equal,returns,<,<=,Nat<,Nat<=,
+% % Proving Algorithm Correctness:
+% half,Even,Odd,fast-power,
+% % More Arithmetic and Algorithm Properties:
+% Div,Mod,divides,euclid,is-common-divisor,
+% % Proofs at an Abstract Level:
+% Negate,<0>,<1>,Inv,apply,identity,compose,
+% surjective,injective,bijective,as-fun,as-perm,p-compose,p-identity,p-inverse,
+% R,<,<=,E
+% },
+moredelim=*[is][\ttfamily]{@}{@},
+numberstyle=\tiny,stepnumber=1,numbersep=8pt}
+
+% For Athena code in frame with colored background, no numbers
+\lstnewenvironment{Athena}[1][]
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaWN}[1][]
+{\lstset{frameround=ffff,frame=trBL,#1}}
+{}
+
+% Like Athena, but contents are not included in output of athena-filter.py
+\lstnewenvironment{AthenaNoTest}[1][]
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaNoTestWN}[1][]
+{\lstset{frameround=ffff,frame=trBL,#1}}
+{}
+
+\lstnewenvironment{ath}[1][]
+{\lstset{frameround=ffff,frame=trBL,#1}}
+{}
+
+% Another name for Athena (NN = no numbers): 
+
+\lstnewenvironment{AthenaNN}[1][]
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% For Athena code and output (or just output) in frame with white background color:
+\lstnewenvironment{AthenaIO}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% As above, with numbers:
+\lstnewenvironment{AthenaIOWN}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{frameround=ffff,frame=trBL,#1}}
+{}
+
+% Prevent 'for' (that can occur in error messages) appearing as a keyword
+\lstnewenvironment{AthenaIOttfor}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},emph={[2]for},emphstyle={[2]\tt},#1}}
+{\lstset{frameround=ffff,frame=trBL,numbers=none,emph={[2]for},emphstyle={[2]\tt},#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaIOttforWN}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},emph={[2]for},emphstyle={[2]\tt},#1}}
+{\lstset{frameround=ffff,frame=trBL,emph={[2]for},emphstyle={[2]\tt},#1}}
+{}
+
+% For Athena code unframed with white background color:
+\lstnewenvironment{AthenaPlain}[1][]
+%{\lstset{basicstyle=\small\ttfamily,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{backgroundcolor=\color{white},numbers=none,#1}}
+{}
+
+% For Athena code unframed with white background color, and math allowed:
+\lstnewenvironment{AthenaMath}[1][]
+{\lstset{backgroundcolor=\color{white},numbers=none,
+basicstyle=\ttfamily,
+mathescape=true,#1}}
+{}
+
+\lstnewenvironment{AthenaWithMath}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaWithMathWN}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,#1}}
+{}
+
+
+% Same as AthenaWithMath
+\lstnewenvironment{AthenaWithMathNN}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,numbers=none,#1}}
+{}
+
+% For Athena code unframed with white background color, and math allowed
+% in footnotesize font (same as in Athena and AthenaIO)
+\lstnewenvironment{AthenaMathSmall}[1][]
+{\lstset{backgroundcolor=\color{white},numbers=none,
+mathescape=true,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaMathSmallWN}[1][]
+{\lstset{backgroundcolor=\color{white},
+mathescape=true,#1}}
+{}
+
+
+% Athena math with color and framing: 
+
+\lstnewenvironment{AthenaMathColor}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaMathColorWN}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,#1}}
+{}
+
+% For inline Athena code:
+\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily,mathescape=true]@#1@}
+%\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]{@#1@}}
+\newcommand{\fcode}[1]{\footnotesize{\lstinline[basicstyle=\ttfamily]{#1}}}
+
+\newcommand{\skwd}[1]{\small{\color{kwdColor}\bf{\ttfamily #1}}}
+\newcommand{\kwd}[1]{\color{kwdColor}\bf{\ttfamily #1}}
+
+%\newcommand{\scode}[1]{{\small{\lstinline[basicstyle=\ttfamily]{@#1@}}}}
+% define scode same as code: (an experiment)
+\newcommand{\scode}[1]{{\small{\lstinline[basicstyle=\ttfamily,mathescape=true]@#1@}}}
+
+% For inline Athena code, enclosed between @'s, with math allowed:
+\lstMakeShortInline[basicstyle=\ttfamily,mathescape=true]@
+
+
+
+% For Athena code inside a math environment
+\newcommand{\mboxcode}[1]{\mbox{\code{#1}}}
+\newcommand{\smboxcode}[1]{\mbox{\scode{#1}}}
+
+% For Athena code with no frame and black background, for use with prosper slides package:
+\lstnewenvironment{AthenaNF}[1][]
+{\lstset{basicstyle=\tiny\ttfamily,backgroundcolor=\color{black},numbers=none,#1}}
+{}

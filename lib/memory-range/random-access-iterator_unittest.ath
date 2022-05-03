@@ -1,0 +1,17 @@
+load "random-access-iterator"
+
+open Random-Access-Iterator
+
+define ops := no-renaming
+
+assert (theory-axioms theory)
+
+(!prove-property I-I-self ops theory)
+(!prove-property I+N-cancellation ops theory)
+#(set-debug-mode "rewriting")
+(!prove-property I-I-cancellation ops theory)
+(set-debug-mode "off")
+(!prove-property successor-in ops theory)
+(!prove-property I-M-N ops theory)
+
+

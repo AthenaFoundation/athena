@@ -1,0 +1,13 @@
+# Showing that power-series over Z form an additive group.
+
+load "algebra/Z-poly"
+load "group"
+
+define ZPSAdditive-Group := 
+(renaming |{Group.+ := ZPS.+, Group.<0> := ZPS.zero,
+	    Group.U- := ZPS.Negate, Group.- := ZPS.-}|)
+
+(print-instance-check ZPSAdditive-Group Group.theory)
+
+
+

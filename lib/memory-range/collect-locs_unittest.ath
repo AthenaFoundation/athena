@@ -1,0 +1,15 @@
+load "collect-locs"
+
+(datatype-axioms "Option")
+
+open Random-Access-Iterator
+
+define ops := no-renaming
+
+assert (ops (theory-axioms theory))
+
+(!prove-property collect-locs.*in-relation ops theory)
+(!prove-property collect-locs.split-range ops theory)
+(!prove-property collect-locs.all-*in ops theory)
+(!prove-property collect-locs.*in-whole-range ops theory)
+(!prove-property collect-locs.*in-whole-range-2 ops theory)

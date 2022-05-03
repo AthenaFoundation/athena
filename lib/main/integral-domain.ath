@@ -1,0 +1,25 @@
+# Integral domain theory
+
+load "ring"
+
+module No-Zero-Divisors {
+ define [<0> *] := [Identity.<0> MSG.*]
+ define no-zero-divisors :=
+   (forall x y . x * y = <0> ==> x = <0> | y = <0>)
+ define theory := (make-theory [] [no-zero-divisors])
+}
+
+module Ring-With-No-Zero-Divisors {
+ define [+ * <0> U- - <1>] := 
+        [Semigroup.+ MSG.* Identity.<0> Group.U- Group.- MM.<1>]
+ define theory := 
+   (make-theory [Ring.theory No-Zero-Divisors.theory] [])
+}
+
+module Integral-Domain {
+ define [+ * <0> U- - <1>] := 
+        [Semigroup.+ MSG.* Identity.<0> Group.U- Group.- MM.<1>]
+ define theory := 
+   (make-theory [Commutative-Ring-With-Identity.theory 
+		 No-Zero-Divisors.theory] [])
+}

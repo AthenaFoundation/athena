@@ -1,0 +1,52 @@
+athena-run = $(ATHENA_HOME)/util/athena-run
+
+lib-test: basic-test main-test search-test memory-range-test algebra-test
+
+basic-test:
+	${athena-run} basic/sets_unittest
+	${athena-run} basic/fmaps_unittest
+	${athena-run} basic/dmaps_unittest
+
+main-test:
+	${athena-run} main/nat-gcd
+	${athena-run} main/integer-times
+	${athena-run} main/order_unittest
+	${athena-run} main/ordered-list_unittest
+	${athena-run} main/fast-power_unittest
+	${athena-run} main/group_unittest
+	${athena-run} main/ring_unittest
+	${athena-run} main/integral-domain_unittest
+	${athena-run} main/integer-power-series
+	${athena-run} main/integer-power-series-group
+	${athena-run} main/power_unittest
+	${athena-run} main/transitive-closure_unittest
+
+search-test:
+	${athena-run} search/binary-search-tree-nat
+	${athena-run} search/binary-search-tree_unittest
+	${athena-run} search/binary-search_unittest
+	${athena-run} search/binary-search-nat
+	${athena-run} search/binary-search1-nat
+
+memory-range-test:
+	${athena-run} memory-range/memory_unittest
+	${athena-run} memory-range/count-range_unittest
+	${athena-run} memory-range/trivial-iterator_unittest
+	${athena-run} memory-range/forward-iterator_unittest
+	${athena-run} memory-range/binary-search-range_unittest
+	${athena-run} memory-range/bidirectional-iterator_unittest
+	${athena-run} memory-range/random-access-iterator_unittest
+	${athena-run} memory-range/replace-range_unittest
+	${athena-run} memory-range/reverse-range_unittest
+	${athena-run} memory-range/copy-range_unittest
+	${athena-run} memory-range/copy-range-backward_unittest
+	${athena-run} memory-range/ordered-range_unittest
+	${athena-run} memory-range/range_unittest
+	${athena-run} memory-range/swap-implementation_unittest
+
+algebra-test:
+	${athena-run} algebra/Z-poly
+	${athena-run} algebra/Z-as-integral-domain
+	${athena-run} algebra/Z-poly-as-group
+	${athena-run} algebra/function_unittest
+	${athena-run} algebra/permutation_unittest

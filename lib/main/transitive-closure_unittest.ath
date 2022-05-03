@@ -1,0 +1,28 @@
+load "transitive-closure.ath"
+
+open Transitive-Closure
+
+assert (theory-axioms Transitive-Closure.theory)
+
+define Less1 := no-renaming
+
+(!prove-property R**-sum Less1 Transitive-Closure.theory)
+
+(!prove-property R+-lemma Less1 Transitive-Closure.theory)
+
+(!prove-property R*-lemma Less1 Transitive-Closure.theory)
+
+(!prove-property RR+-inclusion Less1 Transitive-Closure.theory)
+
+(!prove-property R+R*-inclusion Less1 Transitive-Closure.theory)
+
+(!prove-property R*-Reflexive Less1 Transitive-Closure.theory)
+
+(!prove-property TC-Transitivity Less1 Transitive-Closure.theory)
+
+(!prove-property TC-Transitivity1 Less1 Transitive-Closure.theory)
+
+(!prove-property TC-Transitivity2 Less1 Transitive-Closure.theory)
+
+(!prove-property TC-Transitivity3 Less1 Transitive-Closure.theory)
+
