@@ -11,7 +11,6 @@ in
 	base.sml
 	ord_map.sig
 	ord_map.sml
-	ord_map_sig.sml	
 	inf_num.sig
 	inf_num.sml
 	sockets.sml

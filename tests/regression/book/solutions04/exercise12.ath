@@ -1,0 +1,47 @@
+#========================== Solution to exercise 4.12 =========================
+
+  clear-assumption-base
+  assert A=>B :=  (A ==> B)
+  assert -A=>C := (~ A ==> C)
+  assert C=>D :=  (C ==> D)
+
+  conclude (B | D)
+    let {-B=>D := assume -B := (~ B)
+                    let {-A := (!mt A=>B -B);
+                          C := (!mp -A=>C -A)}
+                      (!mp C=>D C)}
+     (!cond-def -B=>D)
+
+
+  clear-assumption-base
+  assert A=>B := (A ==> B)
+  assert B=>C := (B ==> C)
+  assert -C   := (~ C)
+
+  conclude goal := (~ (A | B))
+    (!by-contradiction goal
+       assume A|B := (A | B)
+         (!cases A|B 
+                 assume A
+                   let {B := (!mp A=>B A);
+                        C := (!mp B=>C B)}
+                     (!absurd C -C)
+                 assume B
+                   (!absurd (!mp B=>C B) -C)))
+
+
+  clear-assumption-base
+  assert A&B=>C  := (A & B ==> C)
+  assert C|-B=>D := (C | ~ B ==> D)
+
+  conclude (A ==> D)
+    assume A
+      (!two-cases
+        assume B
+          let {C := (!mp A&B=>C (!both A B))}
+            (!mp C|-B=>D
+                 (!either C (~ B)))
+        assume -B := (~ B) 
+          (!mp C|-B=>D
+               (!either C -B)))
+

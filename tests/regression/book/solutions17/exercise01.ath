@@ -1,0 +1,27 @@
+define (get-lemma premise) :=
+  match premise {
+    (= (I' (exp-op:(OP 2) e1 e2)) (SOME n)) => 
+      let {[_ num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op);
+           (E as (& ex1 ex2)) := 
+            (!chain->
+              [premise
+           ==> (I' e1 exp-op e2 =!= NONE)            [option-results]                                          
+           ==> (I' e1 =!= NONE & I' e2 =!= NONE)     [I'-def]
+           ==> ((exists n1 . I' e1 = SOME n1) &                     
+                (exists n2 . I' e2 = SOME n2))       [option-results]])}             
+        pick-witness y1 for ex1 wp1                   
+          pick-witness y2 for ex2 wp2                 
+            (!chain->                                  
+              [(wp1 & wp2)                            
+           ==> (I' e1 exp-op e2 = SOME y1 num-op y2) [I'-def]
+           ==> (SOME y1 num-op y2 = I' e1 exp-op e2) [sym]
+                                  = (SOME n)         [premise]
+           ==> (y1 num-op y2 = n)                    [option-results]
+           ==> (n = y1 num-op y2)                    [sym]
+           ==> (I' e1 = SOME y1 & 
+                I' e2 = SOME y2 &   
+                n = y1 num-op y2)                    [augment]
+           ==> (exists n1 n2 . I' e1 = SOME n1 &   
+                               I' e2 = SOME n2 &   
+                               n = n1 num-op n2)     [existence]])
+  }

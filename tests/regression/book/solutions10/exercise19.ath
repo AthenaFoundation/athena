@@ -1,0 +1,13 @@
+conclude range-theorem-1 :=
+  (forall R1 R2 . range (R1 \/ R2) = range R1 \/ range R2)	
+pick-any R1 R2
+  (!set-identity-intro-direct
+     pick-any y
+       (!chain 
+         [(y in range (R1 \/ R2)) 
+     <==> (exists x . x @ y in R1 \/ R2)                        [RANC]
+     <==> (exists x . x @ y in R1 | x @ y in R2)                [UC]
+     <==> ((exists x . x @ y in R1) | (exists x . x @ y in R2)) [quant-dist]
+     <==> (y in range R1 | y in range R2)                       [RANC]
+     <==> (y in range R1 \/ range R2)                           [UC]]))
+

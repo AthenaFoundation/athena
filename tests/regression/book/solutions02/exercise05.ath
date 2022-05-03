@@ -1,0 +1,80 @@
+define (map f L) := 
+  letrec {loop := lambda (L results)
+                    match L {
+                      [] => (rev results)
+                    | (list-of x rest) => (loop rest (add (f x) results))
+                    }}
+    (loop L [])
+
+define (foldl f e L) := 
+  match L {
+    [] => e
+  | (list-of x rest) => (foldl f (f e x) rest)
+  }
+
+define (foldr f e L) := 
+  match L {
+    [] => e
+  | (list-of x rest) => (f x (foldr f e rest))
+  }
+
+define (filter L f) := 
+  letrec {loop := lambda (L results)
+                    match L {
+                      [] => (rev results)
+                    | (list-of x rest) =>
+                        check {(f x) => (loop rest (add x results))
+                             | else => (loop rest results)}
+                    }}
+    (loop L [])
+
+define (filter-out L f) :=  (filter L lambda (x) (negate (f x)))
+
+define (zip L1 L2) := 
+  letrec {f := lambda (L1 L2 res)
+                 match [L1 L2] {
+		   [(list-of x1 rest1) (list-of x2 rest2)] =>  
+                     (f rest1 rest2 (add [x1 x2] res))
+                 | _ => (rev res)
+                 }}
+    (f L1 L2 [])
+
+define (take l n) := 
+  letrec {f := lambda (l n res)
+		 match [l n] {
+ 		   [_ 0] => (rev res)
+		 | [[] _] => (rev res)
+		 | _ => (f (tail l) (n minus 1) (add (head l) res))
+               }}
+    (f l n [])
+   
+define (drop L n) := 
+  check {(n less? 1) => L
+       | else => (drop (tail L) (n minus 1))}
+
+define (for-each L pred?) := 
+  match L {
+    [] => true
+  | (list-of x xs) => (&& (pred? x) (for-each xs pred?))
+  }
+
+define (for-some L pred?) := 
+  match L {
+    [] => true
+  | (list-of x xs) => (|| (pred? x) (for-each xs pred?))
+  }
+
+define (from-to i j) :=
+  letrec {loop := lambda (k res) 
+                    check {(k less? i) => res
+                         | else => (loop (k minus 1) (k added-to res))}}
+     check {(j less? i) => []
+          | else => (loop j [])}
+
+define (rd L) :=
+  let {T := (table 50);
+       occurs-once := lambda (x)
+                        try {(table-lookup T x)
+                           | let {_ := (table-add T [x false])}
+                               true}}
+    (filter L occurs-once)

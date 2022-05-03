@@ -1,0 +1,235 @@
+(!auto-dtc-for-proofs asgn-excl 
+  method (proof)
+    pick-any x e s:State s':State
+     assume hyp := (proof |- [(x <- e) s] -->> s') 
+       let {goal := (proof = asgn-axiom & s' = [x (V e s)] ++ s)}
+         match proof {
+           asgn-axiom =>  
+             let {L1 := (!chain-> 
+                          [hyp
+   		       ==> (fire-semantic-axiom hyp) [semantics]])}
+                pick-witnesses x' e' for L1 
+                  (!chain-> 
+                    [(s' = [x' (V e' s)] ++ s)
+                 ==> (s' = [x  (V e s)] ++ s)        [(x = x' & e = e')
+		                                  <== (x <- e = x' <- e') 
+                                                       [structural-axioms]]
+                 ==> (asgn-axiom = asgn-axiom &
+		      s' = [x (V e s)] ++ s)         [augment]])
+       | _ => (!chain->
+                [hyp
+             ==> (fire-semantic-axiom hyp)           [semantics]
+             ==> goal                                [free-gen]])
+       })
+       
+(!auto-dtc-for-proofs if-true-excl
+  method (proof)
+    pick-any b c1 c2 s:State s':State
+      assume hyp1 := (proof |- [(cond b c1 c2) s] -->> s'); 
+             hyp2 := (b true-in s) 
+        let {goal := (exists p' .
+	                proof = if-true-rule p' & 
+                        p' |- [c1 s] -->> s');
+	     struc-axioms := structural-axioms}
+          match proof {
+            (if-true-rule p) => 
+              let {L1 := (!chain-> 
+                           [hyp1 
+                        ==> (exists b' c1' c2' . 
+                             (cond b c1 c2) =
+			     (cond b' c1' c2') & 
+                             b' true-in s &
+			     p |- [c1' s] -->> s') [semantics]])}
+                pick-witnesses b' c1' c2' for L1
+                  (!chain-> 
+                    [(p |- [c1' s] -->> s')
+		    
+		 ==> (p |- [c1 s] -->> s')         [(c1 = c1')       
+                                                <== ((cond b c1 c2) =
+						     (cond b' c1' c2')) 
+                                                      [struc-axioms]]
+						      
+                 ==> ((if-true-rule p) =
+		      (if-true-rule p) & 
+                      p |- [c1 s] -->> s')         [augment]
+		 ==> goal                          [existence]])
+		 
+          | (if-false-rule p) =>
+              let {L1 := (!chain->                        
+                           [hyp1                          
+                        ==> (exists b' c1' c2' . 
+                              (cond b c1 c2) =
+		 	      (cond b' c1' c2') & 
+                              ~ b' true-in s &
+			      p |- [c2' s] -->> s') 
+                                                   [semantics]])}
+             pick-witnesses b' c1' c2' for L1 
+               (!from-complements goal 
+                 hyp2 
+                 (!chain->
+		   [(~ b' true-in s)
+                ==> (~ b true-in s)                [(b = b')
+		                                <== ((cond b c1 c2) = 
+                                                     (cond b' c1' c2')) 
+                                                      [struc-axioms]]]))
+						     
+         | _  => (!chain-> 
+                   [hyp1  
+               ==> (fire-semantic-axiom hyp1)      [semantics]
+               ==> goal                            [free-gen]])
+         })
+
+(!auto-dtc-for-proofs if-false-excl
+  method (proof)
+    pick-any b c1:Cmd c2:Cmd s:State s':State
+      assume hyp1 := (proof |- [(cond b c1 c2) s] -->> s'); 
+             hyp2 := (~ b true-in s) 
+        let {goal := (exists proof' . 
+                       proof = (if-false-rule proof') & 
+                       proof' |- [c2 s] -->> s');
+             struc-axioms := structural-axioms}
+          match proof {
+            (if-false-rule p) => 
+              let {L1 := (!chain-> 
+                           [hyp1 
+                        ==> (exists b' c1' c2' . 
+                              (cond b c1 c2) =
+                              (cond b' c1' c2') & 
+                              ~ b' true-in s &
+                              p |- [c2' s] -->> s')   [semantics]])}
+                pick-witnesses b' c1' c2' for L1 
+                  (!chain->
+                   [(p |- [c2' s] -->> s')   
+                ==> (p |- [c2 s] -->> s')             [(c2 = c2') <==    
+                                                       ((cond b c1 c2) =
+                                                        (cond b' c1' c2')) 
+                                                         [struc-axioms]]
+                ==> ((if-false-rule p) =
+                     (if-false-rule p) & 
+                     p |- [c2 s] -->> s')             [augment]
+                ==> goal                              [existence]])
+          | (if-true-rule p) =>                     
+              let {L1 := (!chain->                      
+                           [hyp1                          
+                        ==> (exists b' c1' c2' .  
+                              (cond b c1 c2) =
+                              (cond b' c1' c2') & 
+                               b' true-in s &
+                               p |- [c1' s] -->> s')  [semantics]])}
+                pick-witnesses b' c1' c2' for L1 
+                  (!from-complements goal hyp2 
+                    (!chain-> [(b' true-in s) 
+                           ==> (b true-in s)          [(b = b')
+                                                   <== ((cond b c1 c2) = 
+                                                        (cond b' c1' c2')) 
+                                                         [struc-axioms]]]))
+          | _  => (!chain-> 
+                    [hyp1
+                ==> (fire-semantic-axiom hyp1)        [semantics] 
+                ==> goal                              [free-gen]])
+        })
+	
+(!auto-dtc-for-proofs while-true-excl
+  method (proof)
+    pick-any b body:Cmd s:State s':State 
+      assume hyp1 := (proof |- [(while-loop b body) s] -->> s'); 
+             hyp2 := (b true-in s) 
+        let {goal := (exists p1 p2 is . 
+                       proof = (while-rule p1 p2) &
+                       p1 |- [body s] -->> is &
+                       p2 |- [(while-loop b body) is] -->> s');
+             struc-ax := structural-axioms}
+          match proof {
+            (while-rule p1 p2) => 
+              let {L1 := (!chain-> 
+                           [hyp1 
+                        ==> (exists b' body' is' . 
+                              (while-loop b body) = 
+                              (while-loop b' body') & 
+                               b' true-in s & 
+                               p1 |- [body' s] -->> is' &
+                               p2 |- [(while-loop b' body')
+                                       is'] -->> s')        [semantics]])}
+                pick-witnesses b' body' is' for L1
+                  let {while-b  := (while-loop b body);
+                       while-b' := (while-loop b' body')}
+                    (!chain-> 
+                      [(p1 |- [body' s] -->> is' & 
+                        p2 |- [while-b' is'] -->> s') 
+                  ==> (p1 |- [body s] -->> is' & 
+                       p2 |- [while-b is'] -->> s')         [(b = b' &
+                                                             body = body')
+                                                        <==  (while-b =
+                                                              while-b')
+                                                               [struc-ax]]
+                   ==> (proof = proof &
+                        p1 |- [body s] -->> is' & 
+                        p2 |- [while-b is'] -->> s')        [augment]
+                   ==> goal                                 [existence]])
+         | while-axiom => 
+             let {L1 := (!chain->
+                          [hyp1 
+                       ==> (exists b' body' . 
+                             (while-loop b body) = 
+                             (while-loop b' body') & 
+                             ~ b' true-in s & s' = s)       [semantics]])}
+               pick-witnesses b' body' for L1
+                 let {while-b := (while-loop b body);
+                      while-b' := (while-loop b' body')}
+                   (!from-complements goal hyp2 
+                     (!chain-> 
+                       [(~ b' true-in s) 
+                    ==> (~ b true-in s)                     [(b = b')
+                                                         <== (while-b = 
+                                                              while-b') 
+                                                             [struc-ax]]]))
+         | _ =>  (!chain->  
+                   [hyp1 
+                ==> (fire-semantic-axiom hyp1)              [semantics] 
+                ==> goal                                    [free-gen]])
+         })
+	 
+(!auto-dtc-for-proofs while-false-excl
+  method (proof)
+    pick-any b body:Cmd s:State s':State
+      assume hyp1 := (proof |- [(while-loop b body) s] -->> s'); 
+             hyp2 := (~ b true-in s) 
+        let {goal := (proof = while-axiom & s' = s);
+             struc-ax := structural-axioms}
+          match proof {
+            (while-rule p1 p2) => 
+              let {L1 :=
+                    (!chain-> 
+                      [hyp1 
+                   ==> (exists b' body' s1 . 
+                         (while-loop b body) = 
+                         (while-loop b' body') & 
+                         b' true-in s & 
+                         p1 |- [body' s] -->> s1 &
+                         p2 |- [(while-loop b' body') s1]
+                                  -->> s')                  [semantics]])}
+                pick-witnesses b' body' s1 for L1
+                  let {while-b  := (while-loop b body);
+                       while-b' := (while-loop b' body')}
+                    (!from-complements goal hyp2 
+                      (!chain->  
+                        [(b' true-in s) 
+                     ==> (b true-in s)                      [(b = b')
+                                                         <== (while-b =
+                                                              while-b')
+                                                               [struc-ax]]]))
+          | while-axiom => 
+              let {L1 := (!chain-> 
+                           [hyp1 
+                        ==> (exists b' body' . 
+                              (while-loop b body) =
+                              (while-loop b' body') & 
+                              ~ b' true-in s &
+                              s' = s)                       [semantics]])}
+             pick-witnesses b' body' for L1 
+               (!chain-> [(s' = s) ==> goal                 [augment]])
+          | _  => (!chain-> 
+                    [hyp1 
+                 ==> (fire-semantic-axiom hyp1)             [semantics] 
+                 ==> goal                                   [free-gen]])
+        })

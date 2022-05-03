@@ -1,0 +1,21 @@
+  domain U
+  declare D: [U] -> Boolean
+
+  conclude drinker-principle := (exists x . D x ==> forall y . D y) 
+    (!by-contradiction drinker-principle
+      assume -dp := (~ drinker-principle)
+        let {-dp1 := conclude (forall x . ~ (D x ==> forall y . D y))
+                      (!qn -dp);
+             drinks := method (a) # show that any given a drinks 
+                                  # and yet not everyone does 
+                         let {p := conclude (~ (D a ==> forall y . D y))
+                                     (!instance -dp1 a)}
+                          conclude (D a & ~ forall y . D y)
+                            (!neg-cond p);
+             _ := (!drinks (fresh-var));
+             some-non-drinker := conclude (exists y . ~ D y) 
+                                   (!qn (~ forall y . D y))}
+          pick-witness y for some-non-drinker # (~ D y)
+            (!absurd (!left-and (!drinks y))
+                     (~ D y)))
+

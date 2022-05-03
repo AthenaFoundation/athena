@@ -1,0 +1,772 @@
+#==========================================================================
+# SECTION: An abstract binary search algorithm
+#
+#
+define stopgap := force
+
+# set-flag print-var-sorts "off"
+
+load "ordered-list"
+load "search/binary-tree"
+load "group"
+open N
+
+# This code moved here instead of where it appears later in the book
+extend-module SWO {
+ open BinTree
+
+ declare BST: (S) [(BinTree S)] -> Boolean
+
+ module BST {
+
+  declare in: (S) [S (BinTree S)] -> Boolean
+
+  module in {
+
+    define def := (close [(~ x in null)
+                          (x in (node L y R) <==> x E y | x in L | x in R)])
+
+   define [empty nonempty] := def
+
+   (add-axioms theory def)
+
+  } # in
+
+  define empty := (BST null)
+  define nonempty :=
+   (forall L y R .
+     BST (node L y R) <==>
+       BST L & (forall x . x in L ==> x <E y) &
+       BST R & (forall z . z in R ==> y <E z))
+
+  (add-axioms theory [empty nonempty])
+ } # BST
+} # SWO
+
+extend-module SWO {
+ open BST
+
+ declare binary-search: (S) [S (BinTree S)] -> (BinTree S)
+
+ module binary-search {
+
+  define axioms :=
+    (fun
+     [(binary-search x (node L y R)) =
+         [(binary-search x L)   when (x < y)
+          (binary-search x R)   when (y < x)
+	  (node L y R)          when (~ x < y & ~ y < x)]
+      (binary-search x null) = null])
+
+  define [go-left go-right at-root empty] := axioms
+
+  (add-axioms theory axioms)     # Here theory is SWO.theory
+
+  define (found-property T) := 
+    (forall x L y R .
+       (binary-search x T) = (node L y R) ==> x E y & x in T)
+
+  define found := (forall T . BST T ==> found-property T)
+
+  define (not-found-property T) := 
+    (forall x . (binary-search x T) = null ==> ~ x in T)
+
+  define not-found := (forall T . BST T ==> not-found-property T)
+
+ } # binary-search
+} # close module SWO
+
+declare bs-int: [Int (BinTree Int)] -> (BinTree Int)
+define swo1 := (renaming |{SWO.binary-search := bs-int, SWO.< := Real.<}|)
+assert (swo1 SWO.binary-search.axioms)
+
+define tree1 :=
+  (node (node null
+	      2
+	      (node (node null
+			  3
+			  null)
+		    5
+		    null))
+	7
+	(node (node null
+		    11
+		    null)
+	      13
+	      null))
+
+(eval (bs-int 5 null))
+
+# Term: null
+# 
+(eval (bs-int 5 tree1))
+
+# Term: (node (node null
+#                   3
+#                   null)
+#             5
+#             null)
+# 
+(eval (bs-int 13 tree1))
+
+# Term: (node (node null
+#                   11
+#                   null)
+#             13
+#             null)
+# 
+(eval (bs-int 9 tree1))
+
+# Term: null
+
+#==========================================================================
+# SUBSECTION: Abstract-level binary search trees
+#
+extend-module SWO {
+ extend-module BST {
+  extend-module in {
+
+   define root  := (forall x L y R . x E y  ==> x in (node L y R))
+   define left  := (forall x L y R . x in L ==> x in (node L y R))
+   define right := (forall x L y R . x in R ==> x in (node L y R))
+
+  } # in
+ } # BST
+} # SWO
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.1:
+#
+extend-module SWO {
+ extend-module BST {
+  extend-module in {
+   define proofs := 
+    method (theorem adapt)
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [E in] := (adapt [E in])}
+      match theorem {
+        (val-of root) => 	       
+
+           (!stopgap (adapt theorem))
+
+      | (val-of left) =>
+
+           (!stopgap (adapt theorem))
+
+      | (val-of right) => 
+
+           (!stopgap (adapt theorem))
+
+      }
+
+   (add-theorems theory |{[root left right] := proofs}|)
+  } # in
+ } # BST
+} # SWO
+
+(test-proofs [SWO.BST.in.root SWO.BST.in.left SWO.BST.in.right] 
+             SWO.theory)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Abstract-level binary search correctness theorems
+#
+extend-module SWO {
+ extend-module binary-search {
+
+  define tree-axioms := (datatype-axioms "BinTree")
+  define bsearch := binary-search
+
+  define not-found-proof :=
+   method (theorem adapt) 
+    let {[_ _ _ chain-> _] := (proof-tools adapt theory);
+         [< <E E BST bsearch] := (adapt [< <E E BST bsearch])}
+      by-induction (adapt theorem) {
+        null => 
+          assume (BST null)
+            conclude (not-found-property null)
+              pick-any x
+                assume ((bsearch x null) = null)
+                  (!chain-> [true
+		         ==> (~ x in null) [BST.in.empty]])
+      | (T as (node L y R)) => 
+         let {p1 := (not-found-property L);
+              p2 := (not-found-property R);
+	      [IH1 IH2] := [(BST L ==> p1) (BST R ==> p2)]}
+           assume hyp := (BST T)
+             conclude (not-found-property T)
+               let {smaller-in-left := (forall x . x in L ==> x <E y);
+                    larger-in-right := (forall z . z in R ==> y <E z);
+                    _ := (!chain-> [(BST T)
+		                ==> (BST L &
+				     smaller-in-left & 
+                                     BST R &
+				     larger-in-right)      [BST.nonempty]]);
+		    _ := (!chain-> [(BST L)
+				==> (not-found-property L) [IH1]]);
+		    _ := (!chain-> [(BST R)
+				==> (not-found-property R) [IH2]])}
+                pick-any x 
+                  assume failed-search := ((bsearch x T) = null)
+                    (!by-contradiction (~ x in (node L y R))
+                     assume (x in T) 
+                       let {C := (!chain-> 
+			           [(x in T)
+				==> (x E y  |
+				     x in L |
+				     x in R)               [BST.in.nonempty]])}
+                       (!two-cases 
+                          assume (x < y) 
+                            let {_ := (!chain->
+		 		        [(bsearch x L)
+				       = (bsearch x T)     [go-left]
+				       = null              [failed-search]
+				     ==> (~ x in L)        [p1]])}
+			  (!cases C
+		           assume (x E y)
+			     (!absurd 
+			      (x < y)
+			      (!chain-> 
+			       [(x E y) 
+				==> (~ x < y)  [E-definition]]))
+                           assume (x in L)
+			     (!absurd (x in L) (~ x in L))
+                           assume (x in R) 
+                             (!absurd (x < y)
+				      (!chain->
+				       [(x in R) 
+					==> (y <E x)   [larger-in-right]
+					==> (~ x < y)  [<E-definition]])))
+                        assume (~ x < y)
+                          (!two-cases
+			   assume (y < x) 
+			     let {_ := (!chain-> 
+					[(bsearch x R)
+				       = (bsearch x T) [go-right]
+				       = null                [failed-search]
+				       ==> (~ x in R)        [p2]])}
+                             (!force false)
+                           assume (~ y < x) 
+			     (!absurd
+			      (!chain-> 
+			       [null = (bsearch x T) [failed-search]
+				     = T               [at-root]])
+			      (!chain-> 
+			       [true 
+				==> (null =/= T)       [tree-axioms]])))))
+    } # by-induction
+
+    (add-theorems theory |{[not-found] := not-found-proof}|)
+  } # close module binary-search
+} # close module SWO
+
+(test-proofs [SWO.binary-search.not-found] SWO.theory)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.2:
+#
+# Copy the above extension to SWO here and replace the use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [SWO.binary-search.not-found] SWO.theory)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 15.3:
+#
+extend-module SWO {
+ extend-module binary-search {
+
+  define found-proof :=
+   method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [< <E E BST binary-search] :=
+           (adapt [< <E E BST binary-search])}
+    match theorem {
+      (val-of found) =>
+
+        (!stopgap (adapt theorem))
+
+    } # match theorem
+    (add-theorems theory |{[found] := found-proof}|)
+  } # close module binary-search
+} # close module SWO
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [SWO.binary-search.found] SWO.theory)
+
+#==========================================================================
+# SECTION: An abstract fast power algorithm
+#
+#==========================================================================
+# SUBSECTION: Raising to a power in a monoid
+#
+load "nat-power"
+load "nat-half"
+load "strong-induction"
+
+extend-module Monoid {
+
+  declare +*: (S) [S N] -> S [400]
+
+  define [x y m n] := [?x:'T ?y:'T ?m:N ?n:N]
+
+  module Power {
+
+    define def := (close [(x +* zero = <0>)
+                          (x +* (S n) = x + x +* n)])
+
+    define [right-zero right-nonzero] := def
+
+    (add-axioms theory def)
+
+  } 
+}
+
+extend-module Monoid {
+ extend-module Power {
+  define [+' *'] := [N.+ N.*]
+
+  define right-plus   := (forall m n x . x +* (m +' n) = x +* m + x +* n)
+  define left-neutral := (forall n . <0> +* n = <0>)
+  define right-one    := (forall x . x +* N.one = x)
+  define right-two    := (forall x . x +* N.two = x + x)
+  define right-times  := (forall n m x . x +* (m *' n) = (x +* m) +* n)
+
+  define theorems := 
+    [right-plus left-neutral right-one right-two right-times]
+
+  define proofs := 
+   method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [+ <0> +*] := (adapt [+ <0> +*])}
+      match theorem {
+        (val-of right-one) => 
+          pick-any x:(sort-of <0>)
+             (!chain [(x +* N.one)
+                  --> (x +* (S zero))   [N.one-definition]
+                  --> (x + x +* zero)   [right-nonzero]
+                  --> (x + <0>)         [right-zero]
+                  --> x                 [right-identity]])
+      | _ => (!force (adapt theorem))
+      }
+
+  (add-theorems theory |{theorems := proofs}|)
+ } # close module Power
+} # close module Monoid
+
+(test-proofs [Monoid.Power.right-one] 'Monoid)
+
+extend-module Monoid {
+ extend-module Power {
+  define [+' *'] := [N.+ N.*]
+
+  define right-plus   := (forall m n x . x +* (m +' n) = x +* m + x +* n)
+  define left-neutral := (forall n . <0> +* n = <0>)
+  define right-one    := (forall x . x +* N.one = x)
+  define right-two    := (forall x . x +* N.two = x + x)
+  define right-times  := (forall n m x . x +* (m *' n) = (x +* m) +* n)
+
+  define proofs := 
+   method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [+ <0> +*] := (adapt [+ <0> +*])}
+      match theorem {
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.4:
+#
+  | (val-of right-plus) =>
+
+       (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.5:
+#
+   | (val-of left-neutral) =>
+
+       (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.6:
+#
+   | (val-of right-two) => 
+
+       (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 15.7:
+#
+   | (val-of right-times) =>
+
+       (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+   } # match theorem
+
+  (add-theorems theory |{[right-plus left-neutral 
+                          right-two right-times] := proofs}|)
+ } # close module Power
+} # close module Monoid
+(test-proofs [Monoid.Power.right-plus Monoid.Power.left-neutral
+              Monoid.Power.right-two Monoid.Power.right-times] 'Monoid)
+
+extend-module Abelian-Monoid {
+
+  define +* := Monoid.+*
+
+  define [x y n] := [?x:'T ?y:'T ?n:N]
+
+  define Power-left-times := (forall n x y . (x + y) +* n = x +* n + y +* n)
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 15.8:
+#
+extend-module Abelian-Monoid {
+ define right-zero := Monoid.Power.right-zero
+ define right-nonzero := Monoid.Power.right-nonzero
+
+ define proof :=
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [+ <0> +*] := (adapt [+ <0> +*])}
+    match theorem {
+      (val-of Power-left-times) =>
+
+      (!stopgap (adapt theorem))
+
+   }
+
+ (add-theorems theory |{[Power-left-times] := proof}|)
+} # close module Abelian-Monoid
+
+(test-proofs [Abelian-Monoid.Power-left-times] 'Abelian-Monoid)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: A monoid version of fast-power
+#
+extend-module Monoid {
+
+ declare pap_1, pap_2: (S) [S S N] -> S
+ declare fpp_1, fpp_2: (S) [S N] -> S
+ declare fast-power: (S) [S N] -> S
+
+ module fast-power {
+  define [+'  *   half   even   odd   one   two] := 
+         [N.+ N.* N.half N.even N.odd N.one N.two]
+
+  define [r a x n] := [?r:'S ?a:'S ?x:'S ?n:N]
+
+  define axioms :=
+   (fun
+    [(fast-power a n) =
+         [<0>                         when (n = zero)     # right-zero
+          (fpp_1 a n)                 when (n =/= zero)]  # right-nonzero
+
+     (fpp_1 a n) =
+         [(fpp_1 (a + a) (half n))    when (even n)       # fpp-even
+          (fpp_2 a (half n))          when (~ even n)]    # fpp-odd
+    (fpp_2 a n) =
+         [a                           when (n = zero)     # fpp-zero
+          (pap_1 a (a + a) n)         when (n =/= zero)]  # fpp-nonzero
+
+    (pap_1 r a n) =
+         [(pap_2 (r + a) a n)         when (odd n)        # pap-odd
+          (pap_1 r (a + a) (half n))  when (~ odd n)]     # pap-even
+    (pap_2 r a n) =
+         [r                           when (n = one)      # pap-one
+          (pap_1 r (a + a) (half n))  when (n =/= one)]]) # pap-not-zone
+
+  define [right-zero right-nonzero fpp-even fpp-odd fpp-zero fpp-nonzero
+          pap-odd pap-even pap-one pap-not-one] := axioms
+
+  (add-axioms theory axioms)
+
+define pap_1-correctness0 :=
+   (forall n . n =/= zero ==> (forall x r . (pap_1 r x n) = r + x +* n))
+
+define pap_1-correctness :=
+   (forall n x r . n =/= zero ==> (pap_1 r x n) = r + x +* n)
+
+define fpp_1-correctness0 :=
+  (forall n .  n =/= zero ==> (forall x . (fpp_1 x n) = x +* n))
+
+define fpp_1-correctness :=
+  (forall n x . n =/= zero ==> (fpp_1 x n) = x +* n)
+
+define fpp_2-correctness :=
+  (forall n x . n =/= zero ==> (fpp_2 x n) = x +* (two * n +' one))
+
+define correctness := (forall n x . (fast-power x n) = x +* n)
+
+define theorems := [pap_1-correctness0 pap_1-correctness fpp_1-correctness0
+                    fpp_1-correctness fpp_2-correctness correctness]
+
+define proofs :=
+ method (theorem adapt)
+  let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+       [+ <0> +*] := (adapt [+ <0> +*]);
+       [pap_1 pap_2 fpp_1 fpp_2 fast-power] := 
+         (adapt [pap_1 pap_2 fpp_1 fpp_2 fast-power]);
+       [not-odd-if-even odd-if-not-even even-def odd-def] :=
+          [N.EO.not-odd-if-even N.EO.odd-if-not-even
+	   N.EO.even-definition N.EO.odd-definition];
+       PR1 := (!prove Power.right-one);
+       PR2 := (!prove Power.right-two);
+       PRT := (!prove Power.right-times);
+       PRP := (!prove Power.right-plus)}
+  match theorem {
+   (val-of pap_1-correctness0) =>
+    let {theorem' := (adapt theorem)}
+      (!strong-induction.principle theorem'
+        method (n)
+          assume IH := (strong-induction.hypothesis theorem' n)
+           conclude (strong-induction.conclusion theorem' n)
+            assume (n =/= zero)
+             pick-any x
+	      (!two-cases
+	        assume (n = one)
+	          pick-any r
+ 	            let {p := (!chain->
+			        [(odd S zero) 
+			    <==> (odd n)              [(n = one) 
+						       N.one-definition]
+			    ==>  ((pap_1 r x n) = 
+			         (pap_2 (r + x)
+				        x
+				        n))           [pap-odd]])}
+  	              (!combine-equations
+	   	        (!chain
+		          [(pap_1 r x n)
+		         = (pap_2 (r + x)
+			          x
+			 	  n)                  [p]
+		         = (r + x)                    [pap-one (n = one)]])
+		        (!chain
+		          [(r + x +* n)
+		         = (r + x +* one)             [(n = one)]
+		         = (r + x)                    [PR1]]))
+                assume (n =/= one) 
+	          let {p1a :=
+		        (half n =/= zero ==>
+		          (forall a r .
+			    (pap_1 r
+			    	   a
+			           (half n)) =
+ 		            r + a
+			      +* (half n)));
+		       p1b :=
+		         (forall a r .
+			   (pap_1 r
+			   	  a
+			          (half n)) =
+                           r + a
+			     +* (half n));
+		       p2 := (forall r .
+		               (pap_1 r
+			       	      (x + x)
+			              (half n)) =
+ 	                       (r + x
+			          +* (two * half n)));
+	             _ := (!chain->
+			   [(n =/= zero) 
+			==> (half n N.< n)            [N.half.less]
+			==> p1a                       [IH]]);
+		     p3 := (!by-contradiction
+		             (half n =/= zero)
+			     assume (half n = zero) 
+  		               (!cases
+			         (!chain<-
+			            [(n = zero |
+				      n = one)
+				  <== (half n = zero) [N.half.equal-zero]])
+		                 assume (n = zero)
+		                   (!absurd
+				     (n = zero)
+				     (n =/= zero))
+		                 assume (n = one)
+		                   (!absurd
+				     (n = one)
+				     (n =/= one))));
+	             _ := (!chain-> [p3 ==> p1b       [p1a]]);
+		     _ := conclude p2
+		            pick-any r
+		              (!chain
+			        [(pap_1 r
+					(x + x)
+				        (half n))
+			       = (r + (x + x) 
+			            +* (half n))      [p1b]
+			       = (r + (x +* two) 
+			            +* (half n))      [PR2]
+			       = (r + x  
+			            +* (two *
+				            half n))  [PRT]])}
+	        (!two-cases
+	          assume (even n)
+		    pick-any r 
+  		      let {p4 := (!chain-> 
+			 	   [(even n) 
+			        ==> (~ odd n)         [not-odd-if-even]])}
+		        (!chain
+		          [(pap_1 r x n)
+		         = (pap_1 r
+			   	  (x + x)
+				  (half n))           [pap-even p4]
+		         = (r + x
+			      +* (two * (half n)))    [p2]
+		         = (r + x +* n)               [even-def]])
+	          assume (~ even n)
+		    pick-any r 
+		      let {p5 := (!chain->
+			   	   [(~ even n)
+				==> (odd n)           [odd-if-not-even]])}
+		        (!chain
+		          [(pap_1 r x n)
+		         = (pap_2 (r + x)
+		       	          x
+			  	  n)                  [pap-odd p5]
+			  = (pap_1 (r + x)
+			           (x + x)
+			  	   (half n))          [pap-not-one]
+			  = ((r + x)
+  			     + x
+			     +* (two * half n))       [p2]
+			  = (r +
+			      (x + x
+			         +* (two * half n)))  [associative]
+			  = (r +
+			      (x +* one
+			         + x
+			         +* (two * half n)))  [PR1]
+			  = (r +
+			      (x +*
+			         (one +'
+			          two * half n)))     [PRP]
+			  = (r +
+			       (x +*
+			         (two * (half n)
+			              +' one)))       [N.Plus.commutative]
+			  = (r + x +* n)              [odd-def]]))))
+   | (val-of pap_1-correctness) =>
+       let {PC0 := (!prove pap_1-correctness0)}
+         pick-any n x r
+           assume (n =/= zero) 
+             let {p := (!chain->
+	                 [(n =/= zero) ==> 
+   		            (forall x r . 
+		              (pap_1 r x n) =
+			      r + x +* n)      [PC0]])}
+               (!chain [(pap_1 r x n)
+  	              = (r + x +* n) [p]])
+   | _ => (!force (adapt theorem))
+   }
+
+
+(add-theorems theory |{theorems := proofs}|)
+} # close module fast-power
+} # close module Monoid
+
+(test-proofs [Monoid.fast-power.pap_1-correctness0 
+              Monoid.fast-power.pap_1-correctness] 'Monoid)
+
+extend-module Monoid {
+extend-module fast-power {
+
+define proofs :=
+ method (theorem adapt)
+  let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+       [+ <0> +*] := (adapt [+ <0> +*]);
+       [pap_1 pap_2 fpp_1 fpp_2 fast-power] := 
+         (adapt [pap_1 pap_2 fpp_1 fpp_2 fast-power]);
+       PR1 := (!prove Power.right-one);
+       PR2 := (!prove Power.right-two);
+       PRT := (!prove Power.right-times);
+       PRP := (!prove Power.right-plus)}
+  match theorem {
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.9:
+#
+   | (val-of fpp_2-correctness) =>
+
+      (!stopgap (adapt theorem))     
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 15.10:
+#
+    | (val-of fpp_1-correctness0) =>
+
+      (!stopgap (adapt theorem))     
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.11:
+#
+    | (val-of fpp_1-correctness) =>
+
+      (!stopgap (adapt theorem))     
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+   }
+
+(add-theorems theory |{[fpp_2-correctness fpp_1-correctness0
+                        fpp_1-correctness] := proofs}|)
+} # close module fast-power
+} # close module Monoid
+
+(test-proofs [Monoid.fast-power.fpp_2-correctness
+              Monoid.fast-power.fpp_1-correctness0 
+              Monoid.fast-power.fpp_1-correctness] 'Monoid)
+
+#==========================================================================
+# SUBSECTION: Multiplicative version of fast power
+#
+declare **: (S) [S N] -> S [400]
+
+define M1 := (renaming |{Monoid.+* := **}|)
+
+assert (M1 (theory-axioms 'MM))
+
+(!prove-property Monoid.fast-power.correctness M1 'MM)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 15.12:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: A nonnumeric application
+#
+declare list-pap_1, list-pap_2: (T) [(List T) (List T) N] -> (List T)
+declare list-fpp_1, list-fpp_2: (T) [(List T) N] -> (List T)
+
+declare join*: (T) [(List T) N] -> (List T)
+declare fast-join*: (T) [(List T) N] -> (List T)
+
+define M1 := 
+  (renaming |{Monoid.+* := join*, Monoid.+ := List.join, Monoid.<0> := nil,
+              Monoid.fast-power := fast-join*, Monoid.pap_1 := list-pap_1,
+	      Monoid.pap_2 := list-pap_2, Monoid.fpp_1 := list-fpp_1,
+	      Monoid.fpp_2 := list-fpp_2}|)
+
+assert (M1 (theory-axioms Monoid.theory))
+
+(!prove-property Monoid.fast-power.correctness M1 'Monoid)
+

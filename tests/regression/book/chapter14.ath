@@ -1,0 +1,2261 @@
+#==========================================================================
+# SECTION: Group properties
+#
+
+define stopgap := force
+
+load "nat-times"
+load "integer-plus"
+load "algebra/Z-poly"
+load "list-of"
+
+define [a b c] := [?a ?b ?c]
+(forall a b c . (a  Z.+ b) Z.+ c = a Z.+ (b Z.+ c))
+(forall a b c . (a  ZPS.+ b) ZPS.+ c = a ZPS.+ (b ZPS.+ c))
+
+(forall a . Z.zero Z.+ a = a)
+(forall a . a Z.+ Z.zero = a)
+
+(forall a . ZPS.zero ZPS.+ a = a)
+(forall a . a ZPS.+ ZPS.zero = a)
+
+(forall a . (Z.negate a) Z.+ a = Z.zero)
+(forall a . a Z.+ (Z.negate a) = Z.zero)
+
+(forall a . (ZPS.Negate a) ZPS.+ a = ZPS.zero)
+(forall a . a ZPS.+ (ZPS.Negate a) = ZPS.zero)
+
+module M1 { # A way to prevent symbol duplication in later Group definition 
+
+define [x y z] := [?x ?y ?z]
+
+module Group {
+  declare +: (S) [S S] -> S [200]
+  declare <0>: (S) [] -> S
+  declare U-: (S) [S] -> S   # Unary minus
+  declare -: (S) [S S] -> S  # Binary minus
+
+  define associative := (forall x y z . (x + y) + z = x + (y + z))
+  define left-identity := (forall x . <0> + x = x)   
+  define right-identity := (forall x . x + <0> = x)    
+  define left-inverse := (forall x . (U- x) + x = <0>)
+  define right-inverse := (forall x . x + (U- x) = <0>)
+  define minus-definition := (forall x y . x - y = x + U- y)
+} # close module Group
+
+} # close module M1
+
+define m := |{+ := *}|
+
+define r_m := (renaming m)
+
+(r_m (1 + x))
+
+# Term: (* 1 ?x)
+# 
+(r_m (1 / (2 + 3)))
+
+# Term: (/ 1
+#          (* 2 3))
+# 
+(r_m (forall x . x <= x + 1))
+
+# Sentence: (forall ?x:Int
+#             (<= ?x
+#                 (* ?x 1)))
+
+(r_m [(x = x + y) (forall x . x <= x + 1)])
+
+# List: [
+# (= ?x
+#    (* ?x ?y))
+# 
+# (forall ?x:Int
+#   (<= ?x
+#       (* ?x 1)))
+# ]
+
+(r_m +)
+
+# Symbol: *
+# 
+(r_m /) 
+
+# Symbol: /
+
+set-flag print-var-sorts "off"
+
+(mark `H)
+
+extend-module M1 {
+
+define Z-Additive-Group :=
+  (renaming |{Group.+ := Z.+, Group.<0> := Z.zero, 
+              Group.U- := Z.negate, Group.- := Z.-}|)
+
+(Z-Additive-Group Group.associative)
+
+# Sentence: (forall ?x:Z
+#             (forall ?y:Z
+#               (forall ?z:Z
+#                 (= (Z.+ (Z.+ ?x ?y)
+#                         ?z)
+#                    (Z.+ ?x
+#                         (Z.+ ?y ?z))))))
+# 
+define ZPS-Additive-Group := 
+  (renaming |{Group.+ := ZPS.+, Group.<0> := ZPS.zero,
+              Group.U- := ZPS.Negate, Group.- := ZPS.-}|)
+
+(ZPS-Additive-Group Group.associative)
+
+# Sentence: (forall ?x:(ZPS.Fun N Z)
+#             (forall ?y:(ZPS.Fun N Z)
+#               (forall ?z:(ZPS.Fun N Z)
+#                 (= (ZPS.+ (ZPS.+ ?x
+#                                  ?y)
+#                           ?z)
+#                    (ZPS.+ ?x
+#                           (ZPS.+ ?y
+#                                  ?z))))))
+
+} # close module M1
+
+#==========================================================================
+# SECTION: Theory refinement
+#
+module Semigroup {
+  declare +: (S) [S S] -> S [200]
+
+  define associative := (forall x y z . (x + y) + z = x + (y + z))
+
+  define theory := (make-theory [] [associative])
+}
+
+module Identity {
+  open Semigroup
+  declare <0>: (S) [] -> S
+
+  define left-identity :=  (forall x . <0> + x = x)   
+  define right-identity := (forall x . x + <0> = x)    
+
+  define theory := (make-theory [] [left-identity right-identity])
+}
+
+module Monoid {
+  open Identity
+
+  define theory := (make-theory ['Semigroup 'Identity] [])
+}
+
+module Group {
+  open Monoid
+
+  declare U-: (S) [S] -> S    # Unary minus
+  declare  -: (S) [S S] -> S  # Binary minus
+
+  define right-inverse    := (forall x . x + U- x = <0>)
+  define minus-definition := (forall x y . x - y = x + U- y)
+
+  define theory := (make-theory ['Monoid] [right-inverse minus-definition])
+}
+
+(println (theory-name Group.theory))
+
+# Group
+# 
+# Unit: ()
+
+(theory-axioms 'Monoid)
+
+# List: [
+# (forall ?x:'T45752
+#   (forall ?y:'T45752
+#     (forall ?z:'T45752
+#       (= (Semigroup.+ (Semigroup.+ ?x ?y)
+#                       ?z)
+#          (Semigroup.+ ?x
+#                       (Semigroup.+ ?y ?z))))))
+# 
+# (forall ?x:'T45763
+#   (= (Semigroup.+ Identity.<0> ?x)
+#      ?x))
+# 
+# (forall ?x:'T45769
+#   (= (Semigroup.+ ?x Identity.<0>)
+#      ?x))
+# ] 
+# 
+(theory-axioms Monoid.theory equals? theory-axioms "Monoid")
+
+# Term: true
+
+#==========================================================================
+# SECTION: Writing proofs at the level of a theory
+#
+extend-module Group {
+  define left-inverse    := (forall x . (U- x) + x = <0>)
+  define double-negation := (forall x . U- U- x = x)
+  define unique-negation := (forall x y . x + y = <0> ==> U- x = y)  
+  define neg-plus        := (forall x y . U- (x + y) = (U- y) + (U- x))
+                           
+
+  define left-inverse-proof :=
+    method (theorem adapt)
+      let {[_ _ chain _ _] := (proof-tools adapt theory);
+           [+ U- <0>] := (adapt [+ U- <0>])}
+        conclude (adapt theorem)
+          pick-any x
+            (!chain 
+             [((U- x) + x)
+          <-- (((U- x) + x) + <0>)                   [right-identity]
+          --> ((U- x) + (x + <0>))                   [associative]
+          <-- ((U- x) + (x + ((U- x) + U- U- x)))    [right-inverse]
+          <-- ((U- x) + ((x + U- x) + U- U- x))      [associative]
+          --> ((U- x) + (<0> + U- U- x))             [right-inverse]
+          <-- (((U- x) + <0>) + U- U- x)             [associative]
+          --> ((U- x) + U- U- x)                     [right-identity]
+          --> <0>                                    [right-inverse]])
+
+  (add-theorems 'Group |{left-inverse := left-inverse-proof}|)
+
+} # close module Group
+
+# Redefining because it was previously defined in module M1
+define Z-Additive-Group :=
+  (renaming |{Group.+ := Z.+, Group.<0> := Z.zero, 
+              Group.U- := Z.negate, Group.- := Z.-}|)
+
+(get-property Group.left-identity Z-Additive-Group Group.theory)
+
+# Sentence: (forall ?x:Z
+#             (= (Z.+ Z.zero ?x)
+#                ?x))
+
+(!prove-property Group.left-inverse Z-Additive-Group 'Group)
+
+# Theorem: (forall ?x:Z
+#            (= (Z.+ (Z.negate ?x) ?x)
+#               Z.zero))
+
+(!prove-property Group.left-identity Z-Additive-Group 'Group)
+
+# Theorem: (forall ?x:Z
+#            (= (Z.+ Z.zero ?x)
+#               ?x))
+
+(holds? (get-property Group.associative Z-Additive-Group 'Group))
+
+# Term: true 
+
+(print-instance-check Z-Additive-Group 'Group) 
+
+# Checking
+# (forall ?x:Z
+#   (= (Z.+ ?x
+#           (Z.negate ?x))
+#      Z.zero))
+# 
+# Checking
+# (forall ?x:Z
+#   (forall ?y:Z
+#     (= (Z.- ?x ?y)
+#        (Z.+ ?x
+#             (Z.negate ?y)))))
+# 
+# Checking
+# (forall ?x:Z
+#   (forall ?y:Z
+#     (forall ?z:Z
+#       (= (Z.+ (Z.+ ?x ?y)
+#               ?z)
+#          (Z.+ ?x
+#               (Z.+ ?y ?z))))))
+# 
+# Checking
+# (forall ?x:Z
+#   (= (Z.+ Z.zero ?x)
+#      ?x))
+# 
+# Checking
+# (forall ?x:Z
+#   (= (Z.+ ?x Z.zero)
+#      ?x))
+# 
+# Unit: ()
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.1:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Abstract proof method conventions
+#
+extend-module Group {
+  define proofs :=
+    method (goal adapt)
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt 'Group);
+           [+ U- <0>] := (adapt [+ U- <0>])}
+        match goal {
+          (val-of double-negation) =>
+            conclude (adapt goal)
+              pick-any x:(sort-of <0>)
+                (!chain [(U- U- x)
+                     <-- (<0> + U- U- x)                 [left-identity]
+                     <-- ((x + U- x) + U- U- x)          [right-inverse]
+                     --> (x + ((U- x) + U- U- x))        [associative]
+                     --> (x + <0>)                       [right-inverse]
+                     --> x                               [right-identity]])
+     | (val-of unique-negation) =>
+         conclude (adapt goal)
+           pick-any x:(sort-of <0>) y:(sort-of <0>) 
+             let {LI := (!prove left-inverse)}
+               assume hyp := (x + y = <0>)
+                 (!chain [(U- x)
+                      <-- ((U- x) + <0>)                 [right-identity]
+                      <-- ((U- x) + (x + y))             [hyp]
+                      <-- (((U- x) + x) + y)             [associative]
+                      --> (<0> + y)                      [LI]
+                      --> y                              [left-identity]])
+     | (val-of neg-plus) =>
+         conclude (adapt goal)
+           pick-any x y 
+             let {UN := (!prove unique-negation)}
+               (!chain-> [((x + y) + ((U- y) + (U- x)))    
+                      <-- (x + ((y + (U- y)) + (U- x)))  [associative]
+                      --> (x + (<0> + U- x))             [right-inverse]
+                      --> (x + U- x)                     [left-identity]
+                      --> <0>                            [right-inverse]
+                      ==> (U- (x + y) = (U- y) + (U- x)) [UN]])
+    }
+
+ (add-theorems 'Group 
+               |{[double-negation unique-negation neg-plus] := proofs}|)
+} # close module Group
+
+assert (theory-axioms Group.theory)
+(!prove-property Group.double-negation no-renaming Group.theory)
+(!prove-property Group.unique-negation no-renaming Group.theory)
+(!prove-property Group.neg-plus no-renaming Group.theory)
+
+define (proof-tools adapt theory) :=
+   let {get := lambda (p) (get-property p adapt theory);
+        prove := method (p) (!prove-property p adapt theory);
+        chain := method (L) (!chain-help get L 'none);
+        chain-> := method (L) (!chain-help get L 'last);
+        chain<- := method (L) (!chain-help get L 'first)}
+     [get prove chain chain-> chain<-]
+
+#==========================================================================
+# SECTION: Dynamic evolution of theories
+#
+extend-module Semigroup {
+  define swing-right :=
+    (forall w x y z . ((w + x) + y) + z = w + (x + (y + z)))
+
+  define swing-right-proof := 
+    method (_ adapt) 
+      let {[_ _ chain _ _] := (proof-tools adapt 'Semigroup);
+           + := (adapt +)}
+         conclude (adapt swing-right)
+           pick-any w x y z
+             (!chain [(((w + x) + y) + z)
+                  --> ((w + (x + y)) + z)   [associative]
+                  --> (w + ((x + y) + z))   [associative]
+                  --> (w + (x + (y + z)))   [associative]])
+
+  (add-theorems 'Semigroup |{swing-right := swing-right-proof}|)
+} # close module Semigroup
+
+(!prove-property Semigroup.swing-right Z-Additive-Group 'Group)
+
+# Theorem: (forall ?w:Z
+#            (forall ?x:Z
+#              (forall ?y:Z
+#                (forall ?z:Z
+#                  (= (Z.+ (Z.+ (Z.+ ?w ?x)
+#                               ?y)
+#                          ?z)
+#                     (Z.+ ?w
+#                          (Z.+ ?x
+#                               (Z.+ ?y ?z))))))))
+
+#==========================================================================
+# SECTION: Testing abstract proofs
+#
+(test-proofs [Group.left-inverse] 'Group)
+
+# Testing proof of: 
+#  
+# (forall ?x:'T45800
+#   (= (Semigroup.+ (Group.U- ?x)
+#                   ?x)
+#      Identity.<0>))
+#  ...
+# 
+# Proof worked.
+# 
+# Unit: ()
+
+(test-proofs [Group.double-negation 
+                Group.unique-negation Group.neg-plus] 'Group)
+
+# Testing proof of:
+#  
+# (forall ?x:'T45806
+#   (= (Group.U- (Group.U- ?x))
+#      ?x))
+#  ...
+# 
+# Proof worked.
+# 
+# Testing proof of:
+#  
+# (forall ?x:'T45814
+#   (forall ?y:'T45814
+#     (if (= (Semigroup.+ ?x ?y)
+#            Identity.<0>)
+#         (= (Group.U- ?x)
+#            ?y))))
+#  ...
+# 
+# Proof worked.
+# 
+# Testing proof of:
+#  
+# (forall ?x:'T45832
+#   (forall ?y:'T45832
+#     (= (Group.U- (Semigroup.+ ?x ?y))
+#        (Semigroup.+ (Group.U- ?y)
+#                     (Group.U- ?x)))))
+#  ...
+# 
+# Proof worked.
+# 
+# Unit: ()
+
+#==========================================================================
+# SECTION: Group theory refinements
+#
+#==========================================================================
+# SUBSECTION: Abelian group theory
+#
+module Abelian-Monoid {
+  open Monoid
+  define commutative := (forall x y . x + y = y + x)
+  define theory := (make-theory ['Monoid] [commutative])
+} 
+
+module Abelian-Group {
+  open Group 
+  define commutative := (forall x y . x + y = y + x)
+  define theory := (make-theory ['Group] [commutative])
+} 
+
+extend-module Abelian-Group {
+  define left-inverse-proof :=
+    method (_ adapt)
+      let {[_ _ chain _ _] := (proof-tools adapt theory);
+           [+ U- <0>] := (adapt [+ U- <0>])}
+        conclude (adapt left-inverse)
+          pick-any x
+            (!chain [((U- x) + x)
+                     --> (x + (U- x))       [commutative]
+                     --> <0>                [right-inverse]])
+
+  (add-theorems theory |{left-inverse := left-inverse-proof}|)
+
+  define neg-plus := (forall x y . U- (x + y) = (U- x) + (U- y))
+
+  define neg-plus-proof :=
+    method (goal adapt)
+      let {[_ _ chain _ _] := (proof-tools adapt theory);
+           [+ U- <0>] := (adapt [+ U- <0>])}
+        conclude (adapt neg-plus) 
+          pick-any x y 
+            let {group-version := (!prove-property Group.neg-plus 
+                                                   adapt 
+                                                   Group.theory)}
+              (!chain [(U- (x + y))
+                   --> ((U- y) + (U- x))  [group-version]
+                   --> ((U- x) + (U- y))  [commutative]])
+
+  (add-theorems theory |{neg-plus := neg-plus-proof}|)
+} # close module Abelian-Group
+
+(test-proofs [Group.left-inverse Abelian-Group.neg-plus] 'Abelian-Group)
+
+#==========================================================================
+# SUBSECTION: Multiplicative theories
+#
+module M2 {  # A way to avoid conflicts with later redefinition
+
+module Multiplicative-Semigroup {
+  declare *: (S) [S S] ->  S [300]
+
+  define associative := (forall x y z . (x * y) * z = x * (y * z))
+
+  define theory := (make-theory [] [associative])
+}
+
+} # close module M2
+
+module MSG {
+  declare *: (S) [S S] ->  S [300]
+
+  define theory := (adapt-theory 'Semigroup |{Semigroup.+ := *}|)
+}
+
+(get-symbol-map 'MSG)
+
+# Map: |{Semigroup.+ := MSG.*}|
+
+(get-property Semigroup.associative no-renaming 'MSG)
+
+# Sentence: (forall ?x:'T67119
+#             (forall ?y:'T67119
+#               (forall ?z:'T67119
+#                 (= (MSG.* (MSG.* ?x ?y)
+#                           ?z)
+#                    (MSG.* ?x
+#                           (MSG.* ?y ?z))))))
+
+(!prove-property Semigroup.swing-right (renaming |{MSG.* := N.*}|)  'MSG)
+
+# Theorem: (forall ?w:N
+#            (forall ?x:N
+#              (forall ?y:N
+#                (forall ?z:N
+#                  (= (N.* (N.* (N.* ?w ?x)
+#                               ?y)
+#                          ?z)
+#                     (N.* ?w
+#                          (N.* ?x
+#                               (N.* ?y ?z))))))))
+
+module MM {
+  declare <1>: (S) [] -> S
+
+  define theory :=
+    (adapt-theory 'Monoid |{Semigroup.+ := MSG.*, Monoid.<0> := <1>}|)
+}
+
+(print-theory 'MM)
+
+# MM.theory:
+# 
+# Axioms:
+# 
+# Sentence: (forall ?x:'T61241
+#             (forall ?y:'T61241
+#               (forall ?z:'T61241
+#                 (= (MSG.* (MSG.* ?x ?y)
+#                           ?z)
+#                    (MSG.* ?x
+#                           (MSG.* ?y ?z))))))
+# 
+# Sentence: (forall ?x:'T61250
+#             (= (MSG.* MM.<1> ?x)
+#                ?x))
+# 
+# Sentence: (forall ?x:'T61259
+#             (= (MSG.* ?x MM.<1>)
+#                ?x))
+# 
+# Theorems:
+# 
+# Sentence: (forall ?w:'T61340
+#             (forall ?x:'T61340
+#               (forall ?y:'T61340
+#                 (forall ?z:'T61340
+#                   (= (MSG.* (MSG.* (MSG.* ?w ?x)
+#                                    ?y)
+#                             ?z)
+#                      (MSG.* ?w
+#                             (MSG.* ?x
+#                                    (MSG.* ?y ?z))))))))
+
+module MG {
+  declare Inv: (S) [S] -> S
+  declare /: (S) [S S] -> S
+
+  define theory :=
+    (adapt-theory 'Group |{Semigroup.+ := MSG.*, Monoid.<0> := MM.<1>, 
+                           Group.U- := Inv, Group.- := /}|)
+}
+
+#==========================================================================
+# SUBSECTION: Ring theory
+#
+module Ring {
+  define [+ *] := [Semigroup.+ MSG.*]
+
+  define right-distributive := 
+    (forall x y z . (x + y) * z = x * z + y * z)
+
+  define left-distributive := 
+    (forall x y z . z * (x + y) = z * x + z * y)
+
+  define theory := 
+    (make-theory ['Abelian-Group 'MSG] 
+                 [right-distributive left-distributive])
+}
+
+module Commutative-Ring {
+  define * := MSG.*
+
+  define *commutative := (forall x y . x * y = y * x)
+
+  define theory := (make-theory ['Ring] [*commutative])
+} 
+
+module Ring-With-Identity {
+  define theory := (make-theory ['MM 'Ring] [])
+} 
+
+module Commutative-Ring-With-Identity {
+  define theory :=
+    (make-theory ['Ring-With-Identity 'Commutative-Ring] [])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.2:
+#
+extend-module Z {
+  declare *: [Z Z] -> Z 
+  set-precedence * (get-precedence N.*)
+  module Times {
+    overload * N.*
+    define [x y] := [?x:N ?y:N]
+
+    assert axioms :=
+      (fun [(pos x * pos y) = (pos (x * y)) 
+               (pos x * neg y) = (neg (x * y)) 
+            (neg x * pos y) = (neg (x * y)) 
+            (neg x * neg y) = (pos (x * y))])
+
+  define [pos-pos pos-neg neg-pos neg-neg] := axioms
+
+} # close module Times
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.3:
+#
+extend-module Z {
+  extend-module Times {
+    define [a b c] := [?a:Z ?b:Z ?c:Z]
+
+    define commutative := (forall a b . a * b = b * a)
+
+    (!stopgap commutative)
+
+  } # close module Times
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.4:
+#
+extend-module Z {
+ extend-module Times {
+
+  define associative := (forall a b c . (a * b) * c = a * (b * c))
+
+  (!stopgap associative)
+
+ } # close module Times
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.5:
+#
+extend-module Z {
+ extend-module NN {
+  overload * N.*
+  define-sort NN := Z.NN
+  declare *': [NN NN] -> NN 
+  (set-precedence *' (get-precedence *))
+  module Times {
+   define [a1 a2 b1 b2] := [?a1:N ?a2:N ?b1:N ?b2:N]
+   assert definition :=
+     (forall a1 a2 b1 b2 . 
+              (nn a1 a2) *' (nn b1 b2) = 
+              (nn (a1 * b1 + a2 * b2)
+                  (a1 * b2 + a2 * b1)))
+  } # close module Times
+ } # close module NN
+
+ extend-module Z-NN {
+  overload * N.*
+  define *' := NN.*'
+
+define multiplicative-homomorphism :=
+   (forall a b . (Z->NN (a * b)) = (Z->NN a) *' (Z->NN b))
+
+let {f:(OP 1) := Z->NN; 
+     definition := NN.Times.definition}
+  (!stopgap multiplicative-homomorphism)
+
+ } # close module Z-NN
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.6:
+#
+extend-module Z {
+ extend-module NN {
+  extend-module Times {
+   define right-distributive :=
+     (forall ?a ?b ?c . (?a +' ?b) *' ?c = ?a *' ?c +' ?b *' ?c)
+
+   (!stopgap right-distributive)
+
+  } # close module Times
+ } # close module NN
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.7:
+#
+extend-module Z {
+extend-module Times {
+define [+' *'] := [NN.+' NN.*']
+
+define right-distributive :=
+   (forall a b c . (a + b) * c = a * c + b * c)
+
+(!stopgap right-distributive)
+
+define left-distributive :=
+   (forall a b c . c * (a + b) = c * a + c * b)
+
+(!stopgap left-distributive)
+
+} # close module Times
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define Integer-Ring :=
+    (renaming |{Semigroup.+ := Z.+, MSG.* := Z.*, Monoid.<0> := Z.zero,  
+                Group.U- := Z.negate, Group.- := Z.-}|)
+
+# Procedure Integer-Ring defined.
+# 
+(print-instance-check Integer-Ring Commutative-Ring.theory)
+
+# Checking
+#  (forall ?x:Z
+#   (forall ?y:Z
+#     (= (Z.* ?x ?y)
+#        (Z.* ?y ?x)))) 
+# 
+# Checking
+#  (forall ?x:Z
+#   (forall ?y:Z
+#     (forall ?z:Z
+#       (= (Z.* ?z
+#               (Z.+ ?x ?y))
+#          (Z.+ (Z.* ?z ?x)
+#               (Z.* ?z ?y)))))) 
+# ...
+# Checking
+#  (forall ?x:Z
+#   (forall ?y:Z
+#     (forall ?z:Z
+#       (= (Z.* (Z.* ?x ?y)
+#               ?z)
+#          (Z.* ?x
+#               (Z.* ?y ?z)))))) 
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.8:
+#
+extend-module Z {
+ extend-module Times {
+   define right-identity := (forall a . a * Z.one = a)
+   define left-identity :=  (forall a . Z.one * a = a)
+
+   (!stopgap right-identity)
+
+   (!stopgap left-identity)
+
+ } # close module Times
+} # close module Z
+
+define Integer-Ring-1 :=
+    (renaming |{Semigroup.+ := Z.+, MSG.* := Z.*, Monoid.<0> := Z.zero,  
+                Group.U- := Z.negate, Group.- := Z.-, MM.<1> := Z.one}|)
+
+(print-instance-check Integer-Ring-1 Commutative-Ring-With-Identity.theory)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Integral domain}
+#
+module No-Zero-Divisors {
+  define [* <0>] := [MSG.* Monoid.<0>]
+
+  define no-zero-divisors :=
+    (forall x y . x * y = <0> ==> x = <0> | y = <0>)
+
+  define theory := (make-theory [] [no-zero-divisors])
+} 
+
+module Ring-With-No-Zero-Divisors {
+  define theory := 
+    (make-theory ['Ring 'No-Zero-Divisors.theory] [])
+} 
+
+module Integral-Domain {
+  define theory := 
+    (make-theory ['Commutative-Ring-With-Identity 'No-Zero-Divisors] [])
+} 
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.9:
+#
+extend-module Z {
+extend-module Times {
+define no-zero-divisors :=
+   (forall a b . a * b = zero ==> a = zero | b = zero)
+
+(!stopgap no-zero-divisors)
+
+} # close module Times
+} # close module Z
+
+# Uncomment and complete the following:
+
+# define ZID := 
+#  (renaming 
+#    |{...}|)
+#
+# (print-instance-check ZID Integral-Domain.theory)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Algebraic theory diagram
+#
+#==========================================================================
+# SECTION: Permutations as a group
+#
+#==========================================================================
+# SUBSECTION: Function theory
+#
+module Function {
+  domain (Fun Domain Codomain)
+
+  declare at: (C, D) [(Fun D C) D] -> C 
+
+  declare identity: (D) [] -> (Fun D D)
+
+  declare o: (D, C, B) [(Fun C B) (Fun D C)] -> (Fun D B) 
+
+  set-precedence o (plus 10 (get-precedence at))
+
+  define [f g h x x' y] := [?f ?g ?h ?x ?x' ?y]
+
+  define identity-definition := (forall x . identity at x = x)
+
+  define compose-definition := (forall f g x . (f o g) at x = f at (g at x))
+    
+  define function-equality :=
+    (forall f g . f = g <==> forall x . f at x = g at x)
+
+  define theory := 
+    (make-theory [] 
+        [identity-definition compose-definition function-equality])
+
+  define associative := (forall f g h . (f o g) o h = f o (g o h))
+
+  define right-identity :=  (forall f . f o identity = f)
+
+  define left-identity :=   (forall f . identity o f = f)
+
+  define Monoid-theorems := [associative right-identity left-identity]
+
+  define proofs := 
+   method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [at identity o] := (adapt [at identity o]);
+         [cd id] := [compose-definition identity-definition]}
+      match theorem {
+       (val-of associative) =>
+         pick-any f g h 
+           let {all-x := pick-any x                 
+                          (!chain
+                             [((f o g) o h at x)
+                         --> ((f o g) at h at x)     [cd]
+                         --> (f at g at h at x)      [cd]
+                         <-- (f at (g o h) at x)     [cd]
+                         <-- ((f o (g o h)) at x)    [cd]])}
+            (!chain-> [all-x 
+                   ==> ((f o g) o h = f o (g o h))   [function-equality]])
+
+    | (val-of right-identity) => (!force (adapt theorem))
+    | (val-of left-identity) => (!force (adapt theorem))
+    }
+
+  (add-theorems theory |{Monoid-theorems := proofs}|)
+} # close module Function
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.10:
+#
+# Copy the above Function extension here and replace the uses of force.
+
+(test-all-proofs 'Function)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.11:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module Function {
+  declare surjective, injective, bijective: (D, C) [(Fun D C)] -> Boolean
+
+  define surjective-definition :=
+    (forall f . surjective f <==> forall y . exists x . f at x = y)
+
+  define injective-definition :=
+    (forall f . injective f <==> forall x y . f at x = f at y ==> x = y)
+
+  define bijective-definition :=
+    (forall f . bijective f <==> surjective f & injective f)
+
+  (add-axioms theory [surjective-definition injective-definition
+                           bijective-definition])
+
+define identity-surjective := (surjective identity)
+
+define identity-injective := (injective identity)
+
+define identity-bijective := (bijective identity)
+
+define compose-surjective-preserving :=
+  (forall f g . surjective f & surjective g ==> surjective f o g)
+
+define compose-injective-preserving :=
+  (forall f g . injective f & injective g ==> injective f o g)
+
+define compose-bijective-preserving :=
+  (forall f g . bijective f & bijective g ==> bijective f o g)
+
+define Inverse-theorems :=
+ [identity-surjective identity-injective identity-bijective
+  compose-surjective-preserving compose-injective-preserving 
+  compose-bijective-preserving]
+
+define proofs-1 := 
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [at identity o] := (adapt [at identity o]);
+         [cd id] := [compose-definition identity-definition]}
+    match theorem {
+      (val-of identity-surjective) => 
+        let {SDI := (!instance surjective-definition [identity]);                   
+             all-y := 
+              pick-any y 
+                 (!chain->
+                 [(identity at y) --> y          [id]
+              ==> (exists x . identity at x = y) [existence]])}
+        (!chain-> [all-y ==> 
+                   (surjective identity)         [SDI]])
+    | (val-of compose-surjective-preserving) =>
+      pick-any f g
+        assume (surjective f & surjective g) 
+          let {f-case := 
+                (!chain-> 
+                 [(surjective f)
+              ==> (forall y . 
+                    exists x . f at x = y)       [surjective-definition]]);
+               g-case := 
+                (!chain-> 
+                 [(surjective g)
+                ==> (forall y . 
+                    exists x . g at x = y)       [surjective-definition]]);
+               all-y :=
+                 pick-any y 
+                   let {f-case-y := 
+                          (!chain-> 
+                           [true 
+                        ==> (exists y' . 
+                               f at y' = y)      [f-case]])}
+                   pick-witness y' for f-case-y 
+                      let {g-case-y' := 
+                            (!chain-> 
+                             [true 
+                          ==> (exists x .  
+                                g at x = y')     [g-case]])}
+                        pick-witness x for g-case-y' 
+                        (!chain->
+                         [(f o g at x)
+                      --> (f at g at x)          [cd]
+                      --> (f at y')              [(g at x = y')]
+                      --> y                      [(f at y' = y)]
+                      ==> (exists x . 
+                            f o g at x = y)      [existence]])}
+
+          (!chain-> [all-y 
+                 ==> (surjective f o g)          [surjective-definition]])
+            
+    }
+
+  (add-theorems theory |{[identity-surjective 
+                          compose-surjective-preserving] := proofs-1}|)
+} # close module Function
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.12:
+#
+extend-module Function {
+ define proofs := 
+  method (theorem adapt) 
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [at identity o] := (adapt [at identity o]);
+        [cd id] := [compose-definition identity-definition]}
+    match theorem {
+      (val-of identity-injective) => 
+
+         (!stopgap (adapt theorem))
+
+    | (val-of identity-bijective) => 
+
+         (!stopgap (adapt theorem))
+
+    }
+
+ (add-theorems theory |{[identity-injective identity-bijective] := proofs}|)
+} # close module Function
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.13:
+#
+extend-module Function {
+ define proof := 
+  method (theorem adapt) 
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [at identity o] := (adapt [at identity o]);
+        [cd id] := [compose-definition identity-definition]}
+    match theorem {
+      (val-of compose-injective-preserving) =>
+
+         (!stopgap (adapt theorem))
+
+    }
+
+ (add-theorems theory |{compose-injective-preserving := proof}|)
+} # close module Function 
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.14:
+#
+extend-module Function {
+ define proof := 
+  method (theorem adapt) 
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [at identity o] := (adapt [at identity o]);
+        [cd id] := [compose-definition identity-definition]}
+    match theorem {
+      (val-of compose-bijective-preserving) =>
+
+         (!stopgap (adapt theorem))
+
+    }
+  (add-theorems theory |{compose-bijective-preserving := proof}|)
+} # close module Function 
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-all-proofs 'Function)
+
+#==========================================================================
+# SUBSECTION: Permutation theory
+#
+module Permutation {
+  open Function
+  domain (Perm D)
+
+  declare perm->fun: (D) [(Perm D)] -> (Fun D D)
+  declare fun->perm: (D) [(Fun D D)] -> (Perm D)
+  
+  set-precedence (perm->fun fun->perm) 350
+
+  define [p q r f x y] := [?p:(Perm 'D1) ?q:(Perm 'D2) ?r:(Perm 'D3) 
+                           ?f:(Fun 'D4 'D5) ?x ?y]
+
+  define is-bijective := (forall p . bijective perm->fun p)
+
+  define fun->fun := (forall p . fun->perm perm->fun p = p)
+
+  define perm->perm :=
+    (forall f . bijective f ==> perm->fun fun->perm f = f)
+
+  declare o: (D) [(Perm D) (Perm D)] -> (Perm D)
+  declare identity: (D) [] -> (Perm D)
+
+  define o' := Function.o
+  set-precedence o' (plus 10 (get-precedence perm->fun))
+
+  define identity' := Function.identity
+
+  define compose-definition :=
+    (forall p q . p o q = fun->perm (perm->fun p o' perm->fun q))
+
+  define identity-definition := (identity = fun->perm identity')
+
+  define theory :=
+    (make-theory ['Function] 
+                 [is-bijective fun->fun perm->perm
+                  compose-definition identity-definition])
+
+  define associative := (forall p q r . (p o q) o r = p o (q o r))
+  define right-identity := (forall p . p o identity = p)
+  define left-identity := (forall p . identity o p = p)
+
+  define Monoid-theorems := [associative right-identity left-identity]
+
+define [f->p p->f] := [fun->perm perm->fun]
+
+define proofs := 
+  method (theorem adapt) 
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+         [identity' o' at identity o fun->perm perm->fun] := 
+           (adapt [identity' o' at identity o fun->perm perm->fun]);
+         [id cd] := [identity-definition compose-definition]}
+    match theorem {
+      (val-of associative) => 
+         let {CA := (!prove Function.associative);
+              CBP := (!prove compose-bijective-preserving)}
+         pick-any p:(Perm 'S) q:(Perm 'S) r:(Perm 'S) 
+           let {_ := (!chain-> [true
+                            ==> (bijective perm->fun q) [is-bijective]]);
+                _ := (!chain-> 
+                      [true 
+                   ==> (bijective perm->fun p)          [is-bijective]
+                   ==> (bijective perm->fun p & 
+                        bijective perm->fun q)          [augment]
+                   ==> (bijective 
+                         (perm->fun p o' perm->fun q))  [CBP]]);
+                _ := (!chain-> 
+                      [true 
+                   ==> (bijective perm->fun r)          [is-bijective]
+                   ==> (bijective perm->fun q & 
+                        bijective perm->fun r)          [augment]
+                   ==> (bijective 
+                         (perm->fun q o' perm->fun r))  [CBP]])}
+           (!combine-equations                 
+            (!chain 
+             [((p o q) o r)
+          --> ((fun->perm (perm->fun p o' perm->fun q)) o r)    [cd]
+          --> (fun->perm 
+               ((perm->fun fun->perm 
+                 (perm->fun p o' perm->fun q)) o' perm->fun r)) [cd]
+          --> (fun->perm 
+                ((perm->fun p o' perm->fun q) o' perm->fun r))  [perm->perm]
+          --> (fun->perm 
+               (perm->fun p o' (perm->fun q o' perm->fun r)))   [CA]])
+            (!chain 
+             [(p o (q o r))
+          --> (p o (fun->perm (perm->fun q o' perm->fun r)))    [cd]
+          --> (fun->perm 
+               (perm->fun p o' 
+                (perm->fun 
+                  fun->perm 
+                   (perm->fun q o' perm->fun r))))              [cd]
+          --> (fun->perm 
+                (perm->fun p o' (perm->fun q o' perm->fun r)))  [perm->perm]
+                ]))
+    | (val-of right-identity) => (!force (adapt theorem))
+    | (val-of left-identity) =>  (!force (adapt theorem))
+    }
+
+  (add-theorems theory |{Monoid-theorems := proofs}|)
+} # close module Permutation
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.15:
+#
+extend-module Permutation {
+define proofs := 
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [identity' o' identity o fun->perm perm->fun] := 
+           (adapt [identity' o' identity o fun->perm perm->fun]);
+         [id cd] := [identity-definition compose-definition]}
+    match theorem {
+      (val-of right-identity) => 
+
+         (!stopgap (adapt theorem))
+
+    | (val-of left-identity) => 
+
+         (!stopgap (adapt theorem))
+
+    }
+  (add-theorems theory |{[right-identity left-identity] := proofs}|)
+} # close module Permutation
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-all-proofs 'Permutation)
+
+extend-module Permutation {
+  declare at: (D) [(Perm D) D] -> D
+
+  define at' := Function.at
+
+  define at-definition := (forall p x . p at x = (perm->fun p) at' x)
+
+  declare inverse: (D) [(Perm D)] -> (Perm D)
+
+  define inverse-definition :=
+    (forall p x y . p at x = y ==> (inverse p) at y = x)
+
+  declare div: (D) [(Perm D) (Perm D)] -> (Perm D)
+
+  define div-definition := (forall p q . p div q = p o inverse q)
+
+  (add-axioms theory [at-definition inverse-definition div-definition])
+
+  define consistent-inverse :=
+    (forall p x x' y . p at x = y & p at x' = y ==> x = x')
+
+  define right-inverse-lemma :=
+    (forall p . (perm->fun p) o' (perm->fun inverse p) = identity')
+
+  define right-inverse := (forall p . p o inverse p = identity)
+
+  define Inverse-theorems :=
+    [consistent-inverse right-inverse-lemma right-inverse]
+} 
+
+
+extend-module Permutation {
+define [bij-def inj-def] := [bijective-definition injective-definition]
+define at-def := at-definition
+
+  define proofs := 
+   method (theorem adapt) 
+     let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+          [at' identity' o' at identity o fun->perm perm->fun inverse] := 
+            (adapt [at' identity' o' at identity o fun->perm perm->fun 
+                    inverse]);
+          cd := compose-definition}
+       match theorem {
+         (val-of consistent-inverse) =>
+           pick-any p x x' y
+             let {inj := (!chain->
+                           [true 
+                        ==> (bijective perm->fun p)        [is-bijective]
+                        ==> (injective perm->fun p)        [bij-def]])}
+               assume (p at x = y & p at x' = y)
+                 let {p1 := (!chain->
+	 	              [(p at x) = y                [(p at x = y)]
+                                        = (p at x')        [(p at x' = y)]
+                           ==> ((perm->fun p) at' x = 
+                                (perm->fun p) at' x')      [at-def]]);
+                      p2 := (!chain-> 
+                              [inj 
+                           ==> (forall x x' . 
+                                 (perm->fun p) at' x =
+			 	 (perm->fun p) at' x'
+				    ==> x = x')            [inj-def]])}
+                   (!chain-> [p1 ==> (x = x')              [p2]])
+		  
+       | (val-of right-inverse-lemma) => (!force (adapt theorem))
+       | (val-of right-inverse) => (!force (adapt theorem))
+       }
+
+  (add-theorems theory |{Inverse-theorems := proofs}|)
+
+} # close module Permutation
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.16:
+#
+# Copy the above Permutation extension here and replace the uses of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+assert (theory-axioms Permutation.theory)
+
+define perm-theorem := 
+    method (p) (!prove-property p no-renaming Permutation.theory)
+
+(!perm-theorem Permutation.associative)
+(!perm-theorem Permutation.right-identity)
+(!perm-theorem Permutation.left-identity)
+(!perm-theorem Permutation.consistent-inverse)
+(!perm-theorem Permutation.right-inverse-lemma)
+(!perm-theorem Permutation.right-inverse)
+
+define perm-group :=
+   (renaming |{Group.+ := Permutation.o, Group.<0> := Permutation.identity,
+               Group.U- := Permutation.inverse, Group.- := Permutation.div}|)
+
+(print-instance-check perm-group Group.theory)
+
+# Checking
+# (forall ?x:(Permutation.Perm 'T127048)
+#   (= (Permutation.o ?x
+#                     (Permutation.inverse ?x))
+#      Permutation.identity))
+# 
+# Checking
+# (forall ?x:(Permutation.Perm 'T127069)
+#   (forall ?y:(Permutation.Perm 'T127069)
+#     (= (Permutation.div ?x
+#                         ?y)
+#        (Permutation.o ?x
+#                       (Permutation.inverse ?y)))))
+# 
+# Checking
+# (forall ?x:(Permutation.Perm 'T127086)
+#   (forall ?y:(Permutation.Perm 'T127086)
+#     (forall ?z:(Permutation.Perm 'T127086)
+#       (= (Permutation.o (Permutation.o ?x
+#                                        ?y)
+#                         ?z)
+#          (Permutation.o ?x
+#                         (Permutation.o ?y
+#                                        ?z))))))
+# 
+# Checking
+# (forall ?x:(Permutation.Perm 'T127048)
+#   (= (Permutation.o Permutation.identity
+#                     ?x)
+#      ?x))
+# 
+# Checking
+# (forall ?x:(Permutation.Perm 'T127048)
+#   (= (Permutation.o ?x
+#                     Permutation.identity)
+#      ?x))
+
+define perm-group-prop := method (p) 
+  (!prove-property p perm-group Group.theory)
+
+(!perm-group-prop Group.left-inverse)
+
+# Theorem: (forall ?x:(Permutation.Perm 'S)
+#            (= (Permutation.o (Permutation.inverse ?x)
+#                              ?x)
+#               Permutation.identity))
+# 
+(!perm-group-prop Group.double-negation)
+
+# Theorem: (forall ?x:(Permutation.Perm 'S)
+#            (= (Permutation.inverse (Permutation.inverse ?x))
+#               ?x))
+# 
+(!perm-group-prop Group.unique-negation)
+
+# Theorem: (forall ?x:(Permutation.Perm 'S)
+#            (forall ?y:(Permutation.Perm 'S)
+#              (if (= (Permutation.o ?x
+#                                    ?y)
+#                     Permutation.identity)
+#                  (= (Permutation.inverse ?x)
+#                     ?y))))
+# 
+(!perm-group-prop Group.neg-plus)
+
+# Theorem: (forall ?x:(Permutation.Perm 'S)
+#            (forall ?y:(Permutation.Perm 'S)
+#              (= (Permutation.inverse (Permutation.o ?x
+#                                                     ?y))
+#                 (Permutation.o (Permutation.inverse ?y)
+#                                (Permutation.inverse ?x)))))
+
+#==========================================================================
+# SECTION: Ordering properties at an abstract level
+#
+#==========================================================================
+# SUBSECTION: Binary-Relation
+#
+module Binary-Relation {
+  declare R, R': (T) [T T] -> Boolean 
+
+  define [x y z] := [?x ?y ?z]
+
+  define inverse-def := (forall x y . x R' y <==> y R x)
+
+  define theory := (make-theory [] [inverse-def])
+} 
+
+#==========================================================================
+# SUBSECTION: Irreflexive
+#
+module Irreflexive {
+  open Binary-Relation
+
+  define irreflexive := (forall x . ~ x R x)
+
+  define theory := (make-theory ['Binary-Relation] [irreflexive])
+    
+  define inverse := (forall x . ~ x R' x)
+
+  define proof :=
+    method (theorem adapt)
+      let {[_ _ _ chain-> _] := (proof-tools adapt theory);
+           [R R'] := (adapt [R R'])}
+        match theorem {
+          (val-of inverse) =>
+            pick-any x
+              (!chain-> [true ==> (~ x R x)   [irreflexive]
+                              ==> (~ x R' x)  [inverse-def]])
+        }
+
+  (add-theorems theory |{inverse := proof}|)
+} 
+
+(test-all-proofs 'Irreflexive)
+
+# Testing proof of:
+#  
+# (forall ?x:'T45954
+#   (not (Binary-Relation.R' ?x ?x)))
+#  ...
+# 
+# Proof worked.
+
+#==========================================================================
+# SUBSECTION: Transitive
+#
+module Transitive {
+  open Binary-Relation
+
+  define transitive := (forall x y z . x R y & y R z ==> x R z)
+
+  define theory := (make-theory ['Binary-Relation] [transitive])
+} 
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.17:
+#
+extend-module Transitive {
+  define inverse := (forall x y z . x R' y & y R' z ==> x R' z)
+
+  define proof :=
+    method (theorem adapt)
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [R R'] := (adapt [R R'])}
+      match theorem {
+        (val-of inverse) =>
+
+	   (!stopgap (adapt theorem))
+
+      }
+
+  (add-theorems theory |{inverse := proof}|)
+} 
+
+(test-all-proofs 'Transitive)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Strict partial order
+#
+module Strict-Partial-Order {
+  open Irreflexive, Transitive
+
+  define theory := (make-theory ['Irreflexive 'Transitive] [])
+}
+
+extend-module Strict-Partial-Order {
+  define asymmetric := (forall x y . x R y ==> ~ y R x)
+
+  define implies-not-equal := (forall x y . x R y ==> x =/= y)
+
+  define proofs := 
+    method (theorem adapt) 
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [R R'] := (adapt [R R'])}
+        match theorem {
+          (val-of asymmetric) =>
+            pick-any x y
+              assume (x R y) 
+                (!by-contradiction (~ y R x)
+                  assume (y R x)
+                    (!absurd
+                      (!chain-> [(y R x) 
+                             ==> (x R y & y R x)        [augment]
+                             ==> (x R x)                [transitive]])
+                      (!chain-> [true ==> (~ x R x)     [irreflexive]])))
+        | (val-of implies-not-equal) =>
+            pick-any x y
+              assume (x R y)
+                (!by-contradiction (x =/= y)
+                  assume (x = y) 
+                    let {xRx :=  (!chain-> [(x R y) 
+                                        ==> (x R x)     [(x = y)]]);
+                         -xRx := (!chain-> [true 
+                                        ==> (~ x R x)   [irreflexive]])}
+                      (!absurd xRx -xRx))
+      }
+    
+  (add-theorems theory |{[asymmetric implies-not-equal] := proofs}|)
+}
+
+assert (theory-axioms 'Strict-Partial-Order)
+
+define inverse-renaming := 
+  (renaming |{Binary-Relation.R := Binary-Relation.R'}|)
+
+(!prove-property Irreflexive.inverse no-renaming 'Irreflexive)
+
+# Theorem: (forall ?x:'S
+#            (not (Binary-Relation.R' ?x ?x)))
+# 
+(!prove-property Transitive.inverse no-renaming 'Transitive)
+
+# Theorem: (forall ?x:'S
+#            (forall ?y:'S
+#              (forall ?z:'S
+#                (if (and (Binary-Relation.R' ?x ?y)
+#                         (Binary-Relation.R' ?y ?z))
+#                    (Binary-Relation.R' ?x ?z)))))
+# 
+(!prove-property Strict-Partial-Order.asymmetric 
+                  inverse-renaming 'Strict-Partial-Order)
+
+# Theorem: (forall ?x:'S
+#            (forall ?y:'S
+#              (if (Binary-Relation.R' ?x ?y)
+#                  (not (Binary-Relation.R' ?y ?x)))))
+# 
+(!prove-property Strict-Partial-Order.implies-not-equal
+                   inverse-renaming 'Strict-Partial-Order)
+
+# Theorem: (forall ?x:'S
+#            (forall ?y:'S
+#              (if (Binary-Relation.R' ?x ?y)
+#                  (not (= ?x ?y)))))
+
+#==========================================================================
+# SUBSECTION: Nonstrict partial orders
+#
+module Reflexive {
+  open Binary-Relation
+
+  define reflexive := (forall x . x R x)
+
+  define theory := (make-theory ['Binary-Relation] [reflexive])
+
+  define inverse := (forall x . x R' x)
+
+  define proof := 
+    method (theorem adapt) 
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [R R'] := (adapt [R R'])}
+        match theorem {
+          (val-of inverse) =>
+            pick-any x
+              (!chain-> [true ==> (x R x)  [reflexive]
+                              ==> (x R' x) [inverse-def]])
+        }
+
+  (add-theorems theory |{inverse := proof}|)
+}
+
+module Preorder {
+
+  open Transitive, Reflexive
+
+  define theory := (make-theory ['Transitive 'Reflexive] [])
+}
+
+module Antisymmetric {
+  open Binary-Relation
+
+  define antisymmetric := (forall x y . x R y & y R x ==> x = y)
+
+  define theory := (make-theory ['Binary-Relation] [antisymmetric])
+}
+
+module Partial-Order {
+  open Preorder, Antisymmetric
+
+  define Theory := (make-theory ['Preorder 'Antisymmetric] [])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.18:
+#
+extend-module Antisymmetric {
+  define inverse := (forall x y . x R' y & y R' x ==> x = y)
+
+  define proof := 
+    method (theorem adapt) 
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [R R'] := (adapt [R R'])}
+        match theorem {
+          (val-of inverse) =>
+
+             (!stopgap (adapt theorem))
+
+        }
+
+  (add-theorems theory |{inverse := proof}|)
+}
+
+(test-all-proofs 'Antisymmetric)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+module SPO {
+  declare <, >: (T) [T T] -> Boolean
+
+  define sm := |{Binary-Relation.R := <, Binary-Relation.R' := >}|
+  define renaming := (renaming sm)
+
+  define theory := (adapt-theory 'Strict-Partial-Order sm)
+}
+
+assert (theory-axioms 'SPO)
+
+(!prove-property Irreflexive.inverse no-renaming 'SPO)
+
+# Theorem: (forall ?x:'S
+#            (not (SPO.> ?x ?x)))
+# 
+(!prove-property Transitive.inverse no-renaming 'SPO)
+
+# Theorem: (forall ?x:'S
+#            (forall ?y:'S
+#              (forall ?z:'S
+#                (if (and (SPO.> ?x ?y)
+#                         (SPO.> ?y ?z))
+#                    (SPO.> ?x ?z)))))
+
+module PO {
+
+  declare <=, >=: (T) [T T] -> Boolean
+  define sm := |{Binary-Relation.R := <=, Binary-Relation.R' := >=}|
+  define renaming := (renaming sm)
+
+  define theory := (adapt-theory 'Partial-Order sm)
+}
+
+module PO-from-SPO {
+
+ define [x y z] := [?x ?y ?z]
+
+ define [< <=] := [SPO.< PO.<=]
+
+ define <=-definition := (forall x y . x <= y <==> x < y | x = y)
+
+ (add-axioms 'SPO [<=-definition])
+
+ define implied-by-less := (forall x y . x < y ==> x <= y) 
+ define implied-by-equal := (forall x y . x = y ==> x <= y)   
+ define implies-not-reverse := (forall x y . x <= y ==> ~ y < x)
+ define PO-reflexive := (forall x . x <= x)
+ define PO-transitive := (forall x y z .  x <= y & y <= z ==> x <= z)
+ define PO-antisymmetric := (forall x y . x <= y & y <= x ==> x = y)
+
+ define theorems := [<=-definition implied-by-less implied-by-equal
+                      implies-not-reverse PO-reflexive
+                     PO-antisymmetric PO-transitive]
+
+ define proofs := 
+  method (theorem adapt) 
+    let {adapt := (o adapt SPO.renaming);
+         [_ prove chain chain-> _] := (proof-tools adapt SPO.theory);
+         [< <=] := (adapt [< <=]);
+         irreflexive := Strict-Partial-Order.irreflexive;
+         transitive  := Strict-Partial-Order.transitive;
+         asymmetric  := (!prove Strict-Partial-Order.asymmetric)}
+    match theorem {
+      (val-of implied-by-less) =>
+      pick-any x y
+        (!chain [(x < y) ==> (x < y | x = y)            [alternate]
+                           ==> (x <= y)                 [<=-definition]])
+    | (val-of implied-by-equal) =>
+      pick-any x y
+        (!chain [(x = y) ==> (x < y | x = y)            [alternate]
+                         ==> (x <= y)                   [<=-definition]])
+    | (val-of implies-not-reverse) =>
+        pick-any x y
+          assume x<=y := (x <= y) 
+            (!cases (!chain-> [x<=y ==> (x < y | x = y) [<=-definition]])
+              (!chain [(x < y) ==> (~ y < x)            [asymmetric]])
+              assume (x = y)
+                (!by-contradiction (~ y < x)
+                  assume (y < x) 
+                    let {y<y := (!chain-> [(y < x)
+ 		                       ==> (y < y)      [(x = y)]]);
+                         -y<y := (!chain-> [true
+			                ==> (~ y < y)   [irreflexive]])}
+                      (!absurd y<y -y<y)))
+    | (val-of PO-reflexive) =>
+        pick-any x 
+          let {IBE := (!prove implied-by-equal)}
+            (!chain-> [(x = x) ==> (x <= x)             [IBE]])
+    | (val-of PO-antisymmetric) => (!force (adapt theorem))
+    | (val-of PO-transitive) =>    (!force (adapt theorem))
+    }
+
+  (add-theorems SPO.theory |{theorems := proofs}|)
+}
+
+(test-proofs [PO-from-SPO.implied-by-less PO-from-SPO.implied-by-equal
+              PO-from-SPO.implies-not-reverse PO-from-SPO.PO-reflexive] 'SPO)
+
+extend-module PO-from-SPO {
+ define proofs := 
+  method (theorem adapt) 
+    let {adapt := (o adapt SPO.renaming);
+         [get prove chain chain-> chain<-] := (proof-tools adapt SPO.theory);
+         [< <=] := (adapt [< <=]);
+         irreflexive := Strict-Partial-Order.irreflexive;
+         transitive := Strict-Partial-Order.transitive;
+         asymmetric := (!prove Strict-Partial-Order.asymmetric)}
+    match theorem {
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.19
+#
+    | (val-of PO-antisymmetric) =>
+
+         (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.20:
+#
+    | (val-of PO-transitive) =>
+
+         (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+    }
+
+  (add-theorems SPO.theory |{[PO-antisymmetric PO-transitive] := proofs}|)
+}
+
+(test-proofs [PO-from-SPO.PO-antisymmetric PO-from-SPO.PO-transitive] 'SPO)
+
+#==========================================================================
+# SUBSECTION: Strict weak order
+#
+extend-module SPO {
+  declare E: (T) [T T] -> Boolean [100]
+
+  define E-definition := (forall x y . x E y <==> ~ x < y & ~ y < x)
+
+ (add-axioms 'SPO [E-definition])
+}
+
+module SWO {
+  open SPO
+
+  define E-transitive := (forall x y z . x E y & y E z ==> x E z)
+
+  define theory := (make-theory ['SPO] [E-transitive])
+
+  define E-reflexive := (forall x . x E x)
+  define E-symmetric := (forall x y . x E y ==> y E x)
+  define <-E-transitive-1 := (forall x y z . x < y & y E z ==> x < z)
+  define <-E-transitive-2 := (forall x y z . x < y & x E z ==> z < y)
+  define not-<-property := (forall x y . ~ x < y ==> y < x | y E x)
+  define <-transitive-not-1 := (forall x y z . x < y & ~ z < y ==> x < z)
+  define <-transitive-not-2 := (forall x y z . x < y & ~ x < z ==> z < y)
+  define <-transitive-not-3 := (forall x y z . ~ y < x & y < z ==> x < z)
+  define not-<-is-transitive := 
+    (forall x y z . ~ x < y & ~ y < z ==> ~ x < z)
+
+  define <-E-theorems :=
+    [E-reflexive E-symmetric <-E-transitive-1 <-E-transitive-2
+          not-<-property <-transitive-not-1 <-transitive-not-2
+          <-transitive-not-3 not-<-is-transitive]
+
+  define sm := (get-renaming 'SPO)
+  define irreflexive := (sm Strict-Partial-Order.irreflexive)
+  define transitive := (sm Strict-Partial-Order.transitive)
+  define asymmetric := (sm Strict-Partial-Order.asymmetric)
+
+  define <-E-proofs :=
+   method (theorem adapt) 
+     let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+          E := lambda (x y) (adapt (x E y));
+          < := lambda (x y) (adapt (x < y))}
+     match theorem {
+       (val-of E-reflexive) =>
+       pick-any x
+         (!chain-> [true 
+                ==> (~ x < x)               [irreflexive]
+                ==> (~ x < x & ~ x < x)     [augment]
+                ==> (x E x)                 [E-definition]])
+     | (val-of E-symmetric) =>
+        pick-any x y
+          assume (x E y)
+           (!chain-> [(x E y) 
+                  ==> (~ x < y & ~ y < x)   [E-definition]
+                  ==> (~ y < x & ~ x < y)   [comm]
+                  ==> (y E x)               [E-definition]])
+     | _ => (!force (adapt theorem))
+     }
+
+  (add-theorems theory |{<-E-theorems := <-E-proofs}|)
+} # close module SWO
+
+(test-proofs [SWO.E-reflexive SWO.E-symmetric] 'SWO)
+
+#==========================================================================
+# SUBSECTION: A preorder
+#
+extend-module SWO {
+  declare <E: (T) [T T] -> Boolean
+
+  define <E-definition := (forall x y . x <E y <==> ~ y < x)
+
+ (add-axioms theory [<E-definition])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.21:
+#
+extend-module SWO {
+  define <E-reflexive := (forall x . x <E x)
+  define <E-transitive := (forall x y z . x <E y & y <E z ==> x <E z)
+
+  define proofs :=
+    method (theorem adapt) 
+     let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           < := lambda (x y) (adapt (x < y));
+           <E := lambda (x y) (adapt (x <E y))}
+      match theorem {
+        (val-of <E-reflexive) => 
+
+	  (!stopgap (adapt theorem))
+
+      | (val-of <E-transitive) => 
+
+	  (!stopgap (adapt theorem))
+
+      }  
+
+  (add-theorems theory |{[<E-reflexive <E-transitive] := proofs}|)
+} # close module SWO
+
+(test-proofs [SWO.<E-reflexive SWO.<E-transitive] 'SWO)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Strict total order
+#
+module STO {
+  open SWO
+
+  define strict-trichotomy := (forall x y . ~ x < y & ~ y < x ==> x = y)
+
+  define theory := (make-theory ['SWO] [strict-trichotomy])
+
+  define E-iff-equal := (forall x y . x E y <==> x = y)
+} # close module STO
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.22:
+#
+extend-module STO {
+ define proof :=
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         E := lambda (x y) (adapt (x E y));
+         < := lambda (x y) (adapt (x < y))}
+     match theorem {
+       (val-of E-iff-equal) =>
+
+          (!stopgap (adapt theorem))
+
+     }
+
+ (add-theorems theory |{E-iff-equal := proof}|)
+} # close module STO
+
+(test-proofs [STO.E-iff-equal] 'STO)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Lists over a strict weak order
+#
+extend-module SWO {
+  declare <EL: (S) [S (List S)] -> Boolean
+
+  module <EL {
+
+   define [L M] := [?L:(List 'S) ?M:(List 'S)]
+   define [++ in] := [List.++ List.in]
+
+   define def := (close [(x <EL nil)           
+                         (x <EL y::L <==> x <E y)])
+
+   define [empty nonempty] := def         
+
+   (add-axioms theory def)
+
+   define left-transitive := (forall L x y . x <E y & y <EL L ==> x <EL L)
+
+   define before-all-implies-before-first :=
+    (forall L x . (forall y . y in L ==> x <E y) ==> x <EL L)
+
+   define append := (forall L M x . x <EL L & x <EL M ==> x <EL L ++ M)
+
+   define append-2 := (forall L M x . x <EL L ++ M ==> x <EL L)
+
+   define theorems := [left-transitive before-all-implies-before-first
+                      append append-2]
+   define proofs :=
+    method (theorem adapt) 
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [< <E <EL] := (adapt [< <E <EL])}
+      match theorem {
+        (val-of left-transitive) =>
+          datatype-cases theorem {
+            nil =>
+              pick-any x y
+                assume (x <E y & y <EL nil)
+                  (!chain-> [true ==> (x <EL nil)     [empty]])
+          | (z :: M) => 
+              let {ET := (!prove <E-transitive)}
+              pick-any x y
+                assume (x <E y & y <EL z::M)
+                  conclude (x <EL z::M)
+                    (!chain-> [(x <E y & y <EL z::M)
+                           ==> (x <E y & y <E z)      [nonempty]
+                           ==> (x <E z)               [ET]
+                           ==> (x <EL z::M)           [nonempty]])
+          }
+      | _ => (!force (adapt theorem))
+      }
+
+   (add-theorems theory |{theorems := proofs}|)
+ } # close module <EL
+} # close module SWO
+
+(test-proofs [SWO.<EL.left-transitive] 'SWO)
+
+extend-module SWO {
+ extend-module <EL {
+  define proofs :=
+    method (theorem adapt) 
+      let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+           [< <E <EL] := (adapt [< <E <EL])}
+      match theorem {
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.23:
+#
+      | (val-of before-all-implies-before-first) =>
+         
+          (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.24:
+#
+    | (val-of append) =>
+
+          (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.25:
+#
+      | (val-of append-2) =>
+
+           (!stopgap (adapt theorem))
+
+    }
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+    (add-theorems theory |{[SWO.<EL.before-all-implies-before-first SWO.<EL.append
+                            SWO.<EL.append-2] := proofs}|)
+  } # close module <EL
+} # close module SWO
+
+(test-proofs [SWO.<EL.before-all-implies-before-first SWO.<EL.append
+              SWO.<EL.append-2] 'SWO)
+
+extend-module SWO {
+
+ declare ordered: (S) [(List S)] -> Boolean
+
+ module ordered {
+   open <EL 
+
+   define def := (close [(ordered nil)
+                         (ordered x::L <==> x <EL L & ordered L)])
+
+   define [empty nonempty] := def 
+
+   (add-axioms theory def)
+
+   define head := (forall L x . ordered x::L ==> x <EL L)
+   define tail := (forall L x . ordered x::L ==> ordered L)
+
+   define proofs :=
+     method (theorem adapt) 
+       let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+            [< ordered <EL] := (adapt [< ordered <EL])}
+        match theorem {
+          (val-of head) =>
+          pick-any L x
+            (!chain [(ordered x::L)
+                 ==> (x <EL L & ordered L)   [nonempty]
+                 ==> (x <EL L)               [left-and]])
+        | (val-of tail) =>
+          pick-any L x
+            (!chain [(ordered x::L)
+                 ==> (x <EL L & ordered L)   [nonempty]
+                 ==> (ordered L)             [right-and]])
+        }
+   
+   (add-theorems theory |{[head tail] := proofs}|)
+
+   define first-to-rest-relation :=
+     (forall L x y . ordered x::L & y in L ==> x <E y)
+
+   define cons := (forall L x . ordered L & 
+                                (forall y . y in L ==> x <E y)
+                                ==> ordered x::L)
+   define append :=
+     (forall L M . ordered L & 
+                   ordered M & 
+                   (forall x y . x in L & y in M ==> x <E y)
+                   ==> ordered L ++ M)
+
+   define append-2 :=
+     (forall L M . ordered L ++ M ==> ordered L & ordered M)
+
+   define theorems := [first-to-rest-relation cons append append-2]
+
+   define ftr-proof :=
+    method (theorem adapt) 
+      let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+           [ordered <EL] := (adapt [ordered <EL])}
+        match theorem {
+          (val-of first-to-rest-relation) =>
+            by-induction (adapt theorem) {
+              nil => pick-any x y
+                       assume (ordered x::nil & y in nil)
+                         (!from-complements 
+                           (x <E y) 
+                           (y in nil)
+                           (!chain-> [true 
+                                  ==> (~ y in nil)     [List.in.empty]]))
+         | (L as (z :: M)) => 
+             let {IH := (forall x y . ordered x::M &
+                                      y in M ==> x <E y);
+                  transitive := (!prove <EL.left-transitive)}
+             pick-any x y
+               assume (ordered x::L & y in z::M)
+                  let {p := (x <E z & z <EL M & ordered M);
+                       _ := (!chain-> [(ordered x::z::M)
+                                   ==> (x <EL z::M & 
+                                        ordered z::M) [nonempty]
+                                   ==> (x <EL z::M & 
+                                        z <EL M & 
+                                        ordered M)    [nonempty]
+                                   ==> p              [<EL.nonempty]]);
+                       _ := (!chain-> [p
+                                   ==> (ordered M)    [prop-taut]]);
+                       _ := (!chain-> 
+                              [p 
+                           ==> (x <E z & z <EL M)     [prop-taut]
+                           ==> (x <EL M)              [transitive]
+                           ==> (x <EL M & 
+                                ordered M)            [augment]
+                           ==> (ordered x::M)         [nonempty]])}
+                    (!cases (!chain-> 
+                               [(y in L)
+                            ==> (y = z | y in M)      [List.in.nonempty]])
+                      assume (y = z)
+                        (!chain-> [p ==> (x <E z)     [left-and]
+                                     ==> (x <E y)     [(y = z)]])
+                        (!chain [(y in M)
+                             ==> (ordered x::M & 
+                                  y in M)             [augment]
+                             ==> (x <E y)             [IH]]))
+            }
+        }
+
+   (add-theorems theory |{first-to-rest-relation := ftr-proof}|)
+} # close module ordered
+} # close module SWO
+
+(test-proofs [SWO.ordered.head SWO.ordered.tail SWO.ordered.first-to-rest-relation] 'SWO)
+
+#==========================================================================
+# SUBSECTION: Relational theory diagram
+#
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 14.26:
+#
+module SPO-from-PO {
+ define [x y z] := [?x ?y ?z]
+
+ define [< <=] := [SPO.< PO.<=]
+
+ define <-definition := (forall x y . x < y <==> x <= y & x =/= y)
+
+ (add-axioms 'PO [<-definition])
+
+ define SPO-irreflexive := (forall x . ~ x < x)
+ define SPO-transitive := (forall x y z . x < y & y < z ==> x < z)
+
+ define proofs := 
+  method (theorem adapt)
+    let {adapt := (o adapt PO.renaming);
+         [get prove chain chain-> chain<-] := (proof-tools adapt PO.theory);
+         [< <=] := (adapt [< <=]);
+         transitive := Partial-Order.transitive;
+         antisymmetric := Partial-Order.antisymmetric}
+     match theorem {
+       (val-of SPO-irreflexive) =>
+
+         (!stopgap (adapt theorem))
+
+     | (val-of SPO-transitive) =>
+
+         (!stopgap (adapt theorem))
+
+      }
+
+ (add-theorems PO.theory |{[SPO-irreflexive SPO-transitive] := proofs}|)
+}
+
+(test-proofs [SPO-from-PO.SPO-irreflexive SPO-from-PO.SPO-transitive] 'PO)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.27:
+#
+extend-module SWO {
+  define <-E-proofs :=
+   method (theorem adapt) 
+     let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+          E-Definition := (get E-definition);                
+          E := lambda (x y) (adapt (x E y));
+          < := lambda (x y) (adapt (x < y))}
+     match theorem {
+
+# (a)     
+       (val-of <-E-transitive-1) =>
+
+         (!stopgap (adapt theorem))
+
+# (b)
+     | (val-of <-E-transitive-2) =>
+
+         (!stopgap (adapt theorem))
+
+# (c)
+     | (val-of not-<-property) =>
+
+         (!stopgap (adapt theorem))
+
+# (d)
+     | (val-of <-transitive-not-1) =>
+
+         (!stopgap (adapt theorem))
+
+# (e)
+     | (val-of <-transitive-not-2) =>
+
+         (!stopgap (adapt theorem))
+
+# (f)
+     | (val-of <-transitive-not-3) => 
+
+         (!stopgap (adapt theorem))
+
+# (g)
+     | (val-of not-<-is-transitive) =>
+
+         (!stopgap (adapt theorem))
+
+    }
+
+  (add-theorems theory |{[<-E-transitive-1 <-E-transitive-2 
+                          not-<-property <-transitive-not-1 
+                          <-transitive-not-2 <-transitive-not-3 
+                          not-<-is-transitive] := <-E-proofs}|)
+} # close module SWO
+
+(test-proofs [SWO.<-E-transitive-1 SWO.<-E-transitive-2 
+              SWO.not-<-property SWO.<-transitive-not-1 
+              SWO.<-transitive-not-2 SWO.<-transitive-not-3 
+              SWO.not-<-is-transitive] 'SWO)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 14.28:
+#
+extend-module SWO {
+  extend-module ordered {
+   define proofs :=
+     method (theorem adapt) 
+       let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+            [ordered <EL] := (adapt [ordered <EL])}
+       match theorem {
+
+# (a)
+      (val-of cons) =>
+
+         (!stopgap (adapt theorem))
+
+# (b)
+    | (val-of append-2) =>
+
+         (!stopgap (adapt theorem))
+
+# (c)
+    | (val-of append) =>
+
+         (!stopgap (adapt theorem))
+
+    }
+
+    (add-theorems theory |{[cons append-2 append] := proofs}|)
+  } # close module ordered
+} # close module SWO
+
+(test-proofs [SWO.ordered.cons SWO.ordered.append-2 SWO.ordered.append] 'SWO)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+
+

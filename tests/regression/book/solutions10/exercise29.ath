@@ -1,0 +1,53 @@
+by-induction (forall m1 m2 k . 
+                k in dom m1 ==> (m2 ** m1) at k = m1 at k) {
+  (m1 as empty-map:(Map 'S 'T)) => 
+    pick-any m2:(Map 'S 'T) k:'S
+       (!chain [(k in dom m1) 
+            ==> (k in null)    [dom-def]
+            ==> false          [Set.NC] 
+            ==> ((m2 ** m1) at k = m1 at k) [prop-taut]])
+| (m1 as (update (pair key val) rest)) => 
+    let {IH := (forall m2 k . 
+                 k in dom rest ==> (m2 ** rest) at k = rest at k)}
+      pick-any m2 k 
+        assume hyp := (k in dom m1)
+          (!cases (!chain-> [hyp
+                        ==> (k in key ++ dom rest)       [dom-def]
+                        ==> (k = key | k in dom rest)    [Set.in-def]
+                        ==> (k = key | k =/= key & k in dom rest)  
+                                                         [prop-taut]])
+             assume (k = key)
+	       (!chain [((m2 ** m1) at k)
+                      = ([key val] ++ (m2 ** rest) at k)   [override-def]
+                      = (SOME val)                         [apply-def (k = key)]
+                      = (m1 at k)                          [apply-def (k = key)]])
+             assume (k =/= key & k in dom rest)
+                 (!chain 
+                  [((m2 ** m1) at k)
+                 = (([key val] ++ (m2 ** rest)) at k)    [override-def]
+                 = ((m2 ** rest) at k)                   [apply-def]
+                 = (rest at k)                           [IH]
+                 = (m1 at k)                             [apply-def]]))
+}
+
+by-induction (forall m1 m2 . dom m2 ** m1 = (dom m2) \/ (dom m1)) {
+  (m1 as empty-map:(Map 'K 'V)) => 
+    pick-any m2:(Map 'K 'V)
+      (!chain [(dom m2 ** m1)
+             = (dom m2)                        [override-def]
+             = (null \/ dom m2)                [Set.union-def]
+             = ((dom m2) \/ null)              [Set.union-commutes]
+             = ((dom m2) \/ (dom m1))          [dom-def]])
+ | (m1 as (update (pair k:'K v:'V) rest)) =>
+    let {IH := (forall m2 . dom m2 ** rest = (dom m2) \/ (dom rest))}
+    pick-any m2:(Map 'K 'V)
+      (!chain [(dom m2 ** m1)   
+             = (dom [k v] ++ (m2 ** rest))     [override-def]
+             = (k ++ dom (m2 ** rest))         [dom-def]
+             = (k ++ ((dom m2) \/ (dom rest))) [IH]
+             = ((dom m2) \/ k ++ dom rest)     [Set.union-lemma-2]
+             = ((dom m2) \/ dom m1)            [dom-def]])
+}
+
+#(falsify (forall m1 m2 . range m2 ** m1 = (range m2) \/ (range m1)) 10)
+

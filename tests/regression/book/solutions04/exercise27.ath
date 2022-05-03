@@ -1,0 +1,22 @@
+#========================== Solution to exercise 4.27 =========================
+
+  define (export premise) := 
+    match premise {
+      ((p1 & p2) ==> p3) =>
+        assume p1
+          assume p2
+            (!mp premise (!both p1 p2))
+    }
+
+  define (export* premise) := 
+    match premise {
+      ((p1 & p2) ==> p3) =>
+        let {q := conclude (p1 ==> (p2 ==> p3))
+                    (!export premise)}
+          (!export* q)
+    | _ => (!claim premise)
+    }  
+
+  assume h := (((A & B) & C) ==> D)
+    (!export* h)
+

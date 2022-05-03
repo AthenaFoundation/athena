@@ -1,0 +1,49 @@
+define (assoc-dir-2 premise) := 
+  match premise {
+    (provable 
+      (bind j (yields (pair (bind right 
+                                  (sequence (sequence c1 c2) 
+                                            c3)) 
+                            s1)
+                      s2))) =>
+
+    let {left := (c1 ^ (c2 ^ c3));
+         goal := (provable [left s1] -->> s2)}
+      conclude goal
+        pick-witness p
+                     for (!chain<-
+                           [(exists p . p |- j)
+                        <== premise                     [provable-def]])
+                     proof-property
+          let {seq-hc := seq-horn-clause;
+               L1 :=
+                 (!chain-> 
+                   [proof-property 
+                ==> (exists p1 p2 s' . 
+                       p = (seq-rule p1 p2) &
+                       p1 |- [(c1 ^ c2) s1] -->> s' &
+                       p2 |- [c3 s'] -->> s2)           [seq-excl]])}
+           pick-witnesses p1 p2 s' for L1 
+             let {L2 :=
+                    (!chain-> 
+                      [(p1 |- [(c1 ^ c2) s1] -->> s')
+                   ==> (exists p3 p4 s'' . 
+                         p1 = (seq-rule p3 p4) &
+                         p3 |- [c1 s1] -->> s'' &
+                         p4 |- [c2 s''] -->> s')        [seq-excl]])}
+               pick-witnesses p3 p4 s'' for L2
+                 (!chain-> 
+                    [(p4 |- [c2 s''] -->> s')
+                 ==> (p4 |- [c2 s''] -->> s' & 
+                      p2 |- [c3 s'] -->> s2)            [augment]
+                 ==> ((seq-rule p4 p2) |-                  
+                      [(c2 ^ c3) s''] -->> s2)          [seq-hc]
+                 ==> (p3 |- [c1 s1] -->> s'' &                              
+                      (seq-rule p4 p2) |-                  
+                       [(c2 ^ c3) s''] -->> s2)         [augment]
+                 ==> ((seq-rule p3 (seq-rule p4 p2)) |-    
+                        [left s1] -->> s2)              [seq-hc]
+                 ==> (exists proof . proof |-               
+                       [left s1] -->> s2)               [existence]
+                 ==> goal                               [provable-def]])
+  }

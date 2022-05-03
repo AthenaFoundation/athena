@@ -1,0 +1,788 @@
+#==========================================================================
+# SECTION: Quotient and remainder
+#
+define stopgap := force
+
+load "nat-minus"
+load "strong-induction"
+load "list-of"
+
+extend-module N {
+
+  declare /, %: [N N] -> N [300 [int->nat int->nat]]
+
+  module Div {
+    assert* def :=  [(x < y ==> x / y = zero)
+                     (~ x < y & zero < y ==> x / y = S ((x - y) / y))]
+
+    define [basis reduction] := def   
+  } 
+
+  module Mod {
+    assert* def := [(x < y ==> x % y = x)
+                    (~ x < y & zero < y ==> x % y = (x - y) % y)]
+
+    define [basis reduction] := def
+  }
+
+  transform-output eval [nat->int]
+
+(eval S S S zero / S S S S S zero)
+
+# Term: 0
+
+(eval 3 / 5)
+
+# Term: 0 
+
+(eval 2 / 2)
+
+# Term: 1 
+# 
+(eval 50 / 2)
+
+# Term: 25 
+# 
+(eval 6 / 2)
+
+# Term: 3
+# 
+(eval 10 % 3)
+
+# Term: 1
+
+(eval 2 / 0)
+
+# Unable to reduce the term:
+#  
+# (N./ (S (S zero))
+#      zero)
+#  
+# to a normal form.
+
+(eval 1 % 0)
+
+# Unable to reduce the term:
+#  
+# (N.% (S zero)
+#      zero)
+#  
+# to a normal form.
+
+#==========================================================================
+# SECTION: The division algorithm
+#
+define division-algorithm :=
+ (forall x y . zero < y ==> (x / y) * y + x % y = x & x % y < y)
+
+conclude goal := division-algorithm
+ (!strong-induction.principle goal
+   method (x)
+    assume ind-hyp := (strong-induction.hypothesis goal x)
+      conclude (strong-induction.conclusion goal x)
+       pick-any y
+         assume (zero < y)
+           conclude goal' := ((x / y) * y + x % y = x & x % y < y)
+             (!force goal'))
+
+(forall y . zero < y ==> (x / y) * y + x % y = x & x % y < y)
+
+(forall x' . 
+  x' < x ==> 
+   forall y . zero < y ==> (x' / y) * y + x' % y = x' & x' % y < y)
+
+conclude goal := division-algorithm
+ (!strong-induction.principle goal
+   method (x)
+    assume ind-hyp := (strong-induction.hypothesis goal x)
+     conclude (strong-induction.conclusion goal x)
+      pick-any y
+       assume (zero < y)
+        conclude C := ((x / y) * y + x % y = x & x % y < y)
+         (!two-cases
+          assume (x < y)
+           let {C1 := (!chain-> [(x < y) 
+                             ==> (x / y = zero)      [Div.basis]]);
+                C2 := (!chain-> [(x < y) 
+                             ==> (x % y = x)         [Mod.basis]]);
+                C3 := (!chain [((x / y) * y + x % y) 
+                             = (zero * y + x)        [C1 C2]
+                             = x                     [Times.left-zero 
+                                                      Plus.left-zero]]);
+                C4 := (!chain-> [(x < y) 
+                             ==> (x % y < y)         [C2]])}
+             (!both C3 C4)
+          assume (~ x < y)
+           (!force C)))
+
+# The complete proof:
+conclude goal := division-algorithm
+ (!strong-induction.principle goal
+   method (x)
+    assume ind-hyp := (strong-induction.hypothesis goal x)
+     conclude (strong-induction.conclusion goal x)
+      pick-any y
+       assume (zero < y)
+        conclude C := ((x / y) * y + x % y = x & x % y < y)
+         (!two-cases
+           assume (x < y)
+           let {x/y=0 := (!chain-> [(x < y) 
+                                ==> (x / y = zero)      [Div.basis]]);
+                x%y=x := (!chain-> [(x < y) 
+                                ==> (x % y = x)         [Mod.basis]])}
+             (!both 				
+                (!chain [((x / y) * y + x % y) 
+                       = (zero * y + x)        [x/y=0 x%y=x]
+                       = x                     [Times.left-zero 
+                                                Plus.left-zero]])
+                (!chain-> [(x < y) 
+                      ==> (x % y < y)         [x%y=x]]))
+          assume (~ x < y)
+ let {p1 := (!chain-> [(~ x < y & zero < y) 
+                   ==> (x / y = S ((x - y) / y))    [Div.reduction]]);
+      p2 := (!chain-> [(~ x < y & zero < y) 
+                   ==> (x % y = (x - y) % y)        [Mod.reduction]]);                                                   
+      p3 := (!chain-> [(~ x < y) ==> (y <= x)       [Less=.trichotomy2]]);
+      p4 := (!chain-> [(zero < y & y <= x)   
+                   ==> (x - y < x)                  [Minus.<-left]
+                   ==> (forall z . zero < z ==>
+                         (((x - y) / z) * z + (x - y) % z 
+                        = x - y & (x - y) % z < z)) [ind-hyp]]);
+      (and p5a p5b) := (!chain->
+                        [(zero < y)
+                     ==> (((x - y) / y) * y + (x - y) % y = x - y
+                          & (x - y) % y < y)         [p4]]);
+        p6 := (!chain [((x / y) * y + x % y)
+                     = ((S ((x - y) / y)) * y 
+                               + (x - y) % y)    [p1 p2]
+                     = ((y + ((x - y) / y) * y) 
+                             + (x - y) % y)      [Times.left-nonzero]                                                 
+                     = (y + (((x - y) / y) * y 
+                             + (x - y) % y))     [Plus.associative]
+                     = (y + (x - y))             [p5a]
+                     = ((x - y) + y)             [Plus.commutative]
+                     = x                         [p3 Minus.Plus-Cancel]])}
+ (!chain-> [p5b ==> (x % y < y)                  [p2]
+                ==> (p6 & (x % y < y))           [augment]])))
+
+define division-algorithm-corollary1 :=
+   (forall x y . zero < y ==> (x / y) * y + x % y = x)
+
+define division-algorithm-corollary2 := (forall x y . zero < y ==> x % y < y)
+
+define [DAC-1 DAC-2] := [division-algorithm-corollary1 
+                         division-algorithm-corollary2]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.1:
+#
+
+(!stopgap division-algorithm-corollary1)
+
+(!stopgap division-algorithm-corollary2)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Divisibility
+#
+declare divides: [N N] -> Boolean  [300 [int->nat int->nat]]
+
+module divides {
+
+  assert* def := 
+      [(y = zero ==> y divides x <==> x = zero)
+       (zero < y ==> y divides x <==> x % y = zero)]
+
+  define [left-zero left-positive] := def 
+
+  define characterization := 
+    (forall x y . y divides x <==> exists z . y * z = x)
+} # close module divides
+
+(eval 3 divides 6)
+
+# Symbol: true
+# 
+(eval 3 divides 7)
+
+# Symbol: false
+# 
+(eval 3 divides 8)
+
+# Symbol: false
+# 
+(eval 3 divides 9)
+
+# Symbol: true
+# 
+(eval 0 divides 3)
+
+# Symbol: false
+# 
+(eval 0 divides 0)
+
+# Symbol: true
+
+#==========================================================================
+# SUBSECTION: A cancellation lemma
+#
+extend-module Div {
+  define cancellation :=  (forall x y . zero < y ==> (x * y) / y = x)
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.2:
+#
+extend-module Div {
+
+(!stopgap cancellation)
+
+} # close module Div
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Proof of the characterization theorem
+#
+extend-module divides {
+
+conclude characterization
+  pick-any x y
+   (!two-cases
+     assume (zero < y)
+       (!equiv
+         (!force (y divides x ==> exists z . y * z = x))
+         (!force ((exists z . y * z = x) ==> y divides x)))
+    assume (~ zero < y)
+      (!equiv
+        (!force (y divides x ==> exists z . y * z = x))
+        (!force ((exists z . y * z = x) ==> y divides x))))
+}
+
+extend-module divides {
+conclude characterization
+  pick-any x y
+   (!two-cases
+     assume (zero < y)
+       (!equiv
+         (!force (y divides x ==> exists z . y * z = x))
+
+assume h := (exists z . y * z = x)
+  pick-witness z for h y*z=x
+    (!by-contradiction (y divides x)
+      assume -y|x := (~ y divides x)
+        let {p := (!chain-> [(zero < y) 
+                         ==> (y divides x <==> x % y = zero) 
+                                             [left-positive]])}
+         (!absurd
+           (!chain->
+             [-y|x  
+          ==> (x % y =/= zero)       [p]
+          ==> (zero < x % y)         [Less.zero<]
+          ==> (zero + (x / y) * y < 
+               x % y + (x / y) * y)  [Less.Plus-k]
+          ==> ((x / y) * y < 
+               (x / y) * y + x % y)  [Plus.left-zero 
+                                      Plus.commutative]
+          ==> ((x / y) * y < x)      [division-algorithm-corollary1]
+          ==> (y * (x / y) < y * z)  [y*z=x Times.commutative]
+          ==> (x / y < z)            [Times.<-cancellation]
+          ==> ((y * z) / y < z)      [y*z=x]
+          ==> (z < z)                [Times.commutative 
+                                      Div.cancellation]])
+           (!chain->
+             [true ==> (~ z < z)     [Less.irreflexive]])))
+
+
+         ) # close equiv
+    assume (~ zero < y)
+      (!equiv
+        (!force (y divides x ==> exists z . y * z = x))
+        (!force ((exists z . y * z = x) ==> y divides x))))
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.3:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.4:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Additional properties of divisibility
+#
+extend-module divides {
+
+conclude right-zero := (forall x . x divides zero)
+  pick-any x
+    (!chain-> [true 
+           ==> (x * zero = zero)           [Times.right-zero]
+           ==> (exists y . x * y = zero)   [existence]
+           ==> (x divides zero)            [characterization]])
+
+conclude reflexive := (forall x . x divides x)
+  pick-any x
+    (!chain-> [true ==> (x * one = x)             [Times.right-one]
+                    ==> (exists y . x * y = x)    [existence]
+                    ==> (x divides x)             [characterization]])
+
+define elim :=
+  method (x y)
+    let {v := (fresh-var (sort-of x))}
+      (!chain-> 
+       [(x divides y) ==> (exists v . x * v = y) [characterization]])
+
+define antisymmetric := 
+  (forall x y . x divides y & y divides x ==> x = y)
+
+conclude antisymmetric 
+  pick-any x y
+    assume (x divides y & y divides x)
+      pick-witness u for (!elim x y) x*u=y
+        pick-witness v for (!elim y x) y*v=x
+        (!two-cases
+          assume x=zero := (x = zero)
+            (!chain-> [x*u=y 
+                   ==> (zero * u = y)       [x=zero]
+                   ==> (zero = y)           [Times.left-zero]
+                   ==> (x = y)              [x=zero]])
+          assume x!=zero := (x =/= zero)
+            let {0<x := (!chain-> 
+                          [x!=zero 
+                       ==> (zero < x)        [Less.zero<]]);
+                 u=1 := (!chain->
+                          [x = (y * v)       [y*v=x]
+                             = ((x * u) * v) [x*u=y]
+                             = (x * (u * v)) [Times.associative]
+                       ==> (x * (u * v) = x) [sym]
+                       ==> (u * v = one)     [p1 Times.identity-lemma1]
+                       ==> (u = one)         [Times.identity-lemma2]])}
+              (!chain [x = (x * one)         [Times.right-one]
+                         = (x * u)           [u=1]
+                         = y                 [x*u=y]]))
+
+define transitive := 
+  (forall x y z . x divides y & y divides z ==> x divides z)
+
+conclude transitive
+  pick-any x y z
+    assume (x divides y & y divides z)
+      pick-witness u for (!elim x y) x*u=y
+        pick-witness v for (!elim y z) y*v=z
+          (!chain->
+            [(x * (u * v)) = ((x * u) * v)   [Times.associative]
+                           = (y * v)         [x*u=y]
+                           = z               [y*v=z]
+        ==> (exists w . x * w = z)           [existence]
+        ==> (x divides z)                    [characterization]])
+
+define product-lemma :=
+   (forall x y z . x divides y | x divides z ==> x divides y * z)
+
+define sum :=
+  (forall x y z . x divides y & x divides z  <==> 
+                  x divides y & x divides (y + z))
+
+define sum-lemma1 :=
+  (forall x y z . x divides y & x divides z ==> x divides (y + z))             
+
+define sum-lemma2 :=
+  (forall x y z . x divides y & x divides (y + z) ==> x divides z)
+
+define sum-lemma1' :=
+ (forall x y z . x divides (y + z) ==> x divides y & x divides z)
+
+#(falsify sum-lemma1' 50)
+
+# List: ['success |{?x:N := (S (S zero)), ?y:N := (S zero), ?z:N := (S zero)}|]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.5:
+#
+
+(!stopgap sum-lemma1)
+
+(!stopgap sum-lemma2)
+
+(!stopgap sum)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define product-left-lemma :=                                            
+  (forall x y z . x divides y ==> x divides y * z)
+
+conclude product-left-lemma 
+  pick-any x y z
+    assume (x divides y)
+      pick-witness u for (!elim x y) x*u=y
+        (!chain->
+          [(y * z) = ((x * u) * z)     [x*u=y]
+                   = (x * (u * z))     [Times.associative] 
+      ==> (x * (u * z) = y * z)        [sym]
+      ==> (exists w . x * w = y * z)   [existence]
+      ==> (x divides y * z)            [characterization]])
+
+conclude product-lemma
+  pick-any x y z
+    assume hyp := (x divides y | x divides z)
+      conclude goal := (x divides y * z)
+        (!cases hyp
+           (!chain
+	      [(x divides y) ==> goal             [product-left-lemma]])
+           (!chain
+	     [(x divides z) ==> (x divides z * y) [product-left-lemma]
+                            ==> goal              [Times.commutative]]))
+
+define first-lemma :=
+ (forall x y z . zero < y & z divides y & z divides x % y ==> z divides x)
+
+conclude first-lemma
+  pick-any x y z
+    assume (zero < y & z divides y & z divides x % y)
+      conclude goal := (z divides x)
+        pick-witness u for (!elim z y) z*u=y
+          pick-witness v for (!elim z (x % y)) z*v=x%y
+            (!chain->
+             [x = ((x / y) * y +          
+                   x % y)                  [(zero < y) DAC-1]
+                = ((x / y) * (z * u) + 
+                   z * v)                  [z*u=y z*v=x%y]
+                = (((x / y) * u) * z + 
+                   v * z)                  [Times.commutative
+                                            Times.associative]
+                = (((x / y) * u + v) * z)  [Times.right-distributive]
+                = (z * ((x / y) * u + v))  [Times.commutative]
+          ==> (z * ((x / y) * u + v) = x)  [sym]
+          ==> (exists w . z * w = x)       [existence]
+          ==> goal                         [characterization]])
+
+define Minus-lemma :=
+  (forall x y z . x divides y & x divides z ==> x divides (y - z))
+
+conclude Minus-lemma
+  pick-any x y z
+    assume (x divides y & x divides z)
+      pick-witness u for (!elim x y) x*u=y
+        pick-witness v for (!elim x z) x*v=z
+          (!chain->
+           [(y - z) = (x * u - x * v)   [x*u=y x*v=z]
+                    = (x * (u - v))     [Minus.Times-Distributivity]
+        ==> (x * (u - v) = y - z)       [sym]
+        ==> (exists w . x * w = y - z)  [existence]
+        ==> (x divides (y - z))         [characterization]])
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.6:
+#
+define Mod-lemma :=
+  (forall x y z . x divides y & x divides z & zero < z ==> x divides y % z)
+
+(!stopgap Mod-lemma)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  } # close module divides
+} # close module N
+
+#==========================================================================
+# SECTION: Euclid's algorithm
+#
+extend-module N {
+
+declare euclid: [N N] -> N  [[int->nat int->nat]]
+
+module Euclid {
+  assert axioms :=
+    (fun [(euclid x y) = [x                   when (y = zero)
+                          (euclid y (x % y))  when (y =/= zero)]])
+
+  define [base reduction] := axioms
+
+(eval euclid 6 3)
+
+# Term: 3
+# 
+(eval euclid 1 0)
+
+# Term: 1
+# 
+(eval euclid 6 9)
+
+# Term: 3
+# 
+(eval euclid 16 12)
+
+# Term: 4
+# 
+(eval euclid 25 5)
+
+# Term: 5
+# 
+(eval euclid 48 64)
+
+# Term: 16
+# 
+(eval euclid 1 0)
+
+# Term: 1
+
+define (is-common-divisor z terms) :=
+  match terms {
+    [x y] => (z divides x & z divides y)
+  }
+
+define common-divisor :=
+  (forall x y . (euclid x y) is-common-divisor [x y])
+
+  (forall x y . (euclid x y) divides x & (euclid x y) divides y)
+
+define common-divisor' :=
+  (forall y x . (euclid x y) is-common-divisor [x y])
+
+conclude goal := common-divisor'
+ (!strong-induction.principle goal
+   method (y)
+    assume ind-hyp := (strong-induction.hypothesis goal y)
+      conclude (strong-induction.conclusion goal y)
+        pick-any x
+          conclude C := ((euclid x y) is-common-divisor [x y])
+            (!two-cases
+              assume A1 := (y = zero)
+                (!force C)
+              assume A2 := (y =/= zero)
+                (!force C)))
+
+conclude goal := common-divisor'
+ (!strong-induction.principle goal
+   method (y)
+    assume ind-hyp := (strong-induction.hypothesis goal y)
+      conclude (strong-induction.conclusion goal y)
+        pick-any x
+          conclude goal' := ((euclid x y) is-common-divisor [x y])
+            (!two-cases
+assume (y = zero)
+  (!both (!chain->
+           [true ==> (x divides x)               [divides.reflexive]
+                 ==> ((x euclid y) divides x)    [base (y = zero)]])
+         (!chain->
+	   [true ==> ((x euclid y) divides zero) [divides.right-zero]
+                 ==> ((x euclid y) divides y)    [(y = zero)]]))
+              assume A2 := (y =/= zero)
+                (!force goal')))
+
+conclude goal := common-divisor'
+ (!strong-induction.principle goal
+   method (y)
+    assume ind-hyp := (strong-induction.hypothesis goal y)
+      conclude (strong-induction.conclusion goal y)
+        pick-any x
+          conclude C := ((euclid x y) is-common-divisor [x y])
+            (!two-cases
+              assume A1 := (y = zero)
+                (!force C)
+
+assume y!=0 := (y =/= zero)
+  let {0<y := (!chain-> [(y =/= zero) 
+                     ==> (zero < y)            [Less.zero<]]);
+       divides-both
+         := (!chain-> [0<y
+                  ==> (x % y < y)           [DAC-2]
+                  ==> (forall x' . 
+                        (euclid x' (x % y))
+                          is-common-divisor 
+                           [x' (x % y)])    [ind-hyp]
+                  ==> ((euclid y (x % y))
+                        is-common-divisor 
+                           [y (x % y)])     [(uspec with y)]
+                  ==> ((euclid x y) 
+                         is-common-divisor 
+                           [y (x % y)])     [reduction y!=0]]);
+       divides-y := (!left-and divides-both)}
+    (!chain-> [(0<y & divides-both) 
+           ==> ((euclid x y) divides x)       [divides.first-lemma]
+           ==> ((euclid x y) divides x & divides-y)  [augment]])
+
+)) # close two-cases and strong-induction
+
+define greatest :=
+  (forall x y z . z is-common-divisor [x y] ==> z divides (euclid x y))
+
+define greatest' :=
+  (forall y x z . z is-common-divisor [x y] ==> z divides (euclid x y))
+
+define icd := is-common-divisor
+
+conclude goal := greatest'
+ (!strong-induction.principle goal
+   method (y)
+    assume ind-hyp := (strong-induction.hypothesis goal y)
+      conclude (strong-induction.conclusion goal y)
+        pick-any x z
+          assume (z is-common-divisor [x y])
+            conclude (z divides (euclid x y))
+              (!two-cases
+                assume y=0 := (y = zero)
+                  (!chain-> 
+                   [(z divides x) 
+                ==> (z divides (euclid x y))          [y=0 base]])
+                assume y!=0 := (y =/= zero)             
+                 let {0<y := (!chain->               
+                             [(y =/= zero)         
+                           ==> (zero < y)             [Less.zero<]]);
+                      z|x%y := (!chain-> 
+                              [0<y 
+                           ==> (z divides x & 
+                                z divides y & 0<y)    [augment]
+                          ==> (z divides x % y)       [divides.Mod-lemma]]);
+                      p := (!chain-> 
+                            [0<y
+                         ==> (x % y < y)              [DAC-2]
+                         ==> (forall x' z . 
+                               z icd [x' (x % y)] 
+                                ==>  
+                                 z divides
+		                    (euclid x'
+			                    (x % y))) [ind-hyp]
+                         ==> (z icd [y (x % y)]
+                                ==>
+                                  z divides
+	          	            (euclid y
+			              (x % y)))       [(uspec*
+                                                        with [[y z]])]])}
+                   (!chain-> [(z divides y & z|x%y) 
+                          ==> (z divides
+			          (euclid y (x % y))) [p]   
+                          ==> (z divides
+			          (euclid x y))       [y!=0 reduction]])))
+
+define correctness :=
+  (forall x y . (euclid x y) is-common-divisor [x y] &
+                forall z . z is-common-divisor [x y] ==>
+                           z divides (euclid x y))
+
+conclude correctness
+  pick-any x y
+    (!both (!chain-> 
+              [true 
+           ==> ((euclid x y) is-common-divisor    [x y])
+                                                  [common-divisor']])
+           pick-any z
+             (!chain [(z is-common-divisor [x y])
+                  ==> (z divides (euclid x y))    [greatest']]))
+} # close module Euclid
+} # close module N
+
+#==========================================================================
+# SECTION: Summary
+#
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.7:
+#
+open N
+
+define [x y q r] := [?x:N ?y:N ?q:N ?r:N]
+
+define division-uniqueness :=
+  (forall x y q r .  
+     x = q * y + r & r < y ==> q = x / y & r = x % y)
+
+(!stopgap division-uniqueness)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 13.8:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 13.9:
+#
+open N
+open List
+
+define [m n k L] := [?m ?n ?k ?L]
+
+declare prime: [N] -> Boolean [[int->nat]]
+
+module prime {
+
+  assert definition := 
+    (forall n . 
+      prime n <==> one < n & 
+                   forall m . m divides n ==> m = one | m = n)
+
+} 
+
+# * (a)
+
+define not-prime :=
+  (forall n . one < n & ~ prime n <==> exists m . one < m & 
+                                                  m < n & 
+                                                  m divides n)
+
+define when-not-prime :=
+  (forall n . 
+    one < n & ~ prime n ==> exists m . one < m & m < n & m divides n)
+
+(!stopgap when-not-prime)
+                                                  
+define not-prime :=
+  (forall n . 
+     one < n & ~ prime n <==> exists m . one < m & m < n & m divides n)
+
+(!stopgap not-prime)
+
+# (b)
+
+declare product: [(List N)] -> N [[(alist->clist int->nat)]]
+
+module product {
+
+  assert* def := [(product nil = one)
+                  (product n::L = n * product L)]
+
+  define of-singleton := (forall n . product n::nil = n)  
+
+  define of-join := 
+    (forall L M . product L ++ M = (product L) * (product M))
+
+  (!stopgap of-singleton)
+
+  (!stopgap of-join)
+
+} # close module product
+
+# * (c)
+
+declare all-primes: [(List N)] -> Boolean  [[(alist->clist int->nat)]]
+
+module all-primes {
+  assert definition := 
+    (forall L . all-primes L <==> forall k . k in L ==> prime k)
+} 
+
+define product-of-primes := 
+  (forall n . one < n ==> exists L . n = product L & all-primes L)
+
+# Uncomment and complete the following:
+
+# (!strong-induction.principle
+#  product-of-primes   
+#    method (n)
+#      ...
+# )
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Chapter notes
+#
+

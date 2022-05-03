@@ -1,0 +1,442 @@
+#====================================================================================
+# 
+#			Code for chapter 6 of FPMICS 
+#
+#====================================================================================
+
+domains Object, Element, Set, Person
+
+declare even, odd, prime: [Int] -> Boolean
+declare subset: [Set Set] -> Boolean
+declare in: [Element Set] -> Boolean
+declare empty: [Set] -> Boolean
+declare union, intersection: [Set Set] -> Set
+declare null: Set
+declare likes, child, parent, grandparent, ancestor, married-to: [Person Person] -> Boolean
+declare Mary, Peter, Bob, Ann, Tom: Person
+declare male,female: [Person] -> Boolean
+declare father,mother: [Person] -> Person
+
+datatype N := zero | (S N)
+
+declare Plus:  [N N] -> N [+]
+declare Times: [N N] -> N [*]
+declare Minus: [N N] -> N [-]
+declare Mod: [N N] -> N [%]
+declare divides: [N N] -> Boolean
+declare less: [N N] -> Boolean [<]
+declare leq: [N N] -> Boolean [<=]
+declare pos:  [N] -> Boolean
+
+declare P, Q: [Object] -> Boolean
+
+declare R, T: [Object Object] -> Boolean
+
+declare f: [Object] -> Object 
+
+declare a, b, c, d: Object
+
+declare A, B, C, D, E, F, G: Boolean
+
+define [s s1 s2 s3]  := [?s:Set ?s1:Set ?s2:Set ?s3:Set]
+define [x y z u v w] := [?x:'S1 ?y:'S2 ?z:'S3 ?u:'S4 ?v:'S5 ?w:'S6]
+
+define [\/ /\] := [union intersection]
+
+#======================================================================
+#	            Implication chains
+#======================================================================
+
+module Implication_Chains {
+
+(!chain [(A & B) ==> A left-and])
+
+(!chain [(A & B) ==> A [left-and]])
+
+(!chain [(A & ~~ B) ==> (~~ B) [right-and]
+                    ==> B      [dn]])
+
+(!chain [(A & ~~ B) ==> B [method (p) (!dn (!right-and p))]])
+
+(!chain [(forall ?x . ?x = ?x) ==> (1 = 1) [method (p) (!uspec p 1)]])
+
+let {M := method (p) (!dn (!right-and p))}
+  (!chain [(A & ~~ B) ==> B [M]])
+
+(!chain [(A & ~~ B) ==> (~~ B) [right-and dn mp]
+                    ==> B      [left-and dn]])
+
+let {M := method (premise goal) (!right-and premise)}
+  (!chain [(A & ~~ B) ==> (~~ B) [M]
+                      ==> B      [dn]])
+
+assert A, B
+
+(!chain [C ==> (A & B & C) [augment]])
+
+(!chain [C ==> (C & B) [augment]])
+
+(!chain [C ==> (and A A B C A B) [augment]])
+
+define augment := 
+  method (premise conjunctive-goal)
+    (!conj-intro conjunctive-goal)
+
+(!chain [(Mary likes Peter) ==> 
+          (exists x . x likes Peter) [existence]])
+
+(!chain [(zero < S zero) ==> (exists x y . x < y) [existence]])
+
+define existence := 
+  method (premise eg-goal)
+    match (match-sentences premise (quant-body eg-goal)) {
+     (some-sub sub) => (!egen* eg-goal (sub (qvars-of eg-goal)))
+    }
+
+assert A=>B := (A ==> B)
+
+(!chain [(~ B) ==> (~ A) [method (p) (!mt A=>B p)]])
+
+assert A=>C := (A ==> C)
+assert B=>C := (B ==> C)
+
+(!chain [(A | B) ==> C [method (p) (!cases p A=>C B=>C)]])
+
+(!chain [(~ B) ==> (~ A) [(mt with [A=>B])]])
+
+assert A=>C := (A ==> C)
+assert B=>C := (B ==> C)
+
+(!chain [(A | B) ==> C [(cases with [A=>C B=>C])]])
+
+(!chain [(A | B) ==> C [(cases with [B=>C A=>C])]])
+
+(!chain [(A | B) ==> C [method (p) (!cases (A | B) 
+                                           A=>C 
+                                           B=>C)]])
+
+(!chain [(forall x . x = x) ==> (1 = 1) [(uspec with [1])]])
+
+assert A=>B := (A ==> B)
+
+(!chain [(~ B) ==> (~ A) [(mt with A=>B)]])
+
+(!chain [(forall x . x = x) ==> (1 = 1) [(uspec with 1)]])
+
+} # close Implication_Chains
+
+#======================================================================
+#	            Using sentences as justifiers 
+#======================================================================
+
+module Sentences_As_Justifiers {
+
+assert* marriage-symmetry := (x married-to y ==> y married-to x)      
+
+(!chain [(Ann married-to Tom) 
+       ==> (Tom married-to Ann) [marriage-symmetry]])
+
+define < := Real.< 
+
+assert* <-tran := (x < y & y < z ==> x < z)
+
+(!chain [(x < 3.14 & 3.14 < 5.2) ==> (x < 5.2) [<-tran]])
+
+(!chain  [(3.14 < 5.2 & x < 3.14) ==> (x < 5.2) [<-tran]])
+
+assert* empty-def := (empty s <==> forall x . ~ x in s)
+	  
+(!chain [(empty s) ==> (forall x . ~ x in s) [empty-def]])
+
+(!chain [(forall x . ~ x in s) ==> (empty s) [empty-def]])
+
+assert* R := (s1 = null | s2 = null ==> s1 intersection s2 = null)
+
+(!chain [(x = null | y = null) ==> (x intersection y = null) [R]])
+
+(!chain [(x = null) ==> (x intersection y = null) [R]])
+
+assert* R := (father x = y ==> male y & y parent x & x child y)
+
+(!chain [(father Ann = Tom) ==> (Tom parent Ann) [R]])
+
+(!chain [(father Ann = Tom) ==> (male Tom) [R]])
+
+(!chain [(father Ann = Tom) ==> (Ann child Tom) [R]])
+
+assert R := (A & B & C ==> D & E & F)
+
+(!chain [(~ (D & E & F)) ==> (~ (A & B & C)) [R]])
+
+(!chain [(~ F) ==> (~ (A & B & C)) [R]])
+
+(!chain [(~ E) ==> (~A | ~B | ~C) [R]])
+
+assert* R := (A | B | C ==> D & E & F)
+
+(!chain [A ==> E [R]])
+
+assert* R := (A | B | C ==> D & E & F)
+
+(!chain [(~ E) ==> (~ B) [R]])
+
+(!chain [(~ D) ==> (~B & ~C) [R]])
+
+assert R := (forall x . male father x)
+
+(!chain [true ==> (male father Ann) [R]])
+
+assert* subset-definition := 
+   (s1 subset s2 <==> forall x . x in s1 ==> x in s2)
+
+define [A B e] := [?A:Set ?B:Set ?e:Element]
+
+assert (A subset B)
+
+(!chain [(e in A) ==> (e in B) [subset-definition]])
+
+let {nested-rule := 
+        (!chain-> [(A subset B) 
+              ==>  (forall x . x in A ==> x in B) [subset-definition]])}
+  (!chain [(e in A) ==> (e in B) [nested-rule]])
+
+(!chain [(e in A) ==> (e in B) 
+                           [(forall x . x in A ==> x in B) <== 
+                              (A subset B) [subset-definition]]])
+
+
+pick-any element 
+ (!chain [(element in A) ==> (element in B) [subset-definition]])
+
+ } # close Sentences_As_Justifiers
+
+#======================================================================
+#        Implication chaining through sentential structure
+#======================================================================
+
+module Imp_Chaining_Through_Sent_Structure {
+
+assert* R1 := (x \/ y = y \/ x)
+assert* R2 := (x /\ null = null)
+
+(!chain [(s1 /\ null subset s2 \/ s3) 
+     ==> (null subset s3 \/ s2)       [R1 R2]])
+
+assert* marriage-symmetry := (x married-to y ==> y married-to x)
+assert* union-comm := (x \/ y = y \/ x)
+
+(!chain [(Tom married-to Ann | s1 \/ s2 = s3) 
+     ==> (Ann married-to Tom | s2 \/ s1 = s3)   [marriage-symmetry 
+                                                   union-comm]])           
+(!chain [(forall s1 . s1 \/ null = null)
+     ==> (forall s2 . null \/ s2 = null)  [union-comm]])
+
+} # close Imp_Chaining_Through_Sent_Structure
+
+#======================================================================
+#	        Using chains with chain-last
+#======================================================================
+
+module Chain_Last { 
+
+assume hyp := (A & ~~ B)
+  (!both (!chain-last [hyp ==> (~~ B) [right-and]
+                           ==> B      [dn]])
+         (!left-and hyp))
+
+(!chain [(A & ~~ B) ==> (~~ B & A) [comm]
+                    ==> (B & A)    [dn]])
+
+
+assert* R := (male father x)
+
+(!chain-> [true ==> (male father Ann) [R]])
+
+} # close Chain_Last
+
+#======================================================================
+#      	          Backward chains and chain-first
+#======================================================================
+
+module Chain_First { 
+
+define [x y z a b] := [?x:N ?y:N ?z:N ?a:N ?b:N]
+
+
+assert* mod-< := (pos y ==> x % y < y)
+assert* less-asymmetric := (x < y ==> ~ y < x)
+assert* <-S-2 := (x < y ==> x < S y)
+
+pick-any a:N b:N 
+  (!chain [(~ S b < a % b) <== (a % b < S b)    [less-asymmetric]
+                           <== (a % b < b)      [<-S-2]
+                           <== (pos b)          [mod-<]])
+
+
+(!chain [(pos b) ==> (a % b < b)     [mod-<]
+                 ==> (a % b < S b)   [<-S-2]
+                 ==> (~ S b < a % b) [less-asymmetric]])
+
+define [x y z] := [?x ?y ?z]
+
+assert* p-def := (x parent y <==> x = father y | x = mother y)
+assert* gp-def := (x grandparent z <== x parent y & y parent z)
+                                       
+assert* fact1 := (Mary = mother Bob)
+assert* fact2 := (Peter = father Mary)
+
+(!chain-first 
+   [(Peter grandparent Bob) 
+<== (Peter parent Mary & Mary parent Bob)        [gp-def]
+<== (Peter = father Mary & Mary = mother Bob)    [p-def]
+<== (true & true)                                [fact1 fact2]
+<== true                                         [augment]])
+
+(!chain-first 
+  [(Peter grandparent Bob) 
+   <== (Peter parent Mary & Mary parent Bob)       [gp-def]
+   <== (Peter = father Mary & Mary = mother Bob)])
+
+} # close Chain_First
+
+#======================================================================
+#	      	          Equivalence chains
+#======================================================================
+
+module Equivalence_Chains {
+
+(!chain [(~~ A & (B ==> C)) <==> ((B ==> C) & ~~ A)  [comm]
+                            <==> ((~C ==> ~B) & A)   [contra-pos bdn]])
+
+
+assert* R1 := (x \/ y = y \/ x)
+assert* R2 := (x /\ null = null)
+
+(!chain [(s /\ null subset s1 \/ s2)
+    <==> (null subset s2 \/ s1)       [R1 R2]])
+
+(!chain [(~ (A & B)) <==> (~ (B & A)) [comm]])
+
+assert* R := (s1 \/ s2 = s2 \/ s1)
+
+(!chain [(forall x y z . x subset y \/ z)
+    <==> (forall x y z . x subset z \/ y)  [R]])
+
+(!chain [(forall x y z . x subset y \/ z)
+      <==> (forall u v w . u subset w \/ v)  [R]])
+
+
+} # close Equivalence_Chains
+
+#======================================================================
+#	 Mixing equational, implication, and equivalence steps
+#======================================================================
+
+module Mixing_Steps {
+
+(!chain [(A & B | A & C) <==> (A & (B | C)) [dist]
+                          ==> A             [left-and]])
+
+ (!chain [(A & B | A & C) <==> (A & (B | C)) [dist]
+                           ==> A             [left-and]
+                          <==> (~~ A)        [bdn]])
+
+(!chain [(A & B | A & C) ==> (A & (B | C)) [dist]
+                         ==> A             [left-and]
+                         ==> (~~ A)        [bdn]])
+
+(!chain [(~~ A) <==>  A                [bdn]
+                <==  (A & (B | C))     [left-and]
+                <==> (A & B | A & C)   [dist]])
+
+
+define [x y z k] := [?x:N ?y:N ?z:N ?k:N]
+
+assert* divides-def := (x divides y <==> exists z . x * z = y)
+assert* times-dist := (x * (y + z) = x * y + x * z)
+
+pick-any a b c
+  (!chain-> [(a * (b + c)) = (a * b + a * c)      [times-dist]
+         ==> (exists k . a * k = a * b + a * c)   [existence]
+         ==> (a divides a * b + a * c)            [divides-def]])
+
+assert* R1 := (x * zero = zero)
+assert* R2 := (x - x = zero)
+
+pick-any a b c d
+ (!chain [(pos a & b = c * (d - d)) ==> (b = c * (d - d)) [right-and]
+                                           = (c * zero)   [R2]
+                                           = zero         [R1]])
+
+ pick-any a b c d
+    (!chain [(pos a & b = c * (d - d)) ==> (b = c * (d - d)) [right-and]
+                                              = (c * zero)   [R2]
+                                              = zero         [R1]
+                                           ==> (zero = b)   [sym]])
+
+
+pick-any a b c d
+  (!chain [(pos a & b < c * (d - d)) ==> (b < c * (d - d)) [right-and]
+                                            = (c * zero)   [R2]
+                                            = zero         [R1]])
+
+} # close Mixing_Steps
+
+#======================================================================
+#		          Chain nesting
+#======================================================================
+
+module Chain_Nesting {
+
+define plus-minus-cancel :=
+  (forall x y . y <= x ==> x = (x - y) + y)
+
+assert* R1 := (zero - x = zero)
+assert* R2 := (x + zero = x)
+assert* R3 := (x <= zero ==> x = zero)
+
+conclude (forall y . y <= zero ==> zero = (zero - y) + y)
+  pick-any y
+    assume hyp := (y <= zero)             
+      let {lemma := (!chain-> [hyp ==> (y = zero) [R3]])}
+        (!chain-> [((zero - y) + y)    
+                 = ((zero - y) + zero)     [lemma]
+                 = (zero + zero)           [R1]
+                 = zero                    [R2]
+               ==> (zero = (zero - y) + y) [sym]])
+
+conclude (forall y . y <= zero ==> zero = (zero - y) + y)
+  pick-any y
+    assume hyp := (y <= zero)             
+      (!chain-last [((zero - y) + y)    
+                  = ((zero - y) + zero)     [(y = zero) <== hyp [R3]]
+                  = (zero + zero)           [R1]
+                  = zero                    [R2]
+                ==> (zero = (zero - y) + y) [sym]])
+
+
+conclude (forall y . y <= zero ==> zero = (zero - y) + y)
+  pick-any y
+    assume hyp := (y <= zero)             
+      (!chain-> [((zero - y) + y)    
+               = ((zero - y) + zero)     [hyp ==> (y = zero) [R3]]
+               = (zero + zero)           [R1]
+               = zero                    [R2]
+             ==> (zero = (zero - y) + y) [sym]])
+
+} # close Chain_Nesting 
+
+#======================================================================
+#		          Exercise 6.01
+#======================================================================
+
+# Insert your own solution to exercise 6.01 here:
+load "./solutions06/exercise01"
+
+#======================================================================
+#		          Exercise 6.02
+#======================================================================
+
+# Insert your own solution to exercise 6.02 here:
+load "./solutions06/exercise02"
+

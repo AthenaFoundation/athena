@@ -1,0 +1,72 @@
+#========================== Solution to exercise 4.36 =========================
+
+  define atom := 
+    lambda (i) 
+      (string->var ("A" join symbol->string i)
+                   "Boolean")
+
+  define next-atom := 
+    lambda (i max) 
+      check {(i less? max) => (atom i plus 1)
+           | else => (atom 1)}
+
+  define make-db :=
+    lambda (n)
+      let {atoms := (map atom (from-to 1 n));
+           conjunction := (and* atoms);
+           premises := (map-with-index 
+                         lambda (Ai i)
+                           ((Ai <==> (next-atom i n)) ==> conjunction)
+                         atoms)}
+      ((and* premises) ==> conjunction)
+
+  define make-hyp := 
+    lambda (v positive?)
+      check { positive? => v
+            | else => (~ v)}
+
+  define M := 
+    method (i n conjunction positive?)                   
+      assume h1 := (make-hyp (atom i) positive?)
+        let {goal := (make-hyp (next-atom i n) (negate positive?))}
+          (!by-contradiction goal
+            assume h2 := (complement goal)
+              let {h1&h2 := (!both h1 h2);
+                   -h1&-h2 := (complement h1 & complement h2); 
+                    L := check { 
+                           positive? => (!left-either h1&h2 -h1&-h2)
+                         | else  => (!right-either -h1&-h2 h1&h2) 
+                         }; 
+                    Ai<==>Ai' := (!bicond-def' L);
+                    _ := (!mp (Ai<==>Ai' ==> conjunction) Ai<==>Ai')}
+                (!absurd conjunction (~ conjunction)))  
+
+  define prove-odd-db :=
+    method (n)
+      let {range := (from-to 1 n);
+           atoms := (map atom range);
+           conjunction := (and* atoms);
+           ith-premise := lambda (Ai i)
+                            ((Ai <==> (next-atom i n)) ==> conjunction);
+           premises := (map-with-index ith-premise atoms);
+           goal := conjunction}
+        assume (and* premises)
+          (!by-contradiction' goal
+            assume (~ goal)
+              letrec {loop := 
+                       method (i positive?)
+                         let {premise := (!M i n conjunction positive?);
+                              result := (!mp premise 
+                                             (get-antecedent premise))}
+                           check {
+                             (i equal? n) => (!claim result) 
+                           | else => (!loop (i plus 1) (negate positive?))
+                           }} 
+                (!two-cases 
+                  assume h := (atom 1)
+                    (!absurd h (!loop 1 true))
+                  assume h := (~ atom 1)
+                    (!absurd (!loop 1 false) h)))
+
+  (!prove-odd-db 3)
+

@@ -1,0 +1,154 @@
+#========================== Solution to exercise 4.1 =========================
+
+# Solution to 4.1.a: 
+
+define (polarities p q) :=
+    let {prepend-and-process := 
+           lambda (i f)
+             lambda (pos-pol-pair)
+               match pos-pol-pair {
+                 [pos pol] => [(add i pos) (f pol)]
+               };
+         id := lambda (x) x;
+         make-pos-neg := lambda (_) 'pn}
+      match q {
+        (val-of p) => [[[] 'p]]
+      | (~ q1) => (map (prepend-and-process 1 flip)
+                       (polarities p q1))
+      | (q1 ==> q2) =>  (join (map (prepend-and-process 1 flip) 
+                                   (polarities p q1))
+                              (map (prepend-and-process 2 id)
+                                   (polarities p q2)))
+      | (q1 <==> q2) => (join (map (prepend-and-process 1 make-pos-neg)
+                                   (polarities p q1))
+                              (map (prepend-and-process 2 make-pos-neg)
+                                   (polarities p q2)))
+      | ((some-sent-con _) (some-list args)) =>
+          let {i := (cell 1)}
+            (flatten (map lambda (q)
+                             (map (prepend-and-process (inc i) id)
+                                  (polarities p q))
+                          args))
+      | _ => []
+      }
+
+# Solution to 4.1.b: 
+
+  define (polarities* p L) := 
+    (filter (map lambda (q) [q (polarities p q)]
+                 L)
+            (o negate (o null? second)))
+
+# Solution to 4.1.c: 
+
+  (define 
+    (M+ premise q position) 
+      match premise {
+        (p ==> p') => 
+          assume q 
+            match [position q] {
+              [[] (val-of p)] => (!mp premise q)
+            | [(list-of 1 rest) (~ q1)] =>
+               let {(th1 as (q1' ==> _)) := (!M- premise q1 rest)}
+                 (!by-contradiction' (~ q1')
+                   assume q1'
+                     (!absurd (!mp th1 q1')
+                              q))
+            | [(list-of 1 rest) (q1 & _)] => 
+               let {(th as (_ ==> q1')) := (!M+ premise q1 rest)}
+                 (!both (!mp th (!left-and q))
+                        (!right-and q))
+            | [(list-of 2 rest) (_ & q2)] => 
+               let {(th as (_ ==> q2')) := (!M+ premise q2 rest)}
+                 (!both (!left-and q)
+                        (!mp th (!right-and q)))
+            | [(list-of 1 rest) (q1 | q2)] => 
+               let {(th as (_ ==> q1')) := (!M+ premise q1 rest)}
+                 (!cases q 
+                         assume q1
+                           (!either (!mp th q1) q2)
+                         assume q2
+                           (!either q1' q2))
+            | [(list-of 2 rest) (q1 | q2)] => 
+               let {(th as (_ ==> q2')) := (!M+ premise q2 rest)}
+                 (!cases q 
+                         assume q1
+                           (!either q1 q2')
+                         assume q2
+                           (!either q1 (!mp th q2)))
+            | [(list-of 1 rest) (q1 ==> _)] => 
+               let {(th1 as (q1' ==> _)) :=  (!M- premise q1 rest)}
+                 assume q1'
+                   (!mp q (!mp th1 q1'))
+            | [(list-of 2 rest) (q1 ==> q2)] => 
+               let {(th1 as (_ ==> q2')) := (!M+ premise q2 rest)}
+                 assume q1
+                   (!mp th1 (!mp q q1))
+            }
+      }
+    (M- premise q position)
+      match premise {
+        (p ==> p') => 
+          match [position q] {
+            [(list-of 1 rest) (~ q1)] => 
+              match (!M+ premise q1 rest) {
+                (th as (_ ==> q1')) => 
+                   assume (~ q1')
+                     (!by-contradiction' (~ q1) 
+                        assume q1 
+                         (!absurd (!mp th q1)
+                                  (~ q1')))
+              }
+          | [(list-of 1 rest) (q1 & q2)] => 
+              match (!M- premise q1 rest) {
+                (th as (q1' ==> _)) => 
+                  assume hyp := (q1' & q2)
+                    (!both (!mp th (!left-and hyp))
+                           (!right-and hyp))
+              }
+          | [(list-of 2 rest) (q1 & q2)] => 
+              match (!M- premise q2 rest) {
+                (th as (q2' ==> _)) => 
+                  assume hyp := (q1 & q2')
+                    (!both (!left-and hyp)
+                           (!mp th (!right-and hyp)))
+              }
+          | [(list-of 1 rest) (q1 | q2)] =>
+              match (!M- premise q1 rest) {
+                (th as (q1' ==> _)) => 
+                  assume hyp := (q1' | q2)
+                    (!cases hyp 
+                            assume q1'
+                              (!either (!mp th q1') q2)
+                            assume q2
+                              (!either q1' q2))
+              }
+          | [(list-of 2 rest) (q1 | q2)] => 
+              match (!M- premise q2 rest) {
+                (th as (q2' ==> _)) => 
+                   assume hyp := (q1 | q2')
+                     (!cases hyp 
+                             assume q1
+                               (!either q1 q2)
+                             assume q2'
+                               (!either q1 (!mp th q2')))
+              }
+          | [(list-of 1 rest) (q1 ==> q2)] => 
+              match (!M+ premise q1 rest) {
+                (th as (_ ==> q1')) => 
+                   assume hyp := (q1' ==> q2)
+                     assume q1
+                       (!mp hyp (!mp th q1))
+              }
+          | [(list-of 2 rest) (q1 ==> q2)] => 
+             match (!M- premise q2 rest) {
+               (th as (q2' ==> _)) => 
+                 assume hyp := (q1 ==> q2')
+                   assume q1
+                     (!mp th (!mp hyp q1))
+             }
+          }
+      })
+
+
+

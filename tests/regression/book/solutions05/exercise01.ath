@@ -1,0 +1,151 @@
+define (make-node data pos children) := 
+ (Map.make [['data data] ['pos pos] ['children children]])
+  
+define (make-node-recursively root args pos recurse) := 
+    (make-node root pos (map lambda (pair)
+                               match pair {
+   	                       [arg i] => (recurse arg (join pos [i]))
+                             }
+                           (zip args (1 to length args))))
+
+define (term->tree-aux t pos) := 
+  match t {
+    (some-var x) => (make-node x pos [])
+  | ((some-symbol f) (some-list args)) => 
+      (make-node-recursively f args pos term->tree-aux)
+  }
+
+define (term->tree t) := (term->tree-aux t [])
+
+define (sent->tree-aux p pos) := 
+  match p {
+    ((some-sent-con sc) (some-list args)) => 
+      (make-node-recursively sc args pos sent->tree-aux)
+  | ((some-quant q) (some-var x) (some-sent body)) =>
+      (make-node-recursively q [x body] pos sent->tree-aux)
+  | _ => (term->tree-aux p pos)
+  }
+
+define (sent->tree p) := (sent->tree-aux p [])
+
+define (tree-leaves-aux tree) :=
+  match (tree 'children) {
+    [] => [(Map.make [['data (tree 'data)] ['pos (tree 'pos)]])]
+  | args => (flatten (map tree-leaves-aux args))
+  }
+
+define (tree-leaves t) := 
+  match t {
+    (some-term _) => (tree-leaves-aux term->tree t)
+  | (some-sent _) => (tree-leaves-aux sent->tree t)
+  }
+
+define (augment m x pos) := 
+   try {(map-add m [[x (join (m x) [pos])]])
+      | (map-add m [[x [pos]]])}
+
+define (var-occs t) := 
+  letrec {loop := lambda (L m)
+                    match L {
+                      [] => m
+                    | (list-of leaf more) => 
+                        let {v := (leaf 'data)}
+                         check {(var? v) => 
+                                  (loop more (augment m v (leaf 'pos)))
+                              | else => (loop more m)
+                         }
+                    }}
+    (loop (tree-leaves t) |{}|)
+
+define ++ := lambda (x) (x plus 1)
+
+(define 
+ (bound p bm fm pos bv) 
+   match p {
+     ((some-sent-con _) (some-list args)) => (bound* args bm fm pos bv 1)
+   | ((some-quant _) (some-var x) (some-sent body)) =>
+       let {bm' := (augment bm x (join pos [(- 1)]))}
+         (bound body bm' fm (join pos [2]) (add x bv))
+   | ((some-symbol _) (some-list terms)) =>  (bound* terms bm fm pos bv 1)
+   | (some-var x) => check {(member? x bv) => [(augment bm x pos) fm]
+                          | else => [bm (augment fm x pos)]}
+   }
+ (bound* args bm fm pos bv i) 
+   match args {
+     [] => [bm fm]
+   | (list-of p more) => 
+       let {[bm' fm'] := (bound p bm fm (join pos [i]) bv)}
+         (bound* more bm' fm' pos bv (++ i))
+   })
+
+define (bound-var-occs p) := (first (bound p |{}| |{}| [] []))
+define (free-var-occs p) :=  (second (bound p |{}| |{}| [] []))
+
+define p := (forall x . x = x)
+
+define q := (forall x . exists y . x =/= y)
+
+ (bound-var-occs p)
+
+ (bound-var-occs q)
+
+(bound-var-occs (forall x . exists x . x =/= x))
+
+ (bound-var-occs (q & forall x . x = x))
+
+(free-var-occs p)
+(free-var-occs (p & x =/= y))
+
+define (rep-in-term x t') := 
+  lambda (t) 
+    match t {
+      (val-of x) => (rhs (x = t'))
+    | (some-var y) => y
+    | ((some-symbol f) (some-list args)) =>
+         (make-term f (map (rep-in-term x t') args))
+    }
+
+define (rep-in-sent x t) :=
+  lambda (p) 
+     match p  {
+       (some-atom _) => ((rep-in-term x t) p)
+     | ((some-sent-con sc) (some-list args)) => 
+         (sc (map (rep-in-sent x t) args))
+     | ((some-quant q) (some-var v) (some-sent body)) =>
+         check {(v equals? x) => p
+              | else => (q v ((rep-in-sent x t) body))}
+     }
+
+define (unsafe-replace-var-by-term x t p) := ((rep-in-sent x t) p)
+
+define (alpha-equiv? p q) := 
+  match [p q] {
+    [(some-atom A) A] => true
+  | ([((some-sent-con sc) (some-list args1))
+       (sc (some-list args2))] 
+       where (length args1 equals? length args2)) =>
+         (for-each (zip args1 args2) 
+                   lambda (pair) 
+                     match pair {
+                       [p q] => (alpha-equiv? p q)
+                      })
+  | [((some-quant q) (some-var x) (some-sent p-body))
+      (q (some-var y) (some-sent q-body))] => 
+         let {v := (fresh-var)}
+           (alpha-equiv? (unsafe-replace-var-by-term x v p-body) 
+                         (unsafe-replace-var-by-term y v q-body))
+  | _ => false
+  }
+
+define (sent-rename p) := 
+  match p  {
+    ((some-quant q) (some-var x) (some-sent body)) => 
+       let {v := (fresh-var (sort-of x))}
+         (q v (sent-rename (unsafe-replace-var-by-term x v body)))
+  | ((some-sent-con sc) (some-list args)) => (sc (map sent-rename args))
+  | _ => p
+  }
+
+define (replace-var-by-term x t p) := 
+  (unsafe-replace-var-by-term x t (sent-rename p))
+

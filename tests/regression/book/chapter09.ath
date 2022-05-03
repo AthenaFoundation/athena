@@ -1,0 +1,620 @@
+#==========================================================================
+# SECTION: Declarations and axioms
+#
+define stopgap := force
+
+load "nat-minus"
+
+structure Z := (pos N) | (neg N)
+
+expand-input pos, neg [int->nat]
+
+set-precedence (pos neg) (plus 1 (get-precedence *))
+
+assert* [(pos x = pos y <==> x = y)
+         (neg x = neg y <==> x = y)
+         ((exists y . x = pos y) |  
+          (exists y . x = neg y))]
+
+module Z {
+  open N 
+  declare zero, one: Z
+  assert zero-definition := (zero = pos N.zero)
+  assert zero-property := (zero = neg N.zero)
+  assert one-definition := (one = pos N.one)
+  define [a b c] := [?a:Z ?b:Z ?c:Z]
+
+declare +: [Z Z] -> Z
+
+module Plus {
+
+  overload + N.+
+  define [x y] := [?x:N ?y:N]
+
+  assert* axioms := 
+    [(pos x + pos y = pos (x + y))              #pos-pos
+     (  x < y ==> pos x + neg y = neg (y - x))  #pos-neg-case1 
+     (~ x < y ==> pos x + neg y = pos (x - y))  #pos-neg-case2
+     (  x < y ==> neg x + pos y = pos (y - x))  #neg-pos-case1
+     (~ x < y ==> neg x + pos y = neg (x - y))  #neg-pos-case2
+     (neg x + neg y = neg (x + y))]             #neg-neg
+
+  define [pos-pos pos-neg-case1 pos-neg-case2 
+  	  neg-pos-case1 neg-pos-case2 neg-neg] := axioms
+
+  (eval pos 1 + neg 3)	 
+  # This produces the result (neg (S (S zero))), i.e. -2.
+
+} # close module Plus
+
+declare negate: [Z] -> Z [120]
+
+module Negate {
+
+  assert* definition := [(negate pos x = neg x)
+                         (negate neg x = pos x)]
+     
+  define [positive negative] := definition
+
+} # close module Negate
+
+declare -: [Z Z] -> Z
+
+module Minus {
+
+  assert* definition :=  (a - b =  a + negate b)
+
+} # close module Minus
+
+#==========================================================================
+# SECTION: First proofs of integer properties
+#
+extend-module Plus {
+open Minus
+overload - N.-
+
+define Right-Inverse := (forall a . a + negate a = zero)
+
+datatype-cases Right-Inverse {
+  (pos x) =>
+    conclude (pos x + negate pos x = zero) 
+      let {_ := (!chain-> [true ==> (~ x < x) [Less.irreflexive]])}
+      (!chain [(pos x + negate pos x)
+           --> (pos x + neg x)                [Negate.positive]
+           --> (pos (x - x))                  [pos-neg-case2]
+           --> (pos N.zero)                   [N.Minus.second-equal]
+           <-- zero                           [zero-definition]])
+| (neg x) =>
+    conclude (neg x + negate neg x = zero) 
+      let {_ := (!chain-> [true ==> (~ x < x) [Less.irreflexive]])}
+      (!chain [(neg x + negate neg x)
+           --> (neg x + pos x)                [Negate.negative]
+           --> (neg (x - x))                  [neg-pos-case2]
+           --> (neg N.zero)                   [N.Minus.second-equal]
+           <-- zero                           [zero-property]])
+}
+
+define Right-Identity := (forall a . a + zero = a)
+define Left-Identity :=  (forall a . zero + a = a)
+
+datatype-cases Right-Identity {
+  (pos x) =>
+    conclude (pos x + zero = pos x)
+     (!chain [(pos x + zero)
+          --> (pos x + pos N.zero)         [zero-definition]
+          --> (pos (x + N.zero))           [pos-pos]
+          --> (pos x)                      [N.Plus.right-zero]])
+| (neg x) =>
+    conclude (neg x + zero = neg x) 
+      let {_ := (!chain-> [true 
+                      ==> (~ x < N.zero)   [Less.not-zero]])}
+      (!chain [(neg x + zero)
+           --> (neg x + pos N.zero)        [zero-definition]
+           --> (neg (x - N.zero))          [neg-pos-case2]
+           --> (neg x)                     [N.Minus.zero-right]])
+}
+
+datatype-cases Left-Identity {
+  (pos x) =>
+    conclude (zero + pos x = pos x)
+      (!chain [(zero + pos x)
+           --> (pos N.zero + pos x)       [zero-definition]
+           --> (pos (N.zero + x))         [pos-pos]
+           --> (pos x)                    [N.Plus.left-zero]])
+| (neg x) =>
+    conclude (zero + neg x = neg x) 
+      (!chain [(zero + neg x)
+           --> (neg N.zero + neg x)       [zero-property]
+           --> (neg (N.zero + x))         [neg-neg]
+           --> (neg x)                    [N.Plus.left-zero]])
+}
+} # close module Plus
+
+#==========================================================================
+# SECTION: Another integer representation
+#
+extend-module Plus {
+  define associative := (forall a b c . (a + b) + c = a + (b + c))
+} # close module Plus
+
+structure NN := (nn N N)
+
+overload @ lambda (x y) (nn (int->nat x) (int->nat y))
+
+module NN {
+
+  overload + N.+
+
+  define [a b c] := [?a:NN ?b:NN ?c:NN]
+
+  declare +': [NN NN] -> NN [110]
+
+  overload + +'
+
+  module Plus {
+
+    define [n m n1 n2 m1 m2] := [?n:N ?m:N ?n1:N ?n2:N ?m1:N ?m2:N]
+
+    assert* definition := (n1 @ n2 + m1 @ m2 = (n1 + m1) @ (n2 + m2))
+
+    define associative := (forall a b c . (a + b) + c = a + (b + c))
+    define nat-plus-assoc := N.Plus.associative
+
+    datatype-cases associative {
+      (nn n1 n2) =>
+        datatype-cases (forall b c . (n1 @ n2 + b) + c = 
+    	      	                      n1 @ n2 + (b + c)) {
+          (nn m1 m2) =>
+            datatype-cases (forall c . (n1 @ n2 + m1 @ m2) + c =
+     	 	                        n1 @ n2 + (m1 @ m2 + c)) {
+  	      (nn k1 k2) => 
+ 	        (!chain 
+	          [((n1 @ n2 + m1 @ m2) + k1 @ k2)
+       	       --> (((n1 + m1) @ (n2 + m2)) + k1 @ k2)    [definition]
+   	       --> (((n1 + m1) + k1) @ ((n2 + m2) + k2))  [definition]
+  	       --> ((n1 + (m1 + k1)) @ (n2 + (m2 + k2)))  [nat-plus-assoc]
+               <-- ((n1 @ n2) + ((m1 + k1) @ (m2 + k2)))  [definition]
+	       <-- ((n1 @ n2) + (m1 @ m2 + k1 @ k2))      [definition]])
+            }
+        }
+    }
+  } # close module Plus
+} # close module NN
+
+#==========================================================================
+# SECTION: Mappings between the signed and pair representations
+#
+declare Z->NN: [Z] -> NN
+declare NN->Z: [NN] -> Z
+
+module Z-NN {
+  overload (+ N.+) (- N.-)
+  define [x y] := [?x:N ?y:N]
+
+  assert* to-pos := (Z->NN pos x = x @ N.zero)
+  assert* to-neg := (Z->NN neg x = N.zero @ x)
+  assert* from-pos :=  (~ x < y ==> NN->Z x @ y = pos (x - y))
+  assert* from-neg :=  (x < y ==> NN->Z  x @ y = neg (y - x))
+
+  define inverse := (forall a . NN->Z Z->NN a = a)
+
+  datatype-cases inverse {
+    (pos x) => {
+      (!chain-> [true ==> (~ x < N.zero) [N.Less.not-zero]]);
+      (!chain [(NN->Z Z->NN pos x)         
+           --> (NN->Z x @ N.zero)        [to-pos]
+           --> (pos (x - N.zero))        [from-pos]
+           --> (pos x)                   [N.Minus.zero-right]])
+    }
+  | (neg x) =>
+     (!two-cases
+       assume (x = N.zero) 
+         let {_ := (!chain-> [true 
+                          ==> (~ N.zero < N.zero) [N.Less.irreflexive]])}
+           (!chain [(NN->Z Z->NN neg x)
+       	        --> (NN->Z N.zero @ x)            [to-neg]
+                --> (NN->Z N.zero @ N.zero)       [(x = N.zero)]
+                --> (pos (N.zero - N.zero))       [from-pos]
+                --> (pos N.zero)                  [N.Minus.zero-right]
+                <-- zero                          [zero-definition]
+                --> (neg N.zero)                  [zero-property]
+                <-- (neg x)                       [(x = N.zero)]])
+       assume (x =/= N.zero) 
+         let {D := (!chain-> [true 
+                         ==> (N.zero <= x)        [N.Less=.zero<=]
+	  	         ==> (N.zero < x | 
+                              N.zero = x)         [N.Less=.definition]])}
+           (!cases D
+	      assume (N.zero < x)                    
+                (!chain [(NN->Z Z->NN neg x)     
+                     --> (NN->Z N.zero @ x)       [to-neg]
+                     --> (neg (x - N.zero))       [from-neg]
+                     --> (neg x)                  [N.Minus.zero-right]])
+	      assume (N.zero = x)
+                (!from-complements 
+                  (NN->Z Z->NN neg x = neg x)
+                  (!sym (N.zero = x)) 
+                  (x =/= N.zero))))
+  }
+ # datatype-cases
+} # close module Z-NN
+
+#==========================================================================
+# SECTION: Additive homomorphism property
+#
+module NN-equivalence {
+  overload - N.-
+
+  define [n1 n2] := [?n1:N ?n2:N]
+
+  assert* case1 := (n1 < n2 ==> n1 @ n2 = N.zero @ (n2 - n1))
+                 
+  assert* case2 := (~ n1 < n2 ==>  n1 @ n2 = (n1 - n2) @ N.zero)
+
+} # close module NN-equivalence
+
+extend-module Z-NN {
+
+define [+ +'] := [NN.+ NN.+']
+
+define additive-homomorphism :=
+   (forall a b . Z->NN (a + b) = (Z->NN a) + (Z->NN b))
+
+datatype-cases additive-homomorphism {
+  (pos x) =>
+    datatype-cases (forall b . Z->NN (pos x + b) = 
+                               (Z->NN pos x) + (Z->NN b)) {
+      (pos y) =>
+        (!combine-equations
+	 (!chain [(Z->NN (pos x + pos y))
+              --> (Z->NN (pos (x + y)))             [Plus.pos-pos]
+              --> ((x + y) @ N.zero)                [to-pos]])
+         (!chain [((Z->NN pos x) + (Z->NN pos y))   
+              --> ((x @ N.zero) +  (y @ N.zero))    [to-pos]
+              --> ((x + y) @ (N.zero + N.zero))     [NN.Plus.definition]
+	      --> ((x + y) @ N.zero)                [N.Plus.right-zero]]))
+    | (neg y) =>
+      (!two-cases
+        assume (x < y)
+ 	  (!force (Z->NN (pos x + neg y) = 
+                  (Z->NN pos x) + (Z->NN neg y)))
+        assume (~ x < y)
+	  (!force (Z->NN (pos x + neg y) = 
+                  (Z->NN pos x) + (Z->NN neg y))))
+    }
+| (neg x) =>
+    datatype-cases (forall b . Z->NN (neg x + b) = 
+                               (Z->NN neg x) + (Z->NN b)) {
+      (pos y) =>
+        (!two-cases
+	  assume (x < y) 
+	   let {_ := (!chain-> [(x < y) 
+                            ==> (~ y < x)           [N.Less.asymmetric]])}
+	   (!force (Z->NN (neg x + pos y) = 
+                   (Z->NN neg x) + (Z->NN pos y)))
+          assume (~ x < y) 
+           let {D := (!chain-> 
+		      [(~ x < y) 
+		   ==> (y <= x)                     [N.Less=.trichotomy2]
+		   ==> (y < x | y = x)              [N.Less=.definition]])}
+  	   (!cases D
+             assume (y < x)		   
+	       (!force (Z->NN (neg x + pos y) = 
+                       (Z->NN neg x)  + (Z->NN pos y)))
+	     assume (y = x) 
+               let {_ := (!chain-> [true 
+                                ==> (~ x < x)       [N.Less.irreflexive]])}
+	       (!force (Z->NN (neg x + pos y) = 
+                       (Z->NN neg x) + (Z->NN pos y)))))
+    | (neg y) =>
+        (!force (Z->NN (neg x + neg y) = 
+                (Z->NN neg x) + (Z->NN neg y)))
+    }
+} # datatype-cases additive-homomorphism 
+} # close module Z-NN
+
+#==========================================================================
+# SECTION: Associativity and commutativity of integer addition
+#
+extend-module Plus {
+  define [+ +'] := [NN.+ NN.+']
+
+  conclude associative
+    pick-any a:Z b:Z c:Z
+      let {f:(OP 1) := Z->NN;
+           g:(OP 1) := NN->Z;
+           f-application := 
+            conclude (f ((a + b) + c) =  f (a + (b + c)))
+              (!chain 
+	        [(f ((a + b) + c))
+	     --> ((f (a + b)) + (f c))       [Z-NN.additive-homomorphism]
+	     --> ((f a + f b) + f c)         [Z-NN.additive-homomorphism]
+	     --> (f a + (f b + f c))         [NN.Plus.associative]
+	     <-- (f a + (f (b + c)))         [Z-NN.additive-homomorphism]
+	     <-- (f (a + (b + c)))           [Z-NN.additive-homomorphism]])}
+        conclude ((a + b) + c = a + (b + c))
+          (!chain [((a + b) + c)
+               <-- (g f ((a + b) + c))       [Z-NN.inverse]
+               --> (g f (a + (b + c)))       [f-application]
+               --> (a + (b + c))             [Z-NN.inverse]])
+
+} # close module Plus
+
+extend-module Plus {
+  define commutative := (forall a b . a + b = b + a)
+} 
+} # close module Z
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.1:
+#
+extend-module Z {
+  extend-module NN {
+    extend-module Plus {
+      define commutative := (forall a b . a + b = b + a)
+
+      (!stopgap commutative)
+
+    } # close module Plus
+  } # close module NN
+
+  extend-module Plus {
+
+    (!stopgap commutative)
+
+  } # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.2:
+#
+extend-module Z {
+  extend-module Plus {		 
+
+    (!stopgap commutative)
+
+  } # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Power series
+#
+module ZPS {
+
+domain (Fun N Z)
+declare zero: (Fun N Z)
+declare apply: [(Fun N Z) N] -> Z
+define at := apply
+
+define +' := Z.+
+define zero' := Z.zero
+
+define [p q r i] := [?p:(Fun N Z) ?q:(Fun N Z) ?r:(Fun N Z) ?i:N]
+
+assert* equality := (p = q <==> forall i . p at i =  q at i)
+
+assert* zero-definition := (zero at i = zero')
+
+declare +: [(Fun N Z) (Fun N Z)] -> (Fun N Z)
+
+module Plus {
+assert* definition := ((p + q) at i = (p at i) +' (q at i))
+
+define right-identity := (forall p . p + zero = p)
+define left-identity :=  (forall p . zero + p = p)
+
+conclude right-identity 
+  pick-any p
+    let {lemma :=  
+          pick-any i
+	    (!chain 
+	     [((p + zero) at i) 
+            = ((p at i) +' (zero at i))   [definition]
+	    = ((p at i) +' zero')         [zero-definition]
+	    = (p at i)                    [Z.Plus.Right-Identity]])}
+      (!chain-> [lemma ==> (p + zero = p) [equality]])
+} # close module Plus
+} # close module ZPS
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.3:
+#
+extend-module ZPS {
+  extend-module Plus {
+
+    (!stopgap left-identity)
+
+  } # close module Plus
+} # close module ZPS
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module ZPS {
+  define commutative := (forall p q . p + q = q + p)
+  define associative := (forall p q r . (p + q) + r = p + (q + r))
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.4:
+#
+extend-module ZPS {
+  extend-module Plus {
+
+    (!stopgap commutative)
+
+  } # close module Plus
+} # close module ZPS
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.5:
+#
+extend-module ZPS {
+  extend-module Plus {
+
+    (!stopgap associative)
+
+  } # close module Plus
+} # close module ZPS
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module ZPS {
+
+declare negate: [(Fun N Z)] -> (Fun N Z)
+
+module Negate {
+
+  assert* definition := ((negate p) at i = Z.negate (p at i))
+
+} # close module Negate
+
+declare -: [(Fun N Z) (Fun N Z)] -> (Fun N Z)
+
+module Minus {
+
+  assert* definition := (p - q = p + negate q)
+
+} # close module Minus
+} # close module ZPS
+
+extend-module ZPS {
+extend-module Plus {
+  define Plus-definition := definition
+  open Negate
+  open Minus
+
+  define right-inverse := (forall p . p + (negate p) = zero)
+  define left-inverse := (forall p . (negate p) + p = zero)
+
+  conclude right-inverse
+    pick-any p
+      let {lemma := 
+            pick-any i
+              (!chain 
+	        [((p + negate p) at i)
+	       = ((p at i) +' ((negate p) at i))   [Plus-definition]
+	       = ((p at i) +' Z.negate (p at i))   [Negate.definition]
+	       = zero'                             [Z.Plus.Right-Inverse]
+	       = (zero at i)                       [zero-definition]])}
+        (!chain-> [lemma ==> (p + negate p = zero) [equality]])
+  } # close module Plus
+} # close module ZPS
+
+#==========================================================================
+# SECTION: Summary and looking ahead
+#
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.6:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.7:
+#
+extend-module ZPS {
+  extend-module Plus {
+
+    (!stopgap left-inverse)
+
+  } # close module Plus
+} # close module ZPS
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 09.8:
+#
+extend-module Z {
+  extend-module Z-NN {
+
+    define [+ +'] := [NN.+ NN.+']
+
+    (!stopgap additive-homomorphism)
+
+  } # close module Z-NN
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.9:
+#
+extend-module Z {
+  extend-module Plus {
+    define Left-Inverse := (forall a . (negate a) + a = zero)
+
+    (!stopgap Left-Inverse)
+
+  } # close module Plus
+} # close module Z
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.10:
+#
+extend-module Z {
+  extend-module Plus {		 
+
+    define Left-Inverse := (forall a . (negate a) + a = zero)
+
+    (!stopgap Left-Inverse)
+
+  } # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.11:
+#
+extend-module Z {
+  extend-module Plus {		 
+
+    define double-negation := (forall a . negate negate a = a)
+
+    (!stopgap double-negation)
+ 
+  } # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.12:
+#
+extend-module Z {
+  extend-module Plus {		 
+
+    define unique-negation := (forall a b . a + b = zero ==> negate a = b)
+
+    (!stopgap unique-negation)
+
+  } # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 09.13:
+#
+extend-module Z {
+  extend-module Plus {		 
+
+  define neg-plus := (forall a b . negate (a + b) = negate a + negate b)
+
+  (!stopgap neg-plus)
+
+} # close module Plus
+} # close module Z
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+

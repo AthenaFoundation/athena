@@ -1,0 +1,51 @@
+#========================== Solution to exercise 4.25 =========================
+
+  define cond-def-2 :=
+    method (premise goal) 
+      match [premise goal] {
+        [(p ==> q) (p' | q)] => 
+          (!two-cases
+            (assume p 
+              (!right-either p' (!mp premise p)))
+            assume h := (not p)
+              let {_ := match p {
+                          (not _) => (!dn h)
+                         | _ => (!claim h)}}
+                (!left-either p' q))
+      | [(p | q) (p' ==> q)] => 
+         (!cases premise
+                 assume p 
+                   assume p' 
+                     (!from-complements q p p')
+                 assume q 
+                   assume p' 
+                     (!claim q))
+      }
+
+  define (bicond-def-2 premise goal) := 
+    match [premise goal] {
+      [(p <==> q) (or (and p q) (and p' q'))] =>
+        (!two-cases 
+          assume p 
+            let {q := (!mp (!left-iff premise) p)}
+              (!left-either (!both p q) (p' & q'))
+          assume p'
+            (!two-cases assume q 
+                          (!from-complements 
+                             goal 
+                             (!mp (!right-iff premise) q) 
+                             p')
+                         assume q' 
+                           (!right-either 
+                             (and p q) 
+                             (!both p' q'))))
+    | [((p & q) | (p' & q')) _] =>
+        (!cases premise
+           assume (p & q)
+             (!equiv assume p (!claim q)
+                     assume q (!claim p))                     
+           assume (p' & q')
+             (!equiv assume p (!from-complements q p p')
+                     assume q (!from-complements p q q')))
+    }
+

@@ -1,0 +1,20 @@
+define (egen-cong p q M) := 
+  match [p q] {
+    [(exists v1 body1) (exists v2 body2)] => 
+      conclude (p <==> q)
+        (!equiv assume p
+                   pick-witness v for p 
+                     let {body1' := (replace-var v1 v body1);
+                          body2' := (replace-var v2 v body2);              
+                          th := (!M body1' body2');
+                           _ := (!mp (!left-iff th) body1')}
+                       (!egen q v)
+                assume q
+                  pick-witness v for q
+                    let {body2' := (replace-var v2 v body2);
+                         body1' := (replace-var v1 v body1);
+                         th := (!M body2' body1');
+                         _  := (!mp (!left-iff th) body2')}
+                      (!egen p v))
+  }
+

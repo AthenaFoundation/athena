@@ -741,7 +741,7 @@ to qualify a simple structure or domain name, such as "List-Of".
 ***)
 
 fun fullyQualifySort(absyn_type) = 
-      let fun mprint(str) = ()
+      let fun debugPrint(str) = ()
           fun decide(sort_name) =  
                 let val sort_name_as_symbol = MS.nameAsSymbol(sort_name)
                     fun loop([]) = sort_name
@@ -770,7 +770,7 @@ fun fullyQualifySort(absyn_type) =
 fun qualifySort(absyn_type) = fullyQualifySort(absyn_type)
 
 fun fullyQualifySortString(structure_name) = 
-      let fun mprint(str) = print(str) 
+      let fun debugPrint(str) = print(str) 
           val structure_symbol = Symbol.symbol structure_name 
           fun decide(name:Symbol.symbol) =  
                 let fun loop([]) = name 
@@ -820,7 +820,7 @@ fun fullyQualifyFSymString(fsym_name) = fullyQualifyString(fsym_name,1)
 
 fun tryFullQualification(fsym_name) = 
    if Data.isTermConstructorBool(fsym_name) then fsym_name
-   else let fun mprint(str) = ()
+   else let fun debugPrint(str) = ()
             fun loop([]) = fsym_name
               | loop(path::rest) = let val full_name = qualifyName(MS.lastName(fsym_name),path)
                                    in
@@ -838,7 +838,7 @@ fun qualifyFSym(fsym_name,mod_path) =
        end
 
 fun qualifyFSym(fsym_name) = 
-        let fun mprint(str) = print(str)
+        let fun debugPrint(str) = print(str)
             val fsym_name_as_symbol = MS.nameAsSymbol(fsym_name)
             fun loop([]) = fsym_name
               | loop(path::rest) = let val fsym_name' = qualifyName(fsym_name_as_symbol,path)

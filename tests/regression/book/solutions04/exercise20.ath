@@ -1,0 +1,13 @@
+#========================== Solution to exercise 4.20 =========================
+
+  define (mt premise1 premise2) := 
+    match [premise1 premise2] {
+      [(p ==> q) r] =>
+         check {
+           (complements? q r) => 
+             (!by-contradiction (complement p)
+               assume p 
+                 let {q := (!mp premise1 p)}
+                  (!from-complements false q r))
+         }
+    }

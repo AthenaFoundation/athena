@@ -1,0 +1,1722 @@
+#=================================================================
+#	                                                           
+#		Code for chapter 4 of FPMICS 
+#
+#=================================================================
+
+declare A, A1, A2, A3, B, C, C1, C2, C3, D, E, F, G, H, I, J: Boolean
+
+#=================================================================
+#            Working with Boolean constants
+#=================================================================
+
+module Working_With_Boolean_Constants {
+
+(!true-intro)
+
+assume A 
+  assume (~ A)
+    (!absurd A (~ A))
+
+(!false-elim)
+
+} # close Working_With_Boolean_Constants
+
+#=================================================================
+#            Working with conjunctions 
+#=================================================================
+
+module Working_With_Conjunctions {
+
+  assert p := (A & B)
+
+  (!left-and p)
+
+  assert (A & B), (C & D) 
+
+  let {_ := conclude D 
+                (!right-and (C & D));
+         _ := conclude A
+                (!left-and (A & B))}
+      (!both D A)
+
+  assert A-and-B := (A & B) 
+  assert C-and-D := (C & D) 
+
+  {
+    conclude D 
+      (!right-and C-and-D);
+    conclude A
+      (!left-and A-and-B);
+    (!both D A)
+  }
+
+  assert A-and-B := (A & B) 
+  assert C-and-D := (C & D) 
+
+  {
+   conclude D 
+     (!right-and C-and-D);
+   conclude A
+     (!left-and A-and-B);
+   (!both D A)
+  }
+
+  (!both conclude D
+           (!right-and C-and-D)
+         conclude A
+           (!left-and A-and-B))
+
+  (!both (!right-and C-and-D)
+         (!left-and  A-and-B))
+
+} # close Working_With_Conjunctions
+
+#=================================================================
+#            Working with conditionals 
+#=================================================================
+
+module Working_With_Conditionals {
+
+  assume (A ==> B) 
+    assume A 
+      (!mp (A ==> B) A)
+
+  assume (A ==> B) 
+    assume (~ B)
+      (!mt (A ==> B) (~ B))
+
+
+  assume A 
+    (!claim A)
+
+  assume A 
+    assume B
+      (!claim A)
+
+  assume hyp := (A & B)
+    let {left  := (!left-and hyp);
+         right := (!right-and hyp)}
+      (!both right left)
+
+  assume (A & B)
+    (!both B A)
+
+  conclude ((A ==> B ==> C) ==> (B ==> A ==> C))
+    assume hyp := (A ==> B ==> C)
+      assume B
+        assume A
+          let {B=>C := (!mp hyp A)}
+            conclude C 
+              (!mp B=>C B)
+
+
+} # close Working_With_Conditionals
+
+#=================================================================
+#            Working with disjunctions 
+#=================================================================
+
+module Working_With_Disjunctions {
+
+  assert (C1 | C2), (C1 ==> B), (C2 ==> B)
+
+  conclude B
+    (!cases (C1 | C2)
+            (C1 ==> B)
+            (C2 ==> B))
+
+
+  assume (C ==> B)
+    assume ((A & B) | C)
+      (!cases (A & B | C)
+         assume (A & B)
+           (!claim B)
+         assume C
+           (!mp (C ==> B) C))
+
+  assert (A ==> B), (~ A ==> B)
+
+  (!two-cases 
+     (A ==> B) 
+     (~ A ==> B))
+
+  (!two-cases 
+    (~ A ==> B)
+    (A ==> B))
+
+  assume A 
+    (!claim A)
+
+
+  (!left-either (A ==> A) B)
+
+  (!right-either B (A ==> A))
+
+} # close Working_With_Disjunctions
+
+#=================================================================
+#            Working with negations 
+#=================================================================
+
+module Working_With_Negations {
+
+  assume h := (~ ~ A)
+    (!dn h)
+
+  assert premise-1 := (A ==> B & C)
+  assert premise-2 := (~ B)
+
+  (!by-contradiction (~ A)
+    assume A
+      let {p1 := conclude (B & C)
+                   (!mp premise-1 A);
+           _ := conclude B
+                  (!left-and p1)}
+        (!absurd B premise-2))
+
+  assume A
+    let {_ := conclude (B & C)
+                (!mp premise-1 A)}
+      (!absurd B premise-2)
+
+  (!by-contradiction (~ A) 
+     (A ==> false))
+
+  assume A
+    assume (~ A)
+      (!absurd A (~ A))
+
+  assert premise := (~ (A ==> B))
+
+  (!by-contradiction (~ B)
+    assume B
+      let {A==>B := assume A
+                      (!claim B)}
+        (!absurd A==>B premise))
+
+  assert premise-1 := (~ (A & ~ B))
+  assert premise-2 := A
+
+  let {--B := (!by-contradiction (~ ~ B)
+                 assume (~ B)
+                  (!absurd (!both A (~ B)) premise-1))}
+   (!dn --B)
+
+  (!by-contradiction B
+     assume (~ B)
+       (!absurd (!both A (~ B)) premise-1))
+
+  define (complement p) := 
+     match p {
+       (~ q) => q 
+      | _ => (~ p) 
+     }
+
+} # close Working_With_Negations
+
+#=================================================================
+#            Working with biconditionals 
+#=================================================================
+
+module Working_With_Biconditionals {
+ 
+  assert bc := (A <==> B)
+
+  (!left-iff bc)
+
+  (!right-iff bc)       
+
+  assert (A ==> B), (B ==> A)
+
+  (!equiv (A ==> B) (B ==> A))
+
+} # close Working_With_Biconditionals
+
+#=================================================================
+#            Putting it all together 
+#=================================================================
+
+module Putting_It_All_Together {
+
+  assert premise-1 := (A & B | (A ==> C))
+
+  assert premise-2 := (C <==> ~ E)
+
+  assume -B := (~ B)
+    assume A
+      conclude -E := (~ E)
+        (!cases premise-1
+                assume (A & B)
+                  (!from-complements -E B -B)
+                assume A=>C := (A ==> C)
+                  let {C=>-E := (!left-iff premise-2);
+                       C     := (!mp A=>C A)}
+                    (!mp C=>-E C))
+
+} # close Putting_It_All_Together
+
+#=================================================================
+#          A library of methods for sentential reasoning
+#=================================================================
+
+module Library {
+
+  define (contra-pos premise) :=
+    match premise {
+      (p ==> q) => assume -q := (~ q)
+                     conclude (~ p)
+                       (!mt premise -q)
+    }
+
+   conclude ((A ==> B) ==> (~ B ==> ~ A))
+     assume h := (A ==> B)
+       (!contra-pos h)
+
+  define (and-comm premise) :=
+    match premise {
+      (p & q) => (!both (!right-and premise) (!left-and premise))
+   }
+
+  define (or-comm premise) :=
+    match premise {
+      (p | q) => (!cases premise 
+                         assume p 
+                           (!right-either q p)
+                         assume q 
+                           (!left-either q p))
+  }
+
+  define (iff-comm premise) := 
+    match premise {
+      (p <==> q) => (!equiv (!right-iff premise) (!left-iff premise))
+  }
+
+  define (comm premise) :=
+    match premise {
+      (_ & _)    => (!and-comm premise)
+    | (_ | _)    => (!or-comm premise)
+    | (_ <==> _) => (!iff-comm premise)
+    }
+
+   assume h1 := (A & B)
+     assume h2 := (C | D)
+       assume h3 := (E <==> F)
+         (!both (!comm h1)
+                (!both (!comm h2)
+                       (!comm h3)))
+
+
+  define (idn premise) := 
+    (!by-contradiction (~ ~ premise)
+       assume -premise := (~ premise)
+         (!absurd premise -premise))
+
+  assume A
+     (!idn A)
+
+  define (bdn premise) := 
+    match premise {
+      (~ (~ _)) => (!dn premise)
+    | _ => (!idn premise)
+    }
+
+  conclude (~ ~ A ==> A)
+    assume h := (~ ~ A)
+      (!bdn h)
+
+  conclude (A ==> ~ ~ A)
+    assume A
+      (!bdn A)
+
+  define (from-false goal) :=
+    (!by-contradiction goal
+       assume (~ goal)
+         (!claim false))
+
+
+  define (from-complements p q1 q2) :=
+    let {M := method (goal q -q)
+                let {_ := (!absurd q -q)}
+                  (!from-false goal)}
+      match [q1 q2] {
+        [q (~ q)] => (!M p q1 q2)
+      | [(~ q) q] => (!M p q2 q1)
+    }
+
+  conclude (A & ~ A ==> B)
+    assume (A & ~ A)
+      (!from-complements B A (~ A))
+
+  define (hsyl premise-1 premise-2) :=
+    match [premise-1 premise-2] {
+      [(p1 ==> p2) (p2 ==> p3)] => 
+        assume p1 
+          conclude p3  
+             (!mp premise-2 
+                  conclude p2 
+                    (!mp premise-1 p1))
+    }
+
+  assume h1 := (A ==> B)
+    assume h2 := (B ==> C)
+      (!hsyl h1 h2)
+
+  define (dsyl-1 premise-1 premise-2) := 
+    match [premise-1 premise-2] {
+       [(p | q) p'] =>
+         check {
+           (complements? p p') =>
+              (!cases premise-1
+                      assume p 
+                        (!from-complements q p p')
+                      assume q
+                        (!claim q))
+         }
+    } 
+
+  define (dsyl premise-1 premise-2) :=
+     match [premise-1 premise-2] {
+        [(p | q) r] => 
+          check {
+            (complements? p r) => (!dsyl-1 premise-1 premise-2)
+          | else => (!dsyl-1 (!comm premise-1) premise-2)
+          }
+     }
+
+  assume h1 := (~ A | B)
+    assume h2 := A
+      (!dsyl h1 h2)
+
+
+  define (complements? p q) := 
+    (|| (q equal? complement p) (p equal? complement q))
+
+
+  # Insert your own solution to exercise 4.19 here: 
+
+  load "./solutions04/exercise19"
+
+  define (dm-2 premise) :=
+    match premise {
+      (p | q) =>  
+         let {[p' q'] := [(complement p) (complement q)];
+              goal := (~ (p' & q'))}
+           (!by-contradiction goal
+               assume -goal := (~ goal)
+                 let {_ := (!dn -goal)} # We now have (p' & q')
+                   (!cases premise
+                           assume p 
+                              (!from-complements false p p')
+                           assume q
+                              (!from-complements false q q')))
+   }
+
+
+  define (dm-3 premise) := 
+    match premise {
+      (~ (p | q)) =>
+        let {p' := (!by-contradiction (complement p)
+                     assume p
+                       (!absurd (!left-either p q) premise));
+             q' := (!by-contradiction (complement q)
+                     assume q 
+                       (!absurd (!right-either p q) premise))}
+        (!both p' q')
+    }
+
+  define (dm-4 premise) := 
+    match premise {
+      (p & q) =>
+        let {[p' q'] := [(complement p) (complement q)];
+             goal := (~ (p' | q'))}
+          (!by-contradiction goal
+             assume -goal := (~ goal)
+               let {p'|q' := (!dn -goal)}
+                 (!cases 
+                    p'|q' 
+                    assume p'
+                      (!from-complements false (!left-and premise) p')
+                    assume q'
+                      (!from-complements false (!right-and premise) q')))
+    }
+
+  define (dm premise) := 
+    match premise {
+      (~ (_ & _)) => (!dm-1 premise)
+    | (_ | _)     => (!dm-2 premise)
+    | (~ (_ | _)) => (!dm-3 premise)
+    | (_ & _)     => (!dm-4 premise)
+    }
+
+
+  define (test-dm p1 p2) := 
+    conclude (p1 ==> p2)
+      assume p1
+        (!dm p1)
+
+  (!test-dm (~ (A & B)) 
+            (~ A | ~ B))
+
+  (!test-dm (~ A | ~ B)
+            (~ (A & B)))
+
+  (!test-dm (~ (A | B))
+            (~A & ~B))
+
+  (!test-dm (~A & ~B)
+            (~ (A | B)))
+
+  (!test-dm (A & B)
+            (~  (~ A | ~ B)))
+
+  (!test-dm (A | B)
+            (~  (~ A & ~ B)))
+
+  assume h :=  (~ (~ A | ~ B))
+    (!dm h)
+
+  conclude ((~ (~ A | ~ B)) ==> (~~A & ~~B))
+     assume h :=  (~ (~ A | ~ B))
+       (!dm' h)
+  
+  assume h := (~ A & ~ B)
+    (!dm h)
+
+  conclude ((~ A & ~ B) ==> ~ (~~ A | ~~B))
+    assume h := (~ A & ~ B)
+      (!dm' h)
+
+
+  define (cd-dist-1 premise) := 
+    match premise {
+      (p & (q | r)) =>
+        conclude (p & q | p & r)
+          let {_ := (!left-and premise)}
+            (!cases ((q | r) by (!right-and premise))
+              assume q 
+                (!left-either (!both p q) (p & r))
+              assume r
+                (!right-either (p & q) (!both p r)))
+    }
+
+  define (cd-dist-2 premise) := 
+    match premise {
+      ((p & q) | (p & r)) =>
+        conclude (p & (q | r))
+          (!cases premise
+            assume (p & q)
+              (!both p (!left-either q r))
+            assume (p & r)
+              (!both p (!right-either q r)))
+    }
+
+  define (dc-dist-1 premise) := 
+    match premise {
+      (p | (q & r)) =>
+        conclude ((p | q) & (p | r))
+          (!cases premise
+            assume p 
+              (!both (!left-either p q) (!left-either p r))
+            assume (q & r)
+              (!both (!right-either p q)
+                     (!right-either p r)))
+    }
+
+  define (dc-dist-2 premise) := 
+    match premise {
+      ((p | q) & (p | r)) =>
+        conclude (p | (q & r))
+          let {_ := (!left-and premise);
+               _ := (!right-and premise)}
+            (!cases (p | q)
+              assume p 
+                (!left-either p (q & r))
+              assume q
+                (!cases (p | r)
+                   assume p 
+                     (!left-either p (q & r))
+                   assume r
+                     (!right-either p (!both q r))))
+    }
+
+  define (dist premise) := 
+    match premise {
+      ((p | _) & (p | _)) => (!dc-dist-2 premise)
+    | (_ & (_ | _))       => (!cd-dist-1 premise)
+    | ((p & _) | (p & _)) => (!cd-dist-2 premise)
+    | (p | (q & r))       => (!dc-dist-1 premise)
+    }
+
+  assume h := ((A | B) & (A | C))
+    (!dist h)
+
+  assume h := (A & (B | C))
+    (!dist h)
+
+  assume h := ((A & B) | (A & C))
+    (!dist h)
+
+  assume h := (A | (B & C))
+    (!dist h)
+
+  define (cond-def-1 premise) := 
+    match premise {
+      (p ==> q) => 
+        let {goal := (~ p | q)}
+          (!by-contradiction goal
+            assume -goal := (~ goal)
+              let {p1  := conclude (~ ~ p & ~ q)
+                            (!dm' -goal);
+                   p := (!dn (~ ~ p))}
+                (!absurd (q by (!mp premise p))
+                         (~ q)))
+    }
+
+  define (cond-def-2 premise) :=
+    match premise {
+      (p | q) => assume -p := (~ p)
+                   (!cases premise
+                          assume p 
+                            (!from-complements q p -p)
+                          assume q
+                            (!claim q))
+    }
+
+  define (cond-def premise) := 
+    match premise {
+      (_ ==> _) => (!cond-def-1 premise)
+    | (_ | _) =>   (!cond-def-2 premise)
+    }
+
+
+  assume h := (A ==> B)
+    (!cond-def h)
+
+  assume h := (A | B)
+    (!cond-def h)
+
+  define (make-cond-def-1 neg) := 
+    method (premise) 
+      match premise {
+        (p ==> q) => let {p' := (neg p);
+                          goal := (p' | q)}
+                       (!by-contradiction goal
+                          assume -goal := (~ goal)
+                            let {_ := (!dm' -goal);
+                                 p := try { (!dn (~ ~ p)) | (!claim p) }}
+                              (!absurd (!mp premise p) 
+                                       (~ q)))
+      }
+
+  define (make-cond-def-2 neg) := 
+    method (premise)
+      match premise {
+         (p | q) => assume p' := (neg p)
+                      (!cases premise
+                              assume p 
+                                (!from-complements q p p')
+                              assume q
+                                (!claim q))
+      }
+
+  define (make-cond-def neg) :=
+    method (premise) 
+       match premise {
+         (_ ==> _) => (!(make-cond-def-1 neg) premise)
+       | (_ | _)   => (!(make-cond-def-2 neg) premise)
+       }
+
+  define cond-def := (make-cond-def complement)
+  define cond-def' := (make-cond-def not)
+  
+ conclude ((A ==> B) ==> (~ A | B))
+   assume h := (A ==> B)
+     (!cond-def h)
+
+ conclude ((A ==> B) ==> (~ A | B))
+   assume h := (A ==> B)
+     (!cond-def' h)
+
+  conclude ((~ A ==> B) ==> (A | B))
+    assume h := (~ A ==> B)
+      (!cond-def h)
+
+  conclude ((~ A ==> B) ==> (~~ A | B))
+    assume h := (~ A ==> B)
+      (!cond-def' h)
+
+  conclude ((A | B) ==> (~A ==> B))
+    assume h := (A | B)
+      (!cond-def h)
+
+  conclude ((A | B) ==> (~A ==> B))
+    assume h := (A | B)
+      (!cond-def' h)
+
+  conclude ((~ A | B) ==> (A ==> B))
+    assume h := (~ A | B)
+      (!cond-def h)
+
+  conclude ((~ A | B) ==> (~~A ==> B))
+    assume h := (~ A | B)
+      (!cond-def' h)
+
+
+  define (neg-cond-ant premise) := 
+    match premise {
+      (~ (p ==> q)) => (!by-contradiction p 
+                          assume -p := (~ p)
+                            let {p==>q := assume p
+                                            (!from-complements q p -p)}
+                              (!absurd p==>q premise))
+  }
+
+  define (neg-cond-con premise) := 
+    match premise {
+      (~ (p ==> q)) => (!by-contradiction (~ q)
+                         assume q 
+                           let {p==>q := assume p (!claim q)}
+                             (!absurd p==>q premise))
+    }
+
+  define (neg-cond-conv premise) := 
+    match premise {
+      (p & (~ q)) => (!by-contradiction (~ (p ==> q))
+                       assume h := (p ==> q)
+                         (!absurd conclude q 
+                                    (!mp h (!left-and premise))
+                                  (!right-and premise)))
+    }
+
+  define (neg-cond premise) := 
+    match premise {
+      (~ (_ ==> _)) => (!both (!neg-cond-ant premise)
+                              (!neg-cond-con premise))
+    | _ => (!neg-cond-conv premise)
+    }
+
+  assume h := (~ (A ==> B))
+     (!neg-cond h)
+
+  assume h := (A & ~ B)
+     (!neg-cond h)
+
+  define (bicond-def premise) := 
+    match premise {
+      (p <==> q) => (!both (!left-iff premise) 
+                           (!right-iff premise))
+    | ((p ==> q) & (q ==> p)) => (!equiv (!left-and premise)
+                                         (!right-and premise))
+    }  
+
+  assume h := (A <==> B)
+    (!bicond-def h)
+
+  assume h := ((A ==> B) & (B ==> A))
+    (!bicond-def h)
+
+  define (bicond-def' premise) := 
+    match premise {
+      (p <==> q) =>
+        let {[p' q'] := [(complement p) (complement q)]}
+          (!two-cases 
+            assume p 
+              let {q := (!mp (!left-iff premise) p)}
+                (!left-either (!both p q) (p' & q'))
+            assume p'
+              let {_ := conclude q'
+                          (!mt (!right-iff premise) p')}
+               (!right-either (p & q) (!both p' q')))
+    | ((p & q) | (p' & q')) => 
+        (!cases premise
+           assume (p & q)
+             (!equiv assume p (!claim q)
+                     assume q (!claim p))                     
+           assume (p' & q')
+             (!equiv assume p (!from-complements q p p')
+                     assume q (!from-complements p q q')))
+    }
+
+  assume h := (A <==> B)
+    (!bicond-def' h)
+
+  assume h := ((A & B) | (~A & ~B))
+    (!bicond-def' h)
+
+  assume h := ((~A & B) | (A & ~B))
+    (!bicond-def' h)
+
+  # Insert your own solution to Exercise 4.23 here:
+  
+  load "./solutions04/exercise23"
+  
+  define (negated-bicond premise) := 
+    match premise {
+      (~ (p1 <==> p2)) => (!stopgap ((p1 & ~p2) | (~p1 & p2)))
+    | ((p1 & (~ p2)) | ((~ p1) & p2)) => (!stopgap (~ (p1 <==> p2)))
+    }
+
+  assume h := (~ (A <==> B))
+    (!negated-bicond h)
+
+  assume h := ((A & ~B) | (~A & B))
+    (!negated-bicond h)
+
+}  # close Library 
+
+#=================================================================
+#		Recursive proof methods
+#=================================================================
+
+module Recursive_Proof_Methods {
+
+  define (dn* premise) := 
+    match premise {
+      (~ (~ p)) => let {_ := conclude p 
+                               (!dn premise)}
+                     (!dn* p)
+    | _ => (!claim premise)
+    }
+
+
+  define long-negation := (~ ~ ~ ~ ~ ~ ~ A)
+
+  assume long-negation
+    (!dn* long-negation)
+
+  define (dn* premise) := 
+    match premise {
+      (~ (~ p)) => (!dn* (!dn premise))
+    | _ => (!claim premise)
+    }
+
+  assume h := (~ long-negation)
+    (!dn* h) 
+
+  define (import premise) := 
+    match premise {
+      (p ==> (q ==> r)) => assume (p & q)
+                             let {q=>r := (!mp premise p)}
+                               (!mp q=>r q)
+    }
+
+  assume h := (A ==> B ==> C)
+    (!import h)
+
+  define (import* premise) :=
+    match premise {
+      (p1 ==> (p2 ==> p3)) => let {p1&p2=>p3 := (!import premise)}
+                                (!import* p1&p2=>p3)
+    | _ => (!claim premise)
+  }
+
+  assume h := (A ==> B ==> C ==> D)
+    (!import* h)
+
+  define (import* premise) := 
+    match premise {
+      (p1 ==> (p2 ==> p3)) => (!import* (!import premise))
+    | _ => (!claim premise)
+    }
+
+  assume h := (A ==> B ==> C ==> D)
+    (!import* h)
+
+  define (ref-equiv p) :=
+    (!equiv assume p (!claim p) 
+            assume p (!claim p))
+
+
+  define (not-cong premise) := 
+    match premise {
+      (p1 <==> p2) => 
+        let {-p1=>-p2 := assume -p1 := (~ p1)
+                           (!by-contradiction (~ p2)
+                             assume p2 
+                               (!absurd (!mp (!right-iff premise) p2)
+                                        -p1));
+             -p2=>-p1 := assume -p2 := (~ p2)
+                           (!by-contradiction (~ p1)
+                             assume p1
+                               (!absurd (!mp (!left-iff premise) p1) 
+                                        -p2))}
+          (!equiv -p1=>-p2 -p2=>-p1)
+    }
+
+  define (and-cong premise1 premise2) :=
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+          let {p1&p2=>q1&q2 := assume (p1 & p2)
+                                 (!both (!mp (!left-iff premise1) p1)
+                                        (!mp (!left-iff premise2) p2));
+               q1&q2=>p1&p2 := assume (q1 & q2)
+                                 (!both (!mp (!right-iff premise1) q1)
+                                        (!mp (!right-iff premise2) q2))}
+            (!equiv p1&p2=>q1&q2 q1&q2=>p1&p2)
+    } 
+
+
+  define (if-cong premise1 premise2) :=
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+          let {p1=>p2-gives-q1=>q2 := 
+                  assume (p1 ==> p2)
+                    assume q1
+                      (!mp (!left-iff premise2)
+                           (!mp (p1 ==> p2)
+                                (!mp (!right-iff premise1) q1)));
+               q1=>q2-gives-p1=>p2 := 
+                  assume (q1 ==> q2)
+                    assume p1
+                      (!mp (!right-iff premise2)
+                           (!mp (q1 ==> q2)
+                                (!mp (!left-iff premise1) p1)))}
+            (!equiv p1=>p2-gives-q1=>q2 q1=>q2-gives-p1=>p2)
+    }
+
+
+  # Insert your own solution to Exercise 4.28 here:
+  
+  load "./solutions04/exercise28"
+
+  define (find-first-element M list) :=
+    match list {
+      (list-of first rest) => 
+        try { (!M first) | (!find-first-element M rest) }
+    }
+
+  define (choose-cong-method pc) :=
+    match pc {
+      &    => and-cong
+    | |    => or-cong
+    | ==>  => if-cong
+    | <==> => iff-cong
+    }
+
+  define (prove-equiv p q methods) :=
+    try {
+      (!find-first-element method (M) 
+                             try { (!equiv assume p (!M p)
+                                           assume q (!M q))
+                                 | (!equiv assume p (!M p q)
+                                           assume q (!M q p)) }
+                           methods)
+    | check {
+        (p equal? q) => (!ref-equiv p)
+      | else => match [p q] {
+                  [(~ p1) (~ q1)] =>
+                     (!not-cong (!prove-equiv p1 q1 methods))
+                | [((some-sent-con pc) p1 p2) (pc q1 q2)] =>
+                      (!(choose-cong-method pc) 
+                          (!prove-equiv p1 q1 methods)
+                          (!prove-equiv p2 q2 methods))
+                }
+      }
+    }
+
+  define (transform p q methods) := 
+    let {E := conclude (p <==> q)
+                (!prove-equiv p q methods)}
+       conclude q
+          (!mp (!left-iff E) p)
+
+
+  let {h := (~ A ==> ~ (B & C));
+       g := (~ A ==> ~B | ~C)}
+    conclude (h ==> g)
+      assume h
+        (!transform h g [dm bdn])
+
+  define (decompose p K) := 
+    match p {
+      (and (some-list _)) => 
+        (!decompose (!left-and p) 
+                    method (L)
+                      (!decompose (!right-and p) 
+                                  method (R)
+                                    (!K (join L [p] R))))
+    | _ => (!K [p])
+    }                                                        
+
+  define (decompose p K) := 
+    letrec {loop := method (p K)
+                      match p {
+                        (and (list-of _ _)) => 
+                          (!loop (!left-and p) 
+                                 method (L)
+                                   (!loop (!right-and p) 
+                                          method (R)
+                                            (!K (join L [p] R))))
+                      | _ => (!K [p])
+                      }}
+      (!loop p method (results) (!K (dedup results)))                                                        
+
+  assume h := (and A B C D E)
+    (!and-intro [E D C B A])
+
+} # close Recursive_Proof_Methods
+
+#=================================================================
+#	Dealing with large conjunctions and disjunctions 
+#=================================================================
+
+module Large_Conjunctions_And_Disjunctions {
+
+  assert d := (or A B C D)
+
+  (!cases d 
+          assume A (!true-intro)
+          assume B (!true-intro)
+          assume C (!true-intro)
+          assume D (!true-intro))
+
+  assert cond1 := (A ==> E)
+  assert cond2 := (B ==> E)
+  assert cond3 := (C ==> E)
+  assert cond4 := (D ==> E)
+   
+  (!cases d [cond1 cond2 cond3 cond4])
+
+} # close Large_Conjunctions_And_Disjunctions
+
+#=================================================================
+#		Sentential logic semantics
+#=================================================================
+
+module Sentential_Logic_Semantics { 
+
+  define (&&* L f) :=
+    match L {
+      [] => true
+    | (list-of h t) => (&& (f h) (&&* t f))
+    }
+
+  define (||* L f) :=
+    match L {
+      [] => false 
+    | (list-of h t) => (|| (f h) (||* t f))
+    }
+
+  define (V p I) :=
+    match p {
+      (|| true false) => p
+    | (some-atom _) => (I p)
+    | (~ q) => (negate (V q I))
+    | (and (some-list args)) => (&&* args lambda (q) (V q I))
+    | (or (some-list args)) =>  (||* args lambda (q) (V q I))
+    | (q ==> r) => (|| (V (~ q) I) (V r I))
+    | (q <==> r) => (|| (V (q & r) I) (V (~ q & ~ r) I))
+    }
+
+
+  define I := |{ A := true, B := false }|
+
+  (V (A & B) I)
+
+  (V (A | B) I)
+
+  define wrt := V
+
+  set-precedence wrt 5
+
+  (A & B wrt I)
+
+  (A & B <==> B & A wrt I)
+
+
+  define p := (A & B ==> B & A)
+
+  (p wrt |{ A := true, B := true}|)
+
+  (p wrt |{ A := true, B := false}|)
+
+  (p wrt |{ A := false, B := true}|)
+
+  (p wrt |{ A := false, B := false}|)
+
+} # close Sentential_Logic_Semantics
+
+#=================================================================
+#			SAT solving
+#=================================================================
+
+module SAT_Solving {
+
+  open Sentential_Logic_Semantics
+
+  define (all-interpretations atoms) := 
+    match atoms {
+      [] => [|{}|]
+    | (list-of a t) => let {L := (all-interpretations t)}
+                         (join (map lambda (I) (Map.add I [[a true]]) L)
+    	      	               (map lambda (I) (Map.add I [[a false]]) L))
+     }
+
+  define (taut? p) := 
+    (for-each (all-interpretations (atoms p)) lambda (I) (V p I))
+
+  set-precedence taut? 5
+
+  (taut? A & B ==> B & A)
+
+  (taut? (A & B <==> C | D) ==> ~ C ==> ~ D ==> ~ A | ~ B)
+
+  (taut? A & B)
+
+  define (sat? p) := (negate taut? ~ p)
+
+  set-precedence sat? 5
+
+  (sat? A & ~ A)
+
+  define (find-first-element L pred failure) := 
+    letrec {loop := lambda (L)
+                      match L {   
+                        [] => (failure)
+                      | (list-of h t) => check {(pred h) => h 
+                                             |  else => (loop t)}
+                      }}
+      (loop L)
+
+  define (sat? p) := 
+    (find-first-element (all-interpretations atoms p) 
+                        lambda (I) (V p I)
+                        lambda () false)
+
+  set-precedence sat? 5
+
+  (sat? A & B)
+
+  (sat? A & ~ B)
+
+  (sat? A & ~ A)
+
+  declare P: [Int] -> Boolean
+
+  define (if-chain N) := 
+    let {P_1 := (P 1);
+         P_N := (P N);
+         conditionals := (map lambda (i) (P i ==> P i plus 1)
+                              (1 to N minus 1));
+         antecedent := (& (P_1 added-to conditionals))}
+     (antecedent ==> P_N)
+
+  define p := (if-chain 3)
+
+  p
+
+  define (choose-lit clauses) := 
+    let {counts := (HashTable.table);
+         process := lambda (c) 
+                      (map-proc 
+                        lambda (l) 
+                          let {count := try { (HashTable.lookup counts l) 
+                                            | 0 }}
+                            (HashTable.add counts [l --> (1 plus count)])
+                        c);
+         _ := (map-proc process clauses);
+         L := (HashTable.table->list counts)}
+      letrec {loop := lambda (pairs lit max)
+                         match pairs {
+                           [] => lit
+                         | (list-of [l count] more) =>
+                             check {(count greater? max) => 
+                                        (loop more l count)
+                                 | else => (loop more lit max)}
+                         }}
+        (loop L () 0)
+
+  define (unit-propagate l clauses) :=
+    let {l' := (complement l)}
+      (map-select lambda (c)
+                    check {(member? l c) => ()
+                         | else => (filter c (unequal-to l'))}
+                  clauses
+                  (unequal-to ()))
+
+  define (unit-propagation clauses I) := 
+     let {f := lambda (c) 
+                 match c {
+                   [l] => l
+                 | _ => ()
+                 }}
+       (find-some-element
+         clauses
+         (unequal-to ())
+         f
+         lambda (l)
+           let {clauses' := (unit-propagate l clauses)}
+             [true clauses' (l added-to I)]
+         lambda ()
+           [false clauses I])
+
+  # Insert your own solution to exercise 4.19 here: 
+
+  load "./solutions04/exercise34"
+  
+  define (dpll0 clauses I) := 
+    match clauses {
+      [] =>  I # empty list of clauses, return I.
+    | (_ where (member? [] clauses)) => 'unsat # empty clause indicates unsat. 
+    | _ => let {[success? clauses' I'] := (unit-propagation clauses I)}
+             check 
+               {success? => (dpll0 clauses' I')
+             | else => let {[success? clauses' I'] := (pure-literal clauses I)}
+                         check 
+                           {success? => (dpll0 clauses' I')
+                         | else => let {l := (choose-lit clauses)}
+                                     match (dpll0 (add [l] clauses) I) {
+                                       (some-list L) => L 
+                                     | _ => let {l' := (complement l)}
+                                              (dpll0 (add [l'] clauses) I)
+                                     }
+                         }
+             }
+    }
+
+  define (dpll clauses) := (dpll0 clauses [])
+
+  define p := (A & B | C & D)
+
+  define m := (cnf-core p 'dimacs-list)
+
+  m
+
+  (m 'result)
+
+  (HashTable.lookup (m 'atom-table) 1)
+
+  define (cnf p) := (cnf-core p 'dimacs-list)
+
+  let {m := (cnf-core (A & B | C & D) 'sentence-list)}
+    (m 'result)
+
+  ((cnf-core (A & B | C & D) 'sentence) 'result)
+
+  let {p := (?x < ?y ==> ?x + 1 < ?y + 1)}
+    (cnf p)
+
+  let {p := (forall ?x . ?x = ?x)}
+    (cnf (p & ~ p))
+
+  define (test-dpll p) :=
+    let {m := (cnf-core p 'sentence-list);
+         clause-sentences := (m 'result);
+         clauses := (map get-disjuncts clause-sentences)}
+      (dpll clauses)
+
+  set-precedence test-dpll 10
+
+  (test-dpll A ==> B)
+
+  (test-dpll ((A ==> B) & A & ~ B))
+
+  (test-dpll ~ if-chain 50)
+
+##
+## NOTE: For the following applications of sat-solve to work, make sure that 
+## your local directory contains the minisat executable (and, if on Windows, cygwin1.dll). 
+##
+ 
+(sat-solve (A ==> B))
+
+#  (sat-solve (p & ~ p))
+
+#  define p := (forall ?x . ?x = ?x)
+
+#  (sat-solve (p & ~ p))
+
+#  ((sat-solve [A (A ==> B) (~ A)]) 'satisfiable)
+
+  define (make-graph edges) := 
+    let {N := (max* (join (map first edges) (map second edges)));
+         V := make-vector (1 plus N) [];
+         _ := (map-proc lambda (e)
+                          match e {
+                            [i j] => let {N-i := vector-sub V i;
+                                          N-j := vector-sub V j;
+                                            _ := vector-set! V i (add j N-i)}
+                                       vector-set! V j (add i N-j)
+                          }
+                        edges);
+         _ := (map-proc lambda (i) vector-set! V i (dedup vector-sub V i)
+                        (0 to N))}
+     [(1 plus N) V]
+
+  define edges := [[0 1] [0 2]]
+
+  define g := (make-graph edges)
+
+  g
+
+  datatype Color := (color Int)
+
+  datatype Node := (node Int)
+
+  declare has: [Node Color] -> Boolean
+
+  define (coloring-constraints G K) := 
+    match G {
+     [N neighbors] =>
+       let {all-nodes := (0 to N minus 1);
+            all-colors := (1 to K);
+            at-least-one-color := 
+              (map lambda (i)
+                     (or (map lambda (c)
+                                (node i has color c)
+                              all-colors))
+                   all-nodes);   
+            at-most-one-color := 
+              (map lambda (i)
+                     (and (map lambda (c)
+                                 (if (node i has color c)
+                                     (and (map lambda (c')
+                                                 (~ node i has color c')
+                                               (list-remove c all-colors))))
+                                all-colors))
+                    all-nodes);
+            distinct-colors :=
+              (map lambda (i)
+                    (and (map lambda (j)
+                                (and (map lambda (c)
+                                             (node i has color c ==>  
+                                                ~ node j has color c)
+                                          all-colors))
+                               vector-sub neighbors i))
+                   all-nodes)}
+        (join at-least-one-color at-most-one-color distinct-colors)
+    }
+
+  (coloring-constraints g 2)    
+
+  define (show-results L color-names) :=
+    let {_ :=  (map-proc lambda (p)
+                  match p {
+                     [((node i) has (color c)) true] => 
+                       let {name := try {(color-names c) 
+                                       | (val->string color c)}}
+                         (print "\nNode" i "-->" name)
+                  | _ => ()
+                  }
+                L)}
+      (print "\n")
+
+         
+  define (graph-coloring edges K m) :=
+    let {G := (make-graph edges);
+         constraints :=  (coloring-constraints G K);
+         res := (sat-solve constraints)}
+     match (res 'assignment) {
+       (some-table ht) => (show-results (rev HashTable.table->list ht) m)
+      | r => (print K "colors are not enough for this graph.")
+     }
+
+  define color-names := 
+    |{1 := "red", 2 := "blue", 3 := "green", 4 := "yellow"}|      		     	  
+
+#  (graph-coloring [[0 1] [0 2]] 2 color-names)
+
+  define g := [[0 1] [0 3] [0 4] [0 2]
+               [1 2] [1 3] [1 5]
+               [2 4] [2 5]
+               [3 4] [3 5]
+               [4 5]]
+
+#  (graph-coloring g 3 color-names)
+
+  define g := [[0 4] [0 5] [0 1]
+               [1 2] [1 5]
+               [2 5] [2 3]
+               [3 5] [3 4]
+               [4 5]]
+
+#  (graph-coloring g 3 color-names)
+
+  define (bernoulli-trial p)  := 
+    let {log := (length tail tail val->string p);
+         limit := (10 raised-to log);
+         r := (random-int limit)}
+      (r leq? p times limit)
+
+  define (make-random-graph N p) :=
+    let {all-nodes := (0 to N minus 1);
+         all-edges := (filter-out (all-nodes X all-nodes)
+                                  lambda (p) (first p equal? second p))}
+      (filter all-edges lambda (_) (bernoulli-trial p))
+
+  ([1 2 3] X ['a 'b])
+
+  define (test-gc N p K) := 
+    (graph-coloring (make-random-graph N p) K |{}|)
+
+  (test-gc 20 0.1 3)
+
+} # close SAT_Solving 
+
+module Polarities_Exercise {
+       			   
+  define (flip pol) :=
+    match pol {
+      'p  => 'n
+    | 'n  => 'p
+    | 'pn => 'pn}
+
+  define (polarities p q) := 
+    match q {
+      (val-of p) => ['p]
+    | (~ q1) => (map flip (polarities p q1))
+    | (q1 ==> q2) => (join (map flip (polarities p q1))
+                           (polarities p q2))
+    | (q1 <==> q2) => (map lambda (_) 'pn
+                           (join (polarities p q1) (polarities p q2)))
+    | ((some-sent-con _) (some-list args)) =>
+         (flatten (map lambda (q) (polarities p q) 
+                       args))
+    | _ => []
+    }
+
+  (polarities A (A & (B | C)))
+  
+  (polarities A (A ==> A | B))
+
+  (polarities (~ A) (A ==> ~ B))   
+
+  (polarities (B & C) 
+              (~ C ==> (B & C <==> D | E)))
+
+  (polarities B
+             (~ B ==> (B & C <==> ~ B | E)))
+  
+  # Insert your own solution to exercise 4.1 here: 
+  
+  load "./solutions04/exercise01"
+  
+  # Repeating the previous examples with the new implementation: 
+
+  (polarities A (A & (B | C)))
+  
+  (polarities A (A ==> A | B))
+
+  (polarities (~ A) (A ==> ~ B))   
+
+  (polarities (B & C) 
+              (~ C ==> (B & C <==> D | E)))
+
+  (polarities B
+             (~ B ==> (B & C <==> ~ B | E)))
+
+} # close Polarities_Exercise 
+
+#=================================================================
+#		Proof heuristics for sentential logic
+#=================================================================
+
+module Heuristics {
+
+  let {premise-1 := (A ==> B & C);
+       premise-2 := (A & E)}
+    assume (premise-1 & premise-2)
+      let {conj := let {cond := (!claim (A ==> B & C));
+                        ant :=  let {conj := (!claim (A & E))}
+                                  (!left-and conj)}
+                     (!mp cond ant)}
+        (!right-and conj)
+    
+  let {premise-1 := (A ==> B & C);
+       premise-2 := (A & E)}
+    assume (premise-1 & premise-2)       
+      let {conj := (!mp (A ==> B & C)
+                        (!left-and (A & E)))}
+        (!right-and conj)
+  
+  let {premise-1 := (A | (B ==> C)); 
+       premise-2 := (C <==> D & E);
+       premise-3 := (B & ~ A)}
+    assume (premise-1 & premise-2 & premise-3)
+      let {left := (!left-and (B & ~ A));
+           right := 
+             let {conj := 
+                   let {bcond := (!claim (C <==> D & E));
+                        _ := let {disj := (!claim (A | (B ==> C)));
+                                  cnd1 := assume A
+                                            (!from-complements 
+                                              (B ==> C) 
+                                              A 
+                                              (!right-and premise-3));
+		  	          cnd2 := assume (B ==> C) 
+                                            (!claim (B ==> C));
+                                  cond := (!cases disj cnd1 cnd2)}
+                               (!mp cond B)}
+                     (!mp (!left-iff bcond) C)}
+               (!left-and conj)}
+        (!both B D)
+
+  let {premise-1 := (A | (B ==> C)); 
+       premise-2 := (C <==> D & E);
+       premise-3 := (B & ~ A)}
+    assume (premise-1 & premise-2 & premise-3)
+      let {left := (!left-and (B & ~ A));
+           right := let {B=>C := (!cases (A | (B ==> C))
+                                   assume A
+                                     (!from-complements 
+                                       (B ==> C)  
+                                       A 
+                                       (!right-and premise-3))
+                                   assume h := (B ==> C) 
+                                     (!claim h));
+                         _ := (!mp B=>C B);
+                         D&E := (!mp conclude (C ==> D & E)
+                                       (!left-iff premise-2)
+                                     C)}
+                      (!left-and D&E)}
+        (!both B D)
+
+} # close Heuristics 
+
+#=================================================================
+#		A theorem prover for sentential logic
+#=================================================================
+
+module Sentential-Semantic-Tableaux { 
+
+  define (conjunctive? p) := 
+    match p {
+      (and (some-list L)) => L
+    | (~ (~ q)) => [q]
+    | (~ (p ==> q)) => [p (~ q)]
+    | (~ (or (some-list L))) => (map ~ L)
+    | (p <==> q) => [(p ==> q) (q ==> p)]
+    | _ => ()
+    }
+
+  define (disjunctive? p) := 
+    match p { 
+      (or (some-list L)) => L
+    | (p ==> q) => [(~ p) q]
+    | (~ (p <==> q)) => [(p & ~ q) (q & ~ p)]
+    | (~ (and (some-list L))) => (map ~ L)
+    | _ => ()
+    }  
+
+  define (inconsistent? L) := 
+    (for-some L lambda (p) (|| (member? p [false (not true)])
+                               (member? (~ p) L)))
+
+  define (literal? p) :=
+    match p {
+      (|| (some-atom _) (~ (some-atom _))) => true
+    | _  => false
+    }
+
+  define (non-literal? p) := (negate literal? p)
+
+  define (sat L) := 
+    match L {
+      (split L1 [(p where (non-literal? p))] L2) =>
+         match (conjunctive? p) { 
+           (some-list args) => (sat (join L1 args L2))
+         | _ => match (disjunctive? p) { 
+                  (some-list args) => 
+                     (find-some-element args 
+                                        (unequal-to false)
+                                        lambda (d) (sat (join L1 [d] L2))
+                                        lambda (x) x 
+                                        lambda () false)
+               }
+         }
+    | _ => check { (inconsistent? L) => false
+                 | else => L}
+    }
+
+  define (tautology? p) := 
+    match (sat [(~ p)]) {
+       false => true      # (~ p) is unsatisfiable, so p is a tautology
+     | _ => false         # (~ p) is satisfiable, so p is not a tautology
+    }
+
+  define (follows? p L) := 
+    (tautology? (if (& L) p))
+
+
+  define L := [(~ (A ==> B)) (C & ~ D) (~ D ==> B)]
+
+  (sat L)
+
+  (sat [(A ==> B) (C & ~ D) (~ D ==> B)])
+
+  (tautology? (A & B ==> B & A))
+
+  (tautology? (A & B ==> B & C))
+
+  (follows? B [(~ B ==> ~ C) (~ E | C) E])
+
+  define (conjunctive-case p K) :=
+    match p {
+      (and (some-list _)) => (!decompose p K)
+
+    | (q <==> r) => let {p1 := (!left-iff p);
+                         p2 := (!right-iff p)}
+                      (!K [p1 p2])
+
+    | (~ (~ _)) => let {q := (!dn p)}
+                     (!K [q])
+
+    | (~ (or (some-list _))) => (!decompose (!dm p) K)
+
+    | (~ (q ==> r)) => let {p1 := conclude q 
+                                    (!neg-cond1 p);
+                            p2 := conclude (~ r) 
+                                    (!neg-cond2 p)}
+                         (!K [p1 p2])
+    }
+
+  define (disjunctive-case p K) := 
+    match p {
+      (or (some-list L)) => (!K p L)
+    | (q ==> r) => let {q'|r := (!cond-def p)}
+                     (!K q'|r [(complement q) r])
+    | (~ (and (some-list L))) => (!K (!dm p) (map complement L))
+    | (~ (q <==> r)) => (!K (!negated-bicond p) [(q & (complement r)) 
+                                                 ((complement q) & r)])
+    }
+
+
+  define (inconsistent-literals L) :=
+    match L {
+#      (split _ [p] _ ([q] where (complements? p q))  _) => (!from-complements false p q)
+#      (split _ ([p] where (sentence? p))) => 1
+       (split _ [p] _ ([q] where (complements? p q)) _) => (!from-complements false p q)
+     }
+
+  define (refute L) := 
+    match L {
+      (split L1 [(p where (non-literal? p))] L2) =>
+         try { (!conjunctive-case p 
+                  method (components) 
+                    (!refute (join L1 components L2))) 
+             | (!disjunctive-case p 
+                 method (disjunction disjuncts) 
+                   (!map-method method (d)
+                                  assume d
+                                    (!refute (join L1 [d] L2))
+                                disjuncts
+                                method (conds)
+                                  (!cases disjunction conds)))}
+    | _ => (!inconsistent-literals L)
+    }
+
+  define (prop-taut p) :=
+    (!by-contradiction p
+      assume -p := (~ p) 
+       (!refute [-p]))
+
+(!prop-taut (A & B & C ==> (~ B | ~ C) ==> false))
+
+} # close Sentential-Semantic-Tableaux
+
+
+#==============================================================================
+#
+#                             Additional exercises 
+#
+#==============================================================================
+
+
+# Insert your own solution to exercise 4.6 here:
+  load "./solutions04/exercise06"
+
+# Insert your own solution to exercise 4.7 here:
+  load "./solutions04/exercise07"
+
+# Insert your own solution to exercise 4.8 here:
+  load "./solutions04/exercise08"
+
+# Insert your own solution to exercise 4.9 here:
+  load "./solutions04/exercise09"
+
+# Insert your own solution to exercise 4.10 here:
+  load "./solutions04/exercise10"
+
+# Insert your own solution to exercise 4.11 here:
+  load "./solutions04/exercise11"
+
+# Insert your own solution to exercise 4.12 here:
+  load "./solutions04/exercise12"
+
+# Insert your own solution to exercise 4.13 here:
+  load "./solutions04/exercise13"
+
+# Insert your own solution to exercise 4.14 here:
+  load "./solutions04/exercise14"
+
+# Insert your own solution to exercise 4.15 here:
+  load "./solutions04/exercise15"
+
+# Insert your own solution to exercise 4.17 here:
+  load "./solutions04/exercise17"
+
+# Insert your own solution to exercise 4.18 here:
+  load "./solutions04/exercise18"
+
+# Insert your own solution to exercise 4.19 here:
+  load "./solutions04/exercise19"
+
+# Insert your own solution to exercise 4.20 here:
+  load "./solutions04/exercise20"
+
+# Insert your own solution to exercise 4.21 here:
+  load "./solutions04/exercise21"
+
+# Insert your own solution to exercise 4.22 here:
+  load "./solutions04/exercise22"
+
+# Insert your own solution to exercise 4.23 here:
+  load "./solutions04/exercise23"
+
+# Insert your own solution to exercise 4.24 here:
+#  load "./solutions04/exercise24"
+
+# Insert your own solution to exercise 4.25 here:
+  load "./solutions04/exercise25"
+
+# Insert your own solution to exercise 4.26 here:
+  load "./solutions04/exercise26"
+
+# Insert your own solution to exercise 4.27 here:
+  load "./solutions04/exercise27"
+
+# Insert your own solution to exercise 4.28 here:
+  load "./solutions04/exercise28"
+
+# Insert your own solution to exercise 4.29 here:
+  load "./solutions04/exercise29"
+
+# Insert your own solution to exercise 4.30 here:
+  load "./solutions04/exercise30"
+
+# Insert your own solution to exercise 4.31 here:
+  load "./solutions04/exercise31"
+
+# Insert your own solution to exercise 4.32 here:
+  load "./solutions04/exercise32"
+
+# Insert your own solution to exercise 4.33 here:
+  load "./solutions04/exercise33"
+
+# Insert your own solution to exercise 4.34 here:
+  load "./solutions04/exercise34"
+
+# Insert your own solution to exercise 4.35 here:
+  load "./solutions04/exercise35"
+
+# Insert your own solution to exercise 4.36 here:
+  load "./solutions04/exercise36"
+
+# Insert your own solution to exercise 4.37 here:
+  load "./solutions04/exercise37"
+
+# Insert your own solution to exercise 4.39 here:
+  load "./solutions04/exercise39"
+
+

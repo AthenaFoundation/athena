@@ -1,0 +1,36 @@
+define (pick-any* L K) := 
+  letrec {loop := method (L vars) 
+                    match L {
+                      [] => (!K (rev vars))
+                    | (list-of _ rest) => pick-any x 
+                                            (!loop rest (x added-to vars))
+                    }}
+    (!loop L [])
+
+
+define (hc-equiv premise) := 
+  match premise {
+    (forall (some-list uvars) (p1 <==> p2)) => 
+       let {M := method (p) 
+                   (!pick-any* 
+                     uvars 
+                     method (uvars')
+                       let {sub := (make-sub uvars zip uvars')}
+                         assume (sub p)
+                           (!fire premise (sub uvars)))}
+         (!both (!M p1) (!M p2))
+  | ((L as (forall (some-list uvars)  (p1 ==> p2))) & 
+     (R as (forall (some-list uvars') (p3 ==> p4)))) => 
+      (!pick-any* 
+        uvars 
+        method (uvars')
+          let {sub := (make-sub uvars zip uvars')}
+            (!equiv assume h := (sub p1)
+                      (!fire (!left-and premise) (sub uvars))
+		    assume h := (sub p2)
+                      (!fire (!right-and premise) (sub uvars))))
+  }
+
+assume h := (forall x . P x <==> Q x)
+  (!hc-equiv h)
+

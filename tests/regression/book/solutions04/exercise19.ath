@@ -1,0 +1,16 @@
+#========================== Solution to exercise 4.19 =========================
+
+define (dm-1 premise) := 
+    match premise {
+      (~ (p & q)) =>
+        conclude goal :=  (~ p | ~ q)
+          (!two-cases 
+            assume p
+              let {-q := (!by-contradiction (~ q)
+                            assume q 
+                              (!absurd (!both p q) premise))}
+                (!right-either (~ p) -q)
+            assume -p := (~ p)
+              (!left-either -p (~ q)))
+    }
+

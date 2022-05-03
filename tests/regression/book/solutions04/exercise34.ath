@@ -1,0 +1,33 @@
+#========================== Solution to exercise 4.34 =========================
+
+  define (in-table? x T) := 
+    try { let {_ := (table-lookup T x)} true | false }
+
+  define (pure? T) :=
+    lambda (l)  
+      try { (equal? (table-lookup T l) true) | false }
+ 
+  define (all-pure-literals clauses) :=
+    let {T := (table 1000);
+         _ := (map-proc
+                lambda (c)
+                  (map-proc
+                    lambda (l)
+                      let {l' := (complement l)}
+                        check {(in-table? l' T) => 
+                                   (seq (table-add T [l --> false]) 
+		  	   	        (table-add T [l' --> false]))
+                             | else => (table-add T [l --> true])}
+                    c)
+                clauses)}
+      T
+
+  define (pure-literal clauses I) :=
+    let {T := (all-pure-literals clauses);
+         clauses' := (filter-out 
+                       clauses 
+                       lambda (c)
+                         (for-some c (pure? T)));
+         lits :=  (map first (table->list T));
+         pure-lits :=  (filter lits (pure? T))}
+      [(negate (null? pure-lits)) clauses' (join pure-lits I)]

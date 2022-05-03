@@ -1,0 +1,38 @@
+by-induction CPC {
+  null => pick-any B a b 
+           (!chain [(a @ b in null X B)
+               <==> (a @ b in null)       [product-def]
+               <==> false                 [NC]
+               <==> (a in null & b in B)  [prop-taut NC]])
+| (A as (insert h t)) =>
+   let {IH := (forall B a b . a @ b in t X B <==> a in t & b in B)}
+     pick-any B a b
+       (!chain [(a @ b in h ++ t X B)
+           <==> (a @ b in h paired-with B \/ t X B)          [product-def]
+           <==> (a @ b in h paired-with B | a @ b in t X B)  [UC]
+           <==> (a = h & b in B | a in t & b in B)           [PWC IH]
+           <==> ((a = h | a in t) & b in B)                  [prop-taut]
+           <==> (a in A & b in B)                            [in-def]])
+}
+
+conclude cartesian-product-characterization-2 := 
+  (forall x A B . x in A X B <==> exists a b . x = a @ b & a in A & b in B)
+pick-any x A B
+  (!equiv 
+    assume hyp := (x in A X B)
+      let {p := (!chain-> [true ==> (exists a b . x = a @ b) [pair-axioms]])}
+        pick-witnesses a b for p x=a@b
+          (!chain-> 
+            [x=a@b 
+        ==> (a @ b in A X B)                           [hyp]
+        ==> (a in A & b in B)                          [CPC]
+        ==> (x=a@b & a in A & b in B)                  [augment]
+        ==> (exists a b . x = a @ b & a in A & b in B) [existence]])
+    assume hyp := (exists a b . x = a @ b & a in A & b in B)
+      pick-witnesses a b for hyp spec-premise
+       (!chain-> 
+         [spec-premise 
+      ==> (a in A & b in B)   [prop-taut]
+      ==> (a @ b in A X B)    [CPC]
+      ==> (x in A X B)        [(x = a @ b)]]))
+

@@ -1,0 +1,96 @@
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# EXERCISE 14-29.1:
+#
+#
+define stopgap := force
+
+set-flag print-var-sorts "off"
+load "sets"    
+
+extend-module Set {
+
+define [s x y y' rest] := 
+  [?s:(Set (Pair 'S 'T)) ?x:'S ?y:'T ?y':'T ?rest:(Set (Pair 'S 'T))]
+
+declare functional: (S, T) [(Set (Pair S T))] -> Boolean
+
+assert* functional-def :=
+  [(functional (x @ y ++ rest) <==> 
+     (x @ y ++ rest) ^1 x = singleton (x @ y) & functional rest)
+   (functional null <==> true)]
+
+define functional-characterization := 
+  (forall R . functional R <==> 
+                forall x y y' . x @ y in R & x @ y' in R ==> y = y')
+
+define functional-characterization-1 := 
+  (forall R . functional R 
+              ==> forall x y y' . x @ y in R & x @ y' in R ==> y = y')
+
+(!stopgap functional-characterization-1)
+
+define functional-characterization-2 := 
+  (forall R . (forall x y y' . x @ y in R & x @ y' in R ==> y = y')
+	      ==> functional R)
+
+(!stopgap functional-characterization-2)
+
+define functional-characterization := 
+  (forall R . functional R 
+              <==> (forall x y y' . x @ y in R & x @ y' in R ==> y = y'))
+
+(!stopgap functional-characterization)
+
+define range-stays-smaller :=
+  (forall s t .
+    card range t < card dom t &
+    functional (s \/ t)
+    ==> card range (s \/ t) < card dom (s \/ t))
+
+(!stopgap range-stays-smaller)
+
+define [x1 x2] := [?x1 ?x2]
+
+define smaller-range := 
+  (forall R x1 x2 y .
+    functional R &
+    x1 @ y in R & x2 @ y in R & x1 =/= x2
+    ==> card range R < card dom R)
+
+(!stopgap smaller-range)
+
+declare injective: (S, T) [(Set (Pair S T))] -> Boolean
+
+assert* injective-def :=
+   (injective R <==> 
+     forall x x' y . x @ y in R & x' @ y in R ==> x = x')
+
+declare surjective: (S, T) [(Set (Pair S T))] -> Boolean
+
+assert* surjective-def :=
+   (surjective R <==> 
+      forall y . y in range R <==> exists x . x @ y in R)
+
+declare bijective: (S, T) [(Set (Pair S T))] -> Boolean
+
+assert* bijective-def :=
+  (bijective R <==> injective R & surjective R)
+
+define injective-theorem :=
+  (forall R .  functional R & range R = dom R ==> injective R)
+
+define surjective-theorem := (forall R . surjective R)
+
+define bijective-theorem :=
+  (forall R . functional R & range R = dom R ==> bijective R) 
+
+(!stopgap injective-theorem)
+
+(!stopgap surjective-theorem)
+
+(!stopgap bijective-theorem)
+
+} # close module Set
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+

@@ -1,0 +1,12 @@
+assert* bcond-vars-def := 
+  [(bcond-vars e1 == e2 = (evars e1) \/ (evars e2))
+   (bcond-vars e1 <= e2 = (evars e1) \/ (evars e2))
+   (bcond-vars -- b = bcond-vars b)
+   (bcond-vars b1 /\ b2 = (bcond-vars b1) \/ (bcond-vars b2))]
+
+(eval bcond-vars "~ 2 * x <= 1 + y")
+
+(eval bcond-vars "x <= y + 2 & x != z")
+
+(eval bcond-vars "3 = 3")
+

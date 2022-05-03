@@ -1,0 +1,15 @@
+extend-module N {
+  extend-module Plus {
+    by-induction left-zero {
+      zero => (!chain [(zero + zero) --> zero [right-zero]])
+    | (S n) => conclude (zero + S n = S n) 
+                 let {IH := (zero + n = n)}
+                   (!chain [(zero + S n)
+		          = (S (zero + n))    [right-nonzero]
+		          = (S n)             [IH]])
+    }
+
+  } # close module Plus
+
+} # close extend-module N 
+

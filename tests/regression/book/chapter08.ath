@@ -1,0 +1,1734 @@
+#==========================================================================
+# SECTION: Properties of natural number ordering functions
+#
+define stopgap := force
+
+load "nat-times"
+
+extend-module N {
+  open Plus
+
+  declare <: [N N] -> Boolean [[int->nat int->nat]]
+
+  define [m n n' x y z k] := [?m:N ?n:N ?n':N ?x:N ?y:N ?z:N ?k:N]
+
+  module Less {
+
+    assert* def := [(zero < S n)
+                    (~ _ < zero)
+                    (S m < S n <==> m < n)]
+
+    define [zero<S not-zero injective] := def 
+
+    define irreflexive  := (forall n . ~ n < n)
+    define <S           := (forall n . n < S n)
+    define =zero        := (forall n . ~ zero < n ==> n = zero)
+    define zero<        := (forall n . n =/= zero <==> zero < n)
+    define S1           := (forall x y . S x < y ==> x < y)
+    define S2           := (forall x y . x < y ==> x < S y)
+    define S4           := (forall m n . S m < n ==> exists n' . n = S n')
+    define S-step       := (forall x y . x < S y & x =/= y ==> x < y)
+    define discrete     := (forall n . ~ exists x . n < x & x < S n)
+
+  } # close module Less
+
+by-induction Less.irreflexive {
+  zero =>  (!chain-> [true ==> (~ zero < zero)    [Less.not-zero]])
+| (S n) => (!chain-> [(~ n < n) ==> (~ S n < S n) [Less.injective]])
+}
+
+by-induction Less.<S {
+  zero =>  (!chain-> [true ==> (zero < S zero)    [Less.zero<S]])
+| (S n) => (!chain-> [(n < S n) ==> (S n < S S n) [Less.injective]])
+}
+
+by-induction Less.S1 {
+  zero => 
+  conclude (forall y . S zero < y ==> zero < y)
+    pick-any y
+      assume Szero<y := (S zero < y)
+	(!two-cases 
+	  assume y=zero := (y = zero)
+	    (!by-contradiction (zero < y)
+	      assume (~ zero < y) 
+                let {-Szero<y := 
+		       conclude (~ S zero < y)
+		         (!chain-> 
+			  [true ==> (~ S zero < zero) [Less.not-zero]
+				==> (~ S zero < y)    [y=zero]])}
+	          (!absurd Szero<y -Szero<y))
+	  assume y!=zero := (y =/= zero) 
+	    let {has-predecessor := 
+                   (!chain-> [y!=zero 
+                          ==> (exists m . y = S m)    [nonzero-S]])}
+	      pick-witness m for has-predecessor
+	        (!chain-> [true ==> (zero < S m)      [Less.zero<S]
+   		                ==> (zero < y)        [(y = S m)]]))
+| (S n) =>
+  let {ind-hyp :=  (forall y . S n < y ==> n < y)}
+    conclude (forall y . S S n < y ==> S n < y) 
+      pick-any y
+        assume Less := (S S n < y)
+	  (!two-cases 
+	    assume (y = zero)
+	      (!by-contradiction (S n < y)
+	        assume (~ S n < y)
+                  let {not-Less := 
+		        (!chain-> [true 
+    		               ==> (~ S S n < zero)   [Less.not-zero]
+	                       ==> (~ S S n < y)      [(y = zero)]])}
+                    (!absurd Less not-Less))
+	    assume nonzero := (y =/= zero) 
+	      let {has-predecessor := 
+                    (!chain-> 
+	   	      [nonzero 
+  	           ==> (exists m . y = S m)           [nonzero-S]])}
+	        pick-witness m for has-predecessor 
+                  # we now have (y = S m)
+	          (!chain-> 
+		    [(S S n < y) ==> (S S n < S m)    [(y = S m)]
+ 	                         ==> (S n < m)        [Less.injective]
+	                         ==> (n < m)          [ind-hyp]
+	                         ==> (S n < S m)      [Less.injective]
+	                         ==> (S n < y)        [(y = S m)]]))
+}
+
+by-induction Less.S2 {
+  zero =>
+    conclude (forall y . zero < y ==> zero < S y)
+      pick-any y
+        assume (zero < y) 
+          (!chain-> [true ==> (zero < S y) [Less.zero<S]])
+| (S m) =>
+    conclude (forall y . S m < y ==> S m < S y)
+      pick-any y
+        (!chain [(S m < y)
+	     ==> (m < y)                   [Less.S1]
+	     ==> (S m < S y)               [Less.injective]])
+}
+
+datatype-cases Less.S2 {
+  zero =>
+    conclude (forall y . zero < y ==> zero < S y)
+      pick-any y
+        assume (zero < y) 
+          (!chain-> [true ==> (zero < S y) [Less.zero<S]])
+| (S m) =>
+    conclude (forall y . S m < y ==> S m < S y)
+      pick-any y
+        (!chain [(S m < y)
+             ==> (m < y)                   [Less.S1]
+	     ==> (S m < S y)               [Less.injective]])
+}
+
+by-induction Less.S1 {
+  zero =>
+    datatype-cases (forall y . S zero < y ==> zero < y) {
+      zero => assume less := (S zero < zero) 
+                let {-less := (!chain-> [true 
+                                     ==> (~ S zero < zero) [Less.not-zero]])}
+                  (!from-complements (zero < zero) 
+                                     less  
+                                     -less)
+    | (S m) => assume (S zero < S m)
+                 (!chain-> [true ==> (zero < S m)         [Less.zero<S]])
+    }
+| (S n) => 
+    let {ind-hyp := (forall y . S n < y ==> n < y)}
+      datatype-cases (forall y . S S n < y ==> S n < y) {
+        zero => 
+          assume less := (S S n < zero) 
+            let {-less := (!chain-> [true 
+                                 ==> (~ S S n < zero)     [Less.not-zero]])}
+	      (!from-complements (S n < zero) 
+                                 less 
+                                 -less)
+      | (S m) =>
+	  (!chain [(S S n < S m) ==> (S n < m)            [Less.injective]
+ 	                         ==> (n < m)              [ind-hyp]
+ 	                         ==> (S n < S m)          [Less.injective]])
+      }
+} # by-induction Less.S1
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.1:
+#
+(!stopgap Less.S-step)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.2:
+#
+(!stopgap Less.S-step)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.3:
+#
+(!stopgap Less.discrete)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Trichotomy properties
+#
+extend-module Less {
+  define trichotomy  := (forall m n . ~ m < n & m =/= n ==> n < m)
+  define trichotomy1 := (forall m n . ~ m < n & ~ n < m ==> m = n)
+  define trichotomy2 := (forall m n . m = n <==> ~ m < n & ~ n < m)
+}
+
+
+(!stopgap Less.trichotomy)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.4:
+#
+(!stopgap Less.trichotomy1)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.5:
+#
+
+(!stopgap Less.trichotomy2)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Transitive and asymmetric properties
+#
+extend-module Less {
+  define transitive   := (forall x y z . x < y & y < z ==> x < z)
+  define transitive1  := (forall x y z . x < y & ~ z < y ==> x < z)
+  define transitive2  := (forall x y z . x < y & ~ x < z ==> z < y)
+  define transitive3  := (forall x y z . ~ y < x & y < z ==> x < z)
+} 
+
+
+# A version with the easiest-to-induct-on variable first:
+conclude transitive0 :=
+  (forall z x y . x < y & y < z ==> x < z)
+by-induction transitive0 {
+  zero =>
+    pick-any x y
+      assume (x < y & y < zero) 
+        let {-y<0 := (!chain->
+                       [true 
+                    ==> (~ y < zero)              [Less.not-zero]])}
+	     (!from-complements
+               (x < zero) (y < zero) -y<0)
+| (z as (S n)) => 
+    let {ind-hyp := (forall x y .
+                      x < y & y < n ==> x < n)}
+      pick-any x y
+        assume (x < y & y < z)
+          conclude (x < z) 
+            let {_ := conclude (x < n)
+                       (!two-cases
+                         assume (y = n)
+  	                   (!chain->
+	 	             [(x < y)
+		          ==> (x < n)             [(y = n)]])
+                         assume (y =/= n)
+ 	                   (!chain->
+			     [(y =/= n)
+    		          ==> (y < S n & y =/= n) [augment]
+			  ==> (y < n)             [Less.S-step]
+			  ==> (x < y & y < n)     [augment]
+			  ==> (x < n)             [ind-hyp]]))}
+              (!chain->
+	        [(x < n) ==> (x < S n)            [Less.S2]])
+}
+	 
+conclude Less.transitive
+  pick-any x y z
+    (!chain [(x < y & y < z) ==> (x < z)          [transitive0]])
+
+extend-module Less {
+  define asymmetric   := (forall m n . m < n ==> ~ n < m)
+} 
+
+conclude Less.asymmetric
+conclude Less.asymmetric 
+  pick-any x y
+    assume (x < y)
+      (!by-contradiction (~ y < x)
+         assume (y < x) 
+           let {x<x  := (!chain-> [(x < y & y < x)
+	                       ==> (x < x)         [Less.transitive]]);
+                -x<x := (!chain-> [true 
+                               ==> (~ x < x)       [Less.irreflexive]])}
+             (!absurd x<x -x<x))
+
+extend-module Less {
+  define S-not-< := (forall n . ~ S n < n)
+}
+
+conclude Less.S-not-<
+  pick-any n
+    (!by-contradiction (~ S n < n)
+      assume (S n < n)
+        (!absurd
+ 	  (!chain-> [(S n < n) ==> (n < n)  [Less.S1]])
+ 	  (!chain-> [true ==> (~ n < n)     [Less.irreflexive]])))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.6:
+#
+(!stopgap Less.transitive1)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.7:
+#
+(!stopgap Less.transitive2)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.8:
+#
+(!stopgap Less.transitive3)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Less-equal properties
+#
+declare <=: [N N] -> Boolean [[int->nat int->nat]]
+
+module Less= {
+
+  define [m n n' x y z] := [?m:N ?n:N ?n':N ?x:N ?y:N ?z:N]
+
+  assert definition := (forall x y . x <= y <==> x < y | x = y)
+     
+  define Implied-by-<     := (forall m n . m < n ==> m <= n)
+  define Implied-by-equal := (forall m n . m = n ==> m <= n)
+  define reflexive   := (forall n . n <= n)
+  define zero<=      := (forall n . zero <= n)
+  define S-zero-S-n  := (forall n . S zero <= S n)
+  define injective   := (forall n m . S n <= S m <==> n <= m)
+  define not-S       := (forall n . ~ S n <= n)
+  define S-not-equal := (forall k n . S k <= n ==> k =/= n)
+  define discrete    := (forall m n . m < n ==> S m <= n)
+  define transitive  := (forall x y z . x <= y & y <= z ==> x <= z)
+  define transitive1 := (forall x y z . x < y & y <= z ==> x < z)
+  define transitive2 := (forall x y z . x <= y & y < z ==> x < z)
+  define S1          := (forall n m . n <= m ==> n < S m)
+  define S2          := (forall n m . n <= m ==> n <= S m)
+  define S3          := (forall n . n <= S n)
+  define trichotomy1 := (forall m n . ~ n <= m ==> m < n)
+  define trichotomy2 := (forall m n . ~ n < m ==>  m <= n)
+  define trichotomy3 := (forall m n . n < m ==> ~ m <= n)
+  define trichotomy4 := (forall m n . n <= m ==> ~ m < n)
+  define trichotomy5 := (forall m n . m <= n & n <= m ==> m = n)
+  define Plus-cancellation := (forall k m n . m + k <= n + k ==> m <= n)
+  define Plus-k      := (forall k m n . m <= n ==> m + k <= n + k)
+  define Plus-k1     := (forall k m n . m <= n ==> m <= n + k)
+  define k-Less=     := (forall k m n . n = m + k ==> m <= n)
+  define zero2       := (forall n . n <= zero ==> n = zero)
+  define not-S-zero  := (forall n . ~ S n <= zero)
+  define S4          := (forall m n . S m <= n ==> exists n' . n = S n')
+  define S5          := (forall n m . n <= S m & n =/= S m ==> n <= m)
+  define =zero       := (forall m . m < one ==> m = zero)
+  define zero<=one   := (forall m . m = zero ==> m <= one)
+} # close module Less=
+
+conclude Less=.Implied-by-<
+  pick-any m n
+    (!chain [(m < n) ==> (m < n | m = n)   [alternate]
+	             ==> (m <= n)          [Less=.definition]])
+
+conclude Less=.Implied-by-equal
+  pick-any m:N n:N
+    (!chain [(m = n) ==> (m < n | m = n)   [alternate]
+	             ==> (m <= n)          [Less=.definition]])
+
+conclude Less=.reflexive
+  pick-any n
+    (!chain-> [(n = n)
+           ==> (n < n | n = n)    [alternate]
+           ==> (n <= n)           [Less=.definition]])
+
+datatype-cases Less=.zero<= {
+  zero =>
+   (!chain-> [(zero = zero) ==> (zero <= zero) [Less=.Implied-by-equal]])
+| (S n) => 
+   (!chain-> [true ==> (zero < S n)            [Less.zero<S]   
+   	           ==> (zero <= S n)           [Less=.Implied-by-<]])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.9:
+#
+(!stopgap Less=.S-zero-S-n)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+conclude Less=.injective 
+  pick-any n m
+    (!chain [(S n <= S m)
+        <==> (S n < S m | S n = S m)  [Less=.definition]
+        <==> (n < m | n = m)          [Less.injective S-injective]
+        <==> (n <= m)                 [Less=.definition]])
+
+conclude Less=.not-S
+  pick-any n
+    (!by-contradiction (~ S n <= n)
+      assume Sn<=n := (S n <= n) 
+        let {disjunction := 
+	       (!chain-> [Sn<=n ==> (S n < n | S n = n) [Less=.definition]])}
+  	  (!cases disjunction
+	    assume Sn<n := (S n < n) 
+              let {-Sn<n := (!chain-> [true ==> (~ Sn<n) [Less.S-not-<]])}
+  	        (!absurd Sn<n -Sn<n)
+  	    assume Sn=n := (S n = n) 
+              let {-Sn=n := (!chain-> [true ==> (~ Sn=n) [S-not-same]])}
+   	        (!absurd Sn=n -Sn=n)))
+
+conclude Less=.discrete
+  pick-any m n
+    assume (m < n)
+      (!by-contradiction (S m <= n)
+        assume -Sm<=n := (~ S m <= n)
+  	  let {in-between := (exists k . m < k & k < S m)}
+	    (!absurd 
+              (!chain-> [-Sm<=n 
+                     ==> (~ (S m < n | S m = n))   [Less=.definition]
+      		     ==> (~ S m < n & S m =/= n)   [dm]
+		     ==> (n < S m)                 [Less.trichotomy]
+		     ==> (m < n & n < S m)         [augment]
+		     ==> in-between                [existence]])
+	      (!chain-> [true ==> (~ in-between)   [Less.discrete]])))
+
+conclude Less=.zero2
+  pick-any n
+    assume hyp := (n <= zero)
+      (!dsyl (!chain-> [hyp  ==> (n < zero | n = zero) [Less=.definition]])
+	     (!chain-> [true ==> (~ n < zero)          [Less.not-zero]]))
+
+conclude Less=.not-S-zero
+  pick-any n
+    (!by-contradiction (~ S n <= zero)
+      assume hyp := (S n <= zero)
+        (!absurd
+          (!chain-> [hyp  ==> (S n = zero)   [Less=.zero2]])
+	  (!chain-> [true ==> (S n =/= zero) [S-not-zero]])))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.10:
+#
+(!stopgap Less=.trichotomy1)
+
+(!stopgap Less=.trichotomy2)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.11:
+#
+(!stopgap Less=.trichotomy3)
+
+(!stopgap Less=.trichotomy4)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Combining ordering and arithmetic
+#
+extend-module Less {
+  define Plus-cancellation := (forall k m n . m + k < n + k ==> m < n)
+  define Plus-k := (forall k m n . m < n ==> m + k < n + k)
+}
+
+extend-module Less= {
+ define Plus-cancellation := (forall k m n . m + k <= n + k ==> m <= n)
+ define Plus-k := (forall k m n . m <= n ==> m + k <= n + k)
+}
+
+by-induction Less.Plus-cancellation {
+  zero =>
+    pick-any m n
+      (!chain [(m + zero < n + zero) 
+           ==> (m < n)                   [Plus.right-zero]])
+| (S j) => 
+    let {ind-hyp := (forall m n . m + j < n + j ==> m < n)}
+      pick-any m n
+        (!chain [(m + S j < n + S j)
+             ==> (S (m + j) < S (n + j)) [Plus.right-nonzero]
+             ==> (m + j < n + j)         [Less.injective]
+             ==> (m < n)                 [ind-hyp]])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.12:
+#
+
+extend-module Plus {
+  define =-cancellation := (forall k m n . m + k = n + k ==> m = n)
+  (!stopgap =-cancellation)
+} # close module Plus
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.13:
+#
+
+(!stopgap Less=.Plus-cancellation)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(!stopgap Less.Plus-k)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.14:
+#
+(!stopgap Less=.Plus-k)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Natural number subtraction
+#
+declare -: [N N] -> N [200 [int->nat int->nat]]
+  
+module Minus {
+    
+  assert* axioms := [(zero - x = zero)
+                     (x - zero = x)
+                     (S x - S y = x - y)]
+
+  define [zero-left zero-right both-nonzero] := axioms
+
+(!chain [(S S S S zero - S S S zero)
+ 	 = (S S S zero - S S zero)     [both-nonzero]
+	 = (S S zero - S zero)         [both-nonzero]
+	 = (S zero - zero)             [both-nonzero]
+	 = (S zero)                    [zero-right]])
+
+# Theorem: (= (N.- (S (S (S (S zero))))
+#                  (S (S (S zero))))
+#             (S zero))
+
+(eval S S zero - zero)
+
+# Term: (S (S zero))
+# 
+(eval 5 - 2)
+
+# Term: (S (S (S zero)))
+# 
+(eval 5 - 5)
+
+# Term: zero
+
+define Plus-Cancel := (forall y x . y <= x ==> x = (x - y) + y)
+
+by-induction Plus-Cancel {
+  zero =>
+    conclude (forall x . zero <= x ==> x = (x - zero) + zero)
+      pick-any x
+        assume (zero <= x)
+	  (!sym (!chain [((x - zero) + zero)
+		       = (x + zero)          [zero-right]
+		       = x                   [Plus.right-zero]]))
+| (y as (S y')) =>
+   let {ind-hyp := (forall x . y' <= x ==> x = (x - y') + y')}
+     (!force (forall x . S y' <= x ==> x = (x - S y') + S y'))
+}
+
+by-induction Plus-Cancel {
+  zero =>
+    conclude (forall x . zero <= x ==> x = (x - zero) + zero)
+      pick-any x
+        assume (zero <= x)
+	  (!sym (!chain [((x - zero) + zero)
+		       = (x + zero)          [zero-right]
+		       = x                   [Plus.right-zero]]))
+| (y as (S y')) =>
+   let {ind-hyp := (forall x . y' <= x ==> x = (x - y') + y')}
+     datatype-cases (forall x . S y' <= x ==> x = (x - S y') + S y') {
+       zero =>   (!force (S y' <= zero ==> zero = (zero - S y') + S y'))
+     | (S x') => (!force (S y' <= S x' ==> S x' = (S x' - S y') + S y'))
+     }
+}
+
+by-induction Plus-Cancel {
+  zero =>
+    conclude (forall x . zero <= x ==> x = (x - zero) + zero)
+      pick-any x
+        assume (zero <= x)
+	  (!chain-> [((x - zero) + zero)
+  	           = (x + zero)              [zero-right]
+	           = x                       [Plus.right-zero]
+                ==> (x = (x - zero) + zero)  [sym]])
+| (y as (S y')) =>
+   let {ind-hyp := (forall x . y' <= x ==> x = (x - y') + y')}
+     datatype-cases (forall x . S y' <= x ==> x = (x - S y') + S y') {
+       zero =>   (!force (S y' <= zero ==> zero = (zero - S y') + S y'))
+     | (S x') => (!force (S y' <= S x' ==> S x' = (S x' - S y') + S y'))
+     }
+}
+
+by-induction Plus-Cancel {
+  zero =>
+    conclude (forall x . zero <= x ==> x = (x - zero) + zero)
+      pick-any x
+        assume (zero <= x)
+	  (!sym (!chain [((x - zero) + zero)
+		       = (x + zero)            [zero-right]
+		       = x                     [Plus.right-zero]]))
+| (y as (S y')) =>
+   let {IH := (forall x . y' <= x ==> x = (x - y') + y')}
+     datatype-cases (forall x . S y' <= x ==> x = (x - S y') + S y') {
+       zero => conclude (S y' <= zero ==> zero = (zero - S y') + S y')
+                 assume hyp := (S y' <= zero)
+                   (!from-complements (zero = (zero - S y') + S y')
+ 	             hyp
+     	             (!chain-> [true ==> (~ hyp) [Less=.not-S-zero]]))
+     | (S x') => 
+        conclude (S y' <= S x' ==> S x' = (S x' - S y') + S y')
+          assume hyp := (S y' <= S x')
+            let {C := (!chain-> [hyp ==> (y' <= x')    [Less=.injective]])}
+  	      (!chain-> [((S x' - S y') + S y')
+       	               = ((x' - y') + S y')            [both-nonzero]
+	               = (S ((x' - y') + y'))          [Plus.right-nonzero]
+	               = (S x')                        [C IH]
+                     ==> (S x' = (S x' - S y') + S y') [sym]])
+     }
+}
+
+by-induction Plus-Cancel {
+  zero =>
+    conclude (forall x . zero <= x ==> x = (x - zero) + zero)
+      pick-any x
+        assume (zero <= x)
+	  (!chain-> [((x - zero) + zero)
+	           = (x + zero)                   [zero-right]
+	           = x                            [Plus.right-zero]
+                 ==> (x = (x - zero) + zero)      [sym]])
+| (y as (S y')) =>
+    let {IH := (forall x . y' <= x ==>
+                           x = (x - y') + y')}
+     datatype-cases (forall x . y <= x ==>
+                                x = (x - y) + y) {
+       zero => assume hyp := (y <= zero)
+                 (!from-complements
+		   (zero = (zero - S y') + S y')
+                   hyp
+                   (!chain->
+		      [true ==> (~ hyp)           [Less=.not-S-zero]]))
+     | (x as (S x')) => 
+         conclude (y <= x ==> x = (x - y) + y)
+           assume hyp := (y <= x)
+             let {y'<=x' := (!chain->
+	                      [hyp ==> (y' <= x') [Less=.injective]])}
+  	       (!chain->
+	         [((S x' - S y') + S y')
+   	        = ((x' - y') + S y')              [both-nonzero]
+	        = (S ((x' - y') + y'))            [Plus.right-nonzero]
+	        = (S x')                          [y'<=x' IH]
+              ==> (S x' = (S x' - S y') + S y')   [sym]])
+     }
+}
+
+} # close module Minus
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.15:
+#
+
+(!stopgap Less=.S1)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.16:
+#
+
+(!stopgap Less=.S2)
+
+(!stopgap Less=.S3)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.17:
+#
+
+(!stopgap Less=.transitive)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.18:
+#
+(!stopgap Less=.k-Less=)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module Minus {
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.19:
+#
+define alt-<=-characterization := 
+  (forall x y . x <= y <==> exists z . y = x + z)
+
+(!stopgap alt-<=-characterization)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define <-left := (forall x y . zero < y  & y <= x ==> x - y < x)
+
+conclude <-left
+  pick-any x y
+    assume A := (zero < y & y <= x)
+      let {goal := (x - y < x)}
+      (!by-contradiction goal
+       assume (~ goal)
+         (!absurd
+ 	   (!chain-> [(zero < y)
+		  ==> (zero + x < y + x)     [Less.Plus-k]
+		  ==> (x < y + x)            [Plus.left-zero]])
+  	   (!chain-> [(~ goal)                 
+		  ==> (x <= x - y)           [Less=.trichotomy1]
+		  ==> (x + y <= (x - y) + y) [Less=.Plus-k]
+		  ==> (x + y <= x)           [(y <= x) Plus-Cancel]
+		  ==> (~ x < x + y)          [Less=.trichotomy4]
+		  ==> (~ x < y + x)          [Plus.commutative]])))
+
+define second-equal := (forall x . x - x = zero)
+
+by-induction second-equal {
+  zero => (!chain [(zero - zero) = zero   [zero-left]])
+| (S k) => 
+    let {ind-hyp := (k - k = zero)}
+      (!chain [(S k - S k) = (k - k)      [both-nonzero]
+ 	                     = zero       [ind-hyp]])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.20:
+#
+(!stopgap second-equal)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define second-greater := (forall x y . x < y ==> x - y = zero)
+
+by-induction second-greater {
+  zero =>
+    conclude (forall y . zero < y ==> zero - y = zero)
+      pick-any y
+        assume (zero < y)
+          (!chain [(zero - y) = zero              [zero-left]])
+| (x as (S x')) => 
+    let {ind-hyp := (forall y . x' < y ==> x' - y = zero)}
+      datatype-cases (forall y . x < y ==> x - y = zero) {
+         zero => assume hyp := (S x' < zero)
+                   (!from-complements
+		     (S x' - zero = zero)
+                     hyp
+                     (!chain-> [true ==> (~ hyp)  [Less.not-zero]]))
+      | (S y') => assume hyp := (S x' < S y')
+                    let {x'<y' := (!chain-> 
+                                    [hyp
+				 ==> (x' < y')    [Less.injective]])}
+                      (!chain [(S x' - S y') 
+                             = (x' - y')          [both-nonzero]
+              	             = zero               [x'<y' ind-hyp]])
+      }
+}
+
+define second-greater-or-equal :=
+  (forall x y . x <= y ==> x - y = zero)
+
+conclude second-greater-or-equal 
+  pick-any x:N y
+    assume A := (x <= y)
+     (!cases (!chain<- [(x < y | x = y) <== A [Less=.definition]])
+        (!chain [(x < y) ==> (x - y = zero)   [second-greater]])
+        assume (x = y)
+          (!chain [(x - y) = (x - x)          [(x = y)]
+	                   = zero             [second-equal]]))
+
+define Plus-Minus-property := (forall x y z . x = y + z ==> x - y = z)
+
+conclude Plus-Minus-property
+  pick-any x y z
+    assume h := (x = y + z)
+      let {C1 := (!chain-> [h ==> (y <= x)     [Less=.k-Less=]
+ 	                ==> (x = (x - y) + y)  [Plus-Cancel]]);
+           C2 := (!chain-> [h ==> (x = z + y)  [Plus.commutative]])}
+        (!chain-> [((x - y) + y) = x           [C1]
+                                 = (z + y)     [C2]
+               ==> (x - y = z)                 [Plus.=-cancellation]])
+
+define cancellation :=  (forall x y . (x + y) - x = y)
+
+conclude cancellation
+  pick-any x y
+    (!chain->
+     [(x + y = x + y)  ==> ((x + y) - x = y) [Plus-Minus-property]])
+
+} # close module Minus
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.21:
+#
+extend-module Times {
+  assert left-distributive :=
+     (forall z x y . z * (x + y) = z * x + z * y)
+
+  assert <=-cancellation-conv :=
+    (forall x y z . y <= z ==> x * y <= x * z) 
+ } # close module Times
+
+extend-module Minus {
+define Times-Distributivity := (forall x y z . x * y - x * z = x * (y - z))  
+
+(!stopgap Times-Distributivity)
+} # close module Minus
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+} # close module N
+
+#==========================================================================
+# SECTION: Ordered lists
+#
+load "list-of"
+
+extend-module List {
+
+declare in: (S) [S (List S)] -> Boolean [[id (alist->clist id)]]
+
+module in {
+  assert* def := [(~ x in nil)
+                  (x in h::t <==> x = h | x in t)]
+
+  define [empty nonempty] := def 
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.22:
+#
+
+extend-module in {
+  define head := (forall x L . x in x::L)
+  (!stopgap head)
+
+  define tail := (forall x y L . x in L ==> x in y::L)
+  (!stopgap tail)
+}
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.23:
+#
+extend-module in {
+
+define of-join := (forall L M x . x in L ++ M <==> x in L | x in M)
+
+define (of-join-property L) := 
+  (forall M x . x in L ++ M <==> x in L | x in M)
+
+define of-join := (forall L . of-join-property L)
+
+(!stopgap of-join)
+} # close module in
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+declare <=L: [N (List N)] -> Boolean [[int->nat (alist->clist int->nat)]]
+
+module <=L {
+
+  assert* def := [(x <=L nil)
+                  (x <=L h::_ <==> x <= h)]
+
+  define [empty nonempty] := def 
+
+  define left-transitive :=
+    (forall L x y . x <= y & y <=L L ==> x <=L L)
+
+  define before-all-implies-before-first :=
+    (forall L x . (forall y . y in L ==> x <= y) ==> x <=L L)
+
+  define append :=                                    
+    (forall L M x . x <=L L & x <=L M ==> x <=L L ++ M)
+
+} # close module <=L
+
+declare ordered: [(List N)] -> Boolean [[(alist->clist int->nat)]]
+
+module ordered {
+
+  assert* def := [(ordered nil)
+                  (ordered h::t <==> h <=L t & ordered t)]
+ 
+  define [empty nonempty] := def
+
+} # close module ordered
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.24:
+#
+extend-module ordered {
+
+  define head := (forall L x . ordered x::L ==> x <=L L)
+
+  (!stopgap head)
+
+  define tail := (forall L x . ordered x::L ==> ordered L)
+
+  (!stopgap tail)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  define first-to-rest-relation :=
+    (forall L x y .  ordered x::L & y in L ==> x <= y)
+
+  define cons :=
+    (forall L x . ordered L & (forall y . y in L ==> x <= y)
+                  ==> ordered x::L)
+
+  define append :=
+    (forall L M . ordered L & 
+                  ordered M &
+                  (forall x y . x in L & y in M ==> x <= y) 
+                 ==> ordered L ++ M)
+
+(!stopgap <=L.left-transitive)
+
+by-induction first-to-rest-relation {
+  nil =>
+    pick-any x y
+      assume (ordered x::nil & y in nil)
+        let {not-in := (!chain-> [true ==> (~ y in nil) [in.empty]])}
+          (!from-complements (x <= y) (y in nil) not-in)
+| (L as (z :: M)) => 
+  let {ind-hyp := (forall x y . ordered x::M & y in M ==> x <= y)}
+    conclude (forall x y . ordered x::L & y in L ==> x <= y)
+      pick-any x:N y:N
+        assume (ordered x::z::M & y in z::M) 
+          let {p0 := (!chain-> 
+                       [(ordered x::z::M)
+	            ==> (x <=L z::M & 
+                         ordered z::M)                [nonempty]
+                    ==> (x <=L z::M & z <=L M & 
+                         ordered M)                   [nonempty]
+                    ==> (x <= z  & 
+                         z <=L M & 
+                         ordered M)                   [<=L.nonempty]]);
+
+               p1 := (!chain-> [p0 ==> (ordered M)    [prop-taut]]);
+
+               p2 := (!chain-> [p0
+                            ==> (x <= z & z <=L M)    [prop-taut]
+  		            ==> (x <=L M)             [<=L.left-transitive]
+		            ==> (x <=L M & ordered M) [augment]
+		            ==> (ordered x::M)        [nonempty]])}
+        (!cases (!chain<- [(y = z | y in M) <== 
+                           (y in z::M)                [in.nonempty]])
+           assume (y = z)
+             (!chain-> [p0 ==> (x <= z)               [left-and]
+			   ==> (x <= y)               [(y = z)]])
+             (!chain [(y in M)
+                  ==> (p2 & y in M)                   [augment]
+                  ==> (x <= y)                        [ind-hyp]]))
+} # by-induction
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.25:
+#
+(!stopgap <=L.before-all-implies-before-first)
+
+(!stopgap cons)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.26:
+#
+(!stopgap <=L.append)
+
+define (append-property-hypothesis L M) := 
+          (ordered L & 
+           ordered M & 
+           forall x y . x in L & y in M ==> x <= y)
+
+define (append-property L) := 
+    (forall M . (append-property-hypothesis L M) ==> ordered L ++ M)
+
+(!stopgap append)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  } # close module ordered
+} # close module List
+
+#==========================================================================
+# SECTION: Binary search trees
+#
+datatype (BinTree S) :=  null 
+                      | (node (BinTree S) S (BinTree S))
+
+assert (datatype-axioms "BinTree")
+
+module BinTree {
+
+  define ++ := List.++
+
+  define [x x' y T T' L R] := 
+         [?x ?x' ?y ?T:(BinTree 'S1) ?T':(BinTree 'S2) 
+          ?L:(BinTree 'S3) ?R:(BinTree 'S4)]
+
+  declare in: (S) [S (BinTree S)] -> Boolean 
+
+  module in {
+
+    assert* def := 
+      [(~ x in null)
+       (x in (node L y R) <==> x = y | x in L | x in R)]
+
+    define [empty nonempty] := def
+
+} # close module in
+} # close module BinTree
+
+define tree1 :=
+  (node (node null
+	      2
+	      (node (node null
+			  3
+			  null)
+		    5
+		    null))
+	7
+	(node (node null
+		    11
+		    null)
+	      13
+	      null))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.27:
+#
+extend-module BinTree {
+
+extend-module in {
+
+define root := (forall x L y R . x = y ==> x in (node L y R))
+
+(!stopgap root)
+
+define left := (forall x L y R . x in L ==> x in (node L y R))
+
+(!stopgap left)
+
+define right := (forall x L y R . x in R ==> x in (node L y R))
+
+(!stopgap right)
+
+} # close module in
+} # close module BinTree
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module BinTree {
+
+  declare inorder: (S) [(BinTree S)] -> (List S)
+
+  module inorder {
+
+    assert* def := 
+        [(inorder null = nil)
+         (inorder (node L x R) = (inorder L) ++ x::inorder R)]
+
+    define [empty nonempty] := def
+        
+  }
+
+(eval inorder tree1)
+
+# Term: (:: 2
+#           (:: 3
+#               (:: 5
+#                   (:: 7
+#                       (:: 11
+#                           (:: 13
+#                               nil:(List Int)))))))
+
+overload in List.in
+
+extend-module inorder {
+  define in-correctness := (forall T x . x in inorder T <==> x in T)
+
+define in-correctness-1 := (forall T x . x in inorder T ==> x in T)
+define in-correctness-2 := (forall T x . x in T ==> x in inorder T)
+
+by-induction in-correctness-1 {
+  null =>
+  pick-any x
+    assume (x in inorder null)
+    let {in-nil := (!chain->
+                     [(x in inorder null) 
+                  ==> (x in nil)                  [empty]]);
+         -in-nil := (!chain-> [true 
+                           ==> (~ x in nil)       [List.in.empty]])}    
+      (!from-complements (x in null) in-nil -in-nil)
+| (T as (node L y R)) => 
+  let {ind-hyp1 := (forall x . x in inorder L ==> x in L);
+       ind-hyp2 := (forall x . x in inorder R ==> x in R)}
+  pick-any x
+    assume hyp := (x in inorder T)
+      let {D := (!chain-> [hyp 
+                       ==> (x in (inorder L) ++ 
+                                   y::inorder R)  [nonempty]
+                       ==> (x in inorder L | 
+ 		 	    x in y::inorder R)    [List.in.of-join]
+                       ==> (x in inorder L | 
+                            x = y | 
+                            x in inorder R)       [List.in.nonempty]])}
+		                                
+      (!cases D
+        (!chain [(x in inorder L)
+             ==> (x in L)                         [ind-hyp1]
+             ==> (x in (node L y R))              [in.left]])
+        (!chain [(x = y) ==> (x in (node L y R))  [in.root]])
+        (!chain [(x in inorder R)
+	     ==> (x in R)                         [ind-hyp2]
+  	     ==> (x in (node L y R))              [in.right]]))
+}
+} # close module inorder
+} # close module BinTree
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.28:
+#
+extend-module BinTree {
+extend-module inorder {
+by-induction in-correctness-2 {
+  null =>
+    pick-any x
+      assume (x in null)
+        (!from-complements (x in inorder null)
+         (x in null)
+         (!chain-> [true ==> (~ x in null)  [in.empty]]))
+| (node L y R) =>
+    let {ind-hyp1 := (forall ?x . ?x in L ==> ?x in inorder L);
+         ind-hyp2 := (forall ?x . ?x in R ==> ?x in inorder R)}
+    pick-any x
+      assume A := (x in (node L y R))
+        conclude (x in (inorder (node L y R)))
+          let {C := (!chain-> [A ==> (x = y | x in L | x in R)  
+				         [in.nonempty]])}
+          (!cases C
+           assume (x = y)
+             (!chain-> 
+	      [(x = y) 
+	       ==> (x in (x :: inorder R))       [List.in.head]
+	       ==> (x in (y :: inorder R))       [(x = y)]
+	       ==> (x in inorder L | x in (y :: inorder R)) 
+                                                 [alternate]
+	       ==> (x in ((inorder L) ++ (y :: inorder R))) 
+                                                 [List.in.of-join]
+	       ==> (x in (inorder (node L y R))) [nonempty]])
+           (!chain [(x in L) 
+		    ==> (x in inorder L)         [ind-hyp1]
+		    ==> (x in inorder L | x in (y :: inorder R)) 
+                                                 [alternate]
+		    ==> (x in ((inorder L) ++ (y :: inorder R))) 
+                                                 [List.in.of-join]
+		    ==> (x in (inorder (node L y R)))
+                                                 [nonempty]])
+           (!chain [(x in R) 
+		    ==> (x in inorder R)         [ind-hyp2]
+		    ==> (x in (y :: inorder R))  [List.in.tail]
+		    ==> (x in inorder L | x in (y :: inorder R)) 
+                                                 [alternate]
+		    ==> (x in ((inorder L) ++ (y :: inorder R))) 
+                                                 [List.in.of-join]
+		    ==> (x in (inorder (node L y R)))  [nonempty]]))
+}
+
+conclude in-correctness
+  pick-any T:(BinTree 'S) x 
+    (!equiv
+     (!chain [(x in inorder T) ==> (x in T)   [in-correctness-1]])
+     (!chain [(x in T) ==> (x in inorder T)   [in-correctness-2]]))
+} # close module inorder
+} # close module BinTree
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.29:
+#
+extend-module List {
+
+  declare count: (S) [S (List S)] -> N
+
+  module count {
+
+    assert* count-def := 
+    [((count x nil) = zero)
+     ((count x h::t) = S (count x t) <== x = h)
+     ((count x h::t) = (count x t) <== x =/= h)]
+
+    define [empty more same] := count-def
+
+    define of-join :=
+      (forall L M x . (count x L ++ M) = (count x L) + (count x M))
+  } # close module count
+} # close module List
+
+extend-module List {
+extend-module count {
+
+by-induction of-join {
+  nil =>
+  pick-any M x
+    (!combine-equations
+      (!chain [(count x nil ++ M)
+             = (count x M)                [join.left-empty]])
+      (!chain [((count x nil) +
+                (count x M))
+             = (zero + (count x M))       [empty]
+             = (count x M)                [Plus.left-zero]]))
+| (L as (h::t)) => 
+    let {IH := (forall M x . (count x t ++ M) = 
+                             (count x t) + (count x M))}
+      conclude (forall M x . (count x L ++ M)  = 
+                             (count x L) + (count x M))
+        pick-any M x
+          (!two-cases
+            assume hyp := (x = h)
+              (!combine-equations
+                (!chain 
+                  [(count x L ++ M)
+                 = (count x h::(t ++ M) ) [join.left-nonempty]
+                 = (S (count x t ++ M))   [more]
+                 = (S ((count x t) + 
+                       (count x M)))      [IH]])
+                (!chain 
+                  [((count x L) +
+		    (count x M))
+                 = ((S (count x t)) +
+		    (count x M))          [more]
+                 = (S ((count x t) + 
+                       (count x M)))      [Plus.left-nonzero]]))
+            assume (x =/= h)
+              (!combine-equations
+ 	        (!chain 
+ 	          [(count x L ++ M)
+	         = (count x h::(t ++ M))  [join.left-nonempty]
+	         = (count x t ++ M)       [same]
+	         = ((count x t) +
+		    (count x M))          [IH]])
+	        (!chain 
+	          [((count x L) +
+		    (count x M))
+	         = ((count x t) +
+		    (count x M))          [same]])))
+	     
+} # close by-induction
+} # close module count
+} # close module List
+
+extend-module BinTree {
+
+  declare count: (S) [S (BinTree S)] -> N
+
+  overload count List.count
+  
+} # close module BinTree
+
+extend-module BinTree {
+
+  define + := N.+
+
+  module count {
+
+  assert* count-def :=
+     [((count x null) = zero)
+      (x = x'   ==> (count x (node L x' R))  = S ((count x L) + (count x R)))
+      (x =/= x' ==> (count x (node L x' R)) = (count x L) + (count x R))]
+
+  define [empty more same] := count-def
+  } # close module count
+} # close module BinTree
+
+extend-module BinTree {
+  extend-module inorder {
+
+    define count-correctness :=
+      (forall T x .  (count x (inorder T)) =  (count x T))
+
+  } # close module inorder
+} # close module BinTree
+
+extend-module BinTree {
+
+define + := N.+
+
+extend-module inorder {
+by-induction count-correctness {
+  null =>
+  conclude (forall x . (count x (inorder null)) = (count x null))
+    pick-any x
+      let {A := (!chain [(count x (inorder null))
+		       = (count x nil)       [empty]
+		       = zero                [List.count.empty]]);
+           B := (!chain [(count x null)
+		       = zero                [count.empty]])}
+      (!combine-equations A B)
+| (node L y R) =>
+  let {ind-hyp1 := (forall x . (count x (inorder L)) = (count x L));
+       ind-hyp2 := (forall x . (count x (inorder R)) = (count x R))}
+  conclude (forall x . (count x inorder (node L y R)) =
+		       (count x (node L y R)))
+    pick-any x
+      (!two-cases
+        assume (x = y)
+          (!combine-equations
+  	    (!chain
+  	      [(count x inorder (node L y R))
+	     = (count x (inorder L) ++ y :: inorder R)
+                                           [nonempty]
+             = ((count x inorder L) +
+	        (count x y :: inorder R))  [List.count.of-join]
+             = ((count x inorder L) +
+                (S (count x inorder R)))   [List.count.more]
+             = (S ((count x inorder L) +
+                   (count x inorder R)))   [N.Plus.right-nonzero]])
+	    (!chain
+  	      [(count x (node L y R))
+  	     = (S ((count x L) +
+                   (count x R)))           [count.more]
+             = (S ((count x inorder L) +
+                   (count x inorder R)))   [ind-hyp1 ind-hyp2]]))
+       assume (x =/= y)
+         (!combine-equations
+          (!chain
+	   [(count x inorder (node L y R))
+	  = (count x (inorder L) ++ y :: inorder R) [nonempty]
+
+          = ((count x inorder L) +
+	     (count x y :: inorder R))    [List.count.of-join]
+
+          = ((count x inorder L) +
+             (count x inorder R))         [List.count.same]])
+
+          (!chain
+	   [(count x (node L y R))
+	  = ((count x L) + (count x R))   [count.same]
+
+          = ((count x inorder L) +
+             (count x inorder R))     [ind-hyp1 ind-hyp2]])))
+} # by-induction
+} # close module inorder
+} # close module BinTree
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+extend-module BinTree {
+
+  define [x y z T L R] := [?x:N ?y:N ?z:N ?T:(BinTree N) ?L:(BinTree N) 
+  			   ?R:(BinTree N)]
+
+  define [< <=] := [N.< N.<=]
+
+  declare BST: [(BinTree N)] -> Boolean
+
+  declare no-smaller, no-larger: [(BinTree N) N] -> Boolean 
+
+  assert* no-smaller-def := 
+    [(null no-smaller _)
+     ((node L y R) no-smaller x <==> x <= y & 
+                                     L no-smaller x & 
+                                     R no-smaller x)]
+
+  assert* no-larger-def := 
+    [(null no-larger _)
+     ((node L y R) no-larger x <==> y <= x & 
+                                    L no-larger x & 
+                                    R no-larger x)]
+
+  module BST {
+
+    assert* definition := 
+      [(BST null)
+       (BST (node L x R) <==> BST L & L no-larger x &
+                              BST R & R no-smaller x)]
+
+    # The two parts of the characterization result, asserted here as axioms:
+
+    assert empty := (BST null)
+
+    assert nonempty := 
+      (forall L y R .
+ 	BST (node L y R) <==>
+	 BST L & 
+         (forall x . x in L ==> x <= y) &
+	 BST R & 
+         (forall z . z in R ==> y <= z))
+
+  } # close module BST
+} # close module BinTree
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.30:
+#
+extend-module BinTree {
+extend-module BST {
+
+conclude empty
+   (!claim empty)
+
+define lemma1 := (forall T y . 
+		   T no-larger y <==> forall x . x in T ==> x <= y)
+
+define lemma2 := (forall T y . 
+                   T no-smaller y <==> forall x . x in T ==> y <= x)
+
+define (bound-by L y) := (forall x . x in L ==> x <= y)
+
+by-induction lemma1 {
+  null => pick-any y
+            (!equiv
+ 	      assume (null no-larger y)
+	        pick-any x
+	          assume (x in null)
+                    (!chain->
+		      [true
+       	           ==> (~ x in null)          [BinTree.in.empty]
+                   ==> (x in null &
+		        ~ x in null)          [augment]
+	     	   ==> (x <= y)               [prop-taut]])
+              assume (null bound-by y)
+                (!chain->
+		  [true
+               ==> (null no-larger y)         [no-larger-def]]))
+| (T as (node L z:N R)) =>
+   let {IH1 := (forall y .
+                 L no-larger y <==> L bound-by y);
+        IH2 := (forall y .
+	         R no-larger y <==> R bound-by y)}
+     pick-any y:N
+       (!equiv 
+         assume (T no-larger y)
+           conclude (T bound-by y)
+     	     let {_ := (!chain->
+  	 	         [(T no-larger y)
+ 	 	      ==> (z <= y &
+		           L no-larger y &
+		  	   R no-larger y)     [no-larger-def]
+   	              ==> (z <= y &
+		           L bound-by y &
+		  	   R bound-by y)      [IH1 IH2]])}
+             pick-any x:N
+               assume (x in T)
+	         conclude (x <= y)
+ 	 	   (!cases (!chain<-
+		             [(x = z  |
+			       x in L |
+			       x in R)
+ 		          <== (x in T)        [BinTree.in.nonempty]])
+                     (!chain [(x = z)
+		          ==> (x <= y)        [(z <= y)]])			  
+                     (!chain [(x in L)
+		          ==> (x <= y)        [(L bound-by y)]])
+                     (!chain [(x in R)
+		          ==> (x <= y)        [(R bound-by y)]]))
+         assume (T bound-by y)
+           conclude (T no-larger y)
+             let {z<=y := conclude (z <= y)
+                            (!chain->
+	 	 	      [(z = z)
+			   ==> (z in T)       [BinTree.in.root]
+		           ==> (z <= y)       [(T bound-by y)]]);
+	          _ := conclude (L bound-by y)
+                         pick-any x
+                           (!chain
+			      [(x in L)
+			   ==> (x in T)       [BinTree.in.left]
+			   ==> (x <= y)       [(T bound-by y)]]);
+                  _ := conclude (R bound-by y)
+                         pick-any x
+                           (!chain
+		 	     [(x in R)
+  		          ==> (x in T)        [BinTree.in.right]
+			  ==> (x <= y)        [(T bound-by y)]])}
+	       (!chain->
+	         [(z<=y &
+		   L bound-by y &
+		   R bound-by y)
+  	      ==> (z <= y &
+	      	   L no-larger y &
+		   R no-larger y)             [IH1 IH2]
+ 	      ==> (T no-larger y)             [no-larger-def]]))
+}
+
+define (>= x y) := (<= y x)
+
+(!stopgap lemma2)
+
+conclude nonempty
+  pick-any L:(BinTree N) y:N R:(BinTree N)
+     (!chain [(BST (node L y R))
+	      <==> (BST L & L no-larger y & 
+		    BST R & R no-smaller y)                 [definition]
+              <==> (BST L & (forall x . x in L ==> x <= y) &
+		    BST R & (forall x . x in R ==> y <= x)) [lemma1 lemma2]])
+} # close module BST
+} # close module BinTree
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Summary and a connecting theorem
+#
+extend-module BinTree {
+extend-module BST {
+
+define is-ordered := (forall T . BST T ==> List.ordered inorder T)
+
+define [x1 x2] := [?x1:N ?x2:N]
+
+define ordered := List.ordered
+
+by-induction is-ordered {
+  (T as null:(BinTree N)) =>
+    assume (BST null) 
+      (!chain->
+        [true
+     ==> (ordered nil:(List N))                        [empty]
+     ==> (ordered inorder T)                           [inorder.empty]])
+
+| (node L:(BinTree N) y:N R:(BinTree N)) => 
+   let {ind-hyp1 := (BST L ==> ordered inorder L);
+        ind-hyp2 := (BST R ==> ordered inorder R);
+	inorder-in-correct := inorder.in-correctness;
+	<=-transitivity := N.Less=.transitive;
+        smaller-in-left := (forall x . x in L ==> x <= y);
+        larger-in-right := (forall z . z in R ==> y <= z)}
+     assume h := (BST (node L y R)) 
+       conclude goal := (ordered inorder (node L y R))
+         let {p1 := (!chain->
+	  	      [h
+		   ==> (BST L & 
+                        smaller-in-left & 
+                        BST R & 
+                        larger-in-right)               [nonempty]]);
+	      p2 := (!chain-> [p1 
+                          ==> (BST L)                  [left-and]
+     		          ==> (ordered inorder L)      [ind-hyp1]]);
+
+              p3 := (!chain-> [p1
+	                   ==> (BST R)                 [prop-taut]
+		           ==> (ordered inorder R)     [ind-hyp2]]);
+              p4 := (!chain-> [p1
+	                   ==> smaller-in-left         [prop-taut]]);
+              p5 := (!chain-> [p1
+	                   ==> larger-in-right         [prop-taut]]);
+              p6 := conclude (forall x1 x2 . 
+                               x1 in inorder L &  
+                               x2 in y :: inorder R
+                               ==> x1 <= x2)
+                      pick-any u v
+		        assume h1 := (u in inorder L & 
+                                      v in y :: inorder R)
+                          let {disjunction :=
+			        (!chain->
+	                          [h1 
+                               ==> (u in inorder L & 
+			            (v = y | 
+                                     v in inorder R))  [List.in.nonempty]
+  			       ==> (u in L & 
+                                    (v = y | v in R))  [inorder-in-correct]
+		               ==> ((u in L & v = y) | 
+                                    (u in L & v in R)) [prop-taut]])}
+	                    (!cases disjunction
+       	                      assume (u in L & v = y)		  
+			        (!chain-> 
+			          [(u in L)
+			       ==> (u <= y)            [smaller-in-left]
+			       ==> (u <= v)            [(v = y)]])
+	                      (!chain [(u in L &
+			                v in R)
+  	 		           ==> (u <= y &
+				        y <= v)        [smaller-in-left 
+  					                larger-in-right]
+		                   ==> (u <= v)        [<=-transitivity]]));
+              p7 := conclude (forall z . 
+                                z in inorder R
+				==> y <= z)
+	              pick-any z
+  	  	        (!chain [(z in inorder R)
+		 	    ==> (z in R)               [inorder-in-correct]
+			    ==> (y <= z)               [larger-in-right]])}
+           (!chain-> 
+             [(p3 & p7)
+          ==> (ordered (y :: inorder R))               [List.ordered.cons]
+          ==> (p2 & (ordered (y :: inorder R)))        [augment]
+          ==> (p2 & (ordered (y :: inorder R)) & p6)   [augment]
+          ==> (ordered ((inorder L) ++
+	                (y::inorder R)))               [List.ordered.append]
+          ==> goal                                     [inorder.nonempty]])
+}
+
+} # close module BST
+} # close module BinTree
+
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 08.31:
+#
+extend-module N {
+
+  (!stopgap Less.transitive)
+
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.32:
+#
+extend-module N {
+
+  (!stopgap Less=.not-S)
+
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.33:
+#
+extend-module N {
+
+  (!stopgap Less=.S-not-equal)
+
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.34:
+#
+extend-module N {
+
+  (!stopgap Less=.trichotomy5)
+
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.35:
+#
+extend-module N {
+  declare max: [N N] -> N [[int->nat int->nat]]
+
+  module Max {
+
+    assert* def := [(y < x ==> x max y = x)
+                    (~ y < x ==> x max y = y)]
+
+    define [less2 not-less2] := def
+
+  } # close module Max
+} # close module N
+
+# (a)
+
+extend-module N {
+  extend-module Max {
+    define idempotent := (forall x . x max x = x)
+
+    (!stopgap idempotent)
+
+  } # close module Max
+} # close module N
+
+# (b)
+
+extend-module N {
+  extend-module Max {
+    define commutative := (forall x y . x max y = y max x)
+
+    (!stopgap commutative)
+
+  } # close module Max
+} # close module N
+
+# (c)
+
+extend-module N {
+  extend-module Max {
+    define associative := 
+      (forall x y z . (max (max x y) z) = (max x (max y z)))
+
+    (!stopgap associative)
+
+} # close module Max
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.36:
+#
+extend-module List {
+  extend-module <=L {
+
+    (!stopgap left-transitive)
+
+  } # close module <=L 
+} # close module List
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.37:
+#
+extend-module List {
+  extend-module <=L {
+
+    (!stopgap before-all-implies-before-first)
+
+  } # close module <=L 
+} # close module List
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 08.38:
+#
+extend-module List {
+  extend-module <=L {
+
+    (!stopgap append)
+
+  } # close module <=L 
+} # close module List
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Chapter notes
+#

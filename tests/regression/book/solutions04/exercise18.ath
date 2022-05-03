@@ -1,0 +1,14 @@
+#========================== Solution to exercise 4.18 =========================
+
+# Note: We put the definition inside a module so as not to affect subsequent uses of either.
+
+module Exercise_4_18 {
+
+  define (either p q) := 
+    try {(!left-either p q) | 
+         (!right-either p q)}
+
+  assume A 
+    (!either B A)
+
+}

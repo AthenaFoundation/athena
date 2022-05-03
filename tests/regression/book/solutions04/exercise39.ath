@@ -1,0 +1,74 @@
+#========================== Solution to exercise 4.39 =========================
+
+  datatype Object := (object Int)
+  datatype Box := (box Int)
+  declare into: [Object Box] -> Boolean 
+
+  define all-somewhere :=
+    ((object 1 into box 1 | object 1 into box 2) &
+     (object 2 into box 1 | object 2 into box 2) &
+     (object 3 into box 1 | object 3 into box 2))
+
+  define none-together := 
+    ((object 1 into box 1 ==> ~ object 2 into box 1 & ~ object 3 into box 1) &
+     (object 1 into box 2 ==> ~ object 2 into box 2 & ~ object 3 into box 2) & 
+     (object 2 into box 1 ==> ~ object 1 into box 1 & ~ object 3 into box 1) & 
+     (object 2 into box 2 ==> ~ object 1 into box 2 & ~ object 3 into box 2) & 
+     (object 3 into box 1 ==> ~ object 1 into box 1 & ~ object 2 into box 1) & 
+     (object 3 into box 2 ==> ~ object 1 into box 2 & ~ object 2 into box 2))
+
+  define pp-2 := (all-somewhere & none-together ==> false)
+
+  define (ph n) :=
+    let {box-num := n;
+         object-num := (1 plus n);
+         box-ids := (1 to box-num);
+         object-ids := (1 to object-num);
+         somewhere-assumption :=  
+           lambda (i)
+             (or (map lambda (j) (object i into box j)
+                      box-ids));
+         somewhere-assumptions := make-vector (1 plus object-num) ();
+         _ := (map-proc lambda (i) vector-set! somewhere-assumptions 
+                                               i 
+                                               (somewhere-assumption i)
+                       (1 to object-num));
+         T := (HashTable.table);
+         taken-assumption := 
+           lambda  (i j) 
+             (if (object i into box j)
+                 (and (map lambda (i') (not object i' into box j)
+                           (filter object-ids (unequal-to i)))));
+         none-together-assumptions := 
+           (flatten (map lambda (i)
+                           (map lambda (j)
+                                  let {res := (taken-assumption i j);
+                                       _ := (HashTable.add T [[i j] --> res])}
+                                    res
+                                box-ids)
+                         object-ids));
+         none-together-assumption := 
+            lambda (i j)
+              (HashTable.lookup T [i j])}
+      letrec {M := method (i)
+                     (!map-method 
+                       method (j)
+                         assume h := (object i into box j)
+	  	       	   check {(holds? ~ h) => (!absurd h (~ h))
+                                | else => (!decompose 
+                                            (!mp (none-together-assumption i j) 
+                                                 h)
+                                            method (_)                                             
+                                              (!M (plus 1 i)))}
+                       box-ids
+                       method (conditionals)
+                         (!cases (vector-sub somewhere-assumptions i)
+			         conditionals))}
+        assume (and (join (map somewhere-assumption object-ids)
+                          none-together-assumptions))
+          (!M 1)
+
+  (!ph 5)
+
+# (!ph 8)
+

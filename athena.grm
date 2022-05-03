@@ -716,7 +716,7 @@ deduction:  LPAREN expression BY deduction RPAREN (A.byDed({wanted_res=expressio
                  A.pickWitnessDed({ex_gen=phrase,var_id=S.symbol(ID),inst_id=param_option,body=deduction,
                                     pos=getPos PICK_WITNESSleft}))
           | PICK_WITNESSES one_or_more_params_no_dots FOR phrase param_option_no_dots deduction 
-                     (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParams(one_or_more_params_no_dots),
+                     (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParamNames(one_or_more_params_no_dots),
                                          inst_id=param_option_no_dots,body=deduction,
                                           pos=getPos PICK_WITNESSESleft}))
           | INDUCTION  phrase BEGIN infix_dmatch_clauses END 
@@ -859,7 +859,7 @@ deduction:  LPAREN expression BY deduction RPAREN (A.byDed({wanted_res=expressio
                      A.pickWitnessDed({ex_gen=phrase,var_id=S.symbol(ID),inst_id=param_option_no_dots,body=deduction,
                                        pos=getPos PICK_WITNESSleft}))
           | LPAREN PICK_WITNESSES LPAREN one_or_more_params_no_dots RPAREN  phrase param_option_no_dots deduction RPAREN   
-                    (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParams(one_or_more_params_no_dots),
+                    (A.pickWitnessesDed({ex_gen=phrase,var_ids=A.getParamNames(one_or_more_params_no_dots),
                                         inst_id=param_option_no_dots,body=deduction,
                                          pos=getPos PICK_WITNESSESleft}))
           | LPAREN INDUCTION  phrase dmatch_clauses RPAREN 
@@ -1559,9 +1559,9 @@ one_or_more_params_maybe_with_reps_no_dots: param_no_dots ([param_no_dots])
                                    | param_no_dots one_or_more_params_maybe_with_reps_no_dots 
                                      (param_no_dots::one_or_more_params_maybe_with_reps_no_dots)
 
-one_or_more_params: one_or_more_params_maybe_with_reps (A.getParams1(one_or_more_params_maybe_with_reps))
+one_or_more_params: one_or_more_params_maybe_with_reps (A.getParams(one_or_more_params_maybe_with_reps))
 
-one_or_more_params_no_dots: one_or_more_params_maybe_with_reps_no_dots (A.getParams1(one_or_more_params_maybe_with_reps_no_dots))
+one_or_more_params_no_dots: one_or_more_params_maybe_with_reps_no_dots (A.getParams(one_or_more_params_maybe_with_reps_no_dots))
 
 struc_pattern: ANY_PAT (A.anyPat({pos=getPos ANY_PATleft}))
              | possibly_typed_param (A.idPat(possibly_typed_param))

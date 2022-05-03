@@ -1,0 +1,19 @@
+conclude union-subset-theorem := 
+  (forall A B C . A subset B | A subset C ==> A subset B \/ C)
+pick-any A B C 
+  assume hyp := (A subset B | A subset C)
+    (!cases hyp
+      assume (A subset B)
+        (!subset-intro
+          pick-any x 
+            (!chain [(x in A) ==> (x in B)          [SC]
+                              ==> (x in B | x in C) [alternate]
+                              ==> (x in B \/ C)     [UC]]))
+      assume (A subset C)
+        (!subset-intro
+          pick-any x 
+            (!chain [(x in A) ==> (x in C)          [SC]
+                              ==> (x in B | x in C) [alternate]
+                              ==> (x in B \/ C)     [UC]])))
+
+

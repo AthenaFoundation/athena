@@ -1,0 +1,99 @@
+define istep-conv-div :=
+  method (exp)
+    match exp {
+     (quot e1 e2) =>
+        pick-any prog:Program stack:Stack
+          assume hyp := (I' e1 quot e2 = NONE)
+             let {[ih1 ih2] := [(correctness-conv e1) 
+                                (correctness-conv e2)];
+                  lemma := (!chain-> 
+                              [hyp 
+                          ==> (I' e1 = NONE | 
+                               I' e2 = NONE | 
+                               I' e2 = SOME zero) [get-lemma-conv-div]]);
+	          part1 := 
+                   (!chain 
+                   [(compile (e1 quot e2) ++ prog wrt' stack)
+                  = ((compile e2 ++ 
+                       compile e1 ++ 
+                         [div]) ++ prog wrt' stack)
+                         [compiler-def] 
+                  = (compile e2 ++ 
+                      compile e1 ++ 
+                        [div] ++ prog wrt' stack)
+                        [List.join.Associative]]);
+		  part2 := 
+                    (!two-cases 
+                       assume case1 := (I' e2 = NONE)
+                         (!chain [(compile e2 ++ 
+                                    compile e1 ++ 
+                                      [div] ++ prog wrt' stack)
+                                = NONE [ih2]])
+                       assume case2 := (I' e2 =/= NONE)
+                         pick-witness n2 for 
+                             (!chain-> [case2 
+                                    ==> (exists n2 . I' e2 = SOME n2) 
+                                          [option-results]])
+                           wspec
+                            (!two-cases 
+                               assume case2a := (n2 =/= zero)
+                                 let {lemma' := 
+                                       (!chain-> 
+                                         [case2a 
+                                      ==> (I' e2 = SOME n2 & 
+                                           n2 =/= zero)  [augment]
+                                      ==> (I' e2 =/= SOME zero) 
+                                                         [option-results]
+                                      ==> (I' e1 = NONE) [(method (p q) 
+                                                           (!dsyl 
+                                                             lemma 
+                                                             [p case2]))]])}
+                               (!chain [(compile e2 ++ 
+                                          compile e1 ++ 
+                                            [div] ++ prog wrt' stack)
+
+  			              = (compile e1 ++ 
+                                           [div] ++ 
+                                             prog wrt' n2::stack)
+
+                                             [main-correctness-theorem' 
+                                            wspec]
+                                      = NONE [ih1 lemma']])
+                               assume case2b := (n2 = zero)
+                                 (!two-cases 
+                                    assume case2b-1 := (= (I' e1) NONE)
+                                      (!chain 
+                                        [(compile e2 ++ 
+                                           compile e1 ++ 
+                                             [div] ++ prog wrt' stack)
+  	 		               = (compile e1 ++ 
+                                           [div] ++ prog wrt' n2::stack)
+                                                [main-correctness-theorem' 
+                                                 wspec]
+   	 		               = NONE [ih1 case2b-1]])
+                               assume case2b-2 := (I' e1 =/= NONE)
+                                pick-witness n1 for 
+                                   (!chain-> [case2b-2 
+                                         ==>  (exists n1 . I' e1 = SOME n1) 
+                                                [option-results]])
+                                   wspec' ## (I' e1 = SOME n1) now holds. 
+                                   (!chain 
+                                     [(compile e2 ++ 
+                                        compile e1 ++ 
+                                          [div] ++ prog wrt' stack)
+     	 		            = (compile e1 ++ 
+                                         [div] ++ 
+                                          prog wrt' n2::stack)
+                                             [main-correctness-theorem' 
+                                              wspec]
+
+	 		            = ([div] ++ prog wrt' n1::n2::stack)	
+                                             [main-correctness-theorem' 
+                                              wspec']
+                                    = NONE [exec'-def 
+                                            case2b 
+                                            List.join.left-singleton]]))))
+                  }
+              (!tran part1 part2)
+           }
+

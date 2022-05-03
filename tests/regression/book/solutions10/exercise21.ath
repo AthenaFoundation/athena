@@ -1,0 +1,11 @@
+conclude ps-theorem-5 := 
+  (forall A B . (powerset A) \/ (powerset B) subset powerset A \/ B)
+pick-any A B 
+  (!subset-intro   
+    pick-any C 
+      (!chain [(C in (powerset A) \/ (powerset B)) 
+           ==> (C in powerset A | C in powerset B)  [UC]
+           ==> (C subset A | C subset B)            [POSC]
+           ==> (C subset A \/ B)                    [union-subset-theorem]
+           ==> (C in powerset A \/ B)               [POSC]]))
+

@@ -32,7 +32,7 @@ memory_test_files = [('memory-range/' + w) for w in memory_test_files_1 + memory
 algebra_test_files = ['algebra/Z-poly','algebra/Z-as-integral-domain','algebra/Z-poly-as-group','algebra/function_unittest','algebra/permutation_unittest']
 
 chapters = ['01','03','08','09','11','12','13','14','15','04','05','06','07','10','17','18']
-book_test_files = ['book/code/chapter' + c for c in chapters] 
+book_test_files = ['tests/regression/book/chapter' + c for c in chapters] 
 
 test_files = basic_test_files + main_test_files + search_test_files + memory_test_files + algebra_test_files + book_test_files
 
@@ -48,6 +48,9 @@ def errorLine(l):
     return 'error:' in toks or any([l.startswith(p) for p in error_phrases])
 
 def runAthenaTests(athena_executable="sml @SMLload=athena_image.x86-linux"):
+    print(os.getcwd())
+    
+   
     output_file = "regression_results.txt"
     os.system('echo "" > ' + output_file)
     res_files=[]
@@ -61,6 +64,7 @@ def runAthenaTests(athena_executable="sml @SMLload=athena_image.x86-linux"):
         cmd = athena_executable + ' ' + input_file + ' > ' + res_file
         if not(athena_executable.startswith('sml @SMLload=')):
             cmd = athena_executable + ' ' + input_file + ' quit > ' + res_file
+        print(cmd)
         os.system(cmd)
     for f in res_files:
         lines = readLines(f)

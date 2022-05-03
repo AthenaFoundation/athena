@@ -1,0 +1,1528 @@
+#==========================================================================
+# SECTION: Numeric equations
+#
+define stopgap := force
+
+datatype N := zero | (S N)
+
+declare Plus: [N N] -> N [+]
+
+set-precedence S 350
+
+define [x y z n m k] := [?x:N ?y:N ?z:N ?n:N ?m:N ?k:N]
+
+(x Plus S y)
+
+# Term: (Plus ?x:N
+#             (S ?y:N))
+
+(forall n m . n Plus m = m Plus n)
+
+# Sentence: (forall ?n:N
+#             (forall ?m:N
+#               (= (Plus ?n:N ?m:N)
+#                  (Plus ?m:N ?n:N))))
+
+assert right-zero := (forall n . n + zero = n)
+
+assert right-nonzero := (forall n m . n + S m = S (n + m))
+
+(!instance right-zero [(S zero)])
+
+(!instance right-nonzero [zero (S zero)])
+
+# Theorem: (= (Plus zero
+#                   (S (S zero)))
+#             (S (Plus zero
+#                      (S zero))))
+
+(!instance right-nonzero [zero])
+
+# Theorem: (forall ?v303:N
+#            (= (Plus zero
+#                     (S ?v303:N))
+#               (S (Plus zero ?v303:N))))
+
+#==========================================================================
+# SECTION: Equality chaining
+#
+(!chain [(S S zero + S S zero)
+       = (S (S S zero + S zero))    [right-nonzero]
+       = (S S (S S zero + zero))    [right-nonzero]
+       = (S S S S zero)             [right-zero]
+        ])
+
+#==========================================================================
+# SECTION: Terms and sentences as trees
+#
+(positions-and-subterms (Plus (S zero) (Plus x y)))
+
+# List: [[[] (Plus (S zero) (Plus ?x ?y))]
+#        [[1] (S zero)]
+#        [[1 1] zero] 
+#        [[2] (Plus ?x ?y)]
+#        [[2 1] ?x] 
+#        [[2 2] ?y]]
+
+define (subterm t I) :=
+  match I {
+    [] => t
+  | (list-of i rest) => (subterm (ith (children t) i)  
+                                 rest)
+  }
+
+define (subterm-node t I) := (root (subterm t I))
+
+(subterm-node (x + S S zero) [2 1])
+
+# Symbol: S
+
+#==========================================================================
+# SECTION: The logic behind equality chaining
+#
+module M1 {
+
+domain D
+declare a, b, c: D
+
+conclude (a = a)
+    (!reflex a)                         
+
+# Theorem: (= a a)
+# 
+conclude (a = b ==> b = a)
+    assume h := (a = b) 
+       (!sym h)
+
+# Theorem: (if (= a b)
+#              (= b a))
+# 
+conclude (a = b & b = c ==> a = c)
+    assume (a = b & b = c) 
+      (!tran (a = b) (b = c))
+
+# Theorem: (if (and (= a b)
+#                   (= b c))
+#              (= a c))
+# 
+declare f:[D D] -> D
+declare R:[D D] -> Boolean
+declare a1, a2, b1, b2: D
+
+conclude (a1 = b1 & a2 = b2 ==> (f a1 a2) = (f b1 b2))
+    assume (a1 = b1 & a2 = b2) 
+      (!fcong ((f a1 a2) = (f b1 b2)))
+
+# Theorem: (if (and (= a1 b1)
+#                   (= a2 b2))
+#              (= (f a1 a2)
+#                 (f b1 b2)))
+# 
+conclude (a1 = b1 & a2 = b2 & a1 R a2 ==> b1 R b2)
+    assume (a1 = b1 & a2 = b2 & a1 R a2)
+      (!rcong (a1 R a2) (b1 R b2))
+
+# Theorem: (if (and (= a1 b1)
+#                   (and (= a2 b2)
+#                        (R a1 a2)))
+#              (R b1 b2))
+
+} # close module M1
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.1:
+#
+
+module M2 {
+
+declare g:[N N] -> N
+declare h:[N] -> N
+declare i:[N N] -> N
+
+
+assert premise :=  (= (i (S zero) zero)
+                      (S (i zero zero)))
+
+define goal :=
+   (= (h (g zero 
+            (i (S zero) 
+                  (i (S zero) zero))))
+      (h (g zero 
+            (i (S zero) 
+                  (S (i zero zero))))))
+
+# conclude goal 
+#   ...
+
+} # close module M2
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.2:
+#
+[[[] (Plus (S zero) (Plus (S zero) zero))]
+ [[1] (S zero)]
+# ...
+]
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 03.3:
+#
+
+# define (basic-rewrite s I t) :=
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 03.4:
+#
+
+# define (ltr-rewrite s p t) :=
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.5:
+#
+module M3 {
+
+# define (rewrite s p t) :=
+#  ...
+  define dummy := 0   # delete this when you have defined rewrite
+
+} # close module M3
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.6:
+#
+define --> := =
+define <-- := =
+
+extend-module M3 {
+
+# define (chain L) :=
+# ...
+  define dummy := 0   # delete this when you have defined rewrite
+
+} # close module M3
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: More examples of equality chaining
+#
+define left-zero := (forall n . zero + n = n)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.7:
+#
+# conclude (zero + zero = zero)
+#   ...
+
+# conclude (zero + S zero = S zero)
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define left-zero := (forall n . zero + n = n)
+define left-nonzero := (forall m n . (S n) + m = S (n + m))
+# These are theorems but in the book they are initially asserted 
+# as axioms and only later proved.  Here instead of asserting
+# them, we use force (see Section 4.7), so that they are treated as
+# theorems rather than axioms and thus (fun-def-cons Plus) works
+# as shown in Section 3.15.
+(!force left-zero)
+(!force left-nonzero)
+
+declare Times: [N N] -> N [*]
+
+assert Times-zero := (forall x . x * zero = zero)
+assert Times-nonzero := (forall x y . x * S y = x * y + x)
+
+declare one: N
+
+assert one-definition := (one = S zero)
+
+define Times-right-one := (forall x . x * one = x)
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain [(x * one)
+           = (x * S zero)     [one-definition]
+           = (x * zero + x)   [Times-nonzero]
+           = (zero + x)       [Times-zero]
+           = x                [left-zero]])
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.8:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+assert Times-associative := (forall x y z . (x * y) * z = x * (y * z))
+
+declare **: [N N] -> N [310]
+
+assert Power-right-zero := (forall x . x ** zero = one)
+
+assert Power-right-nonzero := (forall x n . x ** S n = x * x ** n)
+
+#==========================================================================
+# SECTION: A more substantial proof example
+#
+define power-square-theorem := (forall n x . (x * x) ** n = x ** (n + n))
+
+define (power-square-property n) := 
+  (forall x . (x * x) ** n = x ** (n + n)) 
+
+(power-square-theorem equals? (forall n . power-square-property n))
+
+# Term: true
+
+conclude power-zero-case := (power-square-property zero)
+  pick-any x:N
+    (!chain [((x * x) ** zero)
+           = one                            [Power-right-zero]
+	   = (x ** zero)                    [Power-right-zero]
+	   = (x ** (zero + zero))           [right-zero]])
+
+conclude power-one-case := (power-square-property (S zero))
+  pick-any x:N
+    (!combine-equations
+      (!chain [((x * x) ** S zero)
+             = ((x * x) * (x * x) ** zero)  [Power-right-nonzero]
+             = ((x * x) * one)              [Power-right-zero]
+             = (x * x)                      [Times-right-one]])
+      (!chain [(x ** (S zero + S zero))
+             = (x ** (S (S zero + zero)))   [right-nonzero]
+             = (x ** (S S zero))            [right-zero]
+             = (x * (x ** S zero))          [Power-right-nonzero]
+             = (x * (x * (x ** zero)))      [Power-right-nonzero]
+             = (x * x * one)                [Power-right-zero]
+             = (x * x)                      [Times-right-one]]))
+
+conclude (forall x . (x * x) ** zero = x ** (zero + zero))
+  pick-any x:N
+    (!chain [((x * x) ** zero)
+         --> one                    [Power-right-zero]
+         <-- (x ** zero)            [Power-right-zero]
+         <-- (x ** (zero + zero))   [right-zero]])
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.9:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: A better proof
+#
+conclude (forall x . (x * x) ** S zero = x ** (S zero + S zero))
+  pick-any x:N
+    (!combine-equations
+      (!chain [((x * x) ** S zero)
+           --> ((x * x) * ((x * x) ** zero))     [Power-right-nonzero]
+           --> ((x * x) * (x ** (zero + zero)))  [power-zero-case]
+           --> (x * x * x ** (zero + zero))      [Times-associative]])
+      (!chain [(x ** (S zero + S zero))
+           --> (x ** (S (S zero + zero)))        [right-nonzero]
+           --> (x ** (S (S (zero + zero))))      [left-nonzero]
+           --> (x * (x ** (S (zero + zero))))    [Power-right-nonzero]
+           --> (x * x * x ** (zero + zero))      [Power-right-nonzero]]))
+
+define power-square-step :=
+  method (n)
+    let {previous-result := (power-square-property n)}
+      conclude (power-square-property (S n))
+        pick-any x:N
+          (!combine-equations
+            (!chain [((x * x) ** S n)
+                 --> ((x * x) * ((x * x) ** n))   [Power-right-nonzero]
+                 --> ((x * x) * (x ** (n + n)))   [previous-result]
+                 --> (x * x * (x ** (n + n)))     [Times-associative]])
+            (!chain [(x ** (S n + S n))
+                 --> (x ** (S (S n + n)))         [right-nonzero]
+                 --> (x ** (S S (n + n)))         [left-nonzero]
+                 --> (x * (x ** (S (n + n))))     [Power-right-nonzero]
+                 --> (x * x * (x ** (n + n)))     [Power-right-nonzero]]))
+
+define power-square-base :=
+  method ()
+    conclude (power-square-property zero)
+      pick-any x:N
+        (!chain [((x * x) ** zero)
+               = one                      [Power-right-zero]
+               = (x ** zero)              [Power-right-zero]
+               = (x ** (zero + zero))     [right-zero]])
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.10:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: The principle of mathematical induction
+#
+by-induction power-square-theorem {
+  zero  => (!power-square-base)
+| (S n) => (!power-square-step n)
+}
+
+(forall n . power-square-property n ==> power-square-property (S n))
+
+pick-any n:N
+  assume induction-hypothesis := (power-square-property n)
+    conclude (power-square-property (S n))
+      (!power-square-step n)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.11:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define (power-square-property n) := 
+  (forall x . (x * x) ** n = x ** (n + n)) 
+
+(power-square-property zero)
+
+# Sentence: (forall ?x:N
+#             (= (** (Times ?x:N ?x:N)
+#                    zero)
+#                (** ?x:N
+#                    (Plus zero zero))))
+# 
+(power-square-property (S zero))
+
+# Sentence: (forall ?x:N
+#             (= (** (Times ?x:N ?x:N)
+#                    (S zero))
+#                (** ?x:N
+#                    (Plus (S zero)
+#                          (S zero)))))
+# 
+(power-square-property ?k)
+
+# Sentence: (forall ?x:N
+#             (= (** (Times ?x:N ?x:N)
+#                    ?k:N)
+#                (** ?x:N
+#                    (Plus ?k:N ?k:N))))
+
+define left-zero := (forall n . zero + n = n)
+
+by-induction left-zero {
+  zero => conclude (zero + zero = zero)
+            (!chain [(zero + zero) --> zero [right-zero]])
+| (n as (S m)) => 
+    conclude (zero + n = n)
+      let {induction-hypothesis := (zero + m = m)}
+        (!chain [(zero + S m)
+             --> (S (zero + m))     [right-nonzero]
+             --> (S m)              [induction-hypothesis]])
+}
+
+#==========================================================================
+# SUBSECTION: Different ways of understanding mathematical induction
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.12:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.13:
+#
+datatype N' := zero' |  unnatural | (S' N)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: List equations
+#
+module M5 {
+
+datatype N-List := nil | (:: N N-List)
+
+define [L L' L1 L2 L3] := 
+       [?L:N-List ?L':N-List ?L1:N-List ?L2:N-List ?L3:N-List]
+
+declare join: [N-List N-List] -> N-List [++]
+
+set-precedence :: 150
+
+assert left-empty := (forall L . nil ++ L = L)
+assert left-nonempty := (forall x L1 L2 . x::L1 ++ L2 = x::(L1 ++ L2))
+
+(!chain [(one::zero::nil ++ one::zero::S one::nil)
+         = (one::(zero::nil ++ one::zero::S one::nil)) [left-nonempty]
+         = (one::zero::(nil ++ one::zero::S one::nil)) [left-nonempty]
+         = (one::zero::one::zero::S one::nil)          [left-empty]])
+
+# Theorem: (= (join (:: one
+#                       (:: zero nil))
+#                   (:: one
+#                       (:: zero
+#                           (:: (S one)
+#                               nil))))
+#             (:: one
+#                 (:: zero
+#                     (:: one
+#                         (:: zero
+#                             (:: (S one)
+#                                 nil))))))
+
+define right-empty := (forall L . L ++ nil = L)
+
+(!chain [(one::nil ++ nil)
+       = (one::(nil ++ nil))    [left-nonempty]
+       = (one::nil)             [left-empty]])
+
+(!chain [(one::zero::nil ++ nil)
+       = (one::(zero::nil ++ nil))     [left-nonempty]
+       = (one::zero::(nil ++ nil))     [left-nonempty]
+       = (one::zero::nil)              [left-empty]])
+
+(!chain [(S one::one::zero::nil ++  nil)
+       = (S one::(one::zero::nil ++ nil))   [left-nonempty]
+       = (S one::one::(zero::nil ++ nil))   [left-nonempty]
+       = (S one::one::zero::(nil ++ nil))   [left-nonempty]
+       = (S one::one::zero::nil)            [left-empty]])
+
+define (join-nil-base) := 
+  conclude (nil ++ nil = nil)
+    (!chain [(nil ++ nil) = nil [left-empty]])
+             
+define (join-nil-step IH x L) := 
+  conclude (x::L ++ nil = x::L) 
+    (!chain [(x::L ++ nil)
+           = (x::(L ++ nil))      [left-nonempty]
+           = (x :: L)             [IH]])
+
+define p0 := (!join-nil-base)
+
+# Theorem: (= (join nil nil)
+#             nil)
+# 
+# Sentence p0 defined.
+# 
+define p1 :=  
+    pick-any x 
+      (!join-nil-step p0 x nil)
+
+# Theorem: (forall ?x:N
+#            (= (join (:: ?x:N nil)
+#                     nil)
+#               (:: ?x:N nil)))
+# 
+# Sentence p1 defined.
+# 
+define p2 := 
+    pick-any x:N y:N
+      (!join-nil-step p1 x (y::nil))
+
+# Theorem: (forall ?x:N
+#            (forall ?y:N
+#              (= (join (:: ?x:N
+#                           (:: ?y:N nil))
+#                       nil)
+#                 (:: ?x:N
+#                     (:: ?y:N nil)))))
+# 
+# Sentence p2 defined.
+# 
+define p3 := 
+    pick-any x:N y:N z:N 
+      (!join-nil-step p2 x (y::z::nil))
+
+# Theorem: (forall ?x:N
+#            (forall ?y:N
+#              (forall ?z:N
+#                (= (join (:: ?x:N
+#                             (:: ?y:N
+#                                 (:: ?z:N nil)))
+#                         nil)
+#                   (:: ?x:N
+#                       (:: ?y:N
+#                           (:: ?z:N nil)))))))
+# 
+# Sentence p3 defined.
+
+by-induction right-empty {
+    nil => (!join-nil-base)
+  | (h::t) => let {IH := (t ++ nil = t)}
+                (!join-nil-step IH h t)
+  }
+
+# Theorem: (forall ?L:N-List
+#            (= (join ?L:N-List nil)
+#               ?L:N-List))
+
+by-induction right-empty {
+    nil => (!chain [(nil ++ nil) = nil [left-empty]])
+  | (h::t) => 
+      let {IH := (t ++ nil = t)}
+        conclude (h::t ++ nil = h::t)
+          (!chain [(h::t ++ nil)
+                 = (h :: (t ++ nil))   [left-nonempty]
+                 = (h::t)              [IH]])
+  }
+
+# Theorem: (forall ?L:N-List
+#            (= (join ?L:N-List nil)
+#               ?L:N-List))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.14:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+} # close module M5
+
+#==========================================================================
+# SUBSECTION: Polymorphic datatypes
+#
+datatype Boolean-List := nilb | (consb Boolean Boolean-List)
+
+# The List datatype is already defined, no need to duplicate it. 
+# datatype (List S) := nil | (:: S (List S))
+
+declare join: (S) [(List S) (List S)] -> (List S) [++]
+
+define [x y z x1 x2 h h1 h2] :=  [?x ?y ?z ?x1 ?x2 ?h ?h1 ?h2]
+
+define [L L' L0 L1 L2 t t1 t2] :=
+       [?L:(List 'S1) ?L':(List 'S2) ?L0:(List 'S3) ?L1:(List 'S4) 
+        ?L2:(List 'S5) ?t:(List 'S6) ?t1:(List 'S7) ?t2:(List 'S8)]
+
+set-precedence :: 150
+
+assert left-empty    := (forall L . nil ++ L = L)
+assert left-nonempty := (forall x L1 L2 . x::L1 ++ L2 =  x::(L1 ++ L2))
+
+let {L := (one::zero::S one::nil)}
+  (!chain [(one::zero::nil ++ L)
+          = (one::(zero::nil ++ L))  [left-nonempty]
+          = (one::zero::(nil ++ L))  [left-nonempty]
+          = (one::zero::L)           [left-empty]])
+
+define right-empty := (forall L . L ++ nil = L)
+
+by-induction right-empty {
+    nil => (!chain [(nil ++ nil) = nil [left-empty]])
+  | (L as (h::t)) => 
+    let {IH := (t ++ nil = t)}
+      conclude (h::t ++ nil = h::t)
+        (!chain [(h::t ++ nil)
+               = (h :: (t ++ nil))   [left-nonempty]
+               = L                   [IH]])
+  }
+
+# Theorem: (forall ?L:(List 'S)
+#            (= (join ?L:(List 'S)
+#                     nil:(List 'S))
+#               ?L:(List 'S)))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.15:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define join-associative :=
+  (forall L0 L1 L2 . (L0 ++  L1) ++ L2 = L0 ++ (L1 ++ L2))
+
+by-induction join-associative {
+  nil =>
+    pick-any L1 L2
+      (!chain [((nil ++ L1) ++ L2)
+           --> (L1 ++ L2)            [left-empty]
+           <-- (nil ++ (L1 ++ L2))   [left-empty]])
+| (L as (h::t)) => 
+    let {IH := (forall L1 L2 . (t ++ L1) ++ L2 = t ++ (L1 ++ L2))}
+      conclude (forall L1 L2 . (L ++ L1) ++ L2 = L ++ (L1 ++ L2))
+        pick-any L1 L2
+          (!chain 
+            [((h::t ++ L1) ++ L2)
+         --> ((h::(t ++ L1)) ++ L2)  [left-nonempty]
+         --> (h::((t ++ L1) ++ L2))  [left-nonempty]
+         --> (h::(t ++ (L1 ++ L2)))  [IH]
+         <-- (h::t  ++ (L1 ++ L2))   [left-nonempty]])
+}
+
+#==========================================================================
+# SECTION: Evaluation of ground terms
+#
+define (derive-plus a b) :=
+  match b {
+    zero => (!chain [(a + b) = a [right-zero]])
+  | (S k) => match (!derive-plus a k) {
+               ((a Plus k) = sum) => 
+                  (!chain [(a + S k)  
+                         = (S (a + k))    [right-nonzero]
+			 = (S sum)        [(a + k = sum)]])
+             }
+  }
+
+(!derive-plus (S zero) (S zero))
+
+# Theorem: (= (Plus (S zero)
+#                   (S zero))
+#             (S (S zero)))
+# 
+(!derive-plus (S S S zero) (S S zero))
+
+# Theorem: (= (Plus (S (S (S zero)))
+#                   (S (S zero)))
+#             (S (S (S (S (S zero))))))
+
+(eval (S zero + S zero))
+
+# Term: (S (S zero))
+# 
+let {three := (S S S zero)} 
+    (eval (three + three))
+
+# Term: (S (S (S (S (S (S zero))))))
+
+(eval S zero + S zero)
+
+# Term: (S (S zero))
+# 
+let {three := (S S S zero)} 
+    (eval three + three)
+
+# Term: (S (S (S (S (S (S zero))))))
+
+(eval zero::nil ++ S zero::nil)
+
+# Term: (:: zero
+#           (:: (S zero)
+#               nil:(List N)))
+# 
+let {1|0|nil := (S zero :: zero :: nil);
+       3*3|nil := ((S S S zero * S S S zero) :: nil)}
+   (eval 1|0|nil ++ 3*3|nil)
+
+# Term: (:: (S zero)
+#           (:: zero
+#               (:: (S (S (S (S (S (S (S (S (S zero)))))))))
+#                   nil:(List N))))
+
+#==========================================================================
+# SECTION: Top-down proof development
+#
+define (alist->clist inner) :=
+  letrec {loop := lambda (L acc)
+                    match L {
+                      (list-of x rest) => (loop rest ((inner x) :: acc))
+                    | [] => acc
+                    }}
+    lambda (L) 
+      match L {
+        (some-list _) => (loop (rev L) nil)
+      | _ => L
+      }
+
+define (clist->alist inner) :=
+  letrec {loop := lambda (L acc)
+                   match L {
+                     (x :: rest) => (loop rest (add (inner x) acc))
+                   | nil => (rev acc)
+                   }}
+    lambda (L)
+      match L {
+        (x :: rest) => (loop L [])
+      | nil => []
+      | _ => L
+      }
+
+define (int->nat n) :=
+  (check ((integer-numeral? n) 
+          (check ((n less? 1) zero)
+                 (else (S (int->nat (n minus 1))))))
+        (else n))
+
+define (nat->int n) :=
+  match n {
+    zero => 0
+  | (S k) => (plus (nat->int k) 1)
+  | _ => n
+  }
+
+declare reverse: (S) [(List S)] -> (List S) [120 [(alist->clist int->nat)]]
+
+assert* reverse-def :=
+  [(reverse nil = nil) 
+   (reverse h::t = (reverse t) ++ h::nil)]
+
+define [reverse-empty reverse-nonempty] := reverse-def 
+
+module M4 {
+
+transform-output eval [(clist->alist nat->int)]
+
+(eval reverse [1 2 3 4 5 6])
+
+# List: [6 5 4 3 2 1]
+
+} # close module M4
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.16:
+#
+define reverse-pair-property :=
+  (forall x y . reverse x::y::nil = y::x::nil)
+
+# conclude reverse-pair-property
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define reverse-reverse-theorem := (forall L .  reverse reverse L = L)  
+
+define reverse-join-1 := (forall L x . reverse (L ++ x::nil) = x::reverse L)
+
+by-induction reverse-join-1 {
+  nil =>
+    conclude (forall x . reverse (nil ++ x::nil) = x::reverse nil)
+      pick-any x
+        (!chain [(reverse (nil ++ x::nil))
+            --> (reverse x::nil)                      [left-empty]
+            --> (reverse nil ++ x::nil)               [reverse-nonempty]
+            --> (nil ++ x::nil)                       [reverse-empty]
+            --> (x::nil)                              [left-empty]
+            <-- (x::reverse nil)                      [reverse-empty]])
+| (L as (h::t)) =>
+    conclude (forall x . reverse (L ++ x::nil) = x::reverse L)
+      let {ih := (forall x . reverse (t ++ x::nil) = x::reverse t)}
+        pick-any x
+          (!chain [(reverse (h::t ++ x::nil))
+               --> (reverse h::(t ++ x::nil))         [left-nonempty]
+               --> (reverse (t ++ x::nil) ++ h::nil)  [reverse-nonempty]
+               --> (x::(reverse t) ++ h::nil)         [ih]
+               --> (x::(reverse t ++ h::nil))         [left-nonempty]
+               <-- (x::(reverse h::t))                [reverse-nonempty]])
+}
+
+by-induction reverse-reverse-theorem {
+  nil => conclude (reverse reverse nil = nil)
+          (!chain [(reverse reverse nil)
+               --> (reverse nil)                [reverse-empty]
+               --> nil                          [reverse-empty]])
+| (list as (h::t)) =>
+    conclude (reverse reverse list = list)
+      let {ih := (reverse reverse t = t)}
+       (!chain [(reverse reverse h::t)
+            --> (reverse (reverse t ++ h::nil)) [reverse-nonempty]
+            --> (h::reverse reverse t)          [reverse-join-1]
+            --> (h::t)                          [ih]])
+}
+
+#==========================================================================
+# SECTION: $\star$ Input expansion and output transformation}
+#
+#==========================================================================
+# SUBSECTION: Converters
+#
+(eval S S S S S S S zero * S S S S S S S zero)
+
+define (nat->int n) :=
+  match n {
+    zero => 0
+  | (S m) => (1 plus nat->int m)
+  | _ => n
+  }
+
+define (int->nat n) :=
+  check {
+    (numeral? n) => check {(n less? 1) => zero
+                         | else => (S int->nat (n minus 1))}
+  | else => n
+  }
+
+(int->nat 0)
+
+# Term: zero
+# 
+(int->nat 3)
+
+# Term: (S (S (S zero)))
+# 
+(nat->int zero)
+
+# Term: 0
+# 
+(nat->int S S zero)
+
+# Term: 2
+# 
+(nat->int S S S S S S S zero)
+
+# Term: 7
+
+(eval (int->nat 2) * (int->nat 3))
+
+# Term: (S (S (S (S (S (S zero))))))
+# 
+(eval (int->nat 7) * (int->nat 7))
+
+# Term: (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S 
+#       (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S 
+#       (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S (S 
+#       (S zero)))))))))))))))))))))))))))))))))))))))))))))))))
+
+(nat->int eval (int->nat 7) * (int->nat 7))
+
+# Term: 49
+
+define (alist->clist L) :=
+  match L {
+    [] => nil
+  | (list-of x rest) => (x :: (alist->clist rest))
+  | _ => L
+  }
+
+(alist->clist [true false true])
+
+# Term: (:: true
+#           (:: false
+#               (:: true
+#                   nil)))
+# 
+(alist->clist [1 2])
+
+# Term: (:: 1
+#           (:: 2
+#               nil))
+
+define (clist->alist L) :=
+  match L {
+    nil => []
+  | (x :: rest) => (add x (clist->alist rest))
+  | _ => L
+  }
+
+(clist->alist 1::nil)
+
+# List: [1]
+# 
+(clist->alist true::false::nil)
+
+# List: [true false]
+
+define (test-join L1 L2) := 
+  (clist->alist eval (alist->clist L1) join (alist->clist L2))
+
+(test-join [1 2] [3 4])
+
+# List: [1 2 3 4]
+# 
+(test-join [99] [])
+
+# List: [99]
+
+define (Plus s t) :=
+  (make-term (string->symbol "Plus") [(int->nat s) (int->nat t)])
+
+(3 Plus 5)
+
+# Term: (Plus (S (S (S zero)))
+#             (S (S (S (S (S zero))))))
+
+(S zero Plus S S zero)
+
+# Term: (Plus (S zero)
+#             (S (S zero)))
+
+(3 Plus S zero)
+
+# Term: (Plus (S (S (S zero)))
+#             (S zero))
+# 
+(S zero Plus 3)
+
+# Term: (Plus (S zero)
+#             (S (S (S zero))))
+
+#==========================================================================
+# SUBSECTION: Input expansion
+#
+define (Plus s t) :=
+  (make-term (string->symbol "Plus") [(int->nat s) (int->nat t)])
+
+module M6 {
+
+expand-input Plus [int->nat int->nat]
+
+# OK.
+# 
+(3 Plus 5)
+
+# Term: (Plus (S (S (S zero)))
+#             (S (S (S (S (S zero))))))
+
+} # close module M6
+
+expand-input join [alist->clist alist->clist] 
+
+(eval [1 2 3] join [4 5 6])
+
+# Term: (:: 1
+#           (:: 2
+#               (:: 3
+#                   (:: 4
+#                       (:: 5
+#                           (:: 6
+#                               nil:(List Int)))))))
+# 
+(eval [true false] join [true])
+
+# Term: (:: true
+#           (:: false
+#               (:: true
+#                   nil:(List Boolean))))
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.17:
+#
+module M7 {
+
+# define (clist->alist f) := 
+# ...
+
+define v1 := ('foo1 :: 'foo2 :: 'foo3 :: nil)
+# define converter1 := ...
+
+define v2 := (zero::S zero::nil)
+# define converter2 := ...
+
+define v3 := ((zero::nil)::((S zero)::(S S zero)::nil)::nil)
+# define converter3 := ...
+
+# (converter1 v1)
+
+# (converter2 v2)
+
+# (converter3 v3)
+
+} # close module M7
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.18:
+#
+extend-module M7 {
+
+# define (alist->clist f) :=
+#   ...
+
+define L1 := ["foo1" "foo2" "foo3"]
+# define converter1 := ...
+
+define L2 := [0 1]
+# define converter2 := ...
+
+define L3 := [[0] [1 2]]
+# define converter3 := ...
+
+# (converter1 L1)
+
+# (converter2 L2)
+
+# (converter3 L3)
+
+} # close module M7
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Output transformation
+#
+transform-output eval [nat->int]
+
+# OK.
+
+(eval 12 Plus 8)
+
+# Term: 20
+
+transform-output eval [nat->int clist->alist]
+
+# OK.
+# 
+(eval [1 2 3] join [4 5 6])
+
+# List: [1 2 3 4 5 6]
+
+#==========================================================================
+# SUBSECTION: Combining input expansion and output transformation with overloading
+#
+expand-input Plus [int->nat int->nat] 
+
+# OK.
+# 
+overload + Plus
+
+# OK.
+# 
+(n + 5)
+
+# Term: (Plus ?n:N
+#             (S (S (S (S (S zero))))))
+
+#==========================================================================
+# SUBSECTION: Using \mbox{\kwd{declare}} with auxiliary information
+#
+declare f: [N N] -> N [150 left-assoc] 
+
+declare minus: [N N] -> N [-]
+
+# New symbol minus declared.
+# 
+(equal? (get-precedence minus) (get-precedence -))
+
+# Term: true
+
+declare g: [N N] -> N [^]
+
+module M8 {
+
+declare mult: [N N] -> N [300 * [int->nat int->nat]]
+
+} # close module M8
+
+#==========================================================================
+# SECTION: $\star$ Conjecture falsification
+#
+define p := (forall n m . n + m = m + n)
+
+# Sentence p defined.
+# 
+(falsify p 10)
+
+# Term: 'failure
+
+define p := (forall L1 L2 . L1 ++ L2 = L2 ++ L1)
+
+(falsify p 10)
+
+# List: ['success 
+# |{
+# ?L1:(List Int) := (:: 1 nil:(List Int))
+# ?L2:(List Int) := (:: 0 nil:(List Int))
+# }|]
+
+define [t1 t2] := [(1::nil) (0::nil)]
+
+(eval t1 ++ t2 = t2 ++ t1)
+
+# Term: false
+
+define p := (forall ?x:Int ?y:Int . ?x Real.* ?y > ?x)
+
+(falsify p 10)
+
+# List: ['success |{?x:Int := 1, ?y:Int := 1}|]
+# 
+define p := (forall ?x:Int ?y:Int . ?x Real.* ?x >= ?x)
+
+(falsify p 10)
+
+# Term: 'failure
+# 
+(falsify p 50)
+
+# Term: 'failure
+# 
+(falsify p 100)
+
+# Term: 'failure
+
+define [n y] := [?n:N ?y:N]
+define power-square-theorem := (forall n y . (y * y) ** n = y ** (n + n))
+
+(falsify power-square-theorem |{y := 10, n := 3}|)
+
+# Term: 'failure
+
+#==========================================================================
+# SECTION: $\star$ Conditional rewriting and additional chaining features
+#
+declare P, Q: [N] -> Boolean
+
+assert* CR := (P n & Q m ==> n * m = m)
+
+pick-any a:N b:N
+    assume (P a)
+      assume (Q b)
+        (!chain [(a * b) = b [CR]])
+
+# Theorem: (forall ?a:N
+#            (forall ?b:N
+#              (if (P ?a:N)
+#                  (if (Q ?b:N)
+#                      (= (Times ?a:N ?b:N)
+#                         ?b:N)))))
+
+assert* R1 := (n * one = n)
+assert* R2 := (n * zero = zero)
+assert* comm := (n * m = m * n)
+
+(!chain [(m * one + n * one)
+        =  (m + n)              [R1]])
+
+# Theorem: (= (Plus (Times ?m:N one)
+#                   (Times ?n:N one))
+#             (Plus ?m:N ?n:N))
+
+(!chain [(m * zero + n * one)
+         = (zero + n)                [R1 R2]])
+
+# Theorem: (= (Plus (Times ?m:N zero)
+#                   (Times ?n:N one))
+#             (Plus zero ?n:N))
+
+(!chain [(zero * m + one * n)
+        =  (zero + n)                [R1 comm R2]])
+
+# Theorem: (= (Plus (Times zero ?m:N)
+#                   (Times one ?n:N))
+#             (Plus zero ?n:N))
+
+assert Times-zero := (forall x . x * zero = zero)
+
+assert Times-nonzero := (forall x y . x * S y = x * y + x)
+
+assert* Times-definition := 
+  [(x * zero = zero)
+   (x * S y = x * y + x)]
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain
+     [(x * one)
+    = (x * S zero)     [one-definition]
+    = (x * zero + x)   [Times-nonzero]
+    = (zero + x)       [Times-zero]
+    = x                [left-zero]])
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain
+      [(x * one)
+     = (x * S zero)     [one-definition]
+     = (x * zero + x)   [Times-definition]
+     = (zero + x)       [Times-definition]
+     = x                [left-zero]])
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain
+     [(x * one)
+    = (x * S zero)     [one-definition]
+    = (zero + x)       [Times-definition]
+    = x                [left-zero]])
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain [(x * one) = x [one-definition Times-definition left-zero]])
+
+conclude Times-right-one
+  pick-any x:N
+    (!chain
+     [(x * one)
+    = (x * S zero)     [one-definition]
+    = (zero + x)       
+    = x                 ])
+
+#==========================================================================
+# SECTION: $\star$ Proper function definitions
+#
+declare fact: [N] -> N
+
+assert* fact-def :=
+  [(fact zero = S zero)
+   (fact S zero = S zero)
+   (fact S n = S n * fact n)]
+
+(fun-def-conds Plus)
+
+# The definition of  Plus  is well-formed; the following conditions hold: 
+# 
+# List: [
+# (forall ?v1273:N
+#   (or (exists ?v1269:N
+#         (= ?v1273
+#            (S ?v1269)))
+#       (= ?v1273 zero)))
+#  
+# (forall ?v1286:N
+#   (if (exists ?v1282:N
+#         (= ?v1286
+#            (S ?v1282)))
+#       (not (= ?v1286 zero))))
+# ]
+
+(fun-def-conds fact)
+
+# [Warning: the equational axioms defining fact are not disjoint.
+# For example, at least  two distinct axioms apply to every instance 
+# of this term: (fact (S zero)).]
+# 
+# List: [
+# (forall ?v1308:N
+#   (or (exists ?v1307:N
+#         (= ?v1308
+#            (S ?v1307)))
+#       (= ?v1308
+#          (S zero))
+#       (= ?v1308 zero)))
+#  
+# (forall ?v1313:N
+#   (if (exists ?v1312:N
+#         (= ?v1313
+#            (S ?v1312)))
+#       (not (= ?v1313 zero))))
+#  
+# (forall ?v1313:N
+#   (if (exists ?v1312:N
+#         (= ?v1313
+#            (S ?v1312)))
+#       (not (= ?v1313
+#               (S zero)))))
+#  
+# (forall ?v1313:N
+#   (if (= ?v1313
+#          (S zero))
+#       (not (= ?v1313 zero))))
+# ]
+
+define [c1 c2 c3 c4] := (fun-def-conds fact)
+
+c3
+
+# Sentence: (forall ?v1327:N
+#             (if (exists ?v1326:N
+#                   (= ?v1327:N
+#                      (S ?v1326:N)))
+#                 (not (= ?v1327:N
+#                         (S zero)))))
+# 
+(falsify c3 5)
+
+# List: ['success |{?v1326:N := zero, ?v1327:N := (S zero)}|]
+
+declare loop: [N] -> N
+assert* loop-def := [(loop x = loop x)]
+
+#==========================================================================
+# SECTION: Summary
+#
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.19:
+#
+
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.20:
+#
+define left-nonzero := (forall m n . (S n) + m = S (n + m))
+
+# conclude left-nonzero
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.21:
+#
+define Plus-commutative :=  (forall x y . x + y = y + x)
+           
+(!stopgap Plus-commutative)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.22:
+#
+define Plus-associative := (forall m n k . (m + n) + k = m + (n + k))
+
+(!stopgap Plus-associative)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.23:
+#
+define Times-left-zero := (forall x . zero * x = zero)
+
+(!stopgap Times-left-zero)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.24:
+#
+define Times-left-nonzero := (forall x y . (S y) * x = x + y * x)
+
+(!stopgap Times-left-nonzero)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.25:
+#
+define Times-Right-Distributive :=
+  (forall x y z . (x + y) * z = x * z + y * z)
+
+(!stopgap Times-Right-Distributive)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.26:
+#
+define Times-associative :=
+   (forall x y z . (x * y) * z = x * (y * z))
+
+(!stopgap Times-associative)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.27:
+#
+define Times-commutative := (forall x y . x * y = y * x)
+
+(!stopgap Times-commutative)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.28:
+#
+(!stopgap (forall n . one ** n = one))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.29:
+#
+define Power-Plus := 
+  (forall m n x . x ** (m + n) = x ** m * x ** n)
+
+(!stopgap Power-Plus)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.30:
+#
+define Power-Distributive := (forall n x y . (x * y) ** n = x ** n * y ** n)  
+
+(!stopgap Power-Distributive)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.31:
+#
+define right-nonempty :=
+  (forall L1 x L2 . L1 ++ x::L2 = (L1 ++ x::nil) ++ L2)                     
+
+(!stopgap right-nonempty)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.32:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.33:
+#
+define reverse-join-property :=
+  (forall L1 L2 . reverse (L1 ++ L2) = (reverse L2) ++ (reverse L1))
+
+(!stopgap reverse-join-property)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.34:
+#
+(!stopgap reverse-reverse-theorem)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.35:
+#
+# define (list-replace L i f) :=
+#   ...
+
+# define (replace-subterm t I t') := 
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.36:
+#
+# define (term-positions t) := 
+#   ...  
+
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.37:
+#
+# define (subsentences p) := 
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.38:
+#
+# define (subsentence p I) := 
+#   ...
+
+# define (subsentence-node p I) := 
+#   ...
+
+# define (replace-subsentence p I p') := 
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.39:
+#
+# define (sentence-positions t) := 
+#   ...
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 03.40:
+#
+# define (int->nat n) :=
+#   ...  
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Chapter notes
+#

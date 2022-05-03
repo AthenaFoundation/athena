@@ -7,7 +7,6 @@ Main file.
 structure Athena = 
 
 struct
-
                                                        
 fun runWithStarterFile(file_name) =
    let fun loop() = let val res = Repl.getInputAndProcess()
@@ -39,12 +38,12 @@ fun initializeXSB() =
     let val _ = initXSB()
         val _ = print("\nAbout to start XSB...\n")
     in
-      doXSBCommand(SML_With_C_Interaction.SMLString2CString("consult('./athenaInit.P')."));
+      doXSBCommand(SML_With_C_Interaction.SMLString2CString("consult('./athena_init.P')."));
     end
 	       
 **)
 
-fun main1(arg0,args) = 
+fun main(arg0,args) = 
   let fun M(file_name_option:string option) =              
              (print("\nWelcome to Athena!\n");
               print("\nType an expression or deduction at the\nprompt below, ");
@@ -61,7 +60,5 @@ fun main1(arg0,args) =
        [] => M(NONE)
      | file_name::_ => M(SOME(file_name)))
    end
-
-fun main(arg0,args) = main1(arg0,args)
-
+   
 end 

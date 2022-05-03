@@ -325,7 +325,7 @@ fun yicesSolve(P,props,weight_strings,time_limit_option,ht_option,stats_option) 
   end
 
 fun cvcSolvePrimUFun(v,env,_) = 
-  let fun mprint(s) = print(s)
+  let fun debugPrint(s) = print(s)
       val _ = print("\nSTARTING HERE --------------------------------------------------- \n")
       val [yin0,yin1,yin2,yin3,yin4] = ["cvc0.cvc","cvc1.cvc","cvc2.cvc","cvco.cvc","cvce.cvc"]
       fun deleteFiles() = (List.app OS.FileSys.remove [yin0,yin1,yin2,yin3,yin4]) handle _ => ()
@@ -375,12 +375,12 @@ fun cvcSolvePrimUFun(v,env,_) =
                          val stream = TextIO.openAppend(yin0)
                          val _ = (TextIO.output(stream,readFile(yin1));TextIO.output(stream,"\n\n");TextIO.output(stream,readFile(yin2));TextIO.closeOut(stream))
                          val t2 = Time.toReal(Time.now())
-                         val _ = mprint("\nTranslation to CVC done in "^(Real.toString(Real.-(t2,t1)))^" seconds... About to call CVC...\n")
+                         val _ = debugPrint("\nTranslation to CVC done in "^(Real.toString(Real.-(t2,t1)))^" seconds... About to call CVC...\n")
                          val command = if Paths.is_unix then Names.cvc4_binary ^ " --produce-models cvc0.cvc > cvco.ys 2> cvce.ys"
                                        else "cvcopt.exe --produce-models cvc0.cvc > cvco.ys 2> cvce.ys"
                          val _ = OS.Process.system(command)
                          val t3 = Time.toReal(Time.now())
-                         val _ = mprint("\nCVC finished in "^(Real.toString(Real.-(t3,t2)))^" seconds...\n")
+                         val _ = debugPrint("\nCVC finished in "^(Real.toString(Real.-(t3,t2)))^" seconds...\n")
                          val smt_answer_stream = TextIO.openIn("cvco.ys")
                          val res = SMTOutput.processCVCOutput(smt_answer_stream,[],false,tables,NONE)
                          val _ = (TextIO.closeIn(smt_answer_stream)) handle _ => ()
@@ -390,7 +390,7 @@ fun cvcSolvePrimUFun(v,env,_) =
   end
 
 fun cvcSolveGeneric(P,timeout_option,ht_option) = 
-  let fun mprint(s) = ()
+  let fun debugPrint(s) = ()
       val [yin0,yin1,yin2,yin3,yin4] = ["cvc0.cvc","cvc1.cvc","cvc2.cvc","cvco.cvc","cvce.cvc"]
       fun deleteFiles() = (List.app OS.FileSys.remove [yin0,yin1,yin2,yin3,yin4]) handle _ => ()
       val _ = deleteFiles()
@@ -443,7 +443,7 @@ fun cvcSolveGeneric(P,timeout_option,ht_option) =
                                          | _ => cmd_predix ^ "--produce-models cvc0.cvc > cvco.ys 2> cvce.ys")
                          val _ = OS.Process.system(command)
                          val t3 = Time.toReal(Time.now())
-                         val _ = mprint("\nCVC finished in "^(Real.toString(Real.-(t3,t2)))^" seconds...\n")
+                         val _ = debugPrint("\nCVC finished in "^(Real.toString(Real.-(t3,t2)))^" seconds...\n")
                          val smt_answer_stream = TextIO.openIn("cvco.ys")
                          val res = SMTOutput.processCVCOutput(smt_answer_stream,Prop.getConjuncts P,false,tables,ht_option)
 			 val fsym_table_str = MS.tableToString(fsym_table,fn x => x)

@@ -1,0 +1,74 @@
+# Part a:
+
+clear-assumption-base
+assert* premise-1 := (B | (A ==> B))
+assert* premise-2 := A
+
+conclude B
+  (!cases (B | (A ==> B))
+          (!chain [B ==> B []])
+          (!chain [(A ==> B) ==> B [(mp with A)]]))
+
+# Part b:
+
+clear-assumption-base
+assert* premise-1 := (~ B ==> ~ C)
+assert* premise-2 := (A & B | ~ ~ C)
+
+conclude B
+  (!cases (A & B | ~ ~ C)
+          (!chain [(A & B) ==> B [right-and]])
+          (!chain [(~ ~ C) ==> B   [(mt with premise-1)]]))
+
+# Part c:
+
+clear-assumption-base
+assert* prem-1 := (~ exists x . Q x)
+assert* prem-2 := (forall x . P x ==> Q x)
+
+(!by-contradiction (~ exists x . P x)
+ assume hyp := (exists x . P x)
+   pick-witness w for hyp 
+     (!chain-> [(P w) ==> (Q w)              [prem-2]
+                      ==> (exists x . Q x)   [existence]
+                      ==> false              [(absurd with prem-1)]]))
+
+# Part d:
+
+clear-assumption-base
+assert* prem-1 := (forall x . x R x ==> P x)
+assert* prem-2 := ((exists x . P x) ==> (~ exists y . Q y))
+
+assume hyp := (forall x . Q x)
+  (!by-contradiction (~ exists z . z R z)
+   assume hyp' := (exists z . z R z)
+     pick-witness w for hyp'
+       (!absurd
+         (!chain-> [true 
+                ==> (Q w)       [hyp]])
+         (!chain-> 
+           [(w R w) 
+        ==> (P w)               [prem-1]
+        ==> (exists x . P x)    [existence]
+        ==> (~ exists y . Q y)  [prem-2]
+        ==> (forall y . ~ Q y)  [qn]
+        ==> (~ Q w)             [(uspec with w)]])))
+
+# Part e:
+
+clear-assumption-base
+assert* prem-1 := (exists x . P x)
+assert* prem-2 := (exists x . Q x)
+assert* prem-3 :=  
+  (forall x . P x ==> forall y . Q y ==> x R y)
+
+conclude goal := (exists x y . x R y)
+  pick-witness a for prem-1     # We now have (P a)
+    pick-witness b for  prem-2  # We now have (Q b)
+      (!chain-> 
+        [(P a) ==> (forall y . Q y ==> a R y)  [prem-3]
+               ==> (Q b ==> a R b)             [(uspec with b)]
+               ==> (a R b)                     [(mp with (Q b))]
+               ==> goal                        [existence]])
+
+ 

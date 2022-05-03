@@ -1,0 +1,740 @@
+#====================================================================================
+# 
+#	Code (including student solutions) for chapter 5 of FPMICS.
+#
+#====================================================================================
+
+domains Object, Element, Set, Person
+
+declare even, odd, prime: [Int] -> Boolean
+
+declare subset: [Set Set] -> Boolean
+
+declare P, Q, S: [Object] -> Boolean
+
+declare R, T: [Object Object] -> Boolean
+
+declare f: [Object] -> Object 
+
+declare parent, ancestor: [Person Person] -> Boolean
+
+declare peter, mary: Person
+
+declare a, b, c, d: Object
+
+declare A, B: Boolean
+
+define [x y z w] := [?x ?y ?z ?w]
+
+# Insert your own solution to exercise 5.01 here:
+load "./solutions05/exercise01"
+
+#======================================================================
+#            Working with universal quantifications
+#======================================================================			
+
+assume p := (forall x . x < x + 1)
+  (!uspec p 5)
+
+assume p := (forall x . x < x + 1)
+  (!uspec p 78)
+
+assume p := (forall x . x < x + 1)
+  (!uspec p (2 * x))
+
+declare reverse: (T) [(List T)] -> (List T)
+
+
+assume p := (forall x . reverse reverse x = x)
+  (!uspec p (true::false::nil))
+
+assume p := (forall x . reverse reverse x = x)
+  (!uspec p (78::nil))
+
+assume p := (forall ?x . exists ?y . ?x =/= ?y)
+  (!uspec p ?y)
+
+pick-any x (!reflex x)
+
+define p := pick-any x (!reflex x) 
+
+(!uspec p true)
+
+(!uspec p (2 * y))
+
+pick-any a
+    pick-any b
+      assume h := (a = b) 
+        (!sym h) 
+
+pick-any a b
+  assume h := (a = b) 
+    (!sym h)
+
+define [all-P all-Q] := [(forall x . P x) (forall x . Q x)]
+
+assume hyp := (all-P & all-Q)
+  pick-any y:Object
+    let {P-y := conclude (P y)
+                  (!uspec all-P y);
+         Q-y := conclude (Q y)
+                  (!uspec all-Q y)}
+      (!both P-y Q-y)
+
+#======================================================================
+#            Working with existential quantifications
+#======================================================================			
+
+assume (even 2)
+  (!egen (exists x . even x) 2)
+
+clear-assumption-base
+
+(!dcatch method () (!egen (exists x . even x) 2)
+         method (error-msg) let {_ := (println error-msg)} (!true-intro))
+
+assume hyp := (exists x . ~ prime x)
+    pick-witness w for hyp  # We now have (~ prime w)
+      (!by-contradiction (~ forall x . prime x)
+         assume all-prime := (forall x . prime x)
+           let {prime-w := (!uspec all-prime w)}
+             (!absurd prime-w (~ prime w)))
+
+(!dcatch method ()
+           assume hyp := (exists x . prime x)
+             pick-witness w for hyp 
+               (!claim (prime w))
+         method (error-msg) 
+           let {_ := (println error-msg)} 
+	     (!true-intro))
+
+assume hyp := (exists x y . x < y)
+    pick-witnesses w1 w2 for hyp # This gives (w1 < w2)
+      let {_ := (!egen (exists x . x < w2) w1)}
+        (!egen (exists y x . x < y) w2) 
+
+assume hyp := (exists x . ~ prime x)
+    pick-witness w for hyp -prime-w 
+    # We now have -prime-w := (~ P w) in the a.b.
+      (!by-contradiction (~ forall x . prime x)
+        assume all-prime := (forall x . prime x)
+          let {prime-w := (!uspec all-prime w)}
+            (!absurd prime-w -prime-w))
+
+#======================================================================
+#            Some examples 
+#======================================================================			
+
+conclude ((forall x . P x & Q x) ==> (forall y . P y) & (forall y . Q y)) 
+assume hyp := (forall x . P x & Q x)
+  let {all-P := pick-any y:Object
+                  conclude (P y)
+                    (!left-and (!uspec hyp y));
+       all-Q := pick-any y:Object
+                  conclude (Q y)
+                    (!right-and (!uspec hyp y))}
+    (!both all-P all-Q)
+
+
+conclude ((exists x . P x & Q x) ==> (exists y . P y) & (exists y . Q y))
+assume hyp := (exists x . P x & Q x)
+  pick-witness w for hyp wp # we now have wp := (P w & Q w) in the a.b. 
+    let {Pw := (!left-and wp); 
+         Qw := (!right-and wp);
+         some-P := (!egen (exists y . P y) w);
+         some-Q := (!egen (exists y . Q y) w)}
+      (!both some-P some-Q)
+
+
+conclude (((forall x . P x) | (forall x . Q x)) ==> forall y . P y | Q y)
+assume hyp := ((forall x . P x) | (forall x . Q x))
+  pick-any y
+    (!cases hyp
+            assume case-1 := (forall x . P x)
+              conclude (P y | Q y)
+                (!either (!uspec case-1 y) (Q y))
+            assume case-2 := (forall x . Q x)
+              conclude (P y | Q y)
+                (!either (P y) (!uspec case-2 y)))
+
+
+conclude ((exists x . P x | Q x) ==> (exists x . P x) | (exists x . Q x))
+  assume hyp := (exists x . P x | Q x)
+    pick-witness w for hyp wp 
+    # we now have wp := (P w | Q w) in the a.b. 
+      (!cases (P w | Q w) 
+              assume (P w)
+                let {some-P := (!egen (exists x . P x) w)}
+                  (!either some-P (exists x . Q x))
+              assume (Q w)
+                let {some-Q := (!egen (exists x . Q x) w)}
+                  (!either (exists x . P x) some-Q))
+
+conclude ((forall x . P x ==> Q x) ==> (forall x . P x) ==> (forall x . Q x))
+  assume hyp1 := (forall x . P x ==> Q x)
+    assume hyp2 := (forall x . P x)
+      pick-any a
+        conclude (Q a)
+          let {Pa=>Qa := (!uspec hyp1 a);
+               Pa := (!uspec hyp2 a)}
+            (!mp Pa=>Qa Pa)
+
+conclude (((exists x . P x) | (exists x . Q x)) ==> exists x . P x | Q x)
+assume hyp := ((exists x . P x) | (exists x . Q x))
+   let {goal := (exists x . P x | Q x)}
+     (!cases 
+       hyp 
+       assume case-1 := (exists x . P x)
+         pick-witness w for case-1 # we now have (P w) in the a.b. 
+           let {Pw|Qw := (!either (P w) (Q w))}
+             (!egen goal w)
+       assume case-2 := (exists x . Q x)
+         pick-witness w for case-2 # we now have (Q w) in the a.b. 
+           let {Pw|Qw := (!either (P w) (Q w))}
+             (!egen goal w))
+
+conclude (((exists x . P x) | (exists x . Q x)) ==> exists x . P x | Q x)
+assume hyp := ((exists x . P x) | (exists x . Q x))
+   let {goal := (exists x . P x | Q x);
+        M := method (ex-premise) 
+              assume ex-premise
+                pick-witness w for ex-premise
+                  let {Pw|Qw := (!either (P w) (Q w))}
+                    (!egen goal w)}
+     (!cases hyp (!M (exists x . P x))
+                 (!M (exists x . Q x)))
+
+# Insert your own solution to exercise 5.02 here:
+load "./solutions05/exercise02"
+
+#======================================================================
+#            Methods for quantifier reasoning 
+#======================================================================			
+
+define uspec* :=
+  method (premise terms)
+    match terms {
+      [] => (!claim premise)
+    | (list-of t rest) => (!uspec* (!uspec premise t) rest)
+    }
+
+define uspec* :=
+  method (premise terms)
+    match terms {
+      [] => (!claim premise)
+    | (list-of t rest) => let {premise' := (!uspec premise t)}
+                            (!uspec* premise' rest)
+    }
+
+
+assert premise := (forall x y . x = y ==> y = x)
+
+(!uspec* premise [1 2])
+
+assume <-transitivity := (forall x y z . x < y & y < z ==> x < z)
+  (!uspec* <-transitivity [1.7 2.9])
+
+# Insert your own solution to exercise 5.03 here:
+load "./solutions05/exercise03"
+
+assert ancestor-rule := (forall x y . x parent y ==> x ancestor y)
+
+assert fact := (peter parent mary)
+
+let {rule-instance := 
+       conclude (peter parent mary ==> peter ancestor mary)
+         (!uspec* ancestor-rule [peter mary])}
+  (!mp rule-instance fact)
+
+define fire :=
+  method (rule terms)
+    match rule {
+      (forall (some-list _) (_ ==> _)) => 
+        let {rule-instance := (!uspec* rule terms)}
+          (!mp rule-instance (antecedent rule-instance))
+    }
+
+define antecedent := 
+  lambda (cond)
+    match cond {
+      (p ==> _) => p
+    }
+
+define fire :=
+  method (rule terms)
+    match rule {
+      (forall (some-list _) (_ ==> _)) => 
+        let {rule-instance := (!uspec* rule terms)}
+          (!mp rule-instance (!prove-antecedent rule-instance))
+    }
+
+define prove-antecedent := 
+  method (cond)
+    match cond {
+      (p ==> _) => (!claim p)
+    }
+
+define prove-components-of := 
+  method (p)
+    check {
+      (holds? p) => (!claim p)
+    | else => match p {
+                (p1 & p2) => 
+                   (!both (!prove-components-of p1) 
+                          (!prove-components-of p2))
+              | (p1 | p2) =>
+                   try {
+                     (!either (!prove-components-of p1) p2)
+                   | (!either p1 (!prove-components-of p2))
+                   }
+              }
+    }
+
+define prove-antecedent :=
+  method (p)
+    (!prove-components-of (antecedent p))
+
+define fire := 
+  method (rule terms)
+    match rule {
+      (forall (some-list _) (_ ==> _)) => 
+        let {rule-instance := (!uspec* rule terms)}
+          (!mp rule-instance (!prove-antecedent rule-instance))
+    | (forall (some-list _) (_ <==> _)) =>
+        let {rule-instance := (!uspec* rule terms)}
+          try {
+            let {cond-1 := (!left-iff rule-instance)}
+              (!mp cond-1 (!prove-antecedent cond-1))
+          | let {cond-2 := (!right-iff rule-instance)}
+              (!mp cond-2 (!prove-antecedent cond-2))
+          }
+    | (forall _ _) => (!uspec* rule terms)
+    }
+
+define (qn-1 premise) := 
+  match premise {
+    (~ (forall x p)) => (!force (exists x . complement p))
+  }
+
+define (qn-2 premise) := 
+  match premise {
+    (exists x p) =>
+      (!by-contradiction (~ forall x . complement p)
+        assume hyp := (forall x . complement p)
+          pick-witness w for premise p-w
+            let {p'-w := (!uspec hyp w)}
+              (!from-complements 
+                false 
+                p'-w
+                p-w))
+  }
+
+define (qn-3 premise) :=
+  match premise {
+    (~ (exists x p)) => 
+      conclude (forall x . complement p)
+        pick-any y
+          let {p-y := (replace-var x y p)}
+            (!by-contradiction (complement p-y)
+              assume p-y
+                (!absurd (!egen (exists y p-y) y)
+                         premise))
+  }
+
+define (qn-4 premise) := 
+  match premise {
+    (forall x p) =>
+      (!by-contradiction (~ exists x . complement p)
+        assume hyp := (exists x . complement p)
+          pick-witness w for hyp -p-w
+            (!from-complements false -p-w (!uspec premise w)))
+  }
+
+# Insert your own solution to exercise 5.04 here:
+load "./solutions05/exercise04"
+
+define qn :=
+  method (premise)
+    match premise {
+      (~ (forall _ _)) => (!qn-1 premise)
+    | (exists _ _)     => (!qn-2 premise)
+    | (~ (exists _ _)) => (!qn-3 premise)
+    | (forall _ _)     => (!qn-4 premise)
+    }
+
+conclude ((~ forall x . P x) ==> exists x . ~ P x)
+  assume h := (~ forall x . P x)
+    (!qn h)
+
+conclude ((exists x . ~ P x) ==> ~ forall x . P x)
+  assume h := (exists x . ~ P x)
+    (!qn h)
+
+conclude ((~ exists x . P x) ==> forall x . ~ P x)
+  assume h := (~ exists x . P x)
+    (!qn h)
+
+conclude ((forall x . ~ P x) ==> ~ exists x . P x)
+  assume h := (forall x . ~ P x)
+    (!qn h)
+
+
+define (quant-swap premise) := 
+  match premise {
+    (forall _ (forall _ _)) =>
+      pick-any y x
+        (!uspec* premise [x y])
+  | (exists x (exists y body)) =>
+      pick-witnesses w_x w_y for premise 
+        (!egen* (exists y x . body) [w_y w_x])
+  | (exists x (forall _ _)) =>
+      pick-any y
+        pick-witness w for premise wp
+          let {q := (!uspec wp y)}
+            (!egen (exists x (replace-var w x q)) w)
+  }
+
+define (ugen-cong p q M) :=
+  match [p q] {
+    [(forall v1 p-body) (forall v2 q-body)] =>
+      conclude (p <==> q)
+        (!equiv assume p
+                  pick-any x
+                    let {p-body' := (!uspec p x);
+                         q-body' := (replace-var v2 x q-body);
+                         bicond := conclude (p-body' <==> q-body')
+                                     (!M p-body' q-body')}
+                      (!mp (!left-iff bicond) p-body')
+                assume q 
+                  pick-any x
+                    let {q-body' := (!uspec q x);
+                         p-body' := (replace-var v1 x p-body);
+                         bicond := conclude (q-body' <==> p-body') 
+                                     (!M q-body' p-body')}
+                      (!mp (!left-iff bicond) q-body'))
+  }
+
+# Insert your own solution to exercise 5.05 here:
+load "./solutions05/exercise05"
+
+# The following definitions are repeated from chapter 4:
+
+  define (ref-equiv p) :=
+    (!equiv assume p (!claim p) 
+            assume p (!claim p))
+
+
+  define (not-cong premise) := 
+    match premise {
+      (p1 <==> p2) => 
+        let {-p1=>-p2 := assume -p1 := (~ p1)
+                           (!by-contradiction (~ p2)
+                             assume p2 
+                               (!absurd (!mp (!right-iff premise) p2)
+                                        -p1));
+             -p2=>-p1 := assume -p2 := (~ p2)
+                           (!by-contradiction (~ p1)
+                             assume p1
+                               (!absurd (!mp (!left-iff premise) p1) 
+                                        -p2))}
+          (!equiv -p1=>-p2 -p2=>-p1)
+    }
+
+  define (and-cong premise1 premise2) :=
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+          let {p1&p2=>q1&q2 := assume (p1 & p2)
+                                 (!both (!mp (!left-iff premise1) p1)
+                                        (!mp (!left-iff premise2) p2));
+               q1&q2=>p1&p2 := assume (q1 & q2)
+                                 (!both (!mp (!right-iff premise1) q1)
+                                        (!mp (!right-iff premise2) q2))}
+            (!equiv p1&p2=>q1&q2 q1&q2=>p1&p2)
+    } 
+
+
+  define (if-cong premise1 premise2) :=
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+          let {p1=>p2-gives-q1=>q2 := 
+                  assume (p1 ==> p2)
+                    assume q1
+                      (!mp (!left-iff premise2)
+                           (!mp (p1 ==> p2)
+                                (!mp (!right-iff premise1) q1)));
+               q1=>q2-gives-p1=>p2 := 
+                  assume (q1 ==> q2)
+                    assume p1
+                      (!mp (!right-iff premise2)
+                           (!mp (q1 ==> q2)
+                                (!mp (!left-iff premise1) p1)))}
+            (!equiv p1=>p2-gives-q1=>q2 q1=>q2-gives-p1=>p2)
+    }
+
+    define (or-cong premise1 premise2) := 
+      match [premise1 premise2] {
+        [(p1 <==> q1) (p2 <==> q2)] =>
+          let {cond-1 := assume (p1 | p2)
+                           (!cases (p1 | p2)
+                             assume p1 
+                               (!left-either (!mp (!left-iff premise1) 
+                                                  p1) 
+                                             q2)
+                             assume p2
+                               (!right-either q1 
+                                              (!mp (!left-iff premise2) 
+                                                   p2)));
+               cond-2 := assume (q1 | q2)
+                            (!cases (q1 | q2)
+                              assume q1
+                                (!left-either (!mp (!right-iff premise1) 
+                                                   q1) 
+                                              p2)
+                              assume q2
+                                (!right-either p1 
+                                               (!mp (!right-iff premise2) 
+                                                    q2)))}
+            (!equiv cond-1 cond-2)
+      }
+
+  define (iff-cong premise1 premise2) := 
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+        let {cond-1 := assume (p1 <==> p2)
+                         (!equiv assume q1
+                                   (!mp (!left-iff premise2)
+                                        (!mp (!left-iff (p1 <==> p2))
+                                             (!mp (!right-iff premise1) 
+                                                  q1)))
+                                 assume q2
+                                   (!mp (!left-iff premise1)
+                                        (!mp (!right-iff (p1 <==> p2))
+                                             (!mp (!right-iff premise2) 
+                                                  q2))));
+             cond-2 := assume (q1 <==> q2)
+                         (!equiv assume p1
+                                   (!mp (!right-iff premise2)
+                                        (!mp (!left-iff (q1 <==> q2))
+                                             (!mp (!left-iff premise1) 
+                                                  p1)))
+                                 assume p2
+                                   (!mp (!right-iff premise1)
+                                        (!mp (!right-iff (q1 <==> q2))
+                                             (!mp (!left-iff premise2) 
+                                                  p2))))}
+        (!equiv cond-1 cond-2)
+    }
+
+  define (find-first-element M list) :=
+    match list {
+      (list-of first rest) => 
+        try { (!M first) | (!find-first-element M rest) }
+    }
+
+
+define prove-equiv := 
+  method (p q methods)
+    try {
+      (!find-first-element method (M) 
+                             (!equiv assume p (!M p)
+                                     assume q (!M q))
+                           methods)
+    | check {
+        (equal? p q) => (!ref-equiv p)
+      | else => let {M := method (p1 p2) 
+                            (!prove-equiv p1 p2 methods)}
+                  match [p q] {
+                    [(~ p1) (~ q1)] =>
+                      (!not-cong (!prove-equiv p1 q1 methods))
+                  | [((some-sent-con pc) p1 p2) (pc q1 q2)] =>
+                      (!(choose-cong-method pc) 
+                          (!prove-equiv p1 q1 methods)
+                          (!prove-equiv p2 q2 methods))
+                  | [(forall _ _) (forall _ _)] =>
+                      (!ugen-cong p q M)
+                  | [(exists _ _) (exists _ _)] =>
+                      (!egen-cong p q M)
+                  }
+      }
+    }
+
+define p :=  (forall x . exists y . x R y ==> ~ (P x & Q y))
+
+define q := (forall z . exists w . ~ ~ z R w ==> ~ P z | ~ Q w)
+
+assume p 
+  conclude q  
+    (!transform p q [bdn dm])
+
+assume q 	
+  conclude p 
+    (!transform q p [bdn dm])
+
+#======================================================================
+#			Heuristics 
+#======================================================================			
+
+define (force2 p terms) := (!force p)
+
+define (SET list) := list 
+
+assert (P c & forall x y . x R y)
+
+let {lemma := let {lemma := (!right-and (P c & forall x y . x R y))} 
+                (!uspec lemma a)}
+  (!uspec lemma b)
+
+let {p1 := (!right-and (P c & forall x y . x R y));
+     p2 := (!uspec p1 a)}
+  (!uspec p2 b)
+
+assume h := (forall x . P x ==> Q x)
+  assume (P a)
+    let {lemma := (!uspec h a);
+         _ := (!mp (P a ==> Q a) (P a))}
+      (!egen (exists y . Q y) a)
+
+assume (exists x . P x)
+  pick-witness w for (exists x . P x)  # We now have (P w)
+    (!force2 (exists y . Q y) (SET [w]))
+
+pick-any a                                 # [forall<-], T = {a}
+  assume hyp := (exists y . a R y)         # [if<-]
+    pick-witness w for hyp                 # [exists->]: we now have (a R w)
+      conclude goal := (exists y . y R a)  # and we now have T = {w, a}
+        let {_ := (!force2 (w R a)         # [exists<-]
+                           (SET [w a]))}    
+          (!egen goal w)
+
+#======================================================================
+#			Semantics 
+#======================================================================			
+
+define (tv t I asgn) := 
+  match t {
+    (some-var _) => (asgn t)
+  | (= s t) => ((tv s I asgn) equals? (tv t I asgn))
+  | ((some-symbol f) (some-list args)) => 
+        (app-proc (I f) 
+                  (map lambda (t) (tv t I asgn)
+                       args))
+  }
+
+define (quant-content q) := 
+ match q {
+   forall => for-each | exists => for-some 
+ }
+
+define (sat p I asgn) := 
+    match p {
+      (some-atom A) => (tv A I asgn)
+    | (not q) => (negate (sat q I asgn))
+    | (and (some-list args)) => (for-each args lambda (q) (sat q I asgn))
+    | (or (some-list args)) => (for-some args lambda (q) (sat q I asgn))
+    | (if p1 p2) => (sat (~ p1 | p2) I asgn)
+    | (iff p1 p2) => (sat ((p1 ==> p2) & (p2 ==> p1)) I asgn)
+    | ((some-quant q) x body) => ((quant-content q) 
+                                   (I (sort-of x))
+                                   lambda (a)
+                                     (sat body I (Map.add asgn [[x a]])))
+    }
+
+(app-proc plus [1 2])
+
+(app-proc root [(+ 1  2)])
+
+(app-proc join [[1] [2 3] [4]])
+
+module T { 
+  domain D
+  declare +: [D D] -> D 
+  declare <: [D D] -> Boolean
+}
+
+define I := |{"T.D" := [[] [1] [2] [1 1] [1 2] [2 1] [2 2]],
+             T.+ := lambda (l1 l2) (rd (l1 join l2)),
+             T.< := prefix? }|
+
+
+#(test-equal ([5] prefix? [5 7 9]) true)
+
+#(test-equal ([] prefix? []) true)
+
+#(test-equal ([5] prefix? [7 5 9]) false)
+
+extend-module T {
+
+  define p1 := (forall x y . x + y = y + x)
+  define p2 := (forall x y z . x + (y + z) = (x + y) + z)
+  define p3 := (forall x y . x < y ==> ~ y < x)
+  define p4 := (forall x y . x < y & x =/= y ==> ~ y < x)
+  define p5 := (forall x y z . x < y & y < z ==> x < z)
+
+}
+
+define (sat? I) := lambda (p) (sat p I |{}|)
+
+(equal? (map (sat? I) [T.p1 T.p2 T.p3 T.p4 T.p5]) [false true false true true])
+
+('a = ?x)
+
+(?l = 1 :: nil)
+
+(not (?x = ?y))
+
+(not (?x:Boolean = ?y:Boolean))
+
+(not (?x:(List (List Real)) = ?y:(List (List Real))))
+
+(?x:Int + 1)
+
+(?x:Real + 1)
+
+(?x + 1.0)
+
+(?x - 1)
+
+(- ?x:Real)
+
+(- ?x:Int)
+
+#======================================================================
+#			Additional Exercises
+#======================================================================			
+
+# Insert your own solution to exercise 5.08 here:
+load "./solutions05/exercise08"
+
+# Insert your own solution to exercise 5.08 here:
+load "./solutions05/exercise08"
+
+# Insert your own solution to exercise 5.10 here:
+load "./solutions05/exercise10"
+
+# Insert your own solution to exercise 5.11 here:
+load "./solutions05/exercise11"
+
+# Insert your own solution to exercise 5.12 here:
+load "./solutions05/exercise12"
+
+# Insert your own solution to exercise 5.13 here:
+load "./solutions05/exercise13"
+
+# Insert your own solution to exercise 5.14 here:
+load "./solutions05/exercise14"
+
+# Insert your own solution to exercise 5.15 here:
+load "./solutions05/exercise15"
+
+# Insert your own solution to exercise 5.16 here:
+load "./solutions05/exercise16"
+
+# We enclode the solution to exercise 17 in a module to avoid naming conflicts:
+
+module T {
+
+# Insert your own solution to exercise 5.17 here:
+load "./solutions05/exercise17"
+
+} # close module T 
+

@@ -1,0 +1,4 @@
+:- set_global_compiler_options([+singleton_warnings_off]).
+
+assertAll([]). 
+assertAll([H|T]) :- asserta(H),assertAll(T).

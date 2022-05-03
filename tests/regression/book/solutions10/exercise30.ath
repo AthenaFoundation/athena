@@ -1,0 +1,29 @@
+by-induction (forall m2 m1 A . (m1 ** m2) |^ A = m1 |^ A ** m2 |^ A) {
+  (m2 as empty-map) => 
+    pick-any m1 A 
+      (!combine-equations
+          (!chain [((m1 ** m2) |^ A) =  (m1 |^ A)])
+          (!chain [(m1 |^ A ** m2 |^ A) 
+                 = (m1 |^ A ** empty-map)
+                 = (m1 |^ A)]))
+| (m2 as (update (pair k v) rest)) =>
+   let {IH := (forall m1 A . (m1 ** rest) |^ A = m1 |^ A ** rest |^ A)}
+    pick-any m1 A 
+      (!two-cases
+         assume (k in A)
+           (!combine-equations
+              (!chain [((m1 ** m2) |^ A)
+                     = (([k v] ++ (m1 ** rest)) |^ A)    [override-def]
+                     = ([k v] ++ ((m1 ** rest) |^ A))    [restrict-def]
+                     = ([k v] ++ (m1 |^ A ** rest |^ A)) [IH]])
+              (!chain [(m1 |^ A ** m2 |^ A)
+                     = (m1 |^ A ** [k v] ++ (rest |^ A)) [restrict-def]
+                     = ([k v] ++ (m1 |^ A ** rest |^ A)) [override-def]]))
+         assume (~ k in A)
+           (!chain [((m1 ** m2) |^ A)
+                  = (([k v] ++ (m1 ** rest)) |^ A)    [override-def]
+                  = ((m1 ** rest) |^ A)               [restrict-def]
+                  = (m1 |^ A ** rest |^ A)            [IH]
+                  = (m1 |^ A ** m2 |^ A)              [restrict-def]]))
+}  
+

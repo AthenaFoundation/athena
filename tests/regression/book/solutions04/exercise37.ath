@@ -1,0 +1,71 @@
+#========================== Solution to exercise 4.37 =========================
+
+  define (stored? pair ht) := try {(table-lookup ht pair) | false}
+
+  define (and' L) := 
+    match L {
+      [] => ()
+    | _ => (and L)
+    }
+
+  define (sort x y) := 
+    check {(less? x y) => [x y]     
+         | else => [y x]}
+
+
+  define node := SAT_Solving.node
+  define color := SAT_Solving.color 
+  define has := SAT_Solving.has 
+
+  define (coloring-constraints G K) := 
+    match G {
+      [N neighbors] =>
+        let {all-nodes := (0 to N minus 1);
+             all-colors := (1 to K);
+             at-least-one-color := 
+               (map lambda (i)
+                      (or (map lambda (c)
+                                 (node i has color c)
+                               all-colors))
+                    all-nodes);   
+             at-most-one-color := 
+               (map lambda (i)
+                      (and (map lambda (c)
+                                  (if (node i has color c)
+                                      (and (map lambda (c')
+                                                  (~ node i has color c')
+                                                (list-remove c all-colors))))
+                                all-colors))
+                    all-nodes);
+            distinct-colors :=
+              let {ht := (table 1000)}
+                (map-select
+                  lambda (i)              
+                    (and' 
+                      (map-select
+                        lambda (j)
+                          (and' 
+                            (map-select 
+                              lambda (c)
+                                let {pair := (sort i j)}
+                                  check 
+                                    {(stored? [pair c] ht) => ()
+                                   | else => 
+                                      let {C := (node i has color c ==>  
+                                                  ~ node j has color c);
+                                           _ := (table-add 
+                                                  ht 
+                                                  [[pair c] --> true])}
+                                       C
+                                    }
+                              all-colors
+                              (unequal-to ())))
+                        (vector-sub neighbors i)
+                        (unequal-to ())))
+                      all-nodes
+                      (unequal-to ()))}
+         (join at-least-one-color 
+               at-most-one-color 
+  	       distinct-colors)
+    }
+

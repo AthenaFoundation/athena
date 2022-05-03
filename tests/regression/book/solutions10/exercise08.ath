@@ -1,0 +1,41 @@
+conclude intersection-characterization-2 := 
+ (forall A B x . x in A & x in B ==> x in A /\ B)
+by-induction intersection-characterization-2 {
+  null => 
+    pick-any B x
+      (!chain [(x in null & x in B) 
+           ==> (x in null)          [left-and]
+           ==> false                [NC]
+           ==> (x in null /\ B)     [prop-taut]])
+| (A as (insert h t)) =>
+  let {IH := (forall B x . x in t & x in B ==> x in t /\ B)}
+    pick-any B x
+      (!two-cases
+        assume (h in B)
+          (!chain [(x in A & x in B)
+               ==> ((x = h | x in t) & x in B)            [in-def]
+               ==> ((x = h & x in B) | (x in t & x in B)) [prop-taut]
+               ==> (x = h | x in t & x in B)              [prop-taut]
+               ==> (x = h | x in t /\ B)                  [IH]
+               ==> (x in h ++ (t /\ B))                   [in-def]
+               ==> (x in A /\ B)                      [intersection-def]])
+        assume case2 := (~ h in B)
+          (!chain [(x in A & x in B)
+               ==> ((x = h | x in t) & x in B)               [in-def]
+               ==> ((~ x in B | x in t) & x in B)            [case2]
+               ==> ((~ x in B & x in B) | (x in t & x in B)) [prop-taut]
+               ==> (false | x in t & x in B)                 [prop-taut]
+               ==> (x in t & x in B)                         [prop-taut]
+               ==> (x in t /\ B)                             [IH]
+               ==> (x in A /\ B)                      [intersection-def]]))
+}
+
+conclude intersection-characterization := 
+ (forall A B x . x in A /\ B <==> x in A & x in B)
+  pick-any A B x
+    (!equiv 
+       (!chain [(x in A /\ B) 
+            ==> (x in A & x in B) [intersection-characterization-1]])
+       (!chain [(x in A & x in B) 
+            ==> (x in A /\ B)     [intersection-characterization-2]]))
+

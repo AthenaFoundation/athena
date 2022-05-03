@@ -1,0 +1,15 @@
+#========================== Solution to exercise 4.10 =========================
+
+  define (from-false p) := 
+    (!from-complements p false (!false-elim))
+
+  define (from-complements q p1 p2) := 
+    match [p1 p2] {
+      [(some-sent p) (~ p)] => let {_ := (!absurd p (~ p))}
+                                 (!from-false q)
+    | [(~ (some-sent p)) p] => let {_ := (!absurd p (~ p))}
+                                 (!from-false q)
+    }
+
+  assume false
+    (!from-false (A & ~A))

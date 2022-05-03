@@ -1,0 +1,212 @@
+#====================================================================================
+# 
+#	Code for chapter 7 of FPMICS.
+#
+#====================================================================================
+
+define foo := 2
+
+module Chapter07 {
+
+module A {
+
+    define x := 'foo
+
+    define L := [1 2 3]
+
+  }
+
+A.x
+
+A.L
+
+try { A.z | (println "Could not find a value for A.z") }
+
+(print (module->string "A"))
+
+module A {
+
+    private define a := 99
+
+    define b := (a plus 1)
+  }
+
+A.b
+
+try { A.a | (println "Could not find a value for A.a") }
+
+datatype N := zero | (S N)
+
+assert (datatype-axioms "N")
+
+module N {
+  declare one, two: N
+
+  define [m n n' x y z k] := [?m:N ?n:N ?n':N ?x:N ?y:N ?z:N ?k:N]
+
+  assert one-definition := (one = S zero)
+  assert two-definition := (two = S one)
+
+  define S-not-zero     := (forall n . S n =/= zero)
+  define one-not-zero   := (one =/= zero)
+  define injective      := (forall m n . S m = S n <==> m = n)
+
+} # close module N
+
+conclude N.S-not-zero
+    pick-any n 
+      (!chain->
+        [true ==> (zero =/= S n) [(datatype-axioms "N")]
+     	      ==> (S n =/= zero) [sym]])
+
+#define one := N.one
+
+(!by-contradiction N.one-not-zero
+     assume (N.one = zero) 
+       let {is := conclude (S zero = zero)
+                    (!chain [(S zero)
+                           = N.one                 [N.one-definition]
+      	  	           = zero                  [(N.one = zero)]]);
+            is-not := (!chain-> [true 
+                             ==> (S zero =/= zero) [N.S-not-zero]])}
+                         
+     (!absurd is is-not))
+
+open N
+
+conclude S-not-zero
+  pick-any n 
+    (!chain->
+      [true ==> (zero =/= S n) [(datatype-axioms "N")]
+ 	    ==> (S n =/= zero) [sym]])
+
+(!by-contradiction one-not-zero
+   assume (one = zero) 
+     let {is := conclude (S zero = zero)
+                  (!chain
+ 		    [(S zero)
+ 		   = one          [one-definition]
+		   = zero         [(one = zero)]]);
+          is-not := (!chain-> 
+                     [true 
+                 ==> (S zero =/= zero) [S-not-zero]])}
+     (!absurd is is-not))
+
+
+extend-module N {
+
+  define nonzero-S := 
+    (forall n . n =/= zero ==> exists m . n = S m)
+
+  define S-not-same := (forall n . S n =/= n)
+
+  by-induction nonzero-S {
+    zero => assume (zero =/= zero)
+              (!from-complements (exists m . zero = S m)
+                                 (!reflex zero)
+                                 (zero =/= zero))
+  | (S k) => assume (S k =/= zero)
+                 let {_ := (!reflex (S k))}
+                   (!egen (exists m . S k = S m) k)
+  }
+
+  by-induction S-not-same {
+    zero => conclude (S zero =/= zero)
+              (!instance S-not-zero zero)
+  | (S m) => let {ihyp := (S m =/= m)}
+               (!chain-> [ihyp 
+                      ==> (S S m =/= S m) [injective]])
+  }
+
+} # close module N
+
+(print N.S-not-same)
+
+extend-module N {
+
+  declare +: [N N] -> N
+
+  module Plus {
+
+    assert right-zero    := (forall n . n + zero = n)
+    assert right-nonzero := (forall m n . n + S m = S (n + m))
+
+  } # close module Plus
+
+} # close extend-module N 
+
+extend-module N {
+  extend-module Plus {
+
+    define left-zero    := (forall n . zero + n = n)
+    define left-nonzero := (forall n m . (S m) + n = S (m + n))
+
+  } # close module Plus
+
+} # close extend-module N 
+
+
+# Insert your own solution to exercise 7.1 here
+load "./solutions07/exercise01"
+
+
+module M1 {
+  define x := 2
+
+  module M2 {
+
+    define y := (x plus 3)
+    define x := 99
+
+    module M3 {
+
+      define y := (x plus 1)
+
+    } # close module M3
+
+  } # close module M2
+
+}
+
+M1.M2.M3.y
+
+module M1 { 
+  define a1 := 1
+}
+
+module M2 { 
+  open M1
+  define a2 := (a1 plus 2)
+}
+
+module M3 { 
+  open M2
+  define a3 := (a2 plus a1)
+}
+
+M3.a3
+
+module M {
+
+  define foo := 3;
+
+  define y := (foo plus Top.foo)
+
+}
+
+(print M.y)
+
+module M {
+
+  define [x y] := [1 2]
+
+}
+
+(map-proc println (module-domain "M"))
+
+module M1 { module M2 { define L := [] }}
+
+(apply-module "M1.M2" "L")
+
+} # close Chapter07
+

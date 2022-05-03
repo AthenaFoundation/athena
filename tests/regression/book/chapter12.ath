@@ -1,0 +1,679 @@
+#==========================================================================
+# SECTION: Mathematical background
+#
+define stopgap := force
+
+load "strong-induction"
+
+transform-output eval [nat->int]
+
+extend-module N {
+
+  define [x y m n r] := [?x:N ?y:N ?m:N ?n:N ?r:N]
+
+  open Times
+
+  declare **: [N N] -> N [400 [int->nat int->nat]]
+
+  module Power {
+
+    assert* def := [(x ** zero = one)
+                    (x ** S n = x * x ** n)]
+
+    define [if-zero if-nonzero] := def 
+
+    (print "\n2 raised to the 3rd: " (eval 2 ** 3))
+  } # close module Power
+
+} # close module N
+
+module Test1 {
+
+extend-module N {
+ declare half: [N] -> N; declare even: [N] -> Boolean
+
+ declare fast-power: [N N] -> N [[int->nat int->nat]]
+
+ (print "\nHalf of 2: " (eval (half (S S zero))) "\n")      
+
+ module fast-power {
+
+  assert def := 
+    (fun  
+      [(fast-power x n) =
+        [one                                  when (n = zero)
+         (square (fast-power x half n))       when (n =/= zero & even n)
+         ((square (fast-power x half n)) * x) when (n =/= zero & ~ even n)]])
+
+  define [if-zero nonzero-even nonzero-odd] := def
+
+ (print "\n2 fast-power 3: " (eval 2 fast-power 3) "\n")
+ 
+ } # close module fast-power
+} # close module N
+
+} # close module Test1
+
+#==========================================================================
+# SECTION: Strong induction
+#
+#==========================================================================
+# SECTION: Properties of half
+#
+extend-module N {
+
+  declare half: [N] -> N [[int->nat]]
+
+  module half {
+
+    assert* def :=
+      [(half zero = zero)
+       (half S zero = zero)
+       (half S S n = S half n)]
+
+    define [if-zero if-one nonzero-nonone] := def 
+
+    (print "\nHalf of 20: " (eval half 20) 
+           "\nand half of 21: " (eval half 21) "\n")
+
+define double    := (forall n . half (n + n) = n)
+define times-two := (forall n . half (two * n) = n)
+
+by-induction double {
+  zero => (!chain [(half (zero + zero))
+	       --> (half zero)         [Plus.right-zero]
+               --> zero                [if-zero]])
+| (S zero) => 
+    (!chain [(half (S zero + S zero))
+	 --> (half S (S zero + zero))  [Plus.right-nonzero]
+	 --> (half S S (zero + zero))  [Plus.left-nonzero]
+	 --> (half S S zero)           [Plus.right-zero]
+	 --> (S half zero)             [nonzero-nonone]
+	 --> (S zero)                  [if-zero]])
+| (S (S m)) => 
+   let {IH := (half (m + m) = m)}
+    (!chain 
+     [(half (S S m + S S m))
+      --> (half S (S S m + S m))       [Plus.right-nonzero]
+      --> (half S S (S S m + m))       [Plus.right-nonzero]
+      --> (S half (S S m + m))         [nonzero-nonone]
+      --> (S half S (S m + m))         [Plus.left-nonzero]
+      --> (S half S S (m + m))         [Plus.left-nonzero]
+      --> (S S half (m + m))           [nonzero-nonone]
+      --> (S S m)                      [IH]])
+}
+
+conclude times-two 
+  pick-any x
+    (!chain [(half (two * x))
+         --> (half (x + x))    [Times.two-times]
+         --> x                 [double]])
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.1:
+#
+define twice := (forall x . two * half S S x = S S (two * half x))
+
+(!stopgap twice)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 12.2:
+#
+define two-plus := (forall x y . half (two * x + y) = x + half y)
+
+(!stopgap two-plus)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define less-S := (forall n . half n < S n)
+define less :=   (forall n . n =/= zero ==> half n < n)
+
+by-induction less-S {
+  zero => (!chain-> [true 
+                ==> (zero < S zero)                 [Less.<S]
+		==> (half zero < S zero)            [if-zero]])
+| (S zero) => 
+    let {1/2<1 := (!chain-> [true
+                         ==> (zero < S zero)        [Less.<S]
+ 	                 ==> (half S zero < S zero) [if-one]])}
+      (!chain-> [true 
+             ==> (S zero < S S zero)                [Less.<S]
+  	     ==> (S zero < S S zero & 1/2<1)        [augment]
+	     ==> (half S zero < S S zero)           [Less.transitive]])
+| (S (S m)) => 
+    let {IH := (half m < S m);
+         m+2<m+3 := (!chain-> [true 
+                           ==> (S S m < S S S m)    [Less.<S]])}
+      (!chain-> [IH 
+             ==> (S half m < S S m)                 [Less.injective] 
+             ==> (half S S m < S S m)               [nonzero-nonone]
+             ==> (half S S m < S S m & m+2<m+3)     [augment]
+             ==> (half S S m < S S S m)             [Less.transitive]])
+}
+
+datatype-cases less {
+  zero => assume (zero =/= zero)
+	    (!from-complements (half zero < zero) 
+			       (!reflex zero) 
+                               (zero =/= zero))
+| (S zero) => 
+    assume (S zero =/= zero)
+      (!chain-> [true 
+             ==> (zero < S zero)                [Less.<S]
+             ==> (half S zero < S zero)         [if-one]])
+| (n as (S (S m))) => 
+    assume (S S m =/= zero)
+      (!chain-> [true 
+             ==> (half m < S m)                 [less-S]
+      	     ==> (S half m < S S m)             [Less.injective]
+ 	     ==> (half S S m < S S m)           [nonzero-nonone]])
+}
+} # close module half
+} # close module N
+
+#==========================================================================
+# SECTION: Properties of odd and even
+#
+extend-module N {
+  declare even, odd: [N] -> Boolean [[int->nat]]
+
+  module EO {
+
+   assert* even-definition := [(even x <==> two * half x = x)]
+
+   assert* odd-definition :=  [(odd  x <==> two * (half x) + one = x)]
+
+
+   (print "\nIs 20 even?: " (eval even 20))
+   (print "\nIs 20 odd?: "  (eval odd 20))
+
+define even-zero := (even zero)
+define odd-one := (odd S zero)
+define even-S-S := (forall n . even S S n <==> even n)
+define odd-S-S := (forall n . odd S S n <==> odd n)
+define odd-if-not-even  := (forall n . ~ even n ==> odd n)
+define not-odd-if-even := (forall n . even n ==> ~ odd n)
+define even-iff-not-odd := (forall n . even n <==> ~ odd n)
+define not-even-if-odd := (forall n . odd n ==> ~ even n)
+define half-nonzero-if-nonzero-even := 
+  (forall n . n =/= zero & even n ==> half n =/= zero)
+define half-nonzero-if-nonone-odd := 
+  (forall n . n =/= one & odd n ==> half n =/= zero)
+define even-twice := (forall n . even (two * n))
+define even-square := (forall n . even n <==> even square n)
+} # close module EO
+
+extend-module EO {
+ conclude even-zero
+   (!chain-> [(two * half zero) 
+          --> ((half zero) + (half zero)) [Times.two-times] 
+          --> (zero + zero)               [half.if-zero]
+          --> zero                        [Plus.right-zero]
+          ==> (even zero)                 [even-definition]])
+
+conclude even-S-S
+  pick-any n
+    (!chain [(even S S n)
+        <==> (two * half S S n = S S n)    [even-definition]
+	<==> (S S (two * half n) = S S n)  [half.twice]
+	<==> (S (two * half n) = S n)      [S-injective]
+	<==> (two * half n = n)            [S-injective]
+	<==> (even n)                      [even-definition]])
+
+conclude odd-S-S
+  pick-any n
+    (!chain [(odd S S n)
+        <==> (two * (half S S n) + one = S S n)  [odd-definition]
+        <==> (S S (two * half n) + one = S S n)  [half.twice]
+        <==> (S S S (two * half n) = S S n)      [Plus.right-one]
+	<==> (S S (two * half n) = S n)          [S-injective]
+	<==> (S (two * half n) = n)              [S-injective]
+ 	<==> ((two * half n) + one = n)          [Plus.right-one]
+	<==> (odd n)                             [odd-definition]])
+
+by-induction odd-if-not-even {
+  zero => (!chain [(~ even zero)
+               ==> (even zero & ~ even zero)     [augment]
+	       ==> (odd zero)                    [prop-taut]])
+| (S zero) =>
+    assume (~ even S zero)
+      (!chain<-
+        [(odd S zero)
+     <== (two * (half S zero) + one = S zero)    [odd-definition]
+     <== (S (two * half S zero) = S zero)        [Plus.right-one]
+     <== (S (two * zero)        = S zero)        [half.if-one]
+     <== (S zero                = S zero)        [Times.right-zero]])
+| (S (S m)) => 
+    let {IH := (~ even m ==> odd m)}
+      (!chain [(~ even S S m)
+	   ==> (~ even m)                        [even-S-S]
+	   ==> (odd m)                           [IH]
+	   ==> (odd S S m)                       [odd-S-S]])
+}
+
+} # close module EO
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.3:
+#
+extend-module EO {
+
+  (!stopgap odd-one)
+
+}
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.4:
+#
+extend-module EO {
+
+  (!stopgap even-twice)
+
+}
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.5:
+#
+extend-module EO {
+
+  (!stopgap not-odd-if-even)
+
+} # close module EO
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 12.6:
+#
+extend-module EO {
+
+  define even-square := (forall x . even x <==> even square x)
+
+  (!stopgap even-square)
+
+} # close module EO
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Properties of power
+#
+extend-module Power {
+  define Plus-case   := (forall m n x . x ** (m + n) = x ** m * x ** n)
+  define left-one    := (forall n . one ** n = one)
+  define right-one   := (forall n . n ** one = n)
+  define right-two   := (forall n . n ** two = n * n)
+  define left-times  := (forall n x y . (x * y) ** n = x ** n * y ** n)
+  define right-times := (forall m n x . x ** (m * n) = (x ** m) ** n)
+  define two-case    := (forall n . square n = n ** two)
+} # close module Power
+
+extend-module Power {
+  by-induction Plus-case {
+    zero =>
+      conclude (forall n x . x ** (zero + n) = x ** zero * x ** n)
+        pick-any n x
+	  (!chain [(x ** (zero + n))
+               --> (x ** n)                       [Plus.left-zero]
+               <-- (one * x ** n)                 [Times.left-one]
+               <-- (x ** zero * x ** n)           [if-zero]])
+  | (m as (S m')) => 
+    let {ind-hyp := (forall n x . x ** (m' + n) = x ** m' * x ** n)}
+      conclude (forall n x . x ** (m + n) = x ** m * x ** n)
+        pick-any n x
+          (!combine-equations
+            (!chain [(x ** ((S m') + n))
+   	         --> (x ** (S (m' + n)))          [Plus.left-nonzero]
+	         --> (x * x ** (m' + n))          [if-nonzero]
+	         --> (x * (x ** m' * x ** n))     [ind-hyp]])
+            (!chain [(x ** (S m') * x ** n)
+   	         --> ((x * (x ** m')) * x ** n)   [if-nonzero]
+	         --> (x * (x ** m' * x ** n))     [Times.associative]]))
+  }
+} # close module Power
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.7:
+#
+extend-module Power {
+
+  (!stopgap left-one)
+
+} # close module Power
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.8:
+#
+extend-module Power {
+
+  (!stopgap right-one)
+
+} # close module Power
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SECTION: Properties of fast-power
+#
+
+declare fast-power: [N N] -> N [[int->nat int->nat]]
+
+module fast-power {
+
+assert axioms :=
+  (fun 
+    [(fast-power x n) =
+      [one                                  when (n = zero)
+       (square (fast-power x half n))       when (n =/= zero & even n)
+       ((square (fast-power x half n)) * x) when (n =/= zero & ~ even n)]])
+
+define [if-zero nonzero-even nonzero-odd] := axioms
+
+# prints out 8: 
+
+(print "\n2 raised to the 3rd with fast-power: " (eval (fast-power 2 3)))
+
+define correctness := (forall n x . (fast-power x n) = x ** n)
+
+define [^ sq hf] := [fast-power square half]
+
+define step :=
+ method (n)
+   assume ind-hyp := (forall m . m < n ==> forall x . x ^ m = x ** m)
+    conclude (forall x . x ^ n = x ** n)
+      pick-any x
+	(!two-cases
+	  assume (n = zero)
+	    (!chain [(x ^ n)
+		 --> one                           [if-zero]
+		 <-- (x ** zero)                   [Power.if-zero]
+		 <-- (x ** n)                      [(n = zero)]])
+	  assume (n =/= zero) 
+	    let {p1 := 
+	          conclude
+	              p := (forall x . x ^ hf n = 
+                                       x ** hf n)
+                    (!chain-> [(n =/= zero)
+		 	   ==> (hf n < n)          [half.less]
+			   ==> p                   [ind-hyp]]);
+	         p2 :=
+		   conclude (sq (x ^ hf n) = 
+                             x ** (two * hf n))
+  	             (!chain 
+		       [(sq (x ^ hf n))
+   		    --> (sq (x ** hf n))           [p1]
+		    --> ((x ** hf n) * 
+                         (x ** hf n))              [square.def]
+		    <-- (x ** ((hf n) + hf n))     [Power.Plus-case]
+   		    <-- (x ** (two * hf n))        [Times.two-times]])}
+	      (!two-cases
+	        assume (even n)
+		  (!chain 
+	 	    [(x ^ n)
+	        --> (sq (x ^ hf n))                [nonzero-even]
+   	        --> (x ** (two * hf n))            [p2]
+	        --> (x ** n)                       [EO.even-definition]])
+	        assume (~ even n)
+		  let {_ := (!chain-> [(~ even n) 
+		  	  	   ==> (odd n)     [EO.odd-if-not-even]])}
+		    (!chain 
+	 	      [(x ^ n)
+  	           --> ((sq (x ^ hf n)) * x)       [nonzero-odd]
+	           --> ((x ** (two * hf n)) * x)   [p2]
+	           <-- ((x ** (two * hf n)) * 
+                        (x ** one))                [Power.right-one]
+ 	           <-- (x ** ((two * hf n) + one)) [Power.Plus-case]
+	           --> (x ** n)                    [EO.odd-definition]])))
+
+(!strong-induction.principle correctness step)
+
+} # close module fast-power
+} # close module N
+
+#==========================================================================
+# SECTION: Tail recursion, a potential optimization
+#
+extend-module N {
+
+declare fast-power-accumulate: [N N N] -> N [[int->nat int->nat int->nat]]
+
+module fast-power-accumulate {
+
+define fpa := fast-power-accumulate
+
+assert axioms :=
+  (fun
+    [(fpa r x n) =
+      [r                               when (n = zero)
+       (fpa r (x * x) (half n))        when (n =/= zero & even n)
+       (fpa (r * x) (x * x) (half n))  when (n =/= zero & ~ even n)]])
+
+define [if-zero nonzero-even nonzero-odd] := axioms
+
+define correctness := 
+  (forall n r x . (fpa r x n) = r * x ** n)
+} # close module fast-power-accumulate
+
+extend-module fast-power {
+
+  define fpa := fast-power-accumulate
+  assert* definition := [((fast-power x n) = (fpa one x n))]
+
+} # close module fast-power
+} # close module N
+
+#==========================================================================
+# SECTION: Transforming strong induction into ordinary induction
+#
+module strong-induction {
+
+define < := N.<
+
+define (conclusion p n) := (urep (rename p) [n])
+
+define (hypothesis p n) :=
+  (forall ?m' (if (< ?m' n) (conclusion p ?m')))
+
+define (step p) :=
+  (forall ?n . (hypothesis p ?n) ==> (conclusion p ?n))
+
+define (principle-lemma p) := ((step p) ==> p)
+
+define principle-lemma-proof := 
+  method (p)
+    conclude (principle-lemma p)
+      assume (step p) 
+        let {hypothesis:(OP 1) := lambda (x) (hypothesis p x);
+	     conclusion:(OP 1) := lambda (x) (conclusion p x);
+	     sublemma := 
+              by-induction (forall x . hypothesis x) {
+	        zero =>
+	          conclude (hypothesis zero)
+	            pick-any y:N 
+ 		      assume (y < zero)
+ 		        (!from-complements (conclusion y)
+ 		          (y < zero) (!instance N.Less.not-zero [y]))
+              | (S x') =>
+                let {ind-hyp := (hypothesis x')}
+                  conclude (hypothesis S x')
+	            pick-any y:N 
+		      assume (y < S x')
+		        (!two-cases
+		          assume (y = x') 
+		            (!chain->
+                              [ind-hyp
+  	 	           ==> (hypothesis y)      [(y = x')]
+		  	   ==> (conclusion y)      [(step p)]])
+		          (!chain
+			    [(y =/= x')
+ 	   	         ==> (y < S x' & y =/= x') [augment]
+			 ==> (y < x')              [N.Less.S-step]
+			 ==> (conclusion y)        [ind-hyp]]))
+              }}
+	  conclude p
+	    pick-any x:N
+	      (!chain-> 
+	        [sublemma
+	     ==> (hypothesis x) [(uspec with x)]
+	     ==> (conclusion x) [(step p)]])
+
+define principle := 
+  method (p step-method)
+    let {lemma := (!principle-lemma-proof p);
+         sp := conclude (step p)
+                 pick-any n:N
+                   (!step-method n)}
+       (!chain-> [sp ==> p [lemma]])
+} # close module strong-induction
+
+define (urep p terms) := 
+  match [p terms] {
+    [(forall x q) (list-of t more)]  => (urep (replace-var x t q) more)
+  | _ => p
+  }
+
+#==========================================================================
+# SECTION: Measure induction
+#
+#==========================================================================
+# SECTION: Summary and looking ahead
+#
+#==========================================================================
+# SECTION: Additional exercises
+#
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.9:
+#
+extend-module N {
+  extend-module EO {
+
+    (!stopgap even-iff-not-odd)
+      
+  } # close module EO
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.10:
+#
+extend-module N {
+extend-module Power {
+
+(!stopgap left-times)
+
+} # close module Power
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.11:
+#
+extend-module N {
+extend-module Power {
+
+  (!stopgap right-times)
+
+} # close module Power
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 12.12:
+#
+extend-module N {
+extend-module Power {
+
+  (!stopgap right-two)
+
+} # close module Power
+
+extend-module fast-power-accumulate {
+# define fpa-step :=
+#   method (n)
+#  assume ind-hyp := 
+#	  (forall ?m . ?m < n ==> 
+#                       (forall ?r ?x . (fpa ?r ?x ?m) = ?r * ?x ** ?m))
+#    conclude (forall ?r ?x . (fpa ?r ?x n) = ?r * ?x ** n)
+#      ...
+
+  (!stopgap correctness)
+
+} # close module fast-power-accumulate
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.13:
+#
+extend-module N {
+extend-module fast-power {
+
+(!stopgap correctness)
+
+} # close module fast-power
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 12.14:
+#
+extend-module N {
+extend-module fast-power {
+assert axioms :=
+  (fun
+   [(fast-power x n) =
+       [one            when (n = zero) 
+        x              when (n = one)
+	(square (fast-power x (half n)))
+                       when (n =/= zero & n =/= one & even n)
+	((square (fast-power x (half n))) * x)
+                       when (n =/= zero & n =/= one & ~ even n)]])
+define [if-zero if-one nonzero-nonone-even nonzero-nonone-odd] := axioms
+} # close module fast-power
+
+extend-module EO {
+  (!stopgap not-even-if-odd)
+}
+
+extend-module fast-power {
+define nonzero-even :=
+   (forall x n .
+     (n =/= zero & even n) ==>
+     (fast-power x n) = square (fast-power x (half n)))
+define nonzero-odd :=
+   (forall x n .
+     (n =/= zero & ~ even n) ==>
+     (fast-power x n) = (square (fast-power x (half n))) * x)
+
+(!stopgap nonzero-even)
+
+(!stopgap nonzero-odd)
+
+} # close module fast-power
+} # close module N
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 12.15:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 12.16:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+

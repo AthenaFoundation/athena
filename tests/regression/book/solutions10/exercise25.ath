@@ -1,0 +1,11 @@
+declare set->map: (S, T) [(Set (Pair S T))] -> (Map S T)
+                         [[Set.alist->set]]
+
+assert* set->map-def := 
+  [(set->map null = empty-map)
+   (set->map (k @ v) ++ A = [k v] ++ set->map A)]
+
+define conj := (forall s1 s2 . s1 = s2 ==> set->map s1 = set->map s2)
+
+#(falsify conj 10)
+

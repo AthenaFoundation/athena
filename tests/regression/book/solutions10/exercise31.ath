@@ -1,0 +1,21 @@
+conclude (forall m . m <-> m) 
+  pick-any m 
+    (!chain<- [(m <-> m) 
+          <== (agree-on m m (dom m) /\ (dom m))  [compatible-def]
+          <== (agree-on m m dom m)               [Set./\-idempotence]
+          <== (m |^ dom m = m |^ dom m)          [agree-on-def]])
+
+conclude (forall m1 m2 . m1 <-> m2 <==> m2 <-> m1) 
+pick-any m1 m2 
+  (!chain 
+    [(m1 <-> m2) 
+<==> (agree-on m1 m2 (dom m1) /\ (dom m2))  [compatible-def]
+<==> (agree-on m2 m1 (dom m1) /\ (dom m2))  [agree-on-sym]
+<==> (agree-on m2 m1 (dom m2) /\ (dom m1))  [Set.intersection-commutes]
+<==> (m2 <-> m1)                            [compatible-def]])
+
+define <->-transitivity := 
+  (forall m1 m2 m3 . m1 <-> m2 & m2 <-> m3 ==> m1 <-> m3)
+
+#(falsify <->-transitivity 10)
+

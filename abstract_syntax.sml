@@ -439,7 +439,7 @@ fun getPWParamNames(pwp_list) =
    f(pwp_list,[])
  end
 
-fun getParams(plist) = 
+fun getParamNames(plist) = 
      let fun f([]:param list,res) = rev(res)
            | f({name,pos}::more,res) = if Basic.isMemberEq(name,res,Symbol.symEq) then
                                           raise SyntaxError("Duplicate entry found in identifier list: "^
@@ -448,6 +448,17 @@ fun getParams(plist) =
                                           f(more,name::res)
      in
         f(plist,[])
+     end
+     
+fun getParams(plist) = 
+     let fun f([]:param list,names,res) = rev(res)
+           | f((p as {name,pos})::more,names,res) = 
+               if Basic.isMemberEq(name,names,Symbol.symEq) then
+                  raise SyntaxError("Duplicate entry found in identifier list: "^Symbol.name(name),SOME pos)
+               else 
+                  f(more,name::names,p::res)
+     in
+        f(plist,[],[])
      end                                                       
 
 fun checkForDuplicateParams(possibly_typed_params) = 

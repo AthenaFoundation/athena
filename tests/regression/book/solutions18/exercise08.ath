@@ -1,0 +1,156 @@
+define (determinism-if-false-case if-false-proof) := 
+  match if-false-proof {
+    (if-false-rule p) =>
+      pick-any other-proof:Proof c:Cmd s:State s':State s'':State
+        assume hyp1 := (if-false-proof |- [c s] -->> s');
+               hyp2 := (other-proof    |- [c s] -->> s'') 
+          let {ih := (det-property p); 
+               L1 := (!chain-> [hyp1 
+                       ==> (exists b c1 c2 . 
+                             c = (cond b c1 c2)     & 
+                             ~ b true-in s          &
+                             p |- [c2 s] -->> s')     [semantics]])}
+            pick-witnesses b c1 c2 for L1 
+              let {L2 := (!chain->
+	                   [hyp2 
+                        ==> (other-proof |- 
+                              [(cond b c1 c2) s]
+			          -->> s'')           [(c = (cond b c1 c2))]
+                                    
+                         ==> (other-proof |- 
+                               [(cond b c1 c2) s]
+			          -->> s''          & 
+                               ~ b true-in s)         [augment]
+                                          
+                         ==> (exists p' . 
+                               other-proof =
+			         if-false-rule p'   &
+                                  p' |- [c2 s]
+				          -->> s'')   [if-false-excl]])}
+  			            
+                                          
+                pick-witness p' for L2  
+                  (!chain-> [(p |- [c2 s] -->> s'   & 
+                             p' |- [c2 s] -->> s'')
+                         ==> (s'' = s')               [ih]])
+  }
+
+
+define (determinism-while-true-case while-true-proof) := 
+  match while-true-proof {
+    (while-rule p1 p2) =>
+       pick-any other-proof:Proof cmd:Cmd s:State s':State s'':State
+         assume hyp1 := (while-true-proof |- [cmd s] -->> s');
+                hyp2 := (other-proof      |- [cmd s] -->> s'') 
+           let {ih1 := (det-property p1); 
+                ih2 := (det-property p2); 
+                L1 := (!chain-> 
+                        [hyp1 
+                     ==> (exists b body s1 . 
+                           cmd = (while-loop b body) & 
+                           b true-in s &
+                           p1 |- [body s] -->> s1 & 
+                           p2 |- [(while-loop b body) s1] -->> s') 
+                                       [semantics]])}
+            pick-witnesses b body s0 for L1 
+              let {L2 := (!chain-> 
+                           [hyp2 
+                        ==> (other-proof |- 
+                              [(while-loop b body) s] -->> s'') 
+                                  [(cmd = (while-loop b body))]
+                        ==> (other-proof |- 
+                              [(while-loop b body) s] -->> s'' & 
+                               b true-in s) [augment]
+                        ==> (exists p1' p2' s1' . 
+                              other-proof = (while-rule p1' p2') & 
+                              p1' |- [body s] -->> s1' &
+                              p2' |- [(while-loop b body) s1'] -->> s'') 
+                                            [while-true-excl]])}
+              pick-witnesses p1' p2' s1' for L2 
+               (!chain-> 
+                 [(p2 |- [(while-loop b body) s0] -->> s' & 
+                  p2' |- [(while-loop b body) s1'] -->> s'')
+              ==> (p2 |- [(while-loop b body) s0] -->> s' & 
+                   p2' |- [(while-loop b body) s0] -->> s'') 
+                          [(s1' = s0) <== (p1 |- [body s] -->> s0 & 
+                                          p1' |- [body s] -->> s1') [ih1]]
+              ==> (s'' = s') [ih2]])
+  }
+
+
+define (determinism-while-true-case while-true-proof) := 
+  match while-true-proof {
+    (while-rule p1 p2) =>
+       pick-any other-proof:Proof c:Cmd s:State s':State s'':State
+         assume hyp1 := (while-true-proof |- [c s] -->> s');
+                hyp2 := (other-proof      |- [c s] -->> s'') 
+           let {ih1 := (det-property p1); 
+                ih2 := (det-property p2); 
+                L1 :=
+		  (!chain-> 
+                    [hyp1 
+                 ==> (exists b body s1 . 
+                       c = (while-loop b body) & 
+                       b true-in s &
+                       p1 |- [body s] -->> s1 & 
+                       p2 |- [(while-loop b body) s1]
+ 		               -->> s')                [semantics]])}
+            pick-witnesses b body s0 for L1 
+              let {L2 :=
+	            (!chain-> 
+                      [hyp2 
+                   ==> (other-proof |- 
+                         [(while-loop b body) s]
+			    -->> s'')                  [(c = (while-loop b body))]
+                   ==> (other-proof |- 
+                         [(while-loop b body) s]
+			     -->> s'' & 
+                         b true-in s)                  [augment]
+                   ==> (exists p1' p2' s1' . 
+                         other-proof =
+			    (while-rule p1' p2') & 
+                         p1' |- [body s] -->> s1' &
+                         p2' |-
+			   [(while-loop b body) s1']
+			       -->> s'')               [while-true-excl]])}
+              pick-witnesses p1' p2' s1' for L2 
+               (!chain-> 
+                 [(p2 |-
+		    [(while-loop b body) s0]
+		       -->> s' & 
+                  p2' |-
+		    [(while-loop b body) s1']
+		       -->> s'')
+              ==> (p2 |- [(while-loop b body) s0]
+	                    -->> s' & 
+                   p2' |-
+		     [(while-loop b body) s0]
+		        -->> s'')                      [(s1' = s0)
+			                            <== (p1 |- [body s]
+						                -->> s0 & 
+                                                         p1' |- [body s]
+							        -->> s1') [ih1]]
+							 
+              ==> (s'' = s')                           [ih2]])
+  }
+
+
+define (determinism-while-axiom-case) := 
+  pick-any proof:Proof c:Cmd s:State s':State s'':State
+    assume hyp1 := (while-axiom |- [c s] -->> s');
+           hyp2 := (proof |- [c s] -->> s'') 
+     let {L1 := (!chain-> 
+                  [hyp1 
+               ==> (exists b body . 
+                     c = (while-loop b body) & 
+                     ~ b true-in s & s' = s) [semantics]])}
+        pick-witnesses b body for L1 
+          (!chain-> 
+            [hyp2 
+        ==> (proof |- [(while-loop b body) s] -->> s'') 
+                             [(c = (while-loop b body))]
+        ==> (proof |- [(while-loop b body) s] -->> s'' & 
+             ~ b true-in s)  [augment]
+        ==>  (s'' = s)       [while-false-excl]
+                  = s'       [(s' = s)]])
+

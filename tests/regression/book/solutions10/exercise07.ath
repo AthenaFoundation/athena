@@ -1,0 +1,27 @@
+conclude union-characterization-2 := 
+ (forall A B x . x in A | x in B ==> x in A \/ B)
+   by-induction union-characterization-2 {
+     null => 
+       pick-any B x
+        (!chain [(x in null | x in B) 
+             ==> (false | x in B)                [NC]
+             ==> (x in B)                        [prop-taut]
+             ==> (x in null \/ B)                [union-def]])
+
+ | (A as (insert h t)) => 
+     pick-any B x
+       let {IH := (forall B x . x in t | x in B ==> x in t \/ B)}
+          (!chain [(x in A | x in B)
+               ==> ((x = h | x in t) | x in B)   [in-def]
+               ==> (x = h | (x in t | x in B))   [prop-taut]
+               ==> (x = h | x in t \/ B)         [IH]
+               ==> (x in h ++ (t \/ B))          [in-def]
+               ==> (x in A \/ B)                 [union-def]])
+  }
+
+conclude union-characterization := 
+ (forall A B x . x in A \/ B <==> x in A | x in B)
+  pick-any A B x
+    (!chain [(x in A \/ B) 
+        <==> (x in A | x in B) [union-characterization-1 
+                                union-characterization-2]])

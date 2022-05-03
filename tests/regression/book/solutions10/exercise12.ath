@@ -1,0 +1,124 @@
+conclude diff-theorem-3 :=
+  (forall A B . A \ (A /\ B) = A \ B)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A \ (A /\ B)) 
+              <==> (x in A & ~ x in A /\ B)                    [DC] 
+              <==> (x in A & ~ (x in A & x in B))              [IC]
+              <==> (x in A & (~ x in A | ~ x in B))            [prop-taut]
+              <==> ((x in A & ~ x in A) | (x in A & ~ x in B)) [prop-taut]
+              <==> (false | x in A & ~ x in B)                 [prop-taut]
+              <==> (x in A & ~ x in B)                         [prop-taut]
+              <==> (x in A \ B)                                [DC]]))
+
+conclude diff-theorem-5 :=
+  (forall A B . (A \ B) \/ B = A \/ B)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in (A \ B) \/ B)
+              <==> (x in A \ B | x in B)                     [UC]
+              <==> ((x in A & ~ x in B) | x in B)            [DC]
+              <==> ((x in A | x in B) & (~ x in B | x in B)) [prop-taut]
+              <==> ((x in A | x in B) & true)                [prop-taut]
+              <==> (x in A | x in B)                         [prop-taut]
+              <==> (x in A \/ B)                             [UC]]))
+
+conclude diff-theorem-6 :=
+  (forall A B . (A \/ B) \ B = A \ B)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in (A \/ B) \ B)        
+              <==> (x in A \/ B & ~ x in B)                [DC]
+              <==> ((x in A | x in B) & ~ x in B)          [UC]
+              <==> (x in A & ~ x in B | x in B & ~ x in B) [prop-taut]
+              <==> (x in A & ~ x in B | false)             [prop-taut]
+              <==> (x in A \ B | false)                    [DC]
+              <==> (x in A \ B)                            [prop-taut]]))
+
+conclude diff-theorem-7 :=
+  (forall A B . (A /\ B) \ B = null)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in (A /\ B) \ B)        
+              <==> (x in A /\ B & ~ x in B)       [DC]
+              <==> ((x in A & x in B) & ~ x in B) [IC]
+              <==> false                          [prop-taut]
+              <==> (x in null)                    [NC]]))
+
+conclude diff-theorem-9 :=
+  (forall A B C . A \ (B \/ C) = (A \ B) /\ (A \ C))
+    pick-any A B C
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A \ (B \/ C)) 
+              <==> (x in A & ~ x in B \/ C)                    [DC]
+              <==> (x in A & ~ (x in B | x in C))              [UC]
+              <==> (x in A & ~ x in B & ~ x in C)              [prop-taut]
+              <==> ((x in A & ~ x in B) & (x in A & ~ x in C)) [prop-taut]
+              <==> (x in A \ B & x in A \ C)                   [DC]
+              <==> (x in (A \ B) /\ (A \ C))                   [IC]]))
+
+conclude diff-theorem-11 := (forall A B . A \ (A \ B) = A /\ B)
+  pick-any A B
+    (!set-identity-intro-direct
+      pick-any x 
+         (!chain [(x in A \ (A \ B)) 
+             <==> (x in A & ~ x in A \ B)                   [DC]
+             <==> (x in A & ~ (x in A & ~ x in B))          [DC]
+             <==> (x in A & (~ x in A | ~ ~ x in B))        [prop-taut]
+             <==> ((x in A & ~ x in A) | (x in A & x in B)) [prop-taut]
+             <==> (false | x in A & x in B)                 [prop-taut]
+             <==> (x in A & x in B)                         [prop-taut]
+             <==> (x in A /\ B)                             [IC]]))
+
+conclude diff-theorem-12 := (forall A B . A subset B ==> A \/ (B \ A) = B)
+  pick-any A B
+    assume hyp := (A subset B)
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain 
+            [(x in A \/ (B \ A)) 
+        <==> (x in A | x in B \ A)                     [UC]
+        <==> (x in A | x in B & ~ x in A)              [DC]
+        <==> ((x in A | x in B) & (x in A | ~ x in A)) [prop-taut]
+        <==> (x in A | x in B)                         [prop-taut]
+        <==> (x in B | x in B)                         [SC prop-taut]
+        <==> (x in B)                                  [prop-taut]]))
+
+conclude subset-theorem-2 := 
+  (forall A B . A subset B ==> A /\ B = A)
+  pick-any A B
+    assume (A subset B)    
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A /\ B)             
+              <==> (x in A & x in B) [IC]
+              <==> (x in A & x in A) [prop-taut SC]
+              <==> (x in A)          [prop-taut]]))
+
+
+conclude intersection-subset-theorem' := 
+  (forall A B C . A subset B /\ C <==> A subset B & A subset C)
+pick-any A B C 
+  (!equiv assume (A subset B /\ C)
+            (!both (!subset-intro 
+                      pick-any x 
+                        (!chain [(x in A) ==> (x in B /\ C) [SC]
+                                          ==> (x in B)      [IC]]))
+		   (!subset-intro 
+                      pick-any x 
+                        (!chain [(x in A) ==> (x in B /\ C) [SC]
+                                          ==> (x in C)      [IC]])))
+          assume (A subset B & A subset C)
+            (!subset-intro
+              pick-any x
+               assume (x in A)
+                 let {_ := (!chain-> [(x in A) ==> (x in B) [SC]]);
+                      _ := (!chain-> [(x in A) ==> (x in C) [SC]]);
+                      p := (!both (x in B) (x in C))}
+                   (!chain-> [p ==> (x in B /\ C) [IC]])))
+

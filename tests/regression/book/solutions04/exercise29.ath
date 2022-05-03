@@ -1,0 +1,37 @@
+#========================== Solution to exercise 4.29 =========================
+
+  define (make-atom N) :=
+    let {i := (random-int N)}
+      (string->var (join "X" (val->string i) ":Boolean"))
+
+  define (choose-prop-con) := 
+    match (random-int 5) {
+      1 => not
+    | 2 => and
+    | 3 => or
+    | 4 => if
+    | 5 => iff
+    }
+
+  define (make-random-sentence-general sz atom-count max-branch-for-and-or) :=
+    check {(sz less? 2) => (make-atom atom-count)
+         | else => let {sc := (choose-prop-con);
+                        children-count := match sc {
+                                            not => 1
+                                          | (|| if iff) => 2
+                                          | _ => match (random-int max-branch-for-and-or) {1 => 2 | res => res}
+                                          };
+                        sz' := match sc {
+                                 not => (sz minus 1)
+                               | _ => (sz div children-count)
+                               };
+                        sizes := (map lambda (_) sz' 
+                                      (1 to children-count))}
+                     (sc (map lambda (sz) (make-random-sentence-general sz atom-count max-branch-for-and-or)
+                              sizes))
+          }
+
+  define (make-random-sentence sz atom-count) := (make-random-sentence-general sz atom-count 5) 
+
+  (make-random-sentence 100 10)
+

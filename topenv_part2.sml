@@ -2663,7 +2663,7 @@ fun makeNewProblem(res as ((fsym_string,fsym_strings,fsymbols),(pred_string,pred
   let fun inPredTable(str) = (case HashTable.find pred_str_ht str of
                                  SOME(_) => true
                                | _ => false)
-      fun mprint(str) = ()
+      fun debugPrint(str) = ()
       val boolean_fsyms_and_arities = Basic.mapSelect((fn f => let val res = (case Data.getSignature(f) of
                                                                                 (arg_sorts,output_sort,_,has_pred_based_sorts) => if F.sortEq(output_sort,F.boolean_sort) 
                                                                                                              then (f,length(arg_sorts)) else (f,~1))
@@ -3241,7 +3241,7 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
   let 
       fun evaluatePhrase(e) = evalPhrase((e,fids),eval_env,!top_assum_base)
       val no_op_val = (~1,~1)
-      fun mprint(str) = if !(Options.call_stack_size) < 201 then () else print(str)
+      fun debugPrint(str) = if !(Options.call_stack_size) < 201 then () else print(str)
       fun headInapplicable(proc) = A.inapplicable(proc) 
                                       orelse (case proc of
                                                A.exp(e as A.idExp(_)) => ((case Semantics.isApplicable(evaluatePhrase(A.exp e)) of

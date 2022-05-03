@@ -1,0 +1,78 @@
+conclude product-theorem-3 := 
+  (forall A B . non-empty A & non-empty B ==> A X B = B X A <==> A = B)
+pick-any A:(Set 'S) B:(Set 'T)
+  assume hyp := (non-empty A & non-empty B)
+    let {p1 := (!chain-> [(non-empty A) ==> (exists a . a in A) [NC-3]]);
+         p2 := (!chain-> [(non-empty B) ==> (exists b . b in B) [NC-3]]);
+         M := method (S1 S2 c2) # assumes c2 in S2, S1 X S2 = S2 X S1, 
+                (!subset-intro  # and derives (S1 subset S2)
+                  pick-any x 
+                    (!chain [(x in S1)
+                         ==> (x in S1 & c2 in S2) [augment]
+                         ==> (x @ c2 in S1 X S2)  [CPC]
+                         ==> (x @ c2 in S2 X S1)  [SIC]
+                         ==> (x in S2 & c2 in S1) [CPC]
+                         ==> (x in S2)            [left-and]]))
+         }
+      pick-witness a for p1 # (a in A)
+        pick-witness b for p2  # (b in B) 
+	  (!equiv 
+             assume hyp := (A X B = B X A)
+               (!set-identity-intro (!M A B b) (!M B A a))
+             assume hyp := (A = B)
+              (!chain-> [(A X A = A X A) ==> (A X B = B X A) [hyp]]))
+
+conclude product-theorem-4 := 
+  (forall A  B C . non-empty A &  A X B subset A X C ==> B subset C)
+pick-any A B C
+  assume hyp := (non-empty A & A X B subset A X C)
+    pick-witness a for (!chain-> [hyp ==> (exists a . a in A) [NC-3]])
+      (!subset-intro
+         pick-any b
+           (!chain [(b in B)
+                ==> (a in A & b in B) [augment]
+                ==> (a @ b in A X B)  [CPC]
+                ==> (a @ b in A X C)  [SC]
+                ==> (a in A & b in C) [CPC]
+                ==> (b in C)          [right-and]]))
+
+conclude product-theorem-5 := 
+  (forall A B C . B subset C ==> A X B subset A X C)
+pick-any A B C
+ assume (B subset C)
+   (!subset-intro
+      (!pair-converter 
+          pick-any a b
+            (!chain [(a @ b in A X B)
+                 ==> (a in A & b in B)  [CPC]
+                 ==> (a in A & b in C)  [SC]
+                 ==> (a @ b in A X C)   [CPC]])))
+
+conclude product-theorem-7 :=
+ (forall A B C . A X (B \/ C) = A X B \/ A X C)
+pick-any A B C
+  (!set-identity-intro-direct 
+    (!pair-converter
+       pick-any x y
+        (!chain [(x @ y in A X (B \/ C))
+            <==> (x in A & y in B \/ C)                   [CPC]
+            <==> (x in A & (y in B | y in  C))            [UC]
+            <==> ((x in A & y in B) | (x in  A & y in C)) [prop-taut]
+            <==> (x @ y in A X B | x @ y in A X C)        [CPC]
+            <==> (x @ y in A X B \/ A X C)                [UC]])))
+
+conclude product-theorem-8 :=
+ (forall A B C . A X (B \ C) = A X B \ A X C)
+pick-any A B C
+  (!set-identity-intro-direct 
+    (!pair-converter
+       pick-any x y
+         (!chain [(x @ y in A X (B \ C))
+             <==> (x in A & y in B \ C)                      [CPC]
+             <==> (x in A & y in B & ~ y in C)               [DC]
+             <==> ((x in A & y in B) & (~x in A | ~ y in C)) [prop-taut]
+             <==> ((x in A & y in B) & ~ (x in A & y in C))  [prop-taut]
+             <==> (x @ y in A X B & ~ x @ y in A X C)        [CPC]
+             <==> (x @ y in A X B \ A X C)                   [DC]])))
+
+

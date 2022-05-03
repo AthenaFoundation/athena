@@ -1,0 +1,22 @@
+module Russell {
+
+domain D
+
+declare M: [D D] -> Boolean
+
+conclude russell-paradox := (~ exists x . forall y . y M x <==> ~ y M y)
+  (!by-contradiction russell-paradox
+    assume hyp := (exists x . forall y . y M x <==> ~ y M y)
+      pick-witness X for hyp 
+        let {X-characterization := (forall y . y M X <==> ~ y M y);
+             # We have X-characterization in the a.b. Let's apply it to X:
+             applied-to-X := conclude (X M X <==> ~ X M X)
+                               (!instance X-characterization X)}
+          (!two-cases
+             assume case1 := (X M X)
+               (!absurd case1 (!fire applied-to-X []))
+             assume case2 := (~ X M X)
+               (!absurd (!fire applied-to-X []) case2)))
+
+
+}

@@ -1,0 +1,22 @@
+#========================== Solution to exercise 4.11 =========================
+
+  define (conj-idemp p) := 
+    (!equiv assume (p & p)
+              (!claim p)
+            assume p 
+              (!both p p))
+
+  define (disj-idemp p) := 
+    (!equiv assume (p | p)
+              (!cases (p | p)
+                assume p (!claim p)
+                assume p (!claim p))
+            assume p 
+              (!either p p))
+
+  conclude ((A & A) <==> A)
+    (!conj-idemp A)
+
+  conclude ((A | A) <==> A)
+    (!disj-idemp A)
+

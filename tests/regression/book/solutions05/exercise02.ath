@@ -1,0 +1,108 @@
+# Part 1: 
+
+clear-assumption-base
+assert premise-1 := (forall x y . x R y)
+conclude (forall x . x R x)
+  pick-any x 
+    (!instance premise-1 [x x])
+
+# Part 2: 
+
+clear-assumption-base
+conclude goal := (forall x . exists y . x = y)
+  pick-any x 
+    let {_ := (!reflex x)}
+      (!egen (exists y . x = y) x)
+
+# Part 3: 
+
+clear-assumption-base
+assert premise-1 := (forall x . P x | Q x ==> S x)
+assert premise-2 := (exists y . Q y)
+
+conclude goal := (exists y . S y)
+  pick-witness w for premise-2  # we now have (Q w)
+    let {Pw|Qw := (!either (P w) (Q w));
+         _ := conclude (S w)
+                (!mp (!uspec premise-1 w) 
+                     Pw|Qw)}
+      (!egen (exists y . S y) w)
+
+# Part 4:
+
+clear-assumption-base
+assert premise-1 := (exists x . P x & Q x)
+assert premise-2 := (forall y . P y ==> S y) 
+
+conclude goal := (exists x . S x & Q x)
+  pick-witness w for premise-1 wp  
+  # we now have wp := (P w & Q w) in the a.b. 
+    let {Pw := conclude (P w)
+                 (!left-and wp);
+         Qw := conclude (Q w)
+                 (!right-and wp);
+         Sw := conclude (S w) 
+                 (!mp (!uspec premise-2 w) 
+                      Pw);
+         Sw&Qw := (!both Sw Qw)}
+    (!egen (exists x . S x & Q x) w)
+
+# Part 5:
+
+clear-assumption-base
+assert premise-1 := (~ exists x . Q x)
+assert premise-2 := (forall x . P x ==> Q x)
+
+(!by-contradiction (~ exists x . P x)
+   assume hyp := (exists x . P x)
+      pick-witness w for hyp # (P w) in the a.b.
+        let {_ := conclude (Q w)
+                    (!mp (!uspec premise-2 w) 
+                         (P w))}
+    (!absurd (!egen (exists x . Q x) w)
+             premise-1))
+
+# Part 6:
+
+clear-assumption-base
+assert premise-1 := (forall x . P x ==> Q x)
+assert premise-2 := (exists x . S x & ~ Q x)
+
+conclude goal := (exists x . S x & ~ P x)
+  pick-witness w for premise-2 wp
+  # we now have wp := (S w & ~ Q w) in the a.b.
+    let {Sw  := conclude (S w)
+                  (!left-and wp);
+         -Qw := conclude (~ Q w)
+                  (!right-and wp);
+         Pw=>Qw := conclude (P w ==> Q w)
+                     (!uspec premise-1 w);
+         -Pw := conclude (~ P w)
+                  (!mt Pw=>Qw -Qw);
+         Sw&-Pw := (!both Sw -Pw)}
+    (!egen (exists x . S x & ~ P x) w)
+
+# Part 7:
+
+clear-assumption-base
+assert premise-1 := (forall x . x R x ==> P x)
+assert premise-2 := ((exists x . P x) ==> ~ exists y . Q y)
+
+conclude goal := ((forall x . Q x) ==> ~ exists z . z R z)
+  assume all-Q := (forall x . Q x)
+    (!by-contradiction (~ exists z . z R z)
+      assume hyp := (exists z . z R z)
+        pick-witness w for hyp 
+        # we now have (w R w) in the a.b.
+          let {Pw := conclude (P w)
+                       (!mp (!uspec premise-1 w) 
+                            (w R w));
+               some-P := (!egen (exists x . P x) w);
+               no-Q := conclude (~ exists y . Q y)
+                         (!mp premise-2 some-P);
+               Qw := conclude (Q w)
+                       (!uspec all-Q w);
+               some-Q := (!egen (exists y . Q y) w)}
+            (!absurd some-Q no-Q))
+
+

@@ -1,0 +1,46 @@
+#========================== Solution to exercise 4.33 =========================
+
+
+  define (dnf-clause? p) := 
+    match p {
+      (p1 & p2) => (&& (dnf-clause? p1) 
+                       (dnf-clause? p2))
+    | _ => (literal? p)
+    }
+ 
+  define (dnf? p) := 
+    match p {
+      (p1 | p2) => (&& (dnf? p1) (dnf? p2))
+    | _ => (dnf-clause? p)
+    }
+
+  define (dnf-one-step p) :=
+    match p {
+      (~ (~ q)) => q
+    | (~ (p1 & p2)) => ((~ p1) | (~ p2))
+    | (~ (p1 | p2)) => ((~ p1) & (~ p2))
+    | (p1 ==> p2) =>  ((~ p1) | p2)
+    | (p1 <==> p2) => ((p1 & p2) | ((~ p1) & (~ p2)))
+    | ((p | q) & (p | r)) => (p | (q & r))
+    | (p1 & (p2 | p3)) => ((p1 & p2) | (p1 & p3))
+    | ((p1 | p2) & p3) => (p3 & (p1 | p2))
+    | _ => ()
+    }
+  
+  define dnf := (fix (apply-top-down dnf-one-step))
+
+  (dnf (rand 5))
+
+  define dnf-methods := cnf-methods
+
+  define (derive-dnf-one-step p) := 
+    (!transform p ((apply-top-down dnf-one-step) p) 
+                  dnf-methods)
+
+  define (derive-dnf p) := 
+    (!dfix derive-dnf-one-step p) 
+
+  let {p := (rand 10)}  
+    assume p 
+      (!derive-dnf p)
+

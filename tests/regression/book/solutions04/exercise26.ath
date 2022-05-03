@@ -1,0 +1,56 @@
+#========================== Solution to exercise 4.26 =========================
+
+  define (conj-assoc premise) := 
+    match premise {
+      ((p1 & p2) & p3) =>
+       (!both conclude p1
+                (!left-and (!left-and premise))
+              (!both conclude p2
+                       (!right-and (!left-and premise))
+                     conclude p3 
+                       (!right-and premise)))
+    | (p1 & (p2 & p3)) => 
+       (!both (!both conclude p1 
+                       (!left-and premise)
+                     conclude p2
+                       (!left-and (!right-and premise)))
+              conclude p3 
+                (!right-and (!right-and premise)))
+    }
+
+  define (disj-assoc premise) := 
+    match premise {
+      ((p1 | p2) | p3) =>
+        (!cases premise
+          assume (p1 | p2)
+            (!cases (p1 | p2)
+              assume p1 
+                (!left-either p1 (p2 | p3))
+              assume p2                              
+                (!right-either p1 (!left-either p2 p3)))
+          assume p3
+            (!right-either p1 (!right-either p2 p3)))
+    | (p1 | (p2 | p3)) =>
+        (!cases premise
+          assume p1
+            (!left-either (!left-either p1 p2) p3)
+          assume (p2 | p3)
+            (!cases (p2 | p3)
+              assume p2
+                (!left-either (!right-either p1 p2) p3)
+              assume p3
+                (!right-either (p1 | p2) p3)))
+    }
+
+   assume h := ((A & B) & C)
+      (!conj-assoc h)
+
+   assume h := (A & (B & C))
+      (!conj-assoc h)
+
+   assume h := ((A | B) | C)
+      (!disj-assoc h)
+
+   assume h := (A | (B | C))
+      (!disj-assoc h)
+

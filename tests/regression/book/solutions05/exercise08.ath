@@ -1,0 +1,18 @@
+let {goal := (exists x . P x | ~ P x)}
+  (!by-contradiction goal
+    assume -goal := (~ goal)
+      let {v := (fresh-var);
+           _ := (!ex-middle (P v))}
+        (!absurd (!egen goal v) -goal))
+
+# another solution:
+
+let {goal := (exists x . P x | ~ P x)}
+  (!by-contradiction goal
+    assume -goal := (~ goal)
+      let {_ := conclude (forall y false)
+                  pick-any y
+                    let {Py|-Py := (!ex-middle (P y))}
+                      (!absurd (!egen goal y) -goal)}
+        (!instance (forall y false) false))
+

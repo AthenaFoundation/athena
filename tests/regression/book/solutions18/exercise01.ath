@@ -1,0 +1,287 @@
+datatype Token := ASGN 
+                | SEQ 
+                | BEGIN 
+                | END 
+                | WHILE 
+                | IF 
+                | THEN 
+                | ELSE 
+                | NOT 
+                | AND 
+                | LEQ 
+                | EQUAL
+                | UNEQUAL 
+                | DO 
+                | SKIP 
+                | PLUS 
+                | MINUS 
+                | TIMES 
+                | LPAREN 
+                | RPAREN 
+                | (NUM N) 
+                | (VAR Ide)
+                | (AVAR Ide)
+
+define (positive-numeral? ch) := (member? ch "123456789")
+
+define (numeral? ch) := 
+  (|| (ch equals? `0) (positive-numeral? ch))
+
+define (newline? ch) := (ch equals? `\n)
+
+define (non-neg-number? str) := 
+  (|| (str equals? "0")
+      (&& (positive-numeral? head str)
+          (for-each (tail str) numeral?)))
+
+define (skip-until L pred?) := 
+  match L {
+     [] => [] 
+   | (list-of x rest) => check {(pred? x) => L
+                               | else => (skip-until rest pred?)}
+  }
+
+define (legal-id-char? c) := 
+  (&& (printable? c) (negate (c member? ";=<+-*#:=()&~")))
+
+define (get-id str res) := 
+  match str {
+     [] => [(rev res) []]
+   | (list-of c rest) => 
+        check {(legal-id-char? c) => (get-id rest (add c res))
+             | else => [(rev res) str]}
+  }
+
+define (get-digits str res) := 
+  match str {
+    [] => [(rev res) []]
+  | (list-of c rest) => check {
+                          (numeral? c) => (get-digits rest (add c res))
+		        | else => [(rev res) str]
+                        }
+   }
+
+define (get-number str res) := 
+  match (get-digits str res) {
+    (bind res [(bind n (list-of _ _)) _]) => 
+       let {_ := check {(non-neg-number? n) => ()
+                      | else => (error 
+                                 (join "Lexing error: invalid numeral: " 
+                                       n))}}
+        res
+   | _  => ()
+  }
+
+define (get-kwd str) := 
+  match str {
+    (split ";" rest) => [SEQ rest]
+  | (split ":=" rest) => [ASGN rest]
+  | (split "+" rest) => [PLUS rest]
+  | (split "-" rest) => [MINUS rest]
+  | (split "*" rest) => [TIMES rest]
+  | (split "&" rest) => [AND rest]
+  | (split "~" rest) => [NOT rest]
+  | (split "if" rest) => [IF rest]
+  | (split "do" rest) => [DO rest]
+  | (split "then" rest) => [THEN rest]
+  | (split "else" rest) => [ELSE rest]
+  | (split "while" rest) => [WHILE rest]
+  | (split "skip" rest) => [SKIP rest]
+  | (split "begin" rest) => [BEGIN rest]
+  | (split "end" rest) => [END rest]
+  | (split "=" rest) => [EQUAL rest]
+  | (split "!=" rest) => [UNEQUAL rest]
+  | (split "<=" rest) => [LEQ rest]
+  | (split "(" rest) => [LPAREN rest]
+  | (split ")" rest) => [RPAREN rest]
+  | _ => ['none str]
+  }
+
+define (get-id-aux str res) := 
+  match str {
+     [] => [(rev res) []]
+   | (list-of c rest) => 
+        check {(legal-id-char? c) => (get-id-aux rest (add c res))
+             | else => [(rev res) str]}
+  }
+
+define (get-id str) := 
+  match str {
+    (list-of `? rest) => [(get-id-aux rest []) true]
+  | _ => [(get-id-aux str []) false]
+  }
+
+define (get-tokens str tokens) := 
+  match (skip-until str printable?) {
+    [] => (rev tokens)
+  | str' =>
+     match (get-kwd str') {
+       ['none _] =>
+        match (get-number str' []) {
+          () => match (get-id str') {
+                  [[id rest] athena-var?] => 
+                    check {athena-var? => 
+                            (get-tokens rest 
+                                        (add (AVAR (string->id id)) 
+                                             tokens))
+                         | else => (get-tokens rest 
+                                               (add (VAR (string->id id)) 
+                                                    tokens))}
+                }
+         | [n rest] => 
+             (get-tokens rest (add (NUM (int->nat (string->num n)))
+                                   tokens))
+         }
+     | [kwd rest] => (get-tokens rest (add kwd tokens))
+     }
+  }
+
+define (tokenize str) := (get-tokens str []) 
+
+define (parse-error msg tokens) := 
+  (error (join msg " " (val->string tokens)))
+
+(define 
+  (parse-exp toks) := 
+     match (parse-exp1 toks) {
+       [e (list-of PLUS rest)] => 
+         match (parse-exp rest) {
+           [e' rest'] => [(sum e e') rest']
+         }
+     | [e (list-of MINUS rest)] => 
+         match (parse-exp rest) {
+           [e' rest'] => [(diff e e') rest']
+         }
+     | res => res
+     }
+  (parse-exp1 toks) := 
+    match (parse-exp2 toks) { 
+      [e (list-of TIMES rest)] => 
+        match (parse-exp1 rest) {
+          [e' rest'] => [(prod e e') rest']
+        }
+    | res => res
+    }
+  (parse-exp2 toks) := 
+    match toks {
+      (list-of LPAREN rest) =>
+        match (parse-exp rest) {
+          [e (list-of RPAREN rest')] => [e rest']
+        | [e rest'] => (parse-error "Right parenthesis expected here:" 
+                                    rest')
+        }
+    | (list-of (NUM n) rest) => [(num n) rest]
+    | (list-of (AVAR x) rest) => [(string->var (id->string x)) rest]
+    | (list-of (VAR x) rest) => [(var x) rest]
+    | _  => (parse-error 
+              "Variable, number, or left parenthesis expected here: " 
+              toks)
+    })
+
+define (exp-parser str) := 
+  check {(string? str) => (first parse-exp tokenize str)
+       | else => str} 
+
+(define (num-comp-ahead? toks)
+  (match toks
+    ((list-of EQUAL rest) [eq rest])
+    ((list-of LEQ rest)   [leq rest])
+    ((list-of UNEQUAL rest) ['unequal rest])
+    (_ ())))
+
+(define
+  (parse-bcond toks) := 
+    match (parse-bcond1 toks) {
+      [b1 (list-of AND rest)] => match (parse-bcond rest) {
+                                   [b2 rest'] => [(conj b1 b2) rest']
+                                 }
+    | res => res
+    }
+  (parse-bcond1 toks) := 
+    match toks {
+      (list-of NOT (list-of LPAREN rest)) => 
+        match (parse-bcond rest) {
+          [b (list-of RPAREN rest')] => [(neg b) rest']
+        | [b rest'] => (parse-error "Right parenthesis expected here:" 
+                                    rest')
+        }
+    | (list-of NOT rest) => 
+        match (parse-bcond rest) {
+         [b rest'] => [(neg b) rest']
+        }
+    | (list-of (AVAR x) rest) => [(string->var (id->string x)) rest]
+    | _ => let {exp-res := try { (parse-exp toks) | () }}
+             match exp-res {
+               [e1 rest] => 
+                 match (num-comp-ahead? rest) {
+                   ['unequal rest'] => 
+                     match (parse-exp rest') {
+                       [e2 rest''] => [(neg (eq e1 e2)) rest'']
+                     }
+                 | [op rest'] => match (parse-exp rest') {
+                                   [e2 rest''] => [(op e1 e2) rest'']
+                                 }
+                 | _ => (parse-error "Numeric comparison operator expected here:" rest)
+                 }
+             | _ => match toks {
+                      (list-of LPAREN rest) => 
+                        match (parse-bcond rest) {
+                          [b (list-of RPAREN rest')] => [b rest']
+                        | [b rest'] => (parse-error "Right parenthesis expected here:" rest')
+                        }
+                    | rest => (parse-error "Numeric comparison operator expected here:" rest)
+                    }
+             }
+    })
+
+define (bcond-parser str) := 
+ check {(string? str) => (first parse-bcond tokenize str)
+      | else => str}
+
+(define 
+  (parse-command toks) := 
+    match (parse-command-1 toks) {
+      [cmd1 (list-of SEQ more)] => 
+         match (parse-command more) {
+           [cmd2 rest] => [(sequence cmd1 cmd2) rest]
+         }
+     | res => res
+    }
+  (parse-command-1 toks) := 
+    match toks {
+      (list-of SKIP rest) =>
+        [skip rest]
+    | (list-of BEGIN rest) => 
+        match (parse-command rest) {
+          [cmd (list-of END rest')] => [cmd rest']
+        }
+    | (list-of (VAR x) (list-of ASGN rest)) => 
+        match (parse-exp rest) {
+          [e rest'] => [(asgn x e) rest']
+        }
+    | (list-of WHILE rest) => 
+        match (parse-bcond rest) {
+          [b (list-of DO rest')] => 
+            match (parse-command-1 rest') {
+              [body rest''] => [(while-loop b body) rest'']
+            }
+        }
+    | (list-of (AVAR x) rest) => [(string->var (id->string x)) rest]
+    | (list-of IF rest1) =>
+        match (parse-bcond rest1) {
+          [b (list-of THEN rest1)] => 
+            match (parse-command-1 rest1) {
+              [cmd1 (list-of ELSE rest2)] =>
+                match (parse-command-1 rest2) {
+                  [cmd2 rest3] => [(cond b cmd1 cmd2) rest3]
+                }
+            }
+        }
+    })
+
+define (cmd-parser str) := 
+  check {(string? str) => (first parse-command tokenize str)
+       | else => str}
+
+define parse := cmd-parser
+

@@ -1,0 +1,79 @@
+#========================== Solution to exercise 4.6 =========================
+
+  define (test-method M) := 
+    let {result := (!M A)}
+      (print "\nApplying method" (val->string M) "to A, result:" result)
+
+  define (TC-1 p) :=
+    (!equiv assume (p & false)
+              (!claim false)
+            assume false
+              (!from-false (p & false)))
+
+  (test-method TC-1)
+    
+  define (TC-2 p) :=
+    (!equiv assume (p & true)
+              (!claim p)
+            assume p
+              (!both p (!true-intro)))
+
+  (test-method TC-2)
+
+  define (TC-3 p) :=
+    (!equiv assume h := (p | false)
+              (!cases h
+               assume p  
+                 (!claim p)
+               assume false
+                 (!from-false p))
+            assume p 
+              (!left-either p false))
+
+  (test-method TC-3)
+
+  define (TC-4 p) :=
+    (!equiv assume (p | true)
+              (!true-intro)
+            assume true
+              (!right-either p true))
+
+  (test-method TC-4)
+
+  define (TC-5 p) :=
+    (!equiv assume h := (true ==> p)
+              (!mp h (!true-intro))
+            assume p
+              assume true
+                (!claim p))
+
+  (test-method TC-5)
+
+  define (TC-6 p) :=
+    (!equiv assume (false ==> p)
+              (!true-intro)
+            assume true
+              assume false
+                (!from-false p))
+
+  (test-method TC-6)
+
+  define (TC-7 p) :=
+    (!equiv assume (p ==> true)
+              (!true-intro)
+            assume true
+              assume p 
+                (!true-intro))
+
+  (test-method TC-7)
+
+  define (TC-8 p) :=
+    (!equiv assume h := (p ==> false)
+              (!by-contradiction (~ p)
+                assume p 
+                  (!mp h p))
+            assume -p := (~ p)
+              assume p 
+                (!absurd p -p))
+
+  (test-method TC-8)

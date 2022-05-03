@@ -1,0 +1,20 @@
+#========================== Solution to exercise 4.15 =========================
+
+  define (ex-middle p) := 
+    let {goal := (p | ~ p)}
+      (!by-contradiction goal
+         assume -goal := (~ goal)
+           let {p := (!by-contradiction p
+                       assume -p := (~ p)
+                          (!absurd (!right-either p -p)
+                                   -goal));
+                -p := (!by-contradiction (~ p)
+                        assume p 
+                          (!absurd (!left-either p (~ p))
+                                   -goal))}
+             (!absurd p -p))
+
+  let {p := (A & B)}
+    conclude goal := (p | ~ p) 
+      (!ex-middle p)
+

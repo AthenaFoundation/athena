@@ -1,0 +1,22 @@
+# No need for int->nat input converters for min for the purposes of this exercise: 
+
+declare min: [N N] -> N 
+
+define [x y] := [?x:N ?y:N]
+
+assert* min-def := [(x min y = ite (x < y) x y)]
+
+conclude goal := (forall x y . x min y = x | x min y = y)
+  pick-any x:N y:N
+    (!two-cases
+      assume (x < y)
+        (!chain-> [(x min y) 
+                 = x                           [min-def]
+               ==> (x min y = x) 
+               ==> (x min y = x | x min y = y) [alternate]])
+      assume (~ x < y)
+        (!chain-> [(x min y) 
+                 = y                           [min-def]
+              ==> (x min y = y) 
+              ==> (x min y = x | x min y = y)  [alternate]]))
+

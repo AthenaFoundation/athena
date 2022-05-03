@@ -1,0 +1,19 @@
+#========================== Solution to exercise 4.21 =========================
+
+  define (contra-pos premise) := 
+    match premise {
+      (p ==> q) => assume -q := (complement q)
+                     (!by-contradiction (complement p)
+                       assume p
+                         let {q := (!mp premise p)}
+                           (!from-complements false q -q))
+    }
+
+  assume h := (A ==> B)
+    conclude (~B ==> ~A) 
+      (!contra-pos h)
+
+  assume h := (~B ==> ~A)
+    conclude (A ==> B)
+      (!contra-pos h)
+

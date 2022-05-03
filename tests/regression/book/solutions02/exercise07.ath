@@ -1,0 +1,11 @@
+define (get-conjuncts p) := 
+  match p {
+    (and (some-list L)) => (flatten (map get-conjuncts L))
+  | _ => [p]
+  }
+
+define (get-disjuncts p) := 
+  match p {
+    (or (some-list L)) => (flatten (map get-disjuncts L))
+  | _ => [p]
+  }

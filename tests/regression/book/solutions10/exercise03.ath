@@ -1,0 +1,30 @@
+define subset-characterization-2 := 
+  by-induction (forall A B . (forall x . x in A ==> x in B) ==> A subset B) {
+    null => pick-any B
+              assume (forall x . x in null ==> x in B)
+                (!chain-> [true ==> (null subset B) [subset-def]])
+  | (A as (insert h t)) =>
+      pick-any B
+        assume hyp :=  (forall x . x in A ==> x in B)
+          let  {ih := (forall B . (forall x . x in t ==> x in B) ==> t subset B);
+                goal := (A subset B);
+                ih-cond := pick-any x
+                            (!chain [(x in t) ==> (x in A)  [in-def]
+                                              ==> (x in B)  [hyp]]);
+                _ := (!chain-> [ih-cond ==> (t subset B)    [ih]])}
+  	    (!chain-> [(h = h)
+                   ==> (h in A)              [in-def]
+                   ==> (h in B)              [hyp]
+                   ==> (h in B & t subset B) [augment]
+                   ==> goal                  [subset-def]])
+  }
+
+conclude subset-characterization := 
+ (forall s1 s2 . s1 subset s2 <==> forall x . x in s1 ==> x in s2)
+pick-any s1 s2 
+ (!equiv 
+   (!chain [(s1 subset s2) 
+        ==> (forall x . x in s1 ==> x in s2) [subset-characterization-1]])
+   (!chain [(forall x . x in s1 ==> x in s2)
+        ==> (s1 subset s2)                   [subset-characterization-2]]))
+

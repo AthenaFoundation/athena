@@ -1,0 +1,13 @@
+define (pick-all-witnesses premise M) := 
+  letrec {loop := 
+            method (premise witnesses)
+              match premise {
+                (exists x p) => pick-witness 
+                                  w 
+                                  for premise 
+                                  w-premise
+                                  (!loop w-premise (add w witnesses))
+              | _ => (!M (rev witnesses) premise)
+              }}
+    (!loop premise [])
+

@@ -1,0 +1,42 @@
+define (matches? p q) := 
+  match (match-sentences p q) {
+    (some-sub _) => true
+  | _ => false
+  }
+
+define (contradicts? premise axioms) := 
+  (for-some 
+    axioms
+    lambda (axiom)
+      (matches? (complement premise) 
+                (quant-body axiom)))
+
+define (free-gen premise goal) := 
+  match premise {
+    (exists (some-list evars) body) => 
+      (!pick-all-witnesses premise 
+        method (witnesses body')
+          (!find-some 
+            (get-conjuncts body')
+            (method (conjunct)
+               match conjunct {
+                 (= (some-term s) (some-term t)) => 
+                   let {axioms := (datatype-axioms (sort-of s));
+                        q := match (contradicts? conjunct axioms) {
+                               true => (!chain-> 
+                                         [true 
+                                      ==> (s =/= t) [axioms]])
+                             | _ => (!chain-> 
+                                      [true 
+                                   ==> (t =/= s)    [axioms] 
+                                   ==> (s =/= t)    [ineq-sym]])
+                                }
+                       }
+                     (!from-complements goal conjunct q)
+                 | _ => (!from-complements goal 
+                                           conjunct 
+                                           (complement conjunct))
+               })            
+            fail))
+   }
+

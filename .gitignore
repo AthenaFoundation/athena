@@ -1,3 +1,7 @@
 .cm/
 *.grm.*
 *.lex.*
+*.x86-linux
+athena
+regression_results.txt
+*.pl

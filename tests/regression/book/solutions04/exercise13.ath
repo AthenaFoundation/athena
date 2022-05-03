@@ -1,0 +1,49 @@
+#========================== Solution to exercise 4.13 =========================
+
+  clear-assumption-base
+
+  assume hyp := ((A ==> B) ==> A)
+    (!two-cases assume (A ==> B)
+                  (!mp hyp (A ==> B))
+                assume (~ (A ==> B))
+                  (!neg-cond-ant (~ (A ==> B))))
+
+  clear-assumption-base
+  assert ((A ==> B) ==> B), (B ==> A)
+
+  (!two-cases assume B
+                 (!mp (B ==> A) B)
+              assume (~ B)
+                let {_ := conclude (~ (A ==> B))
+                        (!mt ((A ==> B) ==> B)
+                             (~ B))}
+                (!neg-cond-ant (~ (A ==> B))))
+
+  clear-assumption-base
+
+  (!equiv assume hyp := ((A ==> C) | (B ==> C))
+            (!cases hyp
+              assume (A ==> C)
+                assume (A & B)
+                  (!mp (A ==> C) A)
+              assume (B ==> C)
+                assume (A & B)
+                  (!mp (B ==> C) B))
+                           
+          assume hyp := ((A & B) ==> C)
+            let {goal := ((A ==> C) | (B ==> C))}
+              (!by-contradiction goal
+                assume (~ goal)
+                  let {p1 := conclude ((~ (A ==> C)) & (~ (B ==> C)))
+                               (!dm (~ goal));
+                       p2 := (!left-and p1);
+                       p3 := (!right-and p1);
+                       _ := conclude (~ C) 
+                             (!neg-cond-con p2);
+                       _ := conclude A 
+                             (!neg-cond-ant p2);
+                       _ := conclude B 
+                             (!neg-cond-ant p3);
+                       _ := (!both A B)}
+                    (!absurd (!mp hyp (A & B))
+                             (~ C))))

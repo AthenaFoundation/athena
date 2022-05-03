@@ -1,0 +1,25 @@
+conclude restriction-theorem-2 := 
+  (forall m A . dom m subset A ==> m |^ A = m)
+by-induction restriction-theorem-2 {
+  (m as empty-map) => 
+    pick-any A 
+      assume (dom m subset A) 
+        (!chain [(m |^ A) = m  [restrict-def]])
+| (m as (update (pair key val) rest)) =>
+   pick-any A
+    assume hyp := (dom m subset A) 
+      let {lemma1 := 
+            (!chain-> [true ==> (key in dom m) [dom-lemma-1]
+                            ==> (key in A)     [Set.SC]]);
+           lemma2 := 
+            (!chain-> 
+              [true 
+           ==> (dom rest subset dom m)       [dom-lemma-2]
+           ==> (dom rest subset dom m & hyp) [augment]
+           ==> (dom rest subset A)           [Set.subset-transitivity]]);
+           IH := (forall A . dom rest subset A ==> rest |^ A = rest)}
+       (!chain [(m |^ A)
+              = ([key val] ++ (rest |^ A))   [restrict-def]
+              = ([key val] ++ rest)          [IH]])
+}
+

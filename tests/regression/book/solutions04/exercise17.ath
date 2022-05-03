@@ -1,0 +1,24 @@
+#========================== Solution to exercise 4.17 =========================
+
+  define (get-antecedents premise) := 
+     match premise {
+       (p ==> q) => (add p (get-antecedents q))
+     | _ => []
+     }
+
+  define (mp* premise) :=
+     match premise {
+       (p ==> q) => (!mp* (!mp premise p)) 
+     | _ => (!claim premise)
+     }
+
+  define (import* premise) := 
+     match (get-antecedents premise) {
+       (|| [] [_]) => (!claim premise)
+     | antecedents => assume h := (and antecedents)
+                        (!mp* premise)
+     } 
+
+  assume h := (A ==> B ==> C ==> D)
+    (!import* h)
+

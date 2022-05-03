@@ -1,0 +1,130 @@
+set-flag print-var-sorts "off"
+set-flag print-qvar-sorts "off"
+
+#==========================================================================
+# SECTION: Equality chaining
+#
+
+module M {
+
+  domain D
+  declare I: D
+  declare *: [D D] -> D [200] # We give a precedence of 200 to *
+  declare inv: [D] -> D [220] # and 220 to inv 
+
+  # Let's define some handy abbreviations for a few variables over D: 
+define [x y z] := [?x:D ?y:D ?z:D] 
+
+  # We can now assert the four given axioms:
+  
+  assert* Left-Identity  := (I * x = x)
+  assert* Right-Identity := (x * I = x)
+  assert* Right-Inverse  := (x * inv x = I)
+  assert* Associativity  := (x * (y * z) = (x * y) * z)
+
+  # Finally, the desired proof:
+  
+  conclude (forall x . inv inv x = x)
+    pick-any a:D
+      (!chain [(inv inv a) = (I * inv inv a)             [Left-Identity]
+                           = ((a * inv a) * inv inv a)   [Right-Inverse]
+                           = (a * (inv a * (inv inv a))) [Associativity]
+                           = (a * I)                     [Right-Inverse]
+                           = a                           [Right-Identity]])
+} # close module M 
+
+#==========================================================================
+# SECTION: Induction
+#
+
+datatype N := zero | (S N)
+
+declare Plus: [N N] -> N [+]
+
+define [n m] := [?n:N ?m:N]
+
+assert* Plus-zero-axiom := (n + zero = n)
+assert* Plus-S-axiom := (n + S m = S (n + m))
+
+define Plus-S-property := (forall n . zero + n = n)
+
+by-induction Plus-S-property {
+  zero => (!chain [(zero + zero) = zero [Plus-zero-axiom]])
+| (n as (S m)) =>
+    conclude (zero + n = n)
+    # The induction-hypothesis is already in the assumption base 
+    # Here we just give it a name: 
+      let {induction-hypothesis := (zero + m = m)}
+        (!chain [(zero + S m)
+               = (S (zero + m))      [Plus-S-axiom]
+               = (S m)               [induction-hypothesis]])
+}
+
+#==========================================================================
+# SECTION: Case analysis
+#
+
+module Marriage-Puzzle { 
+
+  domain Person
+
+  declare married: [Person] -> Boolean
+  declare looking-at: [Person Person] -> Boolean
+  declare Jack, Anne, George: Person
+
+  define [p1 p2] := [?p1:Person ?p2:Person]
+
+  assert [(Jack looking-at Anne)
+          (Anne looking-at George) 
+          (married Jack)
+          (~ married George)]
+
+# Is some married person looking at an unmarried person?
+# Yes, as shown with a case analysis:
+
+  conclude goal := (exists p1 p2 . married p1 & 
+                                   p1 looking-at p2 & 
+                                   ~ married p2)
+    (!two-cases
+      assume case1 := (married Anne)
+        (!chain-> [case1  
+               ==> (married Anne & 
+                    Anne looking-at George 
+                    & ~ married George)      [augment]
+               ==> goal                      [existence]])
+      assume case2 := (~ married Anne)        
+        (!chain-> [case2                          
+               ==> (married Jack &              
+                   Jack looking-at Anne &   
+                   ~ married Anne)           [augment]
+               ==> goal                      [existence]]))
+} # close module Marriage-Puzzle
+
+#==========================================================================
+# SECTION: Proof by contradiction
+#
+
+module Asymmetry {
+  domain D
+  declare <: [D D] -> Boolean
+
+  define [x y z] := [?x:D ?y:D ?z:D]
+
+  assert* irreflexivity := (~ x < x)
+  assert* transitivity := (x < y & y < z ==> x < z)
+
+  conclude asymmetry := (forall x y . x < y ==> ~ y < x)
+    pick-any a:D b:D
+      assume (a < b)
+        (!by-contradiction (~ b < a)
+          assume (b < a) 
+            let {less := (!chain-> [(b < a) 
+                                ==> (a < b & b < a)    [augment]
+                                ==> (a < a)            [transitivity]]);
+                 not-less := (!chain-> [true 
+                                    ==> (~ a < a)      [irreflexivity]])}
+              (!absurd less not-less))
+
+} # close module Asymmetry
+
+

@@ -1,0 +1,12 @@
+conclude distributivity-2 := 
+  (forall A B C . A /\ (B \/ C) = (A /\ B) \/ (A /\ C))
+    pick-any A B C   
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A /\ (B \/ C)) 
+              <==> (x in A & x in B \/ C)                  [IC]
+              <==> (x in A & (x in B | x in C))            [UC]
+              <==> ((x in A & x in B) | (x in A & x in C)) [prop-taut]
+              <==> (x in A /\ B | x in A /\ C)             [IC]
+              <==> (x in (A /\ B) \/ (A /\ C))             [UC]]))
+

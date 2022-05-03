@@ -1,0 +1,75 @@
+domain Algorithm
+datatype (Input S) := (input S)
+datatype (Output S) := (answer S)
+
+declare outputs: (S, T) [Algorithm (Input S) (Output T)] -> Boolean
+declare halts-on: (S) [Algorithm (Input S)] -> Boolean
+declare decides-halting: (S) [Algorithm Algorithm S] -> Boolean
+declare halting-decider: [Algorithm] -> Boolean
+
+define [A B A' B'] := [?A ?B ?A' ?B']
+
+assert* decides-halting-def := 
+ ((decides-halting A B x) <==>
+     (B halts-on input x ==>   outputs A (input B @ x) answer true)
+   & (~ B halts-on input x ==> outputs A (input B @ x) answer false))
+
+assert halting-decider-def := 
+  (forall A . halting-decider A <==> forall B x .
+                                       (decides-halting A B x))
+assert premise := 
+  (forall A . 
+    exists B . 
+      forall x .
+       ((outputs A (input x @ x) (answer true))  ==> ~ B halts-on input x)
+      & ((outputs A (input x @ x) (answer false)) ==> B halts-on input x))
+
+define goal := (~ exists A . halting-decider A)
+
+define (out-true A x) := (outputs A (input x @ x) answer true)
+define (out-false A x) := (outputs A (input x @ x) answer false)
+define (halts A x) := (A halts-on input x)
+define (doesn't-halt A x) := (~ A halts-on input x)
+
+(!by-contradiction goal
+ assume hyp := (exists A . halting-decider A)
+  pick-witness decider for hyp 
+   let {p1 := conclude 
+               (exists B . 
+                 forall x . 
+                   (decider out-true x ==> B doesn't-halt x) &
+                   (decider out-false x ==> B halts x))
+               (!uspec premise decider);
+        p2 := conclude (forall A x . decides-halting decider A x)
+                (!fire halting-decider-def [decider])}
+     pick-witness diag for p1 diag-witness
+       let {p3 := (!uspec diag-witness diag);          
+            # we now have  (decider out-true diag ==> diag doesn't-halt diag)
+            # and          (decider out-false diag ==> diag halts diag)
+            t-case := (decider out-true diag);
+            f-case := (decider out-false diag);
+            self-halting := (diag halts diag);
+            -self-halting := (~ self-halting);
+            tc=>-sh := (t-case ==> -self-halting);
+            fc=>sh := (f-case ==> self-halting);
+            # i.e., we now have tc=>-sh and fc=>sh 
+            _ := conclude (decides-halting decider diag diag)
+                   (!uspec* p2 [diag diag]);
+            _ := (!fire decides-halting-def [decider diag diag]);
+            # this fire application gives both sh=>tc and -sh=>fc: 
+            sh=>tc :=  (self-halting ==> t-case); 
+            -sh=>fc := (-self-halting ==> f-case)}
+       (!two-cases 
+        assume self-halting
+          let {_ := conclude t-case
+                       (!mp sh=>tc self-halting);
+               _ := conclude -self-halting
+                       (!mp tc=>-sh t-case)}
+          (!absurd self-halting -self-halting)
+        assume -self-halting
+          let {_ := conclude f-case
+                       (!mp -sh=>fc -self-halting);
+               _ := conclude self-halting
+                      (!mp fc=>sh f-case)}
+          (!absurd self-halting -self-halting)))
+

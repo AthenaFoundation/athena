@@ -1,0 +1,833 @@
+# Chapter 02
+
+#==========================================================================
+# SECTION 2.2 (Domains and function symbols)
+#==========================================================================
+
+domain Person
+
+domains Element, Set
+
+declare union, intersection: [Set Set] -> Set
+
+declare father, mother: [Person] -> Person
+
+declare joe: Person
+
+declare null: [] -> Set
+
+declare peter, tom, ann, mary: Person
+
+declare e, e1,e2: Element
+
+declare S, S1, S2: Set
+
+declare in: [Element Set] -> Boolean
+
+declare male, female: [Person] -> Boolean
+
+declare siblings: [Person Person] -> Boolean
+
+declare subset: [Set Set] -> Boolean
+
+define (fact n) := 
+  check {
+    (less? n 1) => 1
+  | else => (times n (fact (minus n 1)))
+  }
+
+(print "\nThe factorial of 5 is: " (fact 5) "\n")
+
+(less? 7 8)
+
+(times 2 3)
+
+(minus 5 1)
+
+define (fact n) := 
+  check {
+    (n less? 1) => 1
+  | else => (n times fact n minus 1)
+  }
+
+(print "\nThe factorial of 5 is: " (fact 5) "\n")
+
+#==========================================================================
+# SECTION 2.3 (Terms)
+#==========================================================================
+
+joe
+
+(println (sort-of joe))
+
+?x:Person
+
+?S25:Set
+
+?foo-bar:Int
+
+?b_1:Boolean
+
+?@sd%&:Real
+
+(father (mother joe))
+
+define t := (father (mother joe))
+
+(root t)
+
+(children t)
+
+(root joe)
+
+(children joe)
+
+[tom ann]
+
+[]
+
+[tom [peter mary] ann]
+
+(add 1 [2 3])
+
+(head [1 2 3])
+
+(tail [1 2 3])
+
+(rev [1 2 3])
+
+(length [1 2 3])
+
+(join [1 2] ['a 'b] [3])
+
+
+(rev 1 added-to [2])
+
+(in ?x:Element ?s:Set)
+
+# The following is a sort error:
+# (father true) 
+
+(in ?x ?S)
+
+(father ?p)
+
+(e in S)
+
+(null union S2)
+
+(male father joe)
+
+(null subset ?x union null)
+
+(null union ?s)
+
+(get-precedence subset)
+
+(get-precedence union)
+
+set-precedence union 200
+
+(?s1 union ?s2 intersection ?s3)
+
+(?s1 union ?s2 union ?s3)
+
+left-assoc union
+
+(?s1 union ?s2 union ?s3)
+
+(7 less? 8)
+
+(2 times 3)
+
+(5 minus 1)
+
+define (fact n) := 
+  check {
+    (n less? 1) => 1
+  | else => (n times fact n minus 1)
+  }
+
+#==========================================================================
+# SECTION 2.4 (Sentences)
+#==========================================================================
+
+(forall ?x . ?x =/= father ?x)
+
+(forall ?x:Person . ?x =/= father ?x)
+
+(forall ?x:Person . ?x:Person =/= father ?x:Person)
+
+(forall ?x . ?x =/= father ?x:Person)
+
+(forall ?x:Person . ?x:Person =/= (father ?x:Person))
+
+(forall ?x:Person . (?x:Person =/= (father ?x:Person)))
+
+(forall ?S1 ?S2 . ?S1 = ?S2 <==> ?S1 subset ?S2  & ?S2 subset ?S1)
+
+declare A, B, C: Boolean
+
+(and [A B C])
+
+(if [A B])
+
+(not [A])
+
+# This is fine:
+(?x = joe & male ?x)
+
+# But this is an error:
+# (male ?x & ?x = 3)
+
+((forall ?x . male father ?x) & (forall ?x . ?x subset ?x))
+
+(exists ?x:Real . ?x:Real > ?y:Real)
+
+#==========================================================================
+# SECTION 2.5 (Definitions)
+#==========================================================================
+
+define p := (forall ?s . ?s subset ?s)
+
+(p & p)
+
+define t := joe
+
+t
+
+define t := 0
+
+t
+
+define \/ := union
+
+\/
+
+(e in null \/ S)
+
+define all := forall
+
+(all ?s . ?s subset ?s)
+
+define [x y z] := [1 2 3]
+
+[z y x]
+
+#==========================================================================
+# SECTION 2.6 (Assumption bases)
+#==========================================================================
+
+(length (ab))
+
+assert (joe =/= father joe)
+
+(holds? (joe =/= father joe))
+
+define facts := [(1 = 1) (joe = joe)]
+
+assert facts
+
+assert facts := [(1 = 1) (joe = joe)]
+
+clear-assumption-base
+
+assert (1 = 2)
+
+retract (1 = 2)
+
+#==========================================================================
+# SECTION 2.7 (Datatypes)
+#==========================================================================
+
+# We are using Boolean2, since Boolean is predefined in Athena.
+# Likewise for true2, false2: 
+
+datatype Boolean2 := true2 | false2
+
+domain Boolean3
+
+declare true3, false3: Boolean3
+
+assert (true3 =/= false3)
+
+assert (forall ?b:Boolean3 . ?b = true3 | ?b = false3)
+
+datatype N := zero | (Succ N)
+
+(forall ?n . zero =/= Succ ?n)
+
+(forall ?n ?m . Succ ?n = Succ ?m ==> ?n = ?m)
+
+(forall ?n . ?n = zero | exists ?m . ?n = Succ ?m)
+
+(datatype-axioms "N")
+
+(datatype-axioms "Boolean2")
+
+declare Plus: [N N] -> N
+
+datatypes Even := zero2 | (Succ1 Odd) &&
+          Odd := (Succ2 Even)
+
+
+datatype Set2 := null2 | (insert2 Int Set2)
+
+structure Set3 := null3 | (insert3 Int Set3)
+
+(structure-axioms "Set3")
+
+#==========================================================================
+# SECTION 2.8 (Polymorphism)
+#==========================================================================
+
+# We put the contents of this section in a separate module to avoid conflicts
+# with the names of previously introduced domains and function symbols: 
+
+module Section_2_8 {
+
+domain (Set S)
+
+declare in: (S) [S (Set S)] -> Boolean
+
+declare union: (S) [(Set S) (Set S)] -> (Set S)
+
+declare =: (S) [S S] -> Boolean
+
+declare empty-set: (S) [] -> (Set S)
+
+# Errors: 
+
+# declare g: (S) [(Set Int S)] -> Boolean
+# declare g: (S) [(Set T) S] -> Int
+# declare g: (S) [Int] -> S
+
+?x
+
+?y:'T3
+
+(?x in ?y)
+
+(?a = ?b)
+
+(?x:(Set 'T) in ?y:(Set (Set 'T)))
+
+(?x:(Set 'T) in ?y)
+
+(in ?x empty-set:(Set Real))
+
+empty-set:(Set (Set 'S))
+
+joe:Person
+
+(Succ zero:N)
+
+(?x = 3)
+
+(poly? (?x = 3))
+
+(forall ?x . ?x = ?x)
+
+(forall ?x ?y . ?x union ?y = ?y union ?x)
+
+(~ exists ?x . ?x in empty-set)
+
+(exists ?x:(Set (Set 'T)) . ?x =/= empty-set)
+
+(poly? (forall ?x . ?x = ?x))
+
+datatype (List S) := nil | (:: S (List S))
+
+datatype (Pair S T) := (pair S T)
+
+(datatype-axioms "List")
+
+(?x = 47)
+
+(exists ?x . ?x = (- 5))
+
+3.14
+
+(?x = .158)
+
+(?x + 2)
+
+(2.3 * ?x)
+
+(2 * 7 + 35)
+
+(- 2)
+
+(7 - 5)
+
+(2 <= 5)
+
+(forall ?x . ?x + 1 > ?x)
+
+(forall ?x:Real . ?x + 1 > ?x)
+
+(forall ?x . ?x + 1.0 > ?x)
+
+(1 plus 2 times 3)
+
+(100 div 2)
+
+(3.0 div 1.5 equal? 2)
+
+}
+
+#==========================================================================
+# SECTION 2.9 (Meta-identifiers)
+#==========================================================================
+
+'foo
+
+'x
+
+'233
+
+'*
+
+'sd8838jd@!
+
+(println (sort-of 'x))
+
+(exists ?x . ?x = 'foo)
+
+#==========================================================================
+# SECTION 2.10 (Expressions and deductions)
+#==========================================================================
+
+(!true-intro)
+
+assert true 
+
+(!claim true)
+
+clear-assumption-base
+
+assert true
+
+(!claim true)
+
+# Error:
+# (!claim (true | true))
+
+assert (forall ?x . ?x = ?x)
+
+(!claim (forall ?y . ?y = ?y))
+
+assert A, B
+
+(!both A B)
+
+clear-assumption-base
+
+assert (A & B)
+
+(!left-and (A & B))
+
+(!right-and (A & B))
+
+# Error:
+# (!right-and (C & B))
+
+# Error:
+#(!left-and (A | B))
+
+assert p := (~ ~ A)
+
+(!dn p)
+
+assert (A & B)
+
+{ 
+    (!left-and  (A & B));               # This gives A 
+    (!right-and (A & B));               # This gives B 
+    (!both B A)                         # And finally, (B & A)
+}
+
+(holds? A)
+
+{ 
+  p1 := (!left-and (A & B));
+  p2 := (!right-and (A & B));
+  (!both p2 p1)
+}
+
+clear-assumption-base
+
+assert conj := (A & (B & C))
+
+(!left-and (!right-and conj))
+
+let { a := 1; 
+      b := (a plus a) 
+    } 
+  (b times b)
+
+assert hyp := (male peter & female ann)
+
+let { left  := (!left-and hyp); 
+      right := (!right-and hyp)
+    }
+  (!both right left)
+
+
+assert hyp := (A & B)
+
+let { goal := (B & A);
+      _ := (print "Proving: " goal);
+      _ := (!right-and hyp);          # this proof step deduces B
+      _ := (!left-and hyp) }          # and this one derives A
+  (!both B A)
+
+assert p := (A & B)
+
+conclude A 
+  (!left-and p)
+
+# error:
+# conclude B 
+#   (!left-and p)
+
+check {(holds? false) => 1 | (holds? A) => 2 | else => 3}
+
+match [1 2] {
+  [] => 99
+| (list-of h _) => h
+}
+
+match [1 2] {
+  [] => (!claim false) 
+| (list-of _ _) => (!true-intro)
+}
+
+try { (4 div 0) | 2 }
+
+try { (4 div 0) | 25 | (head []) }
+
+# error: 
+# try { (4 div 0) | (head []) }
+
+try { (!left-and false) | 
+      (!true-intro)     | 
+      (!right-and (true ==> false))}
+
+# error:
+# try { (!left-and false) | 
+#       (!right-and (true ==> false))}
+
+
+define square := lambda (n) (n times n)
+
+square
+
+(square 4)
+
+define (square n) := (n times n)
+
+(define (square n)
+   (times n n))
+
+(map square [1 2 3 4 5])
+
+(map lambda (n) (n times n) 
+     [1 2 3 4 5])
+
+let {_ := (!left-and (A & B));
+     _ := (!right-and (A & B))}
+  (!both B A)
+
+method (p q)
+  let {_ := (!left-and (p & q));
+       _ := (!right-and (p & q))}
+    (!both q p)
+
+
+clear-assumption-base
+
+define commute-and :=
+  method (p q)
+    let {_ := (!left-and (p & q));
+         _ := (!right-and (p & q))}
+      (!both q p)
+
+assert (B & C)
+
+(!commute-and B C)
+
+# error:
+# (!commute-and A B)
+
+define commute-and' :=
+  method (premise)
+    match premise {
+      (p & q) => let {_ := (!left-and premise);
+                      _ := (!right-and premise)}
+                   (!both q p)
+    }
+
+assert premise :=  (~ ~ (A & B))
+
+(!commute-and' (!dn premise))
+
+define (commute-and p q) :=
+  let {_ := (!left-and (p & q));
+       _ := (!right-and (p & q))}
+    (!both q p)
+
+
+#==========================================================================
+# SECTION 2.11 (More on pattern matching)
+#==========================================================================
+
+define discriminant := (true | ~ false)
+
+match discriminant {
+ (p1 | p2) => (print "Successful match with p1: " p1 "\nand p2: " p2) 
+}
+
+match discriminant {
+  p => (print "Successful match with p: " p)
+}
+
+match discriminant {
+  (or true (not q)) => (print "Successful match with q: " q)
+}
+
+define discriminant := (mother father ann)
+
+match discriminant {
+  t => (print "Matched with t: " t)
+}
+
+match discriminant {
+  (mother t) => (print "Matched with t: " t)
+}
+
+match discriminant {
+  (mother (father t)) => (print "Matched with t: " t)
+}
+
+# error:
+#match discriminant {
+#  (father _) => (print "Matched...")
+#}
+
+match (A & ~ B) {
+  ((some-sent-con sc) left right) => [sc left right]
+}
+
+match (A ==> B) {
+  ((some-sent-con sc) left right) => [sc left right]
+}
+
+define (break-sentence p) :=
+  match p {
+    ((some-sent-con pc) (some-list args)) => [pc (rev args)]
+}
+
+(break-sentence (~ true))
+
+(break-sentence (and A B C))
+
+(break-sentence (A | B))
+
+(break-sentence (false ==> true))
+
+(break-sentence (iff true true))
+
+# error:
+#(break-sentence true)
+
+define (first-even? L) := 
+  match L {
+    ((list-of x _) where (even? x)) => true
+  | _ => false
+  }
+
+
+#==========================================================================
+# SECTION 2.12 (Directives)
+#==========================================================================
+
+set-flag print-var-sorts "off"
+
+(?x = ?y)
+
+set-flag print-var-sorts "on"
+
+(?x = ?y)
+
+set-flag print-qvar-sorts "off"
+
+(forall ?x . exists ?y . ?y > ?x)
+
+#==========================================================================
+# SECTION 2.13 (Overloading)
+#==========================================================================
+
+declare Plus: [N N] -> N
+
+overload + Plus
+
+(?a + zero)
+
+(?a + 2.5)
+
+(?a + ?b)
+
+overload + ::
+
+(?a + ?b)
+
+(?a + zero)
+
+(?a + 3.14)
+
++
+
+(root (1 + 2))
+
+(string->symbol "+")
+
+#==========================================================================
+# SECTION 2.14 (Programming)
+#==========================================================================
+
+`A
+
+`\68
+
+(print (tail "hello world"))
+
+define c := cell 23
+
+ref c
+
+set! c "a string now..."
+
+ref c
+
+define [even? odd?] := 
+  letrec {E := lambda (n)
+                 check {(n equal? 0) => true
+                      | else => (O n minus 1)};
+          O := lambda (n)
+                 check {(n equal? 0) => false 
+                      | else => (E n minus 1)}}
+    [lambda (n) (E (abs n)) 
+     lambda (n) (O (abs n))]
+
+(even? 100)
+(even? 101)
+(odd? 101)
+(odd? 100)
+
+define (fact n) := 
+  check {(n less? 2) => 1
+       | else => (n times fact n minus 1) }
+
+
+(make-sub [[?n zero] [?m (Succ ?k)]])
+
+(make-sub [[?counter (Succ zero)] [?flag true]])
+
+(make-sub [[?list (:: ?head ?tail)]])
+
+define theta := (make-sub [[?counter (Succ zero)] [?flag true]])
+
+theta
+
+(theta ?flag)
+
+(theta (?foo = Succ ?counter))
+
+(match-terms (null union ?x) (?s1 union ?s2))
+
+(match-terms (father joe) (mother ?x))
+
+(match-sentences (~ joe siblings ann) (~ ?x siblings ?y))
+
+(match-sentences (forall ?x . ?x siblings joe)
+                   (forall ?y . ?y siblings ?w))
+
+#==========================================================================
+# SECTION 2.15 (A consequence of static scoping)
+#==========================================================================
+
+define (f x) := (x plus x)
+
+define (g x) := ((f x) plus 3)
+
+(g 5)
+
+define (f x) := (x times x)
+
+(g 5)
+
+define (g x) := ((f x) plus 3)
+
+(g 5)
+
+#==========================================================================
+# SECTION 2.16 (Miscellanea)
+#==========================================================================
+
+(fresh-var)
+
+(fresh-var "Int")
+
+(fresh-var "(Pair 'T Boolean)")
+
+?v4
+
+(fresh-var)
+
+(fresh-var "Int" 'foo)
+
+(make-term siblings [joe ann])
+
+define p := (?x < ?y + 1 & forall ?x . exists ?z . ?x = ?z)
+
+(fv p)
+
+(fv (forall ?x . ?x = ?x))
+
+_
+
+_
+
+(father _)
+
+(_ in _)
+
+let {[x y] := [1 2]}
+  [y x]
+
+
+let {[(siblings L (father R))] := [(siblings joe (father ann))]}
+  [L R]
+
+
+primitive-method (mp-prim premise-1 premise-2) := 
+  match [premise-1 premise-2] {
+    ([(p ==> q) p] where (hold? [premise-1 premise-2])) => q
+  }
+  
+#==========================================================================
+# SECTION 2.18 (Exercises)
+#==========================================================================
+
+# Insert your own solution to exercise 2.5 here
+load "./solutions02/exercise05"
+
+# Insert your own solution to exercise 2.6 here
+load "./solutions02/exercise06"
+
+# Insert your own solution to exercise 2.7 here
+load "./solutions02/exercise07"
+
+# Insert your own solution to exercise 2.8 here
+load "./solutions02/exercise08"

@@ -1,0 +1,55 @@
+#========================== Solution to exercise 4.8 =========================
+
+  clear-assumption-base
+
+  assert (B | (A ==> B)), A
+
+  conclude B
+    (!cases (B | (A ==> B))
+     assume B
+       (!claim B)
+     assume (A ==> B)
+       (!mp (A ==> B) A))
+
+  clear-assumption-base
+
+  assert (A ==> B), (A ==> C)
+
+  conclude (A ==> (B & C))
+    assume A 
+      (!both (!mp (A ==> B) A)
+             (!mp (A ==> C) A))
+
+  clear-assumption-base
+
+  assert (A ==> B), (C ==> D)
+
+  assume (A | C)
+    (!cases (A | C)
+      assume A 
+        (!either conclude B 
+                   (!mp (A ==> B) A)
+                 D)
+      assume C
+        (!either B 
+                 conclude D
+                   (!mp (C ==> D) C)))
+
+  clear-assumption-base
+
+  assert (A ==> (B ==> C)), (A ==> (C ==> D))
+
+  assume A 
+    assume B 
+      let {_ := conclude C 
+                  (!mp (!mp (A ==> (B ==> C)) 
+                            A)
+                       B)}
+        conclude D
+          (!mp (!mp (A ==> (C ==> D))
+                    A)
+               C)
+
+
+
+

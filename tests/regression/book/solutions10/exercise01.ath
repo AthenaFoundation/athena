@@ -1,0 +1,7 @@
+conclude (forall p . swap p = (pair-right p) @ (pair-left p))
+  (!pair-converter 
+    pick-any x y 
+      (!chain [(swap x @ y) 
+             = (y @ x)                                  [swap-def]
+             = ((pair-right x @ y) @ (pair-left x @ y)) [pair-axioms]]))
+

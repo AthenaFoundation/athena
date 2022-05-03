@@ -16,6 +16,10 @@ Note that `athena.sml` is at the top of the graph (it's essentially the 'main' f
 
 ## Hacking Athena 
 
+First, ensure that both `ml-yacc` and `ml-ulex` are installed (on unix machines, this can be done with `apt`).
+
+Also ensure `smlnj` is installed.
+
 Developing Athena is best done with smlnj. Bring up smlnj (after installing it), and then do: 
 
 `- CM.make("sources.cm");`
@@ -46,7 +50,7 @@ Athena, you must update both `sources.cm` and `athena.mlb` as needed.
 
 ## Regression testing
 
-Run `python3 regressionTest.py`. The function `runAthenaTests` will return 0 if all the tests pass and some positive integer <br>
+Run `python3 tests/regression/regressionTest.py`. The function `runAthenaTests` will return 0 if all the tests pass and some positive integer <br>
 less than 125 otherwise. Thus, this function can be used with `git bisect`, which is useful in debugging a range of commits. By default, <br>
 the script runs with a heap image produced by smlnj as described above, but you can also pass it (as the first argument) the name of an <br>
 executable produced by MLton (these executables tend to be faster than the heap images produced by smlnj), <br>e.g., `python3 regressionTest.py './athena'`.
@@ -63,17 +67,17 @@ To make Athena with C (using MLton's [FFI](mlton.org/ForeignFunctionInterface)) 
 
 Finally:
 
-`if [ 'uname -s' == 'Darwin' ]`<br>
-  `then mlton -drop-pass deepFlatten -default-ann 'allowFFI true' -output athena-mac -link-opt '-lm -ldl -Wl -lpthread' athena.mlb $XSB_HOME/config/$XSB_arch/saved.o/xsb.o athena_with_xsb.o`<br>
-  `else mlton -drop-pass deepFlatten -default-ann 'allowFFI true' -output athena-linux -link-opt '-lm -ldl -Wl -export-dynamic -lpthread' athena.mlb $XSB_HOME/config/$XSB_arch/saved.o/xsb.o athena_with_xsb.o`<br>
-`fi`
+```
+if [ 'uname -s' == 'Darwin' ]
+  then mlton -drop-pass deepFlatten -default-ann 'allowFFI true' -output athena-mac -link-opt -lm -ldl -Wl -lpthread' athena.mlb $XSB_HOME/config/$XSB_arch/saved.o/xsb.o athena_with_xsb.o
+   else mlton -drop-pass deepFlatten -default-ann 'allowFFI true' -output athena-linux -link-opt -lm -ldl -Wl -export-dynamic -lpthread' athena.mlb $XSB_HOME/config/$XSB_arch/saved.o/xsb.o athena_with_xsb.o
+fi
+```
 
 
 ## A bit of history
 
-Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled <br>
-by 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, <br>
-such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations <br>
-and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
+Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled. <br>
+By 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
 
 

@@ -1,0 +1,11 @@
+# Implement egen*: 
+
+define egen* := 
+  method (goal witnesses)
+    match [goal witnesses] {
+      [_ [t]] => (!egen goal t)
+    | [(exists x body) (list-of t more)] =>
+         let {_ := (!egen* (replace-var x t body) more)}
+         (!egen goal t)
+    }
+

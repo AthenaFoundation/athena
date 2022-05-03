@@ -1,0 +1,13 @@
+conclude in-range-lemma-1 := 
+  (forall R a x y . a = y ==> a in range x @ y ++ R)
+pick-any R a x y
+  (!chain [(a = y) ==> (a in y ++ range R) [in-def]
+                   ==> (a in range x @ y ++ R) [range-def]])
+		   
+conclude in-range-lemma-2 := 
+  (forall R y a b . y in range R ==> y in range a @ b ++ R)
+pick-any R y a b
+  (!chain   [(y in range a @ b ++ R)
+         <== (y in b ++ range R)       [range-def]
+         <== (y in range R)            [in-def]])
+	 

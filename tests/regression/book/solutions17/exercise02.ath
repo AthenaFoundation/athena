@@ -1,0 +1,61 @@
+define get-div-lemma :=
+ method (premise)
+  match premise {
+    (= (I' (quot e1 e2)) (SOME n)) =>
+      conclude (exists n1 n2 . I' e1 = SOME n1 & 
+                               I' e2 = SOME n2 & 
+                               n2 =/= zero & 
+			       n = n1 / n2)
+        let {(E as (& ex1 ex2)) := 
+               (!chain-> 
+                 [premise 
+             ==> (I' e1 quot e2 =!= NONE)          [option-results]             
+             ==> (I' e1 =/= NONE & I' e2 =/= NONE) [I'-def]
+             ==> ((exists n1 . I' e1 = SOME n1) &                       
+                  (exists n2 . I' e2 = SOME n2))   [option-results]])}
+         pick-witness y1 for ex1 wp1
+           pick-witness y2 for ex2 wp2 
+             let {y2!=zero := 
+                   (!by-contradiction (y2 =/= zero) 
+                     assume hyp := (y2 = zero)
+                      (!absurd 
+                        premise
+                        (!chain-> 
+                         [(I' e2 = SOME y2) 
+                      ==> (I' e2 = SOME zero)        [hyp]
+                      ==> (I' e1 quot e2 = NONE)     [I'-def]
+                      ==> (I' e1 quot e2 =!= SOME n) [option-results]])))
+                 }
+               (!chain-> 
+                 [(wp1 & wp2) 
+              ==> (I' e1 = SOME y1 & 
+                   I' e2 = SOME y2 & 
+                   y2 =/= zero)                  [augment]
+              ==> (I' e1 quot e2 = SOME y1 / y2) [I'-def]
+              ==> (SOME y1 / y2 = I' e1 quot e2) [sym]
+                                = (SOME n)       [premise]
+              ==> (y1 / y2 = n)                  [option-results]
+              ==> (n = y1 / y2)                  [sym]
+              ==> (I' e1 = SOME y1 &             
+                   I' e2 = SOME y2 &             
+                   y2 =/= zero     & 
+                   n = y1 / y2)                  [augment]
+              ==> (exists n1 n2 .                   
+                    I' e1 = SOME n1 &                 
+                    I' e2 = SOME n2 &               
+  	            n2 =/= zero & n = n1 / n2)   [existence]])
+  }
+
+define (test-get-lemma op:(OP 2)) := 
+  let {goal := (I' e1 op e2 = SOME n ==> 
+                 exists n1 n2 . I' e1 = SOME n1 & 
+                                I' e2 = SOME n2 & 
+                                 n = n1 op n2);
+       result := assume h := (I' e1 op e2 = SOME n)
+                   (!get-lemma h)}
+   check {(result equal? goal) => 
+            let {_ := (print "\nTest successful!\n")} true
+        | else => 
+            let {_ := (print "\nTest failed!\n")} false 
+         }
+

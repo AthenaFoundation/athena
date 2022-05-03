@@ -112,7 +112,6 @@ sig
   val isMember: ath_term_var * var_set -> bool
   val listVars: var_set -> ath_term_var list  
 
-
   type 'a mapping
   val empty_mapping : 'a mapping
   val isEmptyMapping : 'a mapping -> bool 
@@ -124,7 +123,6 @@ sig
   val listAll: 'a mapping -> (ath_term_var * 'a) list
   val foldl:  ('a * 'b -> 'b) -> 'b -> 'a mapping -> 'b
   val map:  ('a -> 'b) -> 'a mapping -> 'b mapping
-
 
   type 'a name_mapping
   val empty_name_mapping : 'a name_mapping
@@ -138,6 +136,6 @@ sig
   val nameFoldl:  ('a * 'b -> 'b) -> 'b -> 'a name_mapping -> 'b
   val nameMap:  ('a -> 'b) -> 'a name_mapping -> 'b name_mapping
 
-end;
+end
 
 

@@ -690,7 +690,7 @@ fun writeSMT(t,{domain_stream,
 		sel_counter,
 		poly_to_mono_sort_table}) = 
  let 
-     fun mprint(s) = print(s)
+     fun debugPrint(s) = print(s)
      fun makePolyConName(name,range_type_str,arg_sorts) = 
             let val con_name = S.name name
 	        val con_name = if (con_name = "::") then "CONS" else con_name
@@ -967,7 +967,7 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
                 inverse_domain_table,
                 fsym_counter,dom_counter,sel_counter,var_counter}) = 
  let 
-     fun mprint(s) = ()
+     fun debugPrint(s) = ()
      fun newFSymName(fsym_counter) = "f"^(Int.toString(Basic.incAndReturn(fsym_counter)))
      fun newDomName(dom_str) =  
                      (case (HashTable.find domain_table dom_str) of
@@ -987,7 +987,7 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
 
                       if arity < 1 then makeMonoFSymName(name)
                       else 
-                      let val _ = mprint("\nGetting the declaration of this non-nullary mono constructor: " ^ (MS.name(name)))
+                      let val _ = debugPrint("\nGetting the declaration of this non-nullary mono constructor: " ^ (MS.name(name)))
                           fun getSelName(NONE:MS.mod_symbol option) = fsym_prefix^(Names.smt_default_selector_fun_sym_prefix)^(Int.toString(Basic.incAndReturn(sel_counter)))
                             | getSelName(SOME(ms)) =  (case MS.find(fsym_table,ms) of
                                                           SOME(fname) => fname
@@ -1009,7 +1009,7 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
                       end
                    else  (* This is a polymorphic constructor, so we must look at sort_args to translate properly... *)
                      let 
-                         val _ = mprint("\nGetting the declaration of this poly constructor: " ^ (MS.name(name)))
+                         val _ = debugPrint("\nGetting the declaration of this poly constructor: " ^ (MS.name(name)))
                          val argument_types_as_SymTerms = map SymTerm.stripTags absyn_argument_types
                          val (types_as_FTerms,mapping) = 
                                 symTermsToFTermsWithSub(sym_range_type::argument_types_as_SymTerms)
@@ -1028,7 +1028,7 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
                          val argument_types = argument_types'
                          val poly_con_name = makePolyFSymName(name,argument_types,range_type)
                          fun getSelName(NONE:MS.mod_symbol option,_) = 
-                                 let val _ = mprint("\nNo selector for " ^ (MS.name name) ^ "\n")
+                                 let val _ = debugPrint("\nNo selector for " ^ (MS.name name) ^ "\n")
                                  in
                                      fsym_prefix^(Names.smt_default_selector_fun_sym_prefix)^(Int.toString(Basic.incAndReturn(sel_counter)))
                                  end 
@@ -1047,28 +1047,28 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
      and writeMain(str) = TextIO.output(main_stream,str)
      and constructorsString(constructors,obtype_params,sort_args) = Basic.printListStr(constructors,(fn c => constructorString(c,obtype_params,sort_args))," | ")
      and declareSort(sort_root,sort_args,whole_sort_name) = 
-       let val _ = mprint("\nCalling declareSort on this sort_root: " ^ (MS.name(sort_root)))
+       let val _ = debugPrint("\nCalling declareSort on this sort_root: " ^ (MS.name(sort_root)))
        in
           (case (HashTable.find domain_table whole_sort_name) of
-              SOME(str) => (mprint("\nTHis sort is already mapped to this string: " ^ str);str)
+              SOME(str) => (debugPrint("\nTHis sort is already mapped to this string: " ^ str);str)
             | _ => let val sort_root_name = newDomName(MS.name(sort_root))                                                        
                        val res = if null(sort_args) then sort_root_name else sort_root_name ^ "_" ^ (Basic.printListStr(sort_args,translateSort,"_"))
                        val _ = HashTable.insert domain_table (whole_sort_name,res)
                        val _ = HashTable.insert inverse_domain_table (res,whole_sort_name)
-                       val _ = mprint("\nDeclaring this sort: " ^ whole_sort_name)
+                       val _ = debugPrint("\nDeclaring this sort: " ^ whole_sort_name)
                        val _ = (case Data.findStructure(sort_root) of
                           SOME(struc as {constructors,arity,obtype_params,...}) => 
                             if MS.modSymEq(sort_root,mfmap_sort_symbol) then ()
                             else 
                              let val str = "\nDATATYPE "^res^" = "^(constructorsString(constructors,obtype_params,sort_args))^" END;\n"
                                            
-  	 	                 val _ = mprint("\nSort translation: " ^ str)
+  	 	                 val _ = debugPrint("\nSort translation: " ^ str)
                              in
                                addDomain(whole_sort_name,str)
                              end
                        | _ => if (!Options.ground_doms)
                               then
-                                   let val _ = mprint("\nwhole_sort_name: " ^ whole_sort_name)
+                                   let val _ = debugPrint("\nwhole_sort_name: " ^ whole_sort_name)
                                        val syms = (case (HashTable.find Data.domains_as_datatypes_table whole_sort_name) of
                                                       SOME(fsym_list) => fsym_list
 						    | _ => let fun ev(s:string) = (!evaluateString)(s)
@@ -1093,7 +1093,7 @@ fun writeCVC(t,{domain_stream,dec_stream,main_stream,
                    end)
        end  
 and translateSort(sort) = 
-      let val _ = mprint("\nCalling translateSort on this sort: " ^ (F.toOneStringDefault(sort)))
+      let val _ = debugPrint("\nCalling translateSort on this sort: " ^ (F.toOneStringDefault(sort)))
           val whole_sort_name = F.toStringDefault(sort)
       in
           (case (HashTable.find domain_table whole_sort_name) of
@@ -1128,7 +1128,7 @@ and getFSymName(fsym,term_args,term_sort) =
            else let val arg_sorts = map getSort term_args
                     val arg_sort_string = Basic.printListStr(arg_sorts,translateSort,"_")
 		    val translated_term_sort = translateSort(term_sort)
-		    val _ = mprint("\nTRANSLATED TERM SORT: " ^ translated_term_sort ^ " FOR THIS FSYM: " ^ (MS.name(fsym)) ^ " AND THIS TERM SORT: " ^ (F.toStringDefault term_sort))
+		    val _ = debugPrint("\nTranslated term sort: " ^ translated_term_sort ^ " for this fsym: " ^ (MS.name(fsym)) ^ " and this term sort: " ^ (F.toStringDefault term_sort))
     	            val name_str = fname^(if null(arg_sorts) then "_"^translated_term_sort else "_"^arg_sort_string)
 		    val fsym' = msym(Symbol.symbol(name_str))
            in
@@ -1136,8 +1136,8 @@ and getFSymName(fsym,term_args,term_sort) =
                            SOME(str) => str  
                          | _ => let val translated_arg_sorts = Basic.printListStr(arg_sorts,translateSort,", ")
 			            val translated_term_sort = translateSort(term_sort)
-				    val _ = mprint("\nAbout to do a constructor check on this msym: " ^ (MS.name(fsym)))
-                                    val _ = if Data.isStructureConstructorBool(fsym) orelse Data.isSelector(fsym) then  mprint("\nThis is a constructor: ")
+				    val _ = debugPrint("\nAbout to do a constructor check on this msym: " ^ (MS.name(fsym)))
+                                    val _ = if Data.isStructureConstructorBool(fsym) orelse Data.isSelector(fsym) then  debugPrint("\nThis is a constructor: ")
                                             else (if null(arg_sorts) then 
                                                     (writeDec(name_str);writeDec(": ");writeDec(translated_term_sort);writeDec(";\n")) 
                                                   else 
@@ -1157,8 +1157,8 @@ and getFSymName(fsym,term_args,term_sort) =
                   val name_str = if is_mono_sym then fname else 
                                  (if null(arg_sorts) then fname^("_"^term_sort_translation) 
                                   else fname^"_"^(Basic.printListStr(arg_sorts,translateSort,"_")))
-	          val _ = mprint("\nAbout to do a constructor check on this msym: " ^ (MS.name(fsym)))
-                  val _ = if Data.isStructureConstructorBool(fsym) orelse Data.isSelector(fsym) then  mprint("\nThis is a constructor: ")
+	          val _ = debugPrint("\nAbout to do a constructor check on this msym: " ^ (MS.name(fsym)))
+                  val _ = if Data.isStructureConstructorBool(fsym) orelse Data.isSelector(fsym) then  debugPrint("\nThis is a constructor: ")
                           else 
                            if null(arg_sorts) then
                              (writeDec(name_str);writeDec(": ");writeDec(term_sort_translation);writeDec(";\n"))
@@ -1230,9 +1230,9 @@ and declareVar(v,vname) =
        | loop(t as (ideTerm(x))) = 
                               let val str' = (Names.metaIdPrefix)^(MetaId.name(x))
                                   val sym = msym (Symbol.symbol str')
-				  val _ = mprint("\nAbout to get a name for this meta-id sym: " ^ (MS.name sym))
+				  val _ = debugPrint("\nAbout to get a name for this meta-id sym: " ^ (MS.name sym))
                                   val sym_name = getFSymName(sym,[],getSort(t))
-				  val _ = mprint("\nRESULT: " ^ sym_name)
+				  val _ = debugPrint("\nResult: " ^ sym_name)
                               in 
                                  writeMain(sym_name)
                                end
@@ -2423,7 +2423,7 @@ fun applySub(tab:sub,t) =
 		  else t
              | appSub(t as Var(v)) = 
                   let val v_sort = ATV.getSort(v)
-                      fun mprint(str) = if !Options.silent_mode then () else print(str)
+                      fun debugPrint(str) = if !Options.silent_mode then () else print(str)
                   in
                     (case ATV.nameLookUp(tab,v) of 
                         SOME(var,var_val) => ((let val var_sort = ATV.getSort(var)

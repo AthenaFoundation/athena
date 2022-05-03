@@ -1,0 +1,2729 @@
+#==========================================================================
+# SECTION: Axioms and theorems for individual memory locations
+#
+define stopgap := force
+
+domain (Memory S)
+
+module Memory {
+  domain (Change S)
+  domain (Loc S)
+
+  declare \: (S) [(Memory S) (Change S)] -> (Memory S)
+  declare \\: (S, T) [(Memory S) T] -> T  
+  declare at: (S) [(Memory S) (Loc S)] -> S
+
+  define [M M' M1 M2 M3 a b c x y] := 
+    [?M:(Memory 'S1) ?M':(Memory 'S2) ?M1:(Memory 'S3)
+     ?M2:(Memory 'S4) ?M3:(Memory 'S5) 
+     ?a:(Loc 'S6) ?b:(Loc 'S7) ?c:(Loc 'S8) ?x:'S9 ?y:'S10]
+
+  define equality :=
+    (forall M1 M2 . (forall a . M1 at a = M2 at a) <==> M1 = M2)
+
+  declare <-: (S) [(Loc S) S] -> (Change S)
+
+  module assign {
+  
+    define (axioms as [equal unequal]) :=
+      (fun [((M \ a <- x) at b) =
+            [x                  when (a = b)
+             (M at b)           when (a =/= b)]])
+	     
+  }
+
+  define theory := (make-theory [] [equality assign.equal assign.unequal])
+
+  declare swap: (S) [(Loc S) (Loc S)] -> (Change S)
+
+  module swap {
+
+    define (axioms as [equal1 equal2 unequal]) :=
+      (fun [((M \ (swap a b)) at c) = 
+	    [(M at b)               when (a = c)
+	     (M at a)               when (b = c)
+	     (M at c)               when (a =/= c & b =/= c)]])
+
+    (add-axioms theory axioms)
+  }
+} # close module Memory
+
+extend-module Memory {
+
+  define t := ?t:(Loc 'S)
+
+  define swap-open-implementation :=
+    (forall M a b t M1 M2 M3 .
+      a =/= t & b =/= t &
+      M1 = M \ t <- (M at a) &
+      M2 = M1 \ a <- (M1 at b) &
+      M3 = M2 \ b <- (M2 at t) 
+      ==> M3 = (M \ t <- (M at a)) \ (swap a b))
+
+  define swap-implementation :=
+    (forall M a b x M1 M2 .
+      x = (M at a) &
+      M1 = M \ a <- (M at b) &
+      M2 = M1 \ b <- x
+      ==> M2 = M \ (swap a b))           
+
+define proofs :=
+  method (theorem adapt)
+    let {[_ _ chain _ _] := (proof-tools adapt theory);
+         [at \ swap]     := (adapt [at \ swap]);
+         [eq uneq]       := [assign.equal assign.unequal]}
+      match theorem {
+       (val-of swap-open-implementation) => (!force (adapt theorem))
+     | (val-of swap-implementation) =>
+        pick-any M:(Memory 'S) a:(Memory.Loc 'S) b:(Memory.Loc 'S) x:'S
+                 M1:(Memory 'S) M2:(Memory 'S) 
+         let {h1 := (x = M at a);
+	      h2 := (M1 = M \ a <- (M at b));
+	      h3 := (M2 = M1 \ b <- x)}
+           assume (h1 & h2 & h3)
+             conclude (M2 = M \ (swap a b))
+               let {p1 := (!chain
+  	    	            [(M2 at a)
+		           = ((M1 \ b <- x) at a)             [h3]
+		           = ((M1 \ b <- (M at a)) at a)      [h1]]);
+                    p2 := conclude (M2 at a = M at b)
+	                    (!two-cases 
+		              assume (b = a)
+		       	        (!chain
+			          [(M2 at a)
+			         = ((M1 \ b <- (M at a)) at a) [p1]
+			         = (M at a)                    [eq]
+			         = (M at b)                    [(b = a)]])
+			      assume (b =/= a)
+ 			        (!chain 
+			          [(M2 at a)
+			         = ((M1 \ b <- (M at a)) at a) [p1]
+			         = (M1 at a)                   [uneq]
+			         = ((M \ a <- (M at b)) at a)  [h2]
+			         = (M at b)   [eq]]));
+  	            p3 :=
+                     pick-any u
+                       conclude (M2 at u = (M \ (swap a b)) at u)
+                         (!three-cases
+	                   assume (a = u)
+		             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = (M2 at a)                       [(a = u)]
+		                = (M at b)                        [p2]])
+		               (!chain 
+		                 [((M \ (swap a b)) at u)
+		                = ((M \ (swap a b)) at a)         [(a = u)]
+		                = (M at b)                        [swap.equal1]]))
+		           assume (b = u)
+                             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = (M2 at b)                       [(b = u)]
+		                = ((M1 \ b <- x) at b)            [h3]
+		                = x                               [eq]
+		                = (M at a)                        [h1]])
+		               (!chain
+		                 [((M \ (swap a b)) at u)
+		                = ((M \ (swap a b)) at b)         [(b = u)]
+		                = (M at a)                        [swap.equal2]]))
+                           assume (a =/= u & b =/= u)
+  		             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = ((M1 \ b <- x) at u)             [h3]
+		                = (M1 at u)                        [uneq]
+		                = ((M \ a <- (M at b)) at u)       [h2]
+		                = (M at u)                         [uneq]])
+		               (!chain
+		                 [((M \ (swap a b)) at u)
+		                = (M at u)                         [swap.unequal]])))}
+                 (!chain [M2 = (M \ (swap a b))                [equality]])
+    }     
+
+define proofs :=
+  method (theorem adapt)
+    let {[_ _ chain _ _] := (proof-tools adapt theory);
+         [at \ swap]     := (adapt [at \ swap]);
+         [eq uneq]       := [assign.equal assign.unequal]}
+      match theorem {
+       (val-of swap-open-implementation) => (!force (adapt theorem))
+     | (val-of swap-implementation) =>
+        pick-any M:(Memory 'S) a:(Memory.Loc 'S) b:(Memory.Loc 'S) 
+                 x:'S M1:(Memory 'S) M2:(Memory 'S) 
+         let {h1 := (x = M at a);
+	      h2 := (M1 = M \ a <- (M at b));
+	      h3 := (M2 = M1 \ b <- x)}
+           assume (h1 & h2 & h3)
+             conclude (M2 = M \ (swap a b))
+               let {p1 := (!chain
+  	    	            [(M2 at a)
+		           = ((M1 \ b <- x) at a)        [h3]
+		           = ((M1 \ b <- (M at a)) at a) [h1]]);
+                    p2 := conclude (M2 at a = M at b)
+	                    (!two-cases 
+		              assume (b = a)
+		       	        (!chain
+			          [(M2 at a)
+			         = ((M1 \ b <- (M at a))
+				     at a)               [p1]
+			         = (M at a)              [eq]
+			         = (M at b)              [(b = a)]])
+			      assume (b =/= a)
+ 			        (!chain 
+			          [(M2 at a)
+			         = ((M1 \ b <- (M at a))
+				     at a)               [p1]
+			         = (M1 at a)             [uneq]
+			         = ((M \ a <- (M at b))
+				    at a)                [h2]
+			         = (M at b)              [eq]]));
+  	            p3 :=
+                     pick-any u
+                       conclude (M2 at u =
+		                  (M \ (swap a b)) at u)
+                         (!three-cases
+	                   assume (a = u)
+		             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = (M2 at a)              [(a = u)]
+		                = (M at b)               [p2]])
+		               (!chain 
+		                 [((M \ (swap a b))
+				   at u)
+				 = ((M \ (swap a b))
+				    at a)                [(a = u)]
+		                 = (M at b)              [swap.equal1]]))
+		           assume (b = u)
+                             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = (M2 at b)              [(b = u)]
+		                = ((M1 \ b <- x) at b)   [h3]
+		                = x                      [eq]
+		                = (M at a)               [h1]])
+		               (!chain
+		                 [((M \ (swap a b))
+				   at u)
+		                = ((M \ (swap a b))
+				   at b)                 [(b = u)]
+		                = (M at a)               [swap.equal2]]))
+                           assume (a =/= u & b =/= u)
+  		             (!combine-equations
+		               (!chain 
+		                 [(M2 at u)
+		                = ((M1 \ b <- x) at u)   [h3]
+		                = (M1 at u)              [uneq]
+		                = ((M \ a <- (M at b))
+				   at u)                 [h2]
+		                = (M at u)               [uneq]])
+		               (!chain
+		                 [((M \ (swap a b))
+				   at u)
+		                = (M at u)               [swap.unequal]])))}
+                 (!chain [M2 = (M \ (swap a b))          [equality]])
+      } # match theorem {
+
+(add-theorems theory |{[swap-open-implementation 
+                        swap-implementation] := proofs}|)
+
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.1:
+#
+define proofs :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [at \ swap] := (adapt [at \ swap]);
+         [eq uneq] := [assign.equal assign.unequal]}
+     match theorem {
+      (val-of swap-open-implementation) =>
+
+        (!stopgap (adapt theorem))
+
+     }
+
+(add-theorems theory |{[swap-open-implementation] := proofs}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+} # close module Memory
+
+(test-all-proofs 'Memory)
+
+#==========================================================================
+# SECTION: Iterators and ranges
+#
+#==========================================================================
+# SUBSECTION: Iterator and range axioms and theorems
+#
+load "ordered-list"
+load "strong-induction"
+load "nat-half"
+
+domain (It X S)
+
+datatype (Range X S) := (stop (It X S)) | (back (Range X S))     
+assert Range-axioms := (datatype-axioms "Range")
+
+module Range {
+
+  define theory := (make-theory [] [])
+
+  define [h i i' j j' k x r r' r'' r1 r2 r3] :=
+      [?h:(It 'X1 'S1) ?i:(It 'X2 'S2) ?i':(It 'X3 'S3)
+       ?j:(It 'X4 'S4) ?j':(It 'X5 'S5) ?k:(It 'X6 'S6) 
+       ?k:(It 'X7 'S7)  ?r:(Range 'X8 'S8) ?r':(Range 'X9 'S9)
+       ?r'':(Range 'X10 'S10) ?r1:(Range 'X11 'S11)
+       ?r2:(Range 'X11 'S11) ?r3:(Range 'X12 'S12)]
+       
+  declare start: (X, S) [(Range X S)] -> (It X S)
+
+  module start {
+
+    define of-stop := (forall i . start stop i = i)
+    define injective := (forall r r' . start r = start r' ==> r = r')
+
+    (add-axioms theory [of-stop injective])
+  } 
+
+  declare finish: (X, S) [(Range X S)] -> (It X S)
+
+  module finish {
+
+    define of-stop := (forall i . finish stop i = i)
+    define of-back := (forall r . finish back r = finish r)
+
+    (add-axioms theory [of-stop of-back])
+  } 
+
+define nonempty-back := (forall r . start back r =/= finish back r)
+define back-not-same := (forall r . back r =/= r)
+
+define proofs :=
+ method (theorem adapt)
+  let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+    match theorem {
+      (val-of nonempty-back) =>
+      pick-any r
+        (!by-contradiction (start back r =/= finish back r)
+         assume A := (start back r = finish back r)
+           (!absurd
+	    (!chain-> [(start back r)
+		     = (finish back r)            [A]
+		     = (finish r)                 [finish.of-back]
+		     = (start stop finish r)      [start.of-stop]
+		     ==> (back r = stop finish r) [start.injective]])
+	    (!chain-> 
+	     [true ==> (stop finish r =/= back r) [Range-axioms]
+		   ==> (back r =/= stop finish r) [sym]])))
+    | (val-of back-not-same) => (!force adapt theorem)
+   }
+
+(add-theorems theory |{[nonempty-back back-not-same] := proofs}|)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.2:
+#
+define proofs :=
+ method (theorem adapt)
+  let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+    match theorem {
+      (val-of back-not-same) =>
+
+        (!stopgap (adapt theorem))
+
+    }
+
+(add-theorems theory |{[back-not-same] := proofs}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  declare range: (X, S) [(It X S) (It X S)] -> (Option (Range X S))
+
+  module range {
+
+    define collapse := (forall r . (range (start r) (finish r)) = SOME r)
+    define injective := 
+     (forall i j i' j' . (range i j) = (range i' j') ==> i = i' & j = j')
+    define start-back :=
+     (forall i j r . (range i j) = SOME back r ==> i = start back r) 
+
+    (add-axioms theory [collapse injective start-back])
+  }
+
+  declare empty: (X, S) [(Range X S)] -> Boolean 
+
+  module empty {
+
+    define of-stop := (forall i . empty stop i)
+    define of-back := (forall r . ~ empty back r)
+
+    (add-axioms theory [of-stop of-back])
+  } 
+
+  declare length: (X, S) [(Range X S)] -> N
+
+  module length {
+
+    define of-stop :=  (forall j . length stop j = zero)
+    define of-back :=  (forall r . length back r = S length r)
+
+    (add-axioms theory [of-stop of-back])
+  }
+
+define empty-range := (forall i . (range i i) = SOME stop i)
+
+define proof :=
+  method (theorem adapt)
+    let {[_ _ chain _ _] := (proof-tools adapt theory)}
+    match theorem {
+      (val-of empty-range) =>
+        pick-any i
+          (!chain 
+ 	   [(range i i)
+	  = (range (start stop i) (finish stop i)) [start.of-stop 
+						    finish.of-stop]
+          = (SOME stop i)                          [range.collapse]])
+    }
+
+(add-theorems theory |{empty-range := proof}|)
+
+define empty-range1 := 
+  (forall h i j . (range i j) = SOME stop h ==> i = j)
+
+define proof :=
+  method (theorem adapt)
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory)}
+    match theorem {
+    | (val-of empty-range1) =>
+       pick-any h:(It 'X 'S) i:(It 'X 'S) j:(It 'X 'S) 
+         assume hyp := ((range i j) = SOME stop h)
+           conclude (i = j)
+	     let {EL := (!prove empty-range);
+                  _ := (!chain-> 
+  		         [(range i j) 
+		        = (SOME stop h)      [hyp]
+		        = (range h h)        [EL]
+		      ==> (i = h & j = h)    [range.injective]])}
+ 	       (!chain [i = h                [(i = h)]
+	                  = j                [(j = h)]])
+    }
+
+(add-theorems theory |{empty-range1 := proof}|)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.3:
+#
+  define nonempty-back1 := 
+    (forall i j r . (range i j) = SOME back r ==> i =/= j)
+
+define proof :=
+ method (theorem adapt)
+  let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+    match theorem {
+      (val-of nonempty-back1) => 
+
+       (!stopgap (adapt theorem))
+
+    }
+
+(add-theorems theory |{[nonempty-back1] := proof}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.4:
+#
+  define zero-length :=
+    (forall r . length r = zero ==> exists i . r = stop i)
+  define nonzero-length :=
+    (forall r . length r =/= zero ==> exists r' . r = back r')
+
+define proofs :=
+ method (theorem adapt)
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+     match theorem {
+       (val-of zero-length) =>
+
+         (!stopgap (adapt theorem))
+
+     | (val-of nonzero-length) =>
+ 
+         (!stopgap (adapt theorem))
+
+     }
+
+ (add-theorems theory |{[zero-length nonzero-length] := proofs}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  declare in: (X, S) [(It X S) (Range X S)] -> Boolean
+
+  module in {
+
+    define of-stop := (forall i j . ~ i in stop j)
+    define of-back := 
+      (forall i r . i in back r <==> i = start back r | i in r)
+
+    (add-axioms theory [of-stop of-back])
+
+    define range-expand := (forall i r . i in r ==> i in back r)
+
+    define range-reduce := (forall i r . ~ i in back r ==> ~ i in r)
+
+    define proofs :=
+      method (theorem adapt) 
+        let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+          match theorem {
+            (val-of range-expand) => 
+              pick-any i:(It 'X 'S) r:(Range 'X 'S)
+     	        (!chain
+	 	  [(i in r)
+	       ==> (i = start back r | i in r)    [alternate]
+	       ==> (i in back r)                  [of-back]])
+          | (val-of range-reduce) => 
+              pick-any i r 
+                let {RE := (!prove range-expand)}
+                  (!chain [(~ i in back r)
+		       ==> (~ i in r)             [RE]])
+          }
+    
+    (add-theorems theory |{[range-expand range-reduce] := proofs}|)
+  } # close module in
+} # close module Range
+
+(test-all-proofs 'Range)
+
+#==========================================================================
+# SUBSECTION: Trivial iterator: The base of a hierarchy of iterator theories
+#
+module Trivial-Iterator {
+  open Range, Memory
+
+  define theory := (make-theory ['Range 'Memory] [])
+
+  define v := ?v
+
+  declare deref: (X, S) [(It X S)] -> (Memory.Loc S)
+
+  module deref {
+
+    define injective := (forall i j . deref i = deref j ==> i = j)
+
+    (add-axioms theory [injective])
+  } 
+
+  declare *in: (X, Y, S) [(It X S) (Range Y S)] -> Boolean
+
+  module *in {
+
+    define of-stop := (forall i k . ~ i *in stop k)
+    define of-back := 
+      (forall i r . i *in back r
+	            <==> deref i = deref start back r | i *in r)
+
+    define first-not-in-rest := (forall r . ~ start back r *in r)
+
+    (add-axioms theory [of-stop of-back first-not-in-rest])
+}
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.5:
+#
+extend-module *in {
+
+  define range-expand := (forall i r . i *in r ==> i *in back r)
+  define range-reduce := (forall i r . ~ i *in back r ==> ~ i *in r) 
+
+define proofs := 
+  method (theorem adapt) 
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [deref *in] := (adapt [deref *in])}
+    match theorem {
+      (val-of range-expand) => 
+      pick-any i:(It 'X 'S) r:(Range 'Y 'S)
+	(!chain
+	 [(i *in r)
+	  ==> (deref i = deref start back r | i *in r)  [alternate]
+	  ==> (i *in back r)                            [of-back]])
+    | (val-of range-reduce) => 
+      pick-any i r 
+        let {RE := (!prove range-expand);
+             p := (!chain [(i *in r) ==> (i *in back r) [RE]])}
+        (!contra-pos p)
+    }
+
+    (add-theorems theory |{[range-expand range-reduce] := proofs}|)
+  } # close module *in
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+  declare collect: (S, X) [(Memory S) (Range X S)] -> (List S)
+  
+  define ++ := List.join
+  
+  module collect {
+
+   define (axioms as [of-stop of-back]) :=
+    (fun
+     [(collect M stop h) = nil 
+      (collect M back r) = ((M at deref start back r) :: (collect M r))])
+
+   (add-axioms theory axioms)
+
+define (unchanged-prop r) := 
+  (forall M i v .
+    ~ i *in r ==> (collect (M \ (deref i) <- v) r) = (collect M r))
+
+define unchanged := (forall r . unchanged-prop r)
+
+define proof :=
+  method (theorem adapt)
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+         [deref *in] := (adapt [deref *in])}
+      match theorem {
+        (val-of unchanged) => 
+          by-induction (adapt theorem) {
+            (stop h:(It 'Y 'S)) =>
+  	      pick-any M:(Memory 'S) i:(It 'X 'S) v:'S
+                assume (~ i *in stop h)
+                  let {M1 := (M \ (deref i) <- v)}
+ 	            (!chain [(collect M1 (stop h))
+		           = nil:(List 'S)              [of-stop]
+		           = (collect M (stop h))       [of-stop]])
+      | (r as (back r':(Range 'Y 'S))) =>
+          pick-any M:(Memory 'S) i:(It 'X 'S) v:'S
+            let {IH := (unchanged-prop r');
+	         k' := (start r); 
+	         M1 := (M \ (deref i) <- v)}
+	      assume hyp := (~ i *in r)
+	        let {p1 := (!chain-> 
+		 	     [hyp
+			 ==> (~ (deref i = deref k' |
+			         i *in r'))             [*in.of-back]
+                         ==> (deref i =/= deref k' &
+			      ~ i *in r')               [dm]
+  	   	         ==> (deref i =/= deref k')     [left-and]]);				 
+                     RR := (!prove *in.range-reduce);    
+  	             p2 := (!chain-> 
+		             [hyp 
+		          ==> (~ i *in r')              [RR]
+		          ==> ((collect M1 r') =
+			       (collect M r'))          [IH]])}
+                  (!chain
+		    [(collect M1 r)
+  	           = ((M1 at deref k') ::
+		      (collect M1 r'))                  [of-back]
+		   = ((M at deref k')  ::
+		      (collect M1 r'))                  [p1 assign.unequal]
+ 	           = ((M at deref k')  ::
+		      (collect M r'))                   [p2]
+		   = (collect M r)                      [of-back]])
+    }
+  }
+
+
+  (add-theorems theory |{unchanged := proof}|)
+ } # close modlule collect
+} # close module Trivial-Iterator
+
+(test-all-proofs 'Trivial-Iterator)
+
+#==========================================================================
+# SUBSECTION: Forward iterators
+#
+module Forward-Iterator {
+  open Trivial-Iterator
+
+  define theory := (make-theory ['Trivial-Iterator] [])
+
+  declare successor: (X, S) [(It X S)] -> (It X S)
+
+  module successor {
+
+    define of-start := (forall r . successor start back r = start r)
+
+    define injective := (forall i j . successor i = successor j ==> i = j)
+
+    define deref-of :=
+      (forall i r . deref successor i = deref start r
+                    ==> deref i = deref start back r)
+
+    (add-axioms theory [of-start injective deref-of])
+  }
+
+define start-shift :=
+  (forall i r . successor i = start r ==> i = start back r)
+
+define range-back :=
+  (forall i j r . (range (successor i) j) = SOME r
+                  <==> (range i j) = SOME back r) 
+
+define proofs := 
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [deref *in successor] := (adapt [deref *in successor])}
+      match theorem {
+        (val-of start-shift) =>
+	  pick-any i:(It 'X 'S) r:(Range 'X 'S)
+	    assume I := (successor i = start r)
+	      (!chain-> 
+              [(successor i)
+	       = (start r)                         [I]
+               = (successor start back r)          [successor.of-start]
+               ==> (i = start back r)              [successor.injective]])
+      | (val-of range-back) => 
+          (!force (adapt theorem))
+      } 
+
+(add-theorems theory |{[start-shift range-back] := proofs}|)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.6:
+#
+define proofs := 
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [deref *in successor] := (adapt [deref *in successor])}
+      match theorem {
+        (val-of range-back) =>
+
+          (!stopgap (adapt theorem))        
+
+      }
+
+(add-theorems theory |{[range-back] := proofs}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define (finish-not-*in-prop r) :=
+  (forall i j k . (range i j) = SOME r & k *in r ==> k =/= j)
+
+define finish-not-*in := (forall r . finish-not-*in-prop r)
+
+define proof := 
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [deref *in successor] := (adapt [deref *in successor])}
+      match theorem {
+        (val-of finish-not-*in) =>
+         by-induction (adapt theorem) {
+           (stop h) =>
+             pick-any i j k
+               assume ((range i j) = SOME stop h & k *in stop h)
+                 (!from-complements (k =/= j)
+		  (k *in stop h)
+		  (!chain-> 
+		   [true ==> (~ k *in stop h)    [*in.of-stop]]))
+         | (r as (back r':(Range 'X 'S))) =>
+            (!force (finish-not-*in-prop r))
+         }
+      }
+
+(add-theorems theory |{finish-not-*in := proof}|)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.7:
+#
+# Copy the above proof method here and replace the use of force.
+
+(add-theorems theory |{finish-not-*in := proof}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.8:
+#
+define range-shift1 := 
+  (forall r i . (successor i) in r ==> i in back r)
+
+define range-shift2 := 
+  (forall i r . ~ i in back r ==> ~ (successor i) in r)
+
+define proofs :=
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         successor := (adapt successor)}
+     match theorem {
+      (val-of range-shift1) =>
+
+        (!stopgap (adapt theorem))
+
+      | (val-of range-shift2) => 
+
+        (!stopgap (adapt theorem))
+
+      }
+    
+(add-theorems theory |{[range-shift1 range-shift2] := proofs}|)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.9:
+#
+  module *in {
+    open Trivial-Iterator.*in
+
+    define range-shift1 := 
+      (forall r i . (successor i) *in r ==> i *in back r)
+    define range-shift2 := 
+      (forall i r . ~ i *in back r ==> ~ (successor i) *in r) 
+
+define proofs := 
+  method (theorem adapt) 
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory)}
+    match theorem {
+      (val-of range-shift1) =>
+
+       (!stopgap (adapt theorem))
+
+      | (val-of range-shift2) => 
+
+       (!stopgap (adapt theorem))
+
+      }
+    
+  (add-theorems theory |{[range-shift1 range-shift2] := proofs}|)
+ } # close module *in
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+} # close module Forward-Iterator
+
+(test-all-proofs 'Forward-Iterator)
+
+#==========================================================================
+# SECTION: Range count algorithm
+#
+extend-module Forward-Iterator {
+
+  define collect := Trivial-Iterator.collect
+
+  declare count1: (S, X) [S (It X S) (It X S) N] -> N
+
+  declare count: (S, X) [S (It X S) (It X S)] -> N 
+
+  module count {
+
+    define A := ?A:N
+
+    define (axioms as [if-empty if-equal if-unequal definition]) :=
+     (fun
+      [(M \\ (count1 x i j A)) = 
+       [A                                       when (i = j)
+        (M \\ (count1 x (successor i) j (S A))) when (i =/= j & 
+						      M at deref i = x)
+        (M \\ (count1 x (successor i) j A))     when (i =/= j & 
+						      M at deref i =/= x)]
+
+       (M \\ (count x i j)) = (M \\ (count1 x i j zero))])
+
+    (add-axioms theory axioms)
+
+define count' := List.count
+overload + N.+
+
+define (correctness1-prop r) :=
+         (forall M x i j A .
+	   (range i j) = SOME r ==>
+	   M \\ (count1 x i j A) = (count' x (collect M r)) + A)
+
+define correctness1 := (forall r . correctness1-prop r)
+
+define correctness :=
+  (forall r M x i j .
+    (range i j) = SOME r ==>
+    M \\ (count x i j) = (count' x (collect M r)))
+ 
+define proofs :=
+  method (theorem adapt)
+   let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+        [deref successor] := (adapt [deref successor])}
+    match theorem {
+      (val-of correctness1) =>
+        by-induction (adapt theorem) {
+          (stop h:(It 'X 'S)) =>
+            pick-any M:(Memory 'S) x:'S i:(It 'X 'S) j:(It 'X 'S) A:N 
+              assume hyp := ((range i j) = (SOME stop h))
+	        let {er1 := (!prove empty-range1);
+                     _ := (!chain->
+   		            [hyp ==> (i = j)         [er1]])}
+                  (!force ((M \\ (count1 x i j A)) =
+ 		            (count' x
+			    	    (collect
+				      M
+				      (stop h)))
+		            + A))
+      | (r as (back r':(Range 'X 'S))) =>
+         let {ind-hyp := (correctness1-prop r')}
+           pick-any M:(Memory 'S)
+	            x:'S
+		    i:(It 'X 'S)
+		    j:(It 'X 'S)
+		    A:N 
+             assume hyp := ((range i j) = SOME r)
+               let {goal := (M \\ (count1 x i j A) = 
+	  		      (count' x
+			      	      (collect M r))
+		              + A);
+                    nb1 := (!prove nonempty-back1);
+  		    lb :=  (!prove range-back);
+	            ii :=  (!chain->
+			     [hyp ==> (i =/= j)      [nb1]]);
+                    iii := (!chain->
+		   	    [hyp
+			==> ((range
+			       (successor i) j) =
+			      SOME r')               [lb]]);
+    	            iv := conclude (i = start r)
+		           (!chain->
+		 	     [(range i j) 
+			    = (SOME r)               [hyp]
+			    = (range (start r) 
+				    (finish r))      [range.collapse]
+			  ==> (i = start r &
+			       j = finish r)         [range.injective]
+			  ==> (i = start r)          [left-and]])}
+             (!two-cases
+               assume case1 := (M at deref i = x)
+                 (!force goal)
+               assume case2 := (M at deref i =/= x)
+                 conclude goal
+                   let {_ := (!sym case2)}
+  		     (!combine-equations
+		       (!chain 
+		         [(M \\ (count1 x i j A))
+		        = (M \\ (count1
+			          x
+  		                  (successor i)
+				  j
+				  A))                [if-unequal]
+		        = ((count'
+			     x
+			     (collect M r')) + A)    [iii ind-hyp]])
+		       (!chain 
+		         [((count' x
+			           (collect M r))
+  	  	       	   + A)
+		        = ((count'
+			     x
+  		             (M at deref i) ::
+			     (collect M r')) + A)
+                                                     [iv collect.of-back]
+                        = ((count'
+			     x
+			     (collect M r')) + A)  
+			                             [case2
+						      List.count.same]])))
+      } # by-induction
+    | (val-of correctness) => (!force (adapt theorem))
+    } # match theorem
+
+  (add-theorems theory |{[correctness1 correctness] := proofs}|)
+ } # close module count
+} # close module Forward-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.10:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# first use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.11:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# second use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.12:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# third use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Forward-Iterator.count.correctness1 
+              Forward-Iterator.count.correctness] 'Forward-Iterator)
+
+#==========================================================================
+# SECTION: Range replace algorithm
+#
+extend-module Forward-Iterator {
+
+  declare replace: (S, X) [(It X S) (It X S) S S] -> (Memory.Change S)
+
+  module replace {
+
+  define (axioms as [if-empty if-equal if-unequal]) :=
+    (fun
+     [(M \ (replace i j x y)) =
+         [M                     when (i = j)
+          ((M \ (deref i) <- y) \ (replace (successor i) j x y))
+                                when (i =/= j & M at deref i = x)
+          (M \ (replace (successor i) j x y)) 
+                                when (i =/= j & M at deref i =/= x)]])
+
+  (add-axioms theory axioms)
+
+define replace' := List.replace
+define q := ?q:(It 'Z 'S)
+
+define (correctness-prop r) :=
+  (forall M M' i j x y .
+    (range i j) = SOME r &
+    M' = (M \ (replace i j x y)) 
+    ==> (collect M' r) = (replace' (collect M r) x y) &
+        forall q . ~ q *in r ==> M' at deref q = M at deref q)
+
+define correctness := (forall r . correctness-prop r)
+
+define proof :=
+  method (theorem adapt) 
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+	 [deref *in successor] := (adapt [deref *in successor]);
+	  replace-eq := List.replace.equal}
+      match theorem {
+       (val-of correctness) =>
+         by-induction (adapt theorem) {
+          (stop h:(It 'X 'S)) =>
+            pick-any M: (Memory 'S)
+	             M':(Memory 'S)
+	       	     i: (It 'X 'S)
+		     j: (It 'X 'S) 
+	             x:'S
+		     y:'S 
+              assume hyp1 := ((range i j) = SOME stop h);
+	             hyp2 := (M' = M \ (replace i j x y))
+                let {el1 := (!prove empty-range1);
+	             _ := (!chain-> [hyp1 ==> (i = j)      [el1]]);
+       	             _ := conclude (M' = M)
+		            (!chain
+			      [M'
+			     = (M \ (replace i j x y))     [hyp2]
+			     = M                           [(i = j)
+			                                    if-empty]]);
+                     p1 := (!force
+		     	     ((collect M' stop h) = 
+			      (replace'
+			        (collect M stop h) x y)));
+                     p2 := conclude 
+   		             (forall k .
+			        ~ k *in stop h ==> 
+		  	          M' at deref k =
+				  M at deref k)
+                             pick-any k:(It 'Z 'S)
+                               assume (~ k *in stop h)
+			         (!chain
+				   [(M' at deref k)
+				  = (M at deref k)         [(M' = M)]])}
+                  (!both p1 p2)
+        | (r as (back r':(Range 'X 'S))) => 
+           let {ind-hyp := (correctness-prop r')}
+             pick-any M:(Memory 'S)
+	              M':(Memory 'S)
+		      i:(It 'X 'S)
+		      j:(It 'X 'S) 
+	              x:'S
+		      y:'S 
+               assume hyp1 := ((range i j) = SOME r);
+		      hyp2 := (M' = M \ (replace i j x y))
+                 let {p1 := ((collect M' r) = 
+			     (replace'
+			       (collect M r) x y));
+                      p2 := (forall h .
+		               ~ h *in r ==> 
+  				  M' at deref h =
+				  M at deref h);
+                      nb1 := (!prove nonempty-back1);
+                      i=/=j := (!chain->
+  	 	  	         [hyp1
+			      ==> (i =/= j)                [nb1]]);
+                      lb := (!prove range-back);
+                      p3 := (!chain->
+	 		       [hyp1
+			    ==> ((range (successor i) j)
+			         = SOME r')                [lb]]);
+				                          
+	              p4 := conclude (i = start r)
+		              (!chain->
+			       [(range i j) 
+			      = (SOME r)                   [hyp1 hyp2]
+			      = (range (start r) 
+				       (finish r))         [range.collapse]
+ 			    ==> (i = start r & 
+				 j = finish r)             [range.injective]
+		 	    ==> (i = start r)              [left-and]]);
+		      fnir := (!prove
+		                *in.first-not-in-rest);
+                      rr := (!prove *in.range-reduce)}
+                   conclude (p1 & p2)
+		     (!two-cases
+                       assume (M at deref i = x)
+                         let {M1 := (M \ (deref i) <- y);
+  	   	  	      q1 := 
+			       (!chain
+			         [M'
+			        = (M \
+				    (replace i j x y))     [hyp2]
+			        = (M1 \
+				   (replace
+				    (successor i) j x y))  [if-equal]]);
+		              (q2 as (and q2a q2b)) := 
+  	  		        (!chain->
+			         [q1
+		             ==> (p3 & q1) [augment]
+			     ==> ((collect M' r') = 
+				  (replace'
+				    (collect M1 r') x y) &
+				  forall h .
+				    ~ h *in r' ==> 
+				      M' at deref h =
+				      M1 at deref h)       [ind-hyp]]);
+			      q3 := (!chain-> 
+			  	     [true 
+			          ==> (~ start r *in r')   [fnir]
+			          ==> (~ i *in r')         [p4]]);
+                              _ := (!sym
+			             (M at deref i = x));
+			      cu := (!prove
+			              collect.unchanged);
+ 			      _ := conclude p1
+                                    (!combine-equations
+				     (!chain
+				      [(collect M' r)
+				     = ((M' at deref i) :: 
+				        (collect M' r'))   [p4
+					                    collect.of-back]
+				     = ((M1 at deref i) :: 
+				        (replace'
+				          (collect M1 r')
+				           x y))           [q2a q2b]
+				     = (y ::
+				        (replace'
+				          (collect M1 r')
+				            x y))          [assign.equal]
+		  		     = (y ::
+				        (replace'
+				          (collect M r')
+					    x y))          [cu]])  
+				     (!chain 
+				      [(replace'
+				        (collect M r) x y)
+				     = (replace'
+				         ((M at deref i) :: 
+				          (collect M r'))
+			                   x y)            [p4 
+							    collect.of-back]
+				     = (y ::
+				         (replace'
+				           (collect M r')
+				             x y))         [replace-eq]]));
+			      _ := (!force p2)}
+                           (!both p1 p2)
+		       assume (M at deref i =/= x)
+                         let {M1 := M;
+			      q1 := (!chain
+			  	      [M'
+				     = (M \ (replace
+				              i j x y))    [hyp2]
+				     = (M \ (replace 
+					     (successor i)
+					      j x y))
+ 				                           [if-unequal]]);
+		              (q2 as (and q2a q2b)) := 
+  			        (!chain->
+			          [q1
+			       ==> (p3 & q1)               [augment]
+			       ==> ((collect M' r') = 
+				     (replace'
+				      (collect M r')
+				        x y) &
+				    forall h .
+				      ~ h *in r' ==> 
+				      M' at deref h =
+				      M at deref h)        [ind-hyp]]);
+			      q3 := (!chain-> 
+				      [true
+				   ==> (~ start r *in r')  [fnir]
+				   ==> (~ i *in r')        [p4]]);
+                              _ := (!sym
+			              (M at deref i =/= x));
+ 			      _ := (!force p1);
+			      _ := (!force p2)}
+		           (!both p1 p2))
+        } # by-induction
+    } # match theorem
+
+  (add-theorems theory |{correctness := proof}|)
+  } # close module replace
+} # close module Forward-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.13:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# first use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.14:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# second use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.15:
+#
+# Copy the above extension of Forward-Iterator here and replace
+# the third use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Forward-Iterator.replace.correctness] 'Forward-Iterator)
+
+#==========================================================================
+# SECTION: Range copy algorithm
+#
+extend-module Forward-Iterator {
+
+  declare copy-memory: (S, X, Y) [(It X S) (It X S) (It Y S)] -> (Change S)
+  declare copy: (S, X, Y) [(It X S) (It X S) (It Y S)] -> (It Y S) 
+
+  define [M i j k M' k'] := 
+         [?M:(Memory 'S) ?i:(It 'X 'S) ?j:(It 'X 'S) ?k:(It 'Y 'S) 
+          ?M':(Memory 'S) ?k':(It 'Y 'S)]
+
+  module copy-memory {
+
+    define (axioms as [empty nonempty]) :=
+      (fun
+       [(M \ (copy-memory i j k)) = 
+          [M                              when (i = j)
+           ((M \ (deref k) <- (M at (deref i)))
+	           \ (copy-memory (successor i) j (successor k)))
+                                          when (i =/= j)]])
+
+    (add-axioms theory axioms)
+  } 
+
+  module copy {
+
+    define (axioms as [empty nonempty]) :=
+      (fun
+       [(M \\ (copy i j k)) =
+          [k                              when (i = j)
+           ((M \ (deref k) <- (M at (deref i)))
+	           \\ (copy (successor i) j (successor k)))
+                                          when (i =/= j)]])
+					  
+    (add-axioms theory axioms)
+
+define (correctness-prop r) := 
+  (forall i j M k M' k' .
+    (range i j) = SOME r &
+    ~ k *in r & 
+    M' = M \ (copy-memory i j k) & 
+    k' = M \\ (copy i j k) 
+    ==> exists r1 . 
+          (range k k') = SOME r1 &
+	  (collect M' r1) = (collect M r) &
+	  forall h . ~ h *in r1 ==> M' at deref h = M at deref h)
+
+define correctness := (forall r . correctness-prop r)
+
+define proof :=
+ method (theorem adapt) 
+  let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+       [deref *in successor] := (adapt [deref *in successor]);
+       [cp-mem-empty cp-mem-nonempty] :=
+       [copy-memory.empty copy-memory.nonempty]}
+    match theorem {
+     (val-of correctness) =>
+      by-induction (adapt theorem) {
+       (stop q:(It 'X 'S)) =>
+        pick-any i:(It 'X 'S)
+	         j:(It 'X 'S) 
+	         M:(Memory 'S)
+		 k:(It 'Y 'S) 
+	         M':(Memory 'S)
+		 k':(It 'Y 'S)
+  	  assume hyp := ((range i j) = SOME stop q &
+		         ~ k *in stop q & 
+		         M' = M \ (copy-memory i j k) &
+		         k' = M \\ (copy i j k))
+            conclude goal := (exists r1 .
+  	                       (range k k') = SOME r1 &
+   		               (collect M' r1) = (collect M stop q) &
+ 		               forall h .
+			          ~ h *in r1 ==>
+				     M' at deref h =
+				     M at deref h)
+              let {er1 := (!prove empty-range1);
+		   _ := conclude (i = j)
+		          (!chain->
+			     [(range i j)
+ 		            = (SOME stop q)             [hyp]
+		          ==> (i = j)                   [er1]]);
+	           _ := conclude (M' = M) 
+		          (!chain->
+			   [M'
+			 = (M \ (copy-memory i j k))    [hyp]  
+ 		         = M                            [cp-mem-empty]]);
+	           _ := conclude (k' = k)
+		         (!chain->
+			   [k'
+			 = (M \\ (copy i j k))          [hyp]
+			 = k                            [empty]]);
+                   _ := (!chain [(start stop k)
+			       = k                      [start.of-stop]
+			       = (finish stop k)        [finish.of-stop]]);
+                   protected := pick-any h
+                                  assume (~ h *in stop k)
+				    (!chain 
+				     [(M' at deref h)  
+				    = (M at deref h)    [(M' = M)]]);
+                   er := (!prove empty-range);
+		   p := (!both 
+			 (!chain [(range k k') 
+				= (range k k)           [(k' = k)]
+				= (SOME stop k)         [er]])
+			 (!both (!chain 
+				  [(collect M' stop k)   
+			 	 = nil:(List 'S)        [collect.of-stop]
+				 = (collect M stop q)   [collect.of-stop]])
+				protected))}
+                (!chain-> [p ==> goal                   [existence]])
+        | (r as (back r':(Range 'X 'S))) => 
+ 	  let {ind-hyp := (correctness-prop r')}
+           pick-any i:(It 'X 'S)
+	   	    j:(It 'X 'S)
+		    M:(Memory 'S)
+		    k:(It 'Y 'S) 
+	            M':(Memory 'S)
+		    k':(It 'Y 'S) 
+            let {M1 := (M \ deref k <- M at deref i);
+		 hyp1 := ((range i j) = SOME r);
+		 hyp2 := (~ k *in r); 
+		 hyp3 := (M' = M \ (copy-memory i j k));
+		 hyp4 := (k' = M \\ (copy i j k))}
+	      assume (hyp1 & hyp2 & hyp3 & hyp4)
+               conclude goal := (exists r1 .
+ 		                  (range k k') =
+				  SOME r1            &     
+ 			          (collect M' r1) =
+			          (collect M r)      &
+			          forall h .
+			            ~ h *in r1 ==> 
+                                      M' at deref h =
+			              M at deref h)
+                 let {(q as (and q1 q2)) := 
+		        (!chain-> 
+			 [(range i j)
+			= (SOME r)                      [hyp1]
+			= (range (start r) 
+			         (finish r))            [range.collapse]
+		      ==> (i = (start r) &
+		           j = (finish r))              [range.injective]]);
+		      nb := (!prove nonempty-back);
+		      _ := (!chain->
+			    [true 
+			 ==> (start r =/= finish r)     [nb]
+			 ==> (i =/= j)                  [q1 q2]]);
+		      rr := (!prove
+		              *in.range-reduce);
+		      cu := (!prove
+		              collect.unchanged);
+		      q3 := (!chain-> 
+			      [hyp2
+			   ==> (~ k *in r')             [rr]
+			   ==> ((collect M1 r') = 
+			        (collect M r'))         [cu]]);
+                      q4 := conclude
+		              (M' = M1 \
+ 	                             (copy-memory 
+ 				       (successor i)
+				       j 
+				       (successor k))) 
+			      (!chain 
+				[M'
+			       = (M \
+			          (copy-memory i j k))  [hyp3]
+	  	  	       = (M1 \
+			           (copy-memory
+				     (successor i)
+				     j 
+				    (successor k)))     [cp-mem-nonempty]]);
+                      q5 := conclude
+		              (k' = M1 \\
+			             (copy
+				       (successor i)
+				       j 
+				       (successor k)))
+			      (!chain 
+ 			        [k'
+			       = (M \\ (copy i j k))    [hyp4]
+			       = (M1 \\
+			           (copy
+			       	     (successor i)
+				     j 
+				     (successor k)))    [nonempty]]);
+		      lb := (!prove range-back);
+                      hyp1' := (!chain-> 
+			         [hyp1
+			      ==> ((range
+			             (successor i) j) 
+				   = SOME r')           [lb]]);
+		      rs2 := (!prove
+		               *in.range-shift2);
+		      q6 := (!chain->
+			     [hyp2
+			  ==> (~ (successor k) *in r')  [rs2]
+			  ==> (hyp1' &
+			       ~ (successor k) *in r' &
+			       q4 &
+			       q5)                      [augment]
+			  ==> (exists r1 .
+			        (range
+			          (successor k) k') = 
+			        SOME r1           &
+			       (collect M' r1) =
+			       (collect M1 r') &
+			       forall h .
+			        ~ h *in r1 ==> 
+				  M' at deref h = 
+				  M1 at deref h)        [ind-hyp]])}
+		 pick-witness r1 for q6 q6-w
+                   (!force goal)
+      }
+    } # match theorem 
+
+  (add-theorems theory |{correctness := proof}|)
+ } # close module copy
+} # close module Forward-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# EXERCISE 16.16:
+#
+# Copy the above extension of Forward-Iterator here and replace the
+# use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Forward-Iterator.copy.correctness] 'Forward-Iterator)
+
+#==========================================================================
+# SECTION: Range copy-backward algorithm
+#
+module Bidirectional-Iterator {
+  open Forward-Iterator
+
+  declare predecessor: (X, S) [(It X S)] -> (It X S)
+
+  module predecessor {
+
+    define of-start :=
+      (forall r .  predecessor start r = start back r)
+    define of-successor :=
+      (forall i . predecessor successor i = i)
+  }
+
+  define theory := 
+    (make-theory ['Forward-Iterator] 
+  	         [predecessor.of-start predecessor.of-successor])
+
+define successor-of-predecessor :=
+  (forall i . successor predecessor i = i)
+
+define proof :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+         [successor predecessor] := (adapt [successor predecessor])}
+      match theorem {    
+        (val-of successor-of-predecessor) =>
+         pick-any i:(It 'X 'S)
+           (!chain
+	    [(successor predecessor i)
+	   = (successor predecessor start stop i)  [start.of-stop]
+	   = (successor start back stop i)         [predecessor.of-start]
+	   = (start stop i)                        [successor.of-start]
+	   = i                                     [start.of-stop]])
+      }
+  (add-theorems theory |{successor-of-predecessor := proof}|)
+} # close module Bidirectional-Iterator
+
+(test-proofs [Bidirectional-Iterator.successor-of-predecessor] 
+              'Bidirectional-Iterator)
+
+#==========================================================================
+# SECTION: Adapters: Reverse-iterator and reverse-range
+#
+extend-module Bidirectional-Iterator {
+
+  module Reversing {
+    define ++ := List.join
+    define reverse := List.reverse
+
+    declare reverse-iterator: (X, S) [(It X S)] -> (It (It X S) S)
+    declare reverse-range: (X, S) [(Range X S)] -> (Range (It X S) S)
+    declare base-iterator: (X, S) [(It (It X S) S)] -> (It X S)
+    declare base-range: (X, S) [(Range (It X S) S)] -> (Range X S)
+
+    define deref-reverse :=
+      (forall i . deref reverse-iterator i = deref predecessor i)
+
+    define *reverse-in :=
+      (forall i r . (reverse-iterator i) *in (reverse-range r) <==> 
+  	            (predecessor i) *in r)
+
+    define base-reverse-range :=
+      (forall r . base-range reverse-range r = r)
+
+    define reverse-base-range :=
+      (forall r . reverse-range base-range r = r) 
+
+    define reverse-of-range :=
+      (forall i j r . 
+        (range (reverse-iterator j) (reverse-iterator i)) = SOME r 
+        <==> (range i j) = SOME base-range r)
+
+    define reverse-base :=
+      (forall i . reverse-iterator base-iterator i = i)
+
+    define collect-reverse-stop :=
+      (forall M i . (collect M (reverse-range stop i)) = nil)
+
+    define collect-reverse-back :=
+      (forall M r .
+        (collect M reverse-range back r) =
+        (collect M reverse-range r) ++ ((M at deref start back r) :: nil))
+
+    (add-axioms theory [deref-reverse *reverse-in base-reverse-range 
+    	                reverse-base-range reverse-of-range reverse-base 
+			collect-reverse-stop collect-reverse-back])
+
+define reverse-range-reverse :=
+  (forall i j r . 
+    (range (reverse-iterator j)
+	   (reverse-iterator i)) = SOME (reverse-range r)
+    <==> (range i j) = SOME r)
+
+define collect-reverse :=
+  (forall r M .
+    (collect M reverse-range r) = reverse (collect M r))
+  
+define collect-reverse-corollary :=
+  (forall M r M' r' .
+    (collect M' r') = (collect M reverse-range r)
+    ==> (collect M' base-range r') = (collect M r))
+
+define proofs :=
+ method (theorem adapt) 
+  let {[_ _ chain chain-> _] := (proof-tools adapt theory);
+       [deref *in successor predecessor] := 
+         (adapt [deref *in successor predecessor]);
+       [crs reverse-empty] := [collect-reverse-stop List.reverse.empty]}
+    match theorem {
+      (val-of reverse-range-reverse) =>
+        pick-any i:(It 'X 'S)
+		 j:(It 'X 'S)
+		 r:(Range 'X 'S)
+          (!chain
+ 	    [((range (reverse-iterator j)
+	             (reverse-iterator i)) =
+	      SOME (reverse-range r))
+        <==> ((range i j) =
+               SOME (base-range (reverse-range r)))   [reverse-of-range]
+        <==> ((range i j) = SOME r)	              [base-reverse-range]])
+      
+    | (val-of collect-reverse) =>
+        by-induction (adapt theorem) {
+          (stop i) =>
+            pick-any M
+              (!combine-equations
+	        (!chain->
+	          [(collect M (reverse-range stop i))
+	         = nil                                [crs]])
+	        (!chain
+	          [(reverse (collect M stop i))
+	         = (reverse nil)                      [collect.of-stop]
+	         = nil                                [reverse-empty]]))
+        | (r as (back r')) =>
+	     (!force (forall M .
+	               (collect M reverse-range r) =
+                       reverse (collect M r)))
+        }
+    | (val-of collect-reverse-corollary) =>
+        (!force (adapt theorem))
+    }
+	   
+   (add-theorems theory |{[reverse-range-reverse collect-reverse
+	                   collect-reverse-corollary] := proofs}|)
+
+  } # close module Reversing
+} # close module Bidirectional-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.17:
+#
+# Copy the above extension of Bidirectional-Iterator and replace the first
+# use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Bidirectional-Iterator.Reversing.collect-reverse] 
+             'Bidirectional-Iterator)   
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.18:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Bidirectional-Iterator.Reversing.collect-reverse-corollary] 
+             'Bidirectional-Iterator)   
+
+#==========================================================================
+# SECTION: Implementing copy-backward
+#
+extend-module Bidirectional-Iterator {
+  open Reversing
+
+  declare copy-memory-backward: (S, X, Y) [(It X S) (It X S) (It Y S)] -> 
+                                          (Change S)
+  declare copy-backward: (S, X, Y) [(It X S) (It X S) (It Y S)] -> (It Y S)
+
+  module copy-memory-backward {
+    define [def] := 
+      (fun
+       [(M \ (copy-memory-backward i j k)) =
+               (M \ (copy-memory (reverse-iterator j) 
+				 (reverse-iterator i)
+				 (reverse-iterator k)))])
+  } 
+
+  module copy-backward {
+    define [def] :=
+      (fun
+       [(M \\ (copy-backward i j k)) =
+                 (base-iterator (M \\ (copy (reverse-iterator j) 
+					    (reverse-iterator i)
+					    (reverse-iterator k))))])
+  } 
+
+  (add-axioms theory [copy-memory-backward.def copy-backward.def])
+
+extend-module copy-backward {
+
+define correctness :=
+    (forall r i j M k M' k' .
+      (range i j) = (SOME r) &
+      ~ (predecessor k) *in r & 
+      M' = (M \ (copy-memory-backward i j k)) & 
+      k' = (M \\ (copy-backward i j k)) 
+      ==> exists r' . 
+            (range k' k) = SOME r' &
+	    (collect M' r') = (collect M r) &
+            forall h . ~ h *in r' ==> M' at deref h = M at deref h)
+
+define proof :=
+  method (theorem adapt) 
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+	 [deref *in successor predecessor] :=
+	   (adapt [deref *in successor predecessor]);
+         [cp-mem-bk-df cp-bk-df rev-of-rng] :=
+	   [copy-memory-backward.def copy-backward.def reverse-of-range]}	   	 
+      match theorem {
+        (val-of correctness) =>
+         pick-any r:(Range 'X 'S)
+      	          i:(It 'X 'S)
+	          j:(It 'X 'S) 
+	     	  M:(Memory 'S)
+ 	          k:(It 'Y 'S) 
+	       	  M':(Memory 'S)
+	       	  k':(It 'Y 'S)
+           let {h1 := ((range i j) = SOME r);
+                h2 := (~ predecessor k *in r);
+                h3 := (M' = M \ (copy-memory-backward i j k));
+                h4 := (k' = M \\ (copy-backward i j k));
+                goal := (exists r' .
+                          (range k' k) = SOME r' &
+                          (collect M' r') = (collect M r) &
+                          forall h . ~ h *in r' ==> 
+			    M' at deref h = M at deref h)}
+             assume (h1 & h2 & h3 & h4)
+	       let {ri := reverse-iterator;
+	            rlr := (!prove reverse-range-reverse);
+	            p1 := (!chain-> 
+	       	            [h1
+			 ==> ((range (ri j)
+			             (ri i)) = 
+			       SOME reverse-range r)       [rlr]]);
+                    p2 := (!chain->
+		            [h2 
+  	   	         ==> (~ (ri k) *in
+			        reverse-range r)           [*reverse-in]]);
+                    p3 := (!chain
+		            [M' 
+		           = (M \ (copy-memory-backward
+			            i j k))                [h3]
+		           = (M \ (copy-memory (ri j)
+			                       (ri i)
+					       (ri k)))    [cp-mem-bk-df]]);
+ 		                                         
+                    p4 := (!chain
+		            [(ri k')
+     	  	           = (ri (M \\ (copy-backward
+			                   i j k)))        [h4]
+  		           = (ri (base-iterator 
+		  	           (M \\ (copy (ri j)
+			                       (ri i)
+					       (ri k)))))  [cp-bk-df]
+		                              
+		     = (M \\ (copy (ri j)
+		                   (ri i)
+				   (ri k)))                [reverse-base]]);
+	            cc := (!prove copy.correctness);
+                    p5 := (!chain->
+		            [(p1 & p2 & p3 & p4)
+  	   	         ==> (exists r' . 
+		 	       (range
+			         (ri k)
+			       	 (ri k')) = SOME r' &
+  	   	   	       (collect
+			         M' r') =
+			       (collect
+			         M reverse-range r) &
+  	  	   	       forall h . 
+			         ~ h *in r' ==> 
+			            M' at deref h =
+				    M at deref h)          [cc]])}
+                 pick-witness r' for p5
+                   let {p5-w1 := ((range (ri k)
+		                         (ri k')) =
+			          SOME r');
+                        p5-w2 := ((collect M' r') =
+			          (collect
+				    M reverse-range r));
+	   	        p5-w3 := (forall h . 
+			           ~ h *in r' ==> 
+  			             M' at deref h =
+				     M at deref h);
+                        q1 := (!chain->
+			       [p5-w1 
+  		            ==> ((range k' k) =
+			         SOME base-range r')       [rev-of-rng]]);
+                        crc := (!prove
+			        collect-reverse-corollary);
+                        q2 := (!chain->
+			        [p5-w2 
+ 	 	             ==> ((collect
+			            M' base-range r') =
+				  (collect M r))           [crc]]);
+                        q3 := (!force
+ 		               (forall h .
+		                 ~ h *in base-range r' ==> 
+  		                 M' at deref h =
+			         M at deref h))}
+                     (!chain-> 
+	               [(q1 & q2 & q3) ==> goal            [existence]])
+    }
+
+
+  (add-theorems theory |{correctness := proof}|)
+ } # close module copy-backward
+} # close module Bidirectional-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.19:
+#
+# Copy the above extension of Bidirectional-Iterator here and replace the
+# use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Bidirectional-Iterator.copy-backward.correctness] 
+              'Bidirectional-Iterator)
+
+#==========================================================================
+# SECTION: Random access iterators
+#
+module Random-Access-Iterator {
+  open Bidirectional-Iterator
+  overload + N.+
+
+  declare I+N: (X, S) [(It X S) N] -> (It X S) [+]
+  declare I-N: (X, S) [(It X S) N] -> (It X S) [-]
+  declare I-I: (X, S) [(It X S) (It X S)] -> N [-]
+
+  define [m n] := [?m:N ?n:N]
+
+  define I+0 := (forall i . i + zero = i)
+  define I+pos := (forall i n . i + (S n) = (successor i) + n)
+  define I-0 := (forall i . i - zero = i)
+  define I-pos := (forall i n . i - (S n) = predecessor (i - n))
+  define I-I := (forall i j n . i - j = n <==> j = i - n) 
+
+  define theory :=
+    (make-theory ['Bidirectional-Iterator] [I+0 I+pos I-0 I-pos I-I])
+
+#==========================================================================
+# SUBSECTION: Relationships among iterator functions
+#
+  define I-I-self := (forall i . i - i = zero)
+  define I+N-cancellation := (forall n i . (i + n) - n = i)
+  define I-I-cancellation := (forall n i . (i + n) - i = n)    
+  define successor-in :=
+    (forall n i . successor (i + n) = (successor i) + n)  
+  define I-M-N := 
+    (forall n m i . (i - m) - n = i - (m + n))
+}
+
+extend-module Random-Access-Iterator {
+define proofs :=
+  method (theorem adapt)
+   let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+        [successor predecessor I+N I-N I-I] := 
+	  (adapt [successor predecessor I+N I-N I-I])}
+      match theorem {    
+        (val-of I-I-self) =>
+          pick-any i:(It 'X 'S)
+            (!chain->
+	      [(i - i = zero) <== (i = i - zero)           [I-I]
+	                      <== (i = i)                  [I-0]])
+      | (val-of I+N-cancellation) =>
+          (!force (adapt theorem))			      
+      | (val-of I-I-cancellation) =>
+          let {IC := (!prove I+N-cancellation)}
+            pick-any n i:(It 'X 'S)
+              (!chain->
+ 	        [(i = i) 
+	     ==> (i = (i + n) - n)                         [IC]
+	     ==> ((i + n) - i = n)                         [I-I]])
+    | (val-of successor-in) => (!force (adapt theorem))
+    | (val-of I-M-N) =>        (!force (adapt theorem))
+    }
+
+  (add-theorems theory |{[I-I-self I+N-cancellation I-I-cancellation 
+   	 	          successor-in I-M-N] := proofs}|)
+			  
+} # close module Random-Access-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.20:
+#
+# Copy the above extension of Random-Access-Iterator here and replace
+# the first use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.21:
+#
+# Copy the above extension of Random-Access-Iterator here and replace
+# the second use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.22:
+#
+# Copy the above extension of Random-Access-Iterator here and replace
+# the third use of force.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(test-proofs [Random-Access-Iterator.I+N-cancellation
+              Random-Access-Iterator.successor-in
+              Random-Access-Iterator.I-M-N] 'Random-Access-Iterator)
+
+#==========================================================================
+# SUBSECTION: New properties of the length function
+#
+extend-module Random-Access-Iterator {
+  overload <= N.<=
+
+  define length1 := (forall r . start r = (finish r) - (length r))
+
+  define length2 := (forall r . length r = (finish r) - (start r))
+
+  define length3 := 
+    (forall i j r . (range i j) = SOME r ==> length r = j - i)
+
+#  define [r r' r''] := [?r:(Range 'X 'S) ?r':(Range 'X 'S) 
+#                        ?r'':(Range 'X 'S)]
+
+  define length4 :=
+    (forall i j n r r' r'' . 
+      (range i j) = SOME r & 
+      (range i i + n) = SOME r' &
+      (range i + n j) = SOME r'' 
+      ==> length r = (length r') + (length r''))
+
+  define (contained-range-prop n) :=
+    (forall r i j k .
+      (range i j) = SOME r &
+      k = i + n &
+      n <= length r
+      ==> exists r' . (range i k) = SOME r')
+	 
+  define contained-range := (forall n . contained-range-prop n)
+
+  define (collect-split-range-prop n) :=
+    (forall i j r . 
+      (range i j) = SOME r & n <= length r 
+      ==> exists r' r'' .
+            (range i i + n) = SOME r' &
+            (range i + n j) = SOME r'' &
+            forall M . 
+ 	      (collect M r) = (collect M r') ++ (collect M r''))
+
+  define collect-split-range := (forall n . collect-split-range-prop n)
+
+define [n0 r0 r0'] := [?n0 ?r0 ?r0']
+} # close module Random-Access-Iterator
+
+extend-module Random-Access-Iterator {
+define proofs :=
+  method (theorem adapt) 
+    let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+         [successor predecessor I+N I-N I-I] := 
+ 	   (adapt [successor predecessor I+N I-N I-I]);
+	 [pred-of-start range-inj] := [predecessor.of-start range.injective]}
+      match theorem {    
+        (val-of length1) =>
+          by-induction (adapt theorem) {
+            (stop j) => 
+              conclude (start stop j = (finish stop j) -
+	      	                       (length stop j))
+ 	        (!combine-equations
+  	          (!chain [(start stop j) = j              [start.of-stop]])
+ 	          (!chain [((finish stop j) -
+		            (length stop j))
+	  	         = (j - zero)                      [finish.of-stop 
+							    length.of-stop]
+ 		         = j                               [I-0]]))
+          | (r as (back r')) =>
+             conclude (start r = (finish r) - (length r))
+               let {ind-hyp := (start r' = (finish r') -
+	                                   length r')}
+                 (!combine-equations
+      	           (!chain [(start r) 
+	  	          = (predecessor start r')         [pred-of-start]
+		          = (predecessor 
+		             ((finish r') - length r'))    [ind-hyp]])
+ 	           (!chain [((finish r) - length r)
+  	   	          = ((finish r') - S length r')    [finish.of-back 
+						            length.of-back]
+  	                  = (predecessor 
+	    	              ((finish r') - length r'))   [I-pos]]))
+          }
+      | (val-of length2) => 
+          pick-any r:(Range 'X 'S)
+            let {rl1 := (!prove length1)}
+              (!chain-> 
+  	        [true 
+   	     ==> (start r = ((finish r) - length r))       [rl1]
+	     ==> ((finish r) - (start r) = length r)       [I-I]
+	     ==> (length r = (finish r) - start r)         [sym]])
+      | (val-of length3) =>
+          pick-any i:(It 'X 'S)
+	  	   j:(It 'X 'S)
+		   r:(Range 'X 'S)
+            assume hyp := ((range i j) = SOME r)
+              let {p := (!chain->
+		     [(range (start r) (finish r))
+		    = (SOME r)                             [range.collapse]
+		    = (range i j)                          [hyp]
+		    ==> (start r = i & finish r = j)       [range-inj]]);
+	           rl2 := (!prove length2)}
+   	        (!chain->
+	          [(length r)
+		 = ((finish r) - start r)                  [rl2]
+                 = (j - i)                                 [p]])
+      | (val-of length4) =>
+          (!force (adapt theorem))
+      | (val-of contained-range) =>
+          (!force (adapt theorem))
+      | (val-of collect-split-range) =>
+          (!force (adapt theorem))
+      }
+
+ (add-theorems theory |{[length1 length2 length3 length4
+			 contained-range collect-split-range] := proofs}|)
+} # close module Random-Access-Iterator
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.23:
+#
+# Copy the above extension to Random-Access-Iterator here and fill in
+# the proof of length4.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.24:
+#
+# Copy the above extension to Random-Access-Iterator here and fill in
+# the proof of contained-range.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# EXERCISE 16.25:
+#
+# Copy the above extension to Random-Access-Iterator here and fill in
+# the proof of collect-split-range.
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#==========================================================================
+# SUBSECTION: Theorems about collecting locations
+#
+extend-module Random-Access-Iterator {
+define in := List.in
+
+declare collect-locs: (S, X) [(Range X S)] -> (List (Memory.Loc S))
+
+module collect-locs {
+define [< <=] := [N.< N.<=]
+
+define (axioms as [of-stop of-back]) :=  
+  (fun
+    [(collect-locs stop h) = nil
+     (collect-locs back r) = (deref start back r :: (collect-locs r))])
+
+(add-axioms theory axioms)
+
+define (split-range-prop n) :=
+  (forall i j r . 
+    (range i j) = SOME r & n <= length r 
+    ==> 
+    exists r' r'' .
+      (range i i + n) = SOME r' &
+      (range i + n j) = SOME r'' &
+      (collect-locs r) = (collect-locs r') ++ (collect-locs r''))
+
+define split-range := (forall n . split-range-prop n)
+
+define *in-relation := 
+  (forall r i . i *in r <==> deref i in collect-locs r)
+
+define all-*in :=
+  (forall n i j r .
+    (range i j) = SOME r & n < length r ==> (i + n) *in r)
+
+define *in-whole-range :=
+  (forall n i j k r r' .
+    (range i j) = SOME r &
+    n < length r &
+    (range i i + n) = SOME r' &
+    (k *in r' | k = i + n)
+    ==> k *in r)
+
+define *in-whole-range-2 :=
+  (forall n i j k r r' .
+    (range i j) = SOME r &
+    n <= length r &
+    (range i + n j) = SOME r' &
+    (k *in r' | k = j)
+    ==> k *in r | k = j)
+
+define [succ pred cl] := [successor predecessor collect-locs]
+
+define split-range-proof :=
+ method (theorem adapt)
+  let {[_ prove chain chain-> _] := (proof-tools adapt theory);
+       [succ *in pred I+N I-N I-I] := 
+         (adapt [succ *in pred I+N I-N I-I]);
+       [DAO join-l-empty join-l-nempty <=-inj range-sb] :=
+           [(datatype-axioms "Option")
+            List.join.left-empty List.join.left-nonempty
+	    N.Less=.injective range.start-back]}
+    match theorem {
+      (val-of split-range) => 
+        by-induction (adapt theorem) {
+         zero => 
+           pick-any i:(It 'X 'S)
+	   	    j:(It 'X 'S)
+		    r:(Range 'X 'S)
+             assume h1 := ((range i j) = SOME r);
+	            h2 := (zero <= length r)
+               let {goal := (exists r' r'' .
+                              (range i i + zero) =
+			         SOME r'            &
+                              (range i + zero j) =
+			         SOME r''           &
+                              (collect-locs r) = 
+                                (collect-locs r') ++
+			        (collect-locs r''));
+                    el := (!prove empty-range);
+                    p1 := (!chain
+		   	    [(range i i + zero) 
+			   = (range i i)                    [I+0]
+		           = (SOME stop i)                  [el]]);
+                    p2 := (!chain
+		   	    [(range i + zero j)
+			   = (range i j)                    [I+0]
+			   = (SOME r)                       [h1]]);
+                    p3 := (!chain->
+		  	    [((collect-locs stop i) ++
+			     (collect-locs r))
+			   = (nil ++ (collect-locs r))	    [of-stop]
+			   = (collect-locs r)               [join-l-empty]
+                        ==>  (collect-locs r =
+ 		              (collect-locs stop i) ++
+			      (collect-locs r))             [sym]])}
+                 (!chain->
+		   [(p1 & p2 & p3) ==> goal                 [existence]])
+      | (n as (S m)) =>
+          pick-any i:(It 'X 'S)
+  	  	   j:(It 'X 'S)
+		   r:(Range 'X 'S)
+            assume h1 := ((range i j) = SOME r);
+	           h2 := (n <= length r)
+              let {goal := (exists r' r'' .
+                             (range i i + n) = SOME r'    &
+		  	     (range (i + n) j) = SOME r'' &
+			     (collect-locs r) = 
+			       (collect-locs r') ++
+			       (collect-locs r''));
+                   ind-hyp := (split-range-prop m);
+                    p1 := (!chain-> 
+		   	    [h2 
+                         ==> (exists n0 . length r = S n0)  [N.Less=.S4]])}
+                pick-witness n0 for p1 p1-w
+                  let {nl := (!prove nonzero-length);
+  	  	       p2 := (!chain->
+		  	       [true
+		            ==> (S n0 =/= zero)             [N.S-not-zero]
+			    ==> (length r =/= zero)         [p1-w]
+			    ==> (exists r0 . 
+				  r = back r0)              [nl]])}
+                    pick-witness r0 for p2 p2-w
+                      let {lb := (!prove range-back);
+                           p3 := (!chain->
+                                   [(range i j) 
+                                  = (SOME r)                [h1]
+                                  = (SOME back r0)          [p2-w]
+                                ==> ((range (succ i) j) = 
+	 			     SOME r0)               [lb]]);
+                           p4 := (!chain-> 
+                                   [h2
+				==> (n <= length back r0)   [p2-w]
+                                ==> (n <= S length r0)      [length.of-back]
+                                ==> (m <= length r0)        [<=-inj]]);
+                           p5 := (!chain->
+                                   [(p3 & p4)
+ 	  	                ==> (exists r0' r'' .
+                                      (range (succ i)
+  				      	     (succ i)
+					     + m) = 
+                                        SOME r0'      &
+                                      (range (succ i) + m
+				             j) =
+				       SOME r''       &
+                                      (cl r0) = 
+                                        (cl r0') ++
+					(cl r''))           [ind-hyp]])}
+                        pick-witnesses r0' r'' for p5 p5-w
+                          let {p5-w1 := ((range
+			                   (succ i)
+   		                           (succ i) + m)
+                                         = SOME r0');
+                               p5-w2 := ((range
+			                   (succ i) + m
+					   j) =
+  					 SOME r'');
+                               p5-w3 := ((cl r0) = 
+                                          (cl r0') ++
+					  (cl r''));
+                               q1 := (!chain->
+                                       [p5-w1 
+                                    ==> ((range
+				          (succ i)
+					    i + n) = 
+ 	  	  		         SOME r0')          [I+pos]
+                                    ==> ((range i
+				                i + n) = 
+				         SOME back r0')     [lb]]);
+                               q2 := (!chain->
+                                       [p5-w2
+                                    ==> ((range
+				            i + n j) = 
+ 				          SOME r'')         [I+pos]]);
+                               q3 := let {q3-1 :=
+				           (!chain->
+                                            [q1
+					 ==> (i = start
+					          back r0') 
+                                                            [range-sb]]);
+                                           q3-2 :=
+					    (!chain->
+                                             [(range i j) 
+                                           = (SOME r)       [h1]
+                                           = (SOME
+					       back r0)     [p2-w]
+                                         ==> (i =
+					      start
+					        back r0)    [range-sb]]);
+                                           q3-3 :=
+					    (!chain
+                                              [(start
+					        back r0)
+                                             = i            [q3-2]
+                                             = (start
+					         back r0')  [q3-1]])}
+                                       (!chain
+                                        [(cl r)
+	  		 	       = (cl back r0)       [p2-w]
+  	  	  	  	       = ((deref
+				            start
+					    back r0) :: 
+ 				          (cl r0))          [of-back]
+ 				       = ((deref
+				            start
+					    back r0) :: 
+ 	 			          ((cl r0') ++ 
+				           (cl r'')))       [p5-w3]
+                                       = (((deref
+				             start
+				             back r0) :: 
+				           (cl r0')) ++ 
+				           (cl r''))        [join-l-nempty]
+                                       = (((deref
+				             start
+					     back r0') :: 
+ 				            (cl r0')) ++ 
+				            (cl r''))       [q3-3]
+                                       = ((cl back r0') ++
+				          (cl r''))         [of-back]])}
+                            (!chain->
+			      [(q1 & q2 & q3) ==> goal      [existence]])
+      } # by-induction
+    } # match theorem 
+
+define (make-trivial-proof-method desired-theorem) := 
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}	
+      match theorem {
+        (val-of desired-theorem) => (!force (adapt desired-theorem))
+      }
+
+define *in-relation-proof      := (make-trivial-proof-method *in-relation)
+define all-*in-proof           := (make-trivial-proof-method all-*in)
+define *in-whole-range-proof   := (make-trivial-proof-method *in-whole-range)
+define *in-whole-range-2-proof := (make-trivial-proof-method *in-whole-range-2)
+
+(add-theorems theory |{split-range       := split-range-proof,
+                       *in-relation      := *in-relation-proof,
+		       all-*in           := all-*in-proof,
+                       *in-whole-range   := *in-whole-range-proof,
+ 	               *in-whole-range-2 := *in-whole-range-2-proof}|)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.26:
+#
+define *in-relation-proof :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}	
+      match theorem {
+        (val-of theorem) => 
+
+         (!stopgap (adapt theorem))
+
+      }
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.27:
+#
+define all-*in-proof :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}	
+      match theorem {
+        (val-of theorem) => 
+
+         (!stopgap (adapt theorem))
+
+      }
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.28:
+#
+define in-whole-range-proof :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}	
+      match theorem {
+        (val-of theorem) => 
+
+         (!stopgap (adapt theorem))
+
+      }
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.29:
+#
+define in-whole-range-2-proof :=
+  method (theorem adapt)
+    let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [successor *in predecessor I+N I-N I-I] := 
+	  (adapt [successor *in predecessor I+N I-N I-I]);
+        DAO := (datatype-axioms "Option")}	
+      match theorem {
+        (val-of theorem) => 
+
+         (!stopgap (adapt theorem))
+
+      }
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+(add-theorems theory |{*in-relation      := *in-relation-proof,
+		       all-*in           := all-*in-proof,
+                       *in-whole-range   := *in-whole-range-proof,
+ 	               *in-whole-range-2 := *in-whole-range-2-proof}|)
+
+
+(test-proofs [*in-relation all-*in *in-whole-range *in-whole-range-2] 
+             'Random-Access-Iterator)
+
+ } # close module collect-locs
+} # close module Random-Access-Iterator
+
+#==========================================================================
+# SUBSECTION: Ordered range
+#
+module Ordered-Range {
+  open SWO, Random-Access-Iterator
+
+  declare ordered: (S, X) [(Memory S) (Range X S)] -> Boolean 
+
+  define ordered' := SWO.ordered
+
+  define def := (forall r M . (ordered M r) <==> ordered' (collect M r))
+
+  define theory := (make-theory ['SWO 'Random-Access-Iterator] [def])
+}
+
+extend-module SWO {
+  define deref := Trivial-Iterator.deref
+  define start := Range.start
+  define at := Memory.at
+
+  declare <ER: (S, X) [S (Range X S)] -> Boolean
+
+  define [M r i x] := 
+         [?M:(Memory 'S) ?r:(Range 'X 'S) ?i:(It 'X 'S) ?x:'S]
+
+  module <ER {
+
+    define empty := (forall x i . x <ER stop i)
+         
+    define nonempty :=
+      (forall x M r . x <ER back r <==> x <E M at deref start back r)
+
+    (add-axioms theory [empty nonempty])
+  }
+}
+
+extend-module Ordered-Range {
+
+  define ordered-rest-range :=
+    (forall M r . (ordered M back r) ==> (ordered M r))
+                                               
+  define ordered-empty-range := (forall M i . (ordered M stop i))         
+
+  define ordered-subranges :=
+    (forall M r i j n . (range i j) = SOME r &
+                        (ordered M r) &
+                        n <= length r
+                        ==> exists r' r'' .
+                              (range i i + n) = SOME r' &
+                              (range i + n j) = SOME r'' &
+                              (ordered M r') &
+                              (ordered M r''))
+
+define proofs :=
+  method (theorem adapt)
+   let {[_ prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [deref <EL I+N I-N I-I ordered ordered'] := 
+           (adapt [deref <EL I+N I-N I-I ordered ordered'])}
+     match theorem {
+       (val-of ordered-rest-range) =>
+         pick-any M r
+           (!chain
+	     [(ordered M (back r))
+          ==> (ordered' (collect M (back r)))     [def]
+	  ==> (ordered'
+	        ((M at deref start back r)
+	         :: (collect M r)))               [collect.of-back]
+          ==> ((M at deref start back r) 
+	        <EL (collect M r)         & 
+               (ordered' (collect M r)))          [SWO.ordered.nonempty]
+          ==> (ordered' (collect M r))            [right-and]
+	  ==> (ordered M r)                       [def]])
+     | (val-of ordered-empty-range) =>
+         pick-any M i
+           (!chain->
+             [true
+	  ==> (ordered' nil)                      [SWO.ordered.empty]
+          ==> (ordered' (collect M stop i))       [collect.of-stop]
+          ==> (ordered M stop i)                  [def]])
+     | (val-of ordered-subranges) =>
+         (!force (adapt theorem))
+   }
+
+ (add-theorems theory |{[ordered-rest-range ordered-empty-range
+                         ordered-subranges] := proofs}|)
+} # close module Ordered-Range
+
+(test-proofs [Ordered-Range.ordered-rest-range
+              Ordered-Range.ordered-empty-range] 'Ordered-Range)
+
+extend-module Ordered-Range {
+define proofs :=
+  method (theorem adapt)
+   let {[get prove chain chain-> chain<-] := (proof-tools adapt theory);
+        [deref <EL I+N I-N I-I ordered ordered'] := 
+           (adapt [deref <EL I+N I-N I-I ordered ordered'])}
+   match theorem {
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# exercise 16.30:
+#
+   | (val-of ordered-subranges) =>
+
+       (!stopgap (adapt theorem))
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+   } # match theorem
+ (add-theorems theory |{[ordered-subranges] := proofs}|)
+} # close module Ordered-Range
+
+(test-proofs [Ordered-Range.ordered-subranges] 'Ordered-Range)
+
+#==========================================================================
+# SECTION: A binary search algorithm
+#
+
+extend-module Ordered-Range {
+
+  declare lower-bound: (S, X) [(It X S) (It X S) S] -> (It X S)
+
+  module lower-bound {
+
+    define half := N.half
+
+    define (axioms as  [empty go-right go-left]) := 
+      (fun
+        [(M \\ (lower-bound i j x)) =
+          let {mid := (i + half (j - i))}
+            [i                                when (i = j)
+	    
+             (M \\ (lower-bound
+	             (successor mid) j x))    when (i =/= j & M at deref mid < x)
+                            
+             (M \\ (lower-bound i mid x))     when (i =/= j &
+	                                            ~ M at deref mid < x)]])
+
+    (add-axioms theory axioms)
+
+
+define (position-found-condition r M i j x k) := 
+   ((range i j) = SOME r &
+    (ordered M r) &
+    k = M \\ (lower-bound i j x))
+
+define (position-found-conclusion r M i j x k) :=
+    ((k *in r | k = j) &
+     (k =/= i ==> M at deref predecessor k < x) &
+     (k =/= j ==> x <E M at deref k))
+	
+define (position-found-prop r) :=
+  (forall M i j x k .
+    (position-found-condition r M i j x k) ==>
+    (position-found-conclusion r M i j x k))
+
+define position-found := (forall r . position-found-prop r)
+
+define <' := N.<
+overload * N.*
+
+define (make-proof stop-case-handler back-case-handler) :=
+  method (theorem adapt)
+    let {tools := (proof-tools adapt theory);
+         adapted-syms := (adapt [< <E ordered deref *in successor predecessor I+N I-N I-I])}
+      match theorem {
+        (val-of position-found) =>
+          (!strong-induction.measure-induction (adapt theorem) length
+            pick-any r:(Range 'X 'S) 
+              assume ind-hyp := (forall r' . 
+ 	                          length r' <' length r ==> position-found-prop r')
+                pick-any M:(Memory 'S)
+	       		 i:(It 'X 'S)
+			 j:(It 'X 'S) 
+	            	 x:'S
+			 k:(It 'X 'S) 
+                  assume hyp := (position-found-condition r M i j x k)
+                    let {uvars := [M i j x k];
+		         goal :=  lambda (r)
+		                    (position-found-conclusion r M i j x k)}
+                      datatype-cases (goal r) on r {
+                        (st as (stop i0:(It 'X 'S))) =>
+			  conclude (goal st)
+                            (!stop-case-handler tools adapted-syms r uvars i0)
+  	              | (bk as (back r0:(Range 'X 'S))) =>
+     			  conclude (goal bk)
+                            (!back-case-handler tools adapted-syms r uvars r0)
+	              } # datatype-cases
+	  ) # strong-induction.measure-induction
+      } # match theorem
+
+define (trivial-stop-case-handler tools syms r uvars i0) :=
+  match uvars {
+    [M i j x k] => (!force (position-found-conclusion (stop i0) M i j x k))
+  }
+
+define (trivial-back-case-handler tools syms r uvars r0) :=
+  match uvars {
+    [M i j x k] => (!force (position-found-conclusion (back r0) M i j x k))
+  }
+  
+(add-theorems theory |{position-found :=
+  	                (make-proof trivial-stop-case-handler
+		  	            trivial-back-case-handler)}|)
+
+(test-proofs [position-found] 'Ordered-Range)
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.31:
+#
+
+define (stop-case-handler tools syms r uvars i0) :=
+  let {[<:(OP 2) <E:(OP 2) ordered deref:(OP 1) *in:(OP 2)
+        successor predecessor I+N I-N I-I] := syms;
+       [M i j x k] := uvars;
+       [_ prove chain chain-> _] := tools}
+    conclude goal := (position-found-conclusion (stop i0) M i j x k)
+
+      (!stopgap goal)
+
+
+(add-theorems theory |{position-found :=
+  	                (make-proof stop-case-handler
+		  	            trivial-back-case-handler)}|)
+
+(print "\nTesting stop-case-handler...\n")
+
+(test-proofs [position-found] 'Ordered-Range)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+define case1-handler-cell :=
+  (cell method (tools fsyms r r1 r2 r3 uvars r0 case1 goal)
+         (!force goal))
+
+define case2-handler-cell :=
+ (cell method (tools fsyms r r1 r2 r3 uvars r0 case2 goal)
+         (!force goal))
+  
+define (back-case-handler tools syms r uvars r0) :=
+  let {[<:(OP 2) <E:(OP 2) ordered:(OP 2) deref:(OP 1)
+        *in:(OP 2) successor:(OP 1) predecessor:(OP 1)
+	I+N:(OP 2) I-N:(OP 2) I-I:(OP 2)] := syms;
+       [M i j x k] := uvars;
+       parity := N.parity; 
+       [_ prove chain chain-> _] := tools}
+    conclude goal := (position-found-conclusion (back r0) M i j x k)
+      let {hyp1 := ((range i j) = SOME r);
+           hyp2 := (ordered M r);
+	   hyp3 := (k = M \\ (lower-bound i j x));
+           nb := (!prove nonempty-back1);
+           i=/=j := (!chain->
+	              [(range i j) 
+   	             = (SOME r)                     [hyp1]
+	             = (SOME back r0)               [(r = back r0)]
+	           ==> (i =/= j)                    [nb]]);
+           (and p2 p3) := (!chain-> 
+ 	    	            [((range i j) = SOME r)
+ 	                 ==> ((range i j) = 
+		              (range start r
+			             finish r))     [range.collapse]
+ 	                 ==> (i = start r &
+			      j = finish r)         [range.injective]]);
+           rl2 := (!prove length2);
+           n := (length r);
+           p4 := (!chain
+	           [n = ((finish r) - (start r))    [rl2]
+   	  	      = (j - i)                     [p2 p3]]);
+           p4' := (!by-contradiction (n =/= zero)
+                    assume (n = zero)	
+	              (!absurd
+		        (!chain 
+			  [(S length r0)
+			 = (length back r0)        [length.of-back]
+			 = n                       [(r = back r0)]
+			 = zero                    [(n = zero)]])
+			(!chain-> 
+			  [true
+		       ==> (S length r0 =/= zero)  [N.S-not-zero]])));
+     	   p5 := (!chain-> 
+	           [(n =/= zero)
+		==> (half length r <' n)           [N.half.less]
+		==> (half (j - i) <' n)            [p4]]);
+           p6 := (!chain->
+	           [p5
+		==> (half (j - i) <= n)            [N.Less=.Implied-by-<]]);
+           mid := (i + half (j - i));
+	   os := (!prove ordered-subranges);
+	   p7 := (!chain->
+		   [(hyp1 & hyp2 & p6)
+  	        ==> (exists r1 r2 .
+	              (range i mid) = SOME r1 &
+	 	      (range mid j) = SOME r2 &
+		      (ordered M r1) &
+		      (ordered M r2))              [os]])}
+        pick-witnesses r1 r2 for p7 p7-w
+	  let {p7-w1 := ((range i mid) = SOME r1);
+	       p7-w2 := ((range mid j) = SOME r2);
+	       p7-w3 := (ordered M r1);
+	       p7-w4 := (ordered M r2);
+	       iic := (!prove I-I-cancellation);
+	       rl3 := (!prove length3);
+	       p8 := (!chain
+		       [p7-w1
+		    ==> (length r1 = mid - i)      [rl3]]);
+	       p9 := (!chain
+		       [p7-w2
+		    ==> (length r2 = j - mid)      [rl3]]);
+	       q1 := (!chain [(length r1) 
+			    = (mid - i)            [p8]
+			    = (half (j - i))       [iic]
+			    = (half n)             [p4]]);
+	       rl4 := (!prove length4);
+                q2 := (!chain->
+			[(hyp1 & p7-w1 & p7-w2)
+		     ==> (n = (length r1) +
+		              (length r2))         [rl4]]);
+               q3 := (!chain
+	 	       [n
+		      = (N.two * (half n)
+		              + (parity n))        [N.parity.half-case]
+         	      = (((half n) + (half n))
+		              + (parity n))        [N.Times.two-times]
+ 		      = (((half n) + (parity n))
+		              + (half n))          [N.Plus.associative 
+  						    N.Plus.commutative]]);
+               q4 := (!chain->
+	               [((length r2) + (half n))
+		      = ((half n) + (length r2))   [N.Plus.commutative]
+		      = ((length r1) +
+		         (length r2))              [q1]
+ 		      = n                          [q2]
+		      = (((half n) + (parity n))
+	                   + (half n))             [q3]
+		    ==> (length r2 = (half n) +
+		                     (parity n))   [N.Plus.=-cancellation]]);
+	       nzl := (!prove nonzero-length);
+               q5 := (!chain->
+	      	       [(n =/= zero)
+		    ==> ((half n) + (parity n)
+		             =/= zero)             [N.parity.plus-half]
+		    ==> (length r2 =/= zero)       [q4]
+		    ==> (exists r3 . r2 = back r3) [nzl]])}
+            pick-witness r3 for q5 q5-w # (r2 = back r3) 
+              (!two-cases		     
+                assume case1 := ((M at (deref mid)) < x)
+                  (!(ref case1-handler-cell) tools syms r r1 r2 r3 uvars r0 case1 goal)
+                assume case2 := (~ (M at (deref mid)) < x)
+                  (!(ref case2-handler-cell) tools syms r r1 r2 r3 uvars r0 case2 goal))
+
+(add-theorems theory |{position-found :=
+  	                (make-proof trivial-stop-case-handler
+		  	            back-case-handler)}|)
+
+(print "\nTesting back-case-handler...\n")
+(test-proofs [position-found] 'Ordered-Range)   
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.32:
+#
+define (case1-handler tools syms r r1 r2 r3 uvars r0 case1 goal) :=
+  let {[<:(OP 2) <E:(OP 2) ordered:(OP 2) deref:(OP 1) *in:(OP 2)
+        successor:(OP 1) predecessor:(OP 1)
+	I+N:(OP 2) I-N:(OP 2) I-I:(OP 2)] := syms;
+	rai-cl-*in-whole-range-2 :=
+	   Random-Access-Iterator.collect-locs.*in-whole-range-2;
+        pred-of-succ := predecessor.of-successor;
+	half-less-eq-1 := N.half.less-equal-1;
+	<=-transitive1 := N.Less=.transitive1;
+       [M i j x k] := uvars;
+       [_ prove chain chain-> _] := tools}
+    conclude goal := (position-found-conclusion (back r0) M i j x k)
+
+      (!stopgap goal)
+
+
+(set! case1-handler-cell case1-handler)
+(print "\nTesting case1-handler...\n")
+(test-proofs [position-found] 'Ordered-Range)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.33:
+#
+define (case2-handler tools syms r r1 r2 r3 uvars r0 case2 goal) :=
+  let {[<:(OP 2) <E:(OP 2) ordered:(OP 2) deref:(OP 1) *in:(OP 2)
+        succ:(OP 1) pred:(OP 1) I+N:(OP 2) I-N:(OP 2)
+	I-I:(OP 2)] := syms;
+       [M i j x k] := uvars;
+       [_ prove chain chain-> _] := tools}
+    conclude goal := (position-found-conclusion (back r0) M i j x k)
+
+      (!stopgap goal)
+
+set! case1-handler-cell case1-handler
+set! case2-handler-cell case2-handler
+
+(test-proofs [position-found] 'Ordered-Range)
+
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+} # close module lower-bound
+} # close module Ordered-Range
+
+#[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
+# Exercise 16.34:
+#
+#]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]
+
+

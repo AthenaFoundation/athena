@@ -1,0 +1,101 @@
+#========================== Solution to exercise 4.24 =========================
+
+# dm-2-b implements the direction from the conclusion of [R1] to its premise: 
+
+  define (dm-2-b premise target) := 
+    match [premise target] {
+      [(or (some-list disjuncts))
+        (not (conjunction as (and (some-list conjuncts))))] =>
+          let {d-c := (list-zip disjuncts conjuncts)}
+            (!by-contradiction target
+               assume conjunction
+                 (!map-method method (pair)
+                                match pair {
+                                  [d c] => assume d
+                                             (!from-complements false c d)
+                                }
+                                d-c
+                                method (conditionals)
+                                  (!cases premise conditionals)))
+    }
+
+# dm-2-c implements the direction from the premise of [R2] to its conclusion:
+
+  define (dm-2-c premise target) := 
+    match [premise target] {
+      [(not (disjunction as (or (some-list disjuncts))))
+        (and (some-list conjuncts))] =>
+           let {d-c := (list-zip disjuncts conjuncts)}
+             (!map-method method (pair)
+                            match pair {
+                              [(some-sent p) (some-sent q)] =>
+                                (!by-contradiction q
+                                  assume p
+                                    (!absurd (!either disjunction) premise))
+                            }
+                          d-c
+                          method (complemented-args)
+                            (!conj-intro (and complemented-args)))
+    }
+
+# dm-2-a implements the direction from the premise of [R1] to its conclusion:
+
+  define (dm-2-a premise target) :=
+    match [premise target] {
+       [(not (premise-body as (and (some-list conjuncts))))
+        (or (some-list disjuncts))] => 
+          let {c-d :=  (list-zip conjuncts disjuncts)}
+            (!by-contradiction target
+               assume -target := (~ target)
+                 (!absurd (!dm-2-c -target premise-body)
+                          premise))
+    }
+
+# dm-2-d implements the direction from the conclusion of [R2] to its premise:
+
+  define (dm-2-d premise target) :=
+    match [premise target] {
+      [(and (some-list conjuncts))
+       (not (disjunction as (or (some-list disjuncts))))] =>
+         (!by-contradiction target
+           assume disjunction
+             (!map-method method (pair)
+                            match pair {
+                              [c d] => assume d
+                                         (!from-complements false c d)
+                            }
+                          (list-zip conjuncts disjuncts)
+		          method (conditionals)
+                            (!cases disjunction conditionals)))
+    }
+
+# Finally, dm-2 dispatches one of the above methods 
+# depending on the form of its inputs:                                       
+
+  define (dm-2 premise target) :=
+    match premise {
+      (not (and (some-list _))) => (!dm-2-a premise target)
+    | (not (or (some-list _)))  => (!dm-2-c premise target)
+    | (and (some-list _))       => (!dm-2-d premise target)
+    | (or (some-list _))        => (!dm-2-b premise target)
+    }
+
+(mark `1)
+
+  let {p := (~ (and A B C D E));
+       q := (or (~ A) (~ B) (~ C) (~ D) (~ E));
+       _ := (mark `2);
+       test1 := assume p
+                  conclude q 
+                    (!dm-2 p q);
+       _ := (mark `3);		    
+       test2 := assume q
+                  conclude p
+                    (!dm-2 q p);
+
+       _ := (mark `4)
+    }
+    (!both test1 test2)
+
+
+(mark `9)

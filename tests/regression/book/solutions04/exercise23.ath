@@ -1,0 +1,46 @@
+#========================== Solution to exercise 4.23 =========================
+
+  define (negated-bicond-1 premise) := 
+    match premise {
+      (~ (p1 <==> p2)) => 
+        (!two-cases
+           assume p1
+             let {-p2 := (!by-contradiction (~ p2)
+                            assume p2 
+                              (!absurd (!equiv assume p1 (!claim p2)
+                                               assume p2 (!claim p1))
+                                       premise))}
+               (!left-either (!both p1 -p2) (~ p1 & p2))
+           assume -p1 := (~ p1)
+             let {p2 := (!by-contradiction p2
+                           assume (~ p2)
+                            (!absurd (!equiv assume p1
+	  	                               (!from-complements p2 p1 (~ p1))
+                                             assume p2 
+  		                               (!from-complements p1 p2 (~ p2)))
+                                     premise))}
+               (!right-either (p1 & ~ p2) (!both -p1 p2)))
+    }
+
+  define (negated-bicond-2 premise) :=
+    match premise {
+      ((p1 & (~ p2)) | ((~ p1) & p2)) => 
+        let {goal := (~ (p1 <==> p2));
+             M := method (equiv-detach case)
+                        (!by-contradiction goal
+                            assume goal' := (p1 <==> p2)
+                              (!absurd (!equiv-detach goal')
+                                       (!neg-cond case)))}         
+          (!cases premise
+                    assume case1 := (p1 & ~ p2)
+                      (!M left-iff case1)
+                    assume case2 := (~ p1 & p2)
+                      (!M right-iff (!comm case2)))
+    }
+
+  define (negated-bicond premise) :=
+    match premise {
+      (~ (_ <==> _)) => (!negated-bicond-1 premise)
+    | _ => (!negated-bicond-2 premise)
+    }
+

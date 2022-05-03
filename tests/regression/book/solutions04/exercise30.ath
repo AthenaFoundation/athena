@@ -1,0 +1,26 @@
+#========================== Solution to exercise 4.30 =========================
+
+  define (conj-from list) := 
+    match list {
+      [sentence] => (!claim sentence)
+    | (list-of first rest) =>
+        (!both first (!conj-from rest))
+    }
+
+  define (flatten-conj premise) := 
+    letrec {process := 
+             method (premise to-do non-conjunctions)
+               match [premise to-do non-conjunctions] {
+                 [(p1 & p2) _ _] => 
+                     let {_ := (!left-and premise);
+                          _ := (!right-and premise)}
+                     (!process p1 (add p2 to-do) non-conjunctions)
+               | [_ (list-of first rest) _] => 
+                    (!process first rest (add premise non-conjunctions))
+               | [_ _ list] => (!conj-from (rev (add premise list)))
+               }}
+    (!process premise [] [])
+
+  assume h := ((A & B) & C & (D & E & F) & H)
+    (!flatten-conj h)
+

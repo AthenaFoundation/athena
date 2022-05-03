@@ -1,0 +1,62 @@
+# Part 1: 
+
+clear-assumption-base
+assume h := (forall x . P x <==> Q x)
+  (!equiv assume h1 := (forall x . P x)
+            pick-any x 
+              (!mp (!left-iff (!uspec h x))
+                   (!uspec h1 x))
+          assume h2 := (forall x . Q x)
+            pick-any x
+              (!mp (!right-iff (!uspec h x))
+                   (!uspec h2 x)))
+
+# Part 2: 
+
+clear-assumption-base
+assert premise-1 := (exists x . c R x & A)
+assert premise-2 := (exists x . Q x & x T x)
+assert premise-3 := (forall x . A & Q x ==> ~ S x)
+
+conclude goal := (exists y . ~ S y & y T y) 
+  pick-witness w for premise-2             # gives Q w & w T w
+    pick-witness w' for premise-1          # gives c R w' & A
+      let {A&Qw := (!both A (Q w));
+           -Sw  := (!fire premise-3 [w]);
+           _    := (!both -Sw (w T w))}
+        (!egen goal w)
+
+
+# Part 3: 
+
+clear-assumption-base
+assert premise-1 := (exists x . P x & forall y . Q y ==> x R y)  
+assert premise-2 := (forall x . P x ==> forall y . S y ==> ~ x R y)
+ 
+conclude goal := (forall x . Q x ==> ~ S x)
+  pick-any x 
+    assume (Q x)
+      (!by-contradiction (~ S x)
+        assume (S x)
+          pick-witness w for premise-1 # (P w & forall y . Q y ==> w R y)
+            let {wRx := (!fire (forall y . Q y ==> w R y) [x]);
+                 p := conclude (forall y . S y ==> ~ w R y)
+                        (!fire premise-2 [w])}
+              (!absurd (w R x) (!fire p [x])))
+
+# Part 4: 
+
+clear-assumption-base
+assert premise-1 := (forall x . x R x)
+assert premise-2 := (forall x . f x = f f x)
+
+conclude goal := (exists y . y R f y)
+  let {p := conclude (f a R f a)
+              (!uspec premise-1 (f a));
+       _ := conclude (f a = f f a)
+              (!uspec premise-2 a);
+       _ := conclude (f a R f f a)
+              (!rcong p (f a R f f a))}
+    (!egen goal (f a))
+
+

@@ -1,0 +1,53 @@
+define (M goal p1 p2) := 
+  match [goal p1 p2] {  
+    [(~ (s = t)) (s = u) (~ (u = t))] => 
+      (!by-contradiction goal
+         assume (~ goal)
+           (!chain-> [(~ goal) 
+                  ==> (s = t)           [dn]
+                  ==> (u = t)           [(s = u)]
+                  ==> (u = t & u =/= t) [augment]
+                  ==> false             [prop-taut]]))
+  }    
+
+conclude remove-correctness-2 := 
+  (forall m x y . x =/= y ==> m - x at y = m at y)
+by-induction remove-correctness-2 {
+  (m as empty-map) =>	     
+    pick-any x y
+      assume (x =/= y) 
+        (!chain [(m - x at y) 
+               = (m at y)       [remove-def]])
+
+| (m as (update (pair key val) rest)) =>
+   let {IH := (forall x y . x =/= y ==> rest - x at y = rest at y)}
+   pick-any x y
+     assume hyp := (x =/= y) 
+       (!two-cases 
+          assume case1 := (key = x)
+           let {lemma := #(!CongruenceClosure.cc 
+                         # (key =/= y) [case1 hyp])  
+                         (!M (key =/= y) case1 hyp)
+               }                           
+            (!chain [((m - x) at y)        
+                   = ((rest - x) at y)    [(key = x) remove-def]
+                   = (rest at y)          [IH]
+                   = (m at y)             [apply-def]])
+          assume (key =/= x)
+            (!two-cases
+              assume (key = y)
+                (!combine-equations
+                   (!chain [((m - x) at y)
+                          = ([key val] ++ (rest - x) at y) [remove-def]
+                          = (SOME val)                     [apply-def]])
+                   (!chain [(m at y) = (SOME val)          [apply-def]]))
+              assume (key =/= y)
+                (!combine-equations
+ 	         (!chain [((m - x) at y)
+                        = ([key val] ++ (rest - x) at y) [remove-def]
+                        = (rest - x at y)                [apply-def]
+                        = (rest at y)                    [IH]])
+                 (!chain [(m at y)
+                        = (rest at y)                    [apply-def]]))))
+}
+

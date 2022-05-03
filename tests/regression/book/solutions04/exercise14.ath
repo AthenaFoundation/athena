@@ -1,0 +1,111 @@
+#========================== Solution to exercise 4.14 =========================
+
+#--- Part (a): 
+
+  conclude ((A ==> B) ==> (A & C ==> B & C))
+    assume A=>B := (A ==> B)
+      assume (A & C)
+        {
+         conclude B 
+           (!mp A=>B A);
+         (!both B C)
+        }
+
+#--- Part (b): 
+
+  clear-assumption-base
+  assert p1 := (~ ~ A ==> ~ (B <==> C))
+  assert p2 := (A & B)
+
+  conclude (~ C)
+    let {A        := (!left-and p2);
+         B        := (!right-and p2);
+         --A      := (!idn A);
+        -B<=>C    := (!mp p1 --A);
+        B&-C|-B&C := (!negated-bicond -B<=>C)}
+      (!cases B&-C|-B&C
+        assume (B & ~ C)
+          (!claim (~ C))
+        assume (~ B & C)
+          (!from-complements (~ C) B (~ B)))
+
+#--- Part (c): 
+
+  clear-assumption-base
+  assert p1 := (~ A | (B ==> E) & (C ==> E))
+  assert p2 := (A & (B | C))
+
+  conclude E
+    let {A         := (!left-and p2);
+         B|C       := (!right-and p2);
+         B=>E&C=>E := (!dsyl p1 A)}
+      (!cases B|C
+              assume B
+                (!mp (B ==> E) B)
+              assume C
+                (!mp (C ==> E) C))
+
+#--- Part (d): 
+
+  clear-assumption-base
+  assert p1 := ((A ==> B) &  (C ==> D))
+  assert p2 := (A | C)
+  assert p3 := ((A ==> ~ D) & (C ==> ~ B))
+  assert p4 := (B & ~ D ==> E)
+  assert p5 := (D ==> B | F)
+
+  conclude (E | F)
+    (!cases (A | C)
+      assume A
+        let {A=>B  := (!left-and p1);
+             B     := (!mp A=>B A);
+    	     A=>-D := (!left-and p3);
+             -D    := (!mp A=>-D A);
+             B&-D  := (!both B -D);
+             E     := (!mp p4 B&-D)}
+          (!left-either E F)
+      assume C 
+        let {C=>D  := (!right-and p1);
+             D     := (!mp C=>D C);
+             B|F   := (!mp p5 D);
+	     C=>-B := (!right-and p3);
+  	     -B    := (!mp C=>-B C);
+             F     := (!dsyl B|F -B)}
+          (!right-either E F))
+
+#--- Part (e): 
+
+  clear-assumption-base
+  assert p1 := (A | B ==> C & D)
+  assert p2 := (C | E ==> ~ F & G)
+  assert p3 := (F | H ==> A & I)
+
+  conclude (~ F)
+    (!two-cases 
+       assume F 
+         let {F|H  := (!either F H);
+              A&I  := (!mp p3 F|H);
+              A|B  := (!either A B); 
+              C&D  := (!mp p1 A|B);
+              C|E  := (!either C E);
+              -F&G := (!mp p2 C|E)}
+           (!claim (~ F))
+       assume -F := (~ F)
+         (!claim -F))
+
+#--- Part (f): 
+
+  clear-assumption-base
+  assert p1 := (A ==> B & C)
+  assert p2 := (B | D ==> E)
+  assert p3 := (~ E)
+
+  conclude  (~ D & ~ A)           
+    let {not-B-or-D  := (!mt p2 p3);
+         -B&-D       := (!dm not-B-or-D);
+         -B|-C       := (!either (~ B) (~ C));
+         not-B-and-C := (!dm -B|-C);
+         -A          := (!mt p1 not-B-and-C)}
+      (!both (~ D) -A)
+
+

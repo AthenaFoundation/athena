@@ -1,0 +1,78 @@
+#========================== Solution to exercise 4.35 =========================
+
+  define (find-complements D1 D2) := 
+    let {T := (HashTable.table);
+         _ := (map-proc lambda (d) (HashTable.add T [d --> true])
+                        D2);
+         in-D2? := lambda (x) try { (HashTable.lookup T x) | false }}
+       letrec {loop := lambda (D1 so-far)
+                         match D1 {
+                           [] => ()
+                         | (list-of (some-sent d) (some-list rest)) =>
+                              let {d' := (complement d)}
+                                check {(in-D2? d') => 
+                                         [d (join (rev so-far) rest) d']
+                                     | (in-D2? (~ d)) => 
+                                         [d (join (rev so-far) rest) (not d)]
+                                     | else => (loop rest (add d so-far))}
+                         }}
+         match (loop D1 []) {
+           [(some-sentence d) (some-list all-others) (some-sentence d')] =>
+                [d all-others d' (filter D2 (unequal-to d'))] 
+         }
+
+  define (derive-single-disjunct premise) :=
+    match premise {
+      (or [(some-sentence q)]) => 
+        (!cases premise
+                assume q (!claim q))
+     | _ => (!claim premise)
+    }
+
+  define (resolution d1 d2) := 
+    let {[p rest1 p' rest2] := (find-complements (get-disjuncts d1)
+                                                 (get-disjuncts d2));
+         goal := (or (rev rd (join rest1 rest2)));
+         M := method (disjunction)
+                (!map-method method (d)
+                                assume d 
+                                 (!either goal)
+ 	                     (get-disjuncts disjunction)
+                              method (conds)
+                                (!cases disjunction conds));
+         rem := (!two-cases 
+                  assume p 
+                    match (!dsyl d2 p) {
+                      false => (!from-false goal)
+                    | (th as (or _)) => (!M th)
+                    | res => (!M (!either (or res)))
+                    }
+                  assume p' 
+                    match (!dsyl d1 p') {
+                      false => (!from-false goal)
+                     | (th as (or _)) => (!M th)
+                     | res => (!M (!either (or res)))
+                    })}
+     (!derive-single-disjunct rem)
+
+  assume h1 := (A | B | C)
+    assume h2 := (D | ~ B | E)
+      (!resolution h1 h2)
+
+  assume h1 := (A | B | ~ ~ C)
+    assume h2 := (~ C | D)
+      (!resolution h1 h2)
+
+
+ assume h1 := (~ ~ A )
+    assume h2 := (~ ~ ~ A | D)
+      (!resolution h1 h2)
+
+  assume h1 := (~ ~ A )
+    assume h2 := (D | ~ A)
+      (!resolution h1 h2)
+
+ assume h1 := (A | ~ forall ?x . ?x = ?x)
+    assume h2 := (forall ?x . ?x = ?x)
+      (!resolution h1 h2)
+

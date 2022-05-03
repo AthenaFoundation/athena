@@ -1,0 +1,53 @@
+conclude dom-lemma-1 := 
+  (forall k v rest . k in dom [k v] ++ rest)
+pick-any k v rest
+  (!chain-> [true ==> (k in k ++ dom rest)     [Set.in-lemma-1]
+                  ==> (k in dom [k v] ++ rest) [dom-def]])
+
+conclude dom-lemma-2 := 
+  (forall m k v . dom m subset dom [k v] ++ m)
+pick-any m k v
+  (!Set.subset-intro
+     pick-any x
+        (!chain [(x in dom m)
+             ==> (x in k ++ dom m)      [Set.in-lemma-3]
+             ==> (x in dom [k v] ++ m)  [dom-def]]))
+
+conclude dom-lemma-3 := (forall m k . dom (m - k) subset dom m)
+by-induction dom-lemma-3 {
+  (m as empty-map:(Map 'K 'V)) =>
+     pick-any k:'K
+       (!Set.subset-intro 
+          pick-any x:'K
+           (!chain [(x in dom m - k)
+                ==> (x in dom empty-map)   [remove-def]
+                ==> (x in null)            [dom-def]
+                ==> false                  [Set.NC]
+                ==> (x in dom m)           [prop-taut]]))
+| (m as (update (pair key:'K val:'V) rest)) =>
+   pick-any k:'K
+    let {IH := (!claim (forall k . dom rest - k subset dom rest));
+         IH1 := (!chain-> 
+                  [true ==> (dom rest - key subset dom rest) [IH]]);
+         IH2 := (!chain-> 
+                  [true ==> (dom rest - k subset dom rest)   [IH]])}
+     (!Set.subset-intro 
+       pick-any x:'K
+         (!two-cases 
+           assume (key = k)
+             (!chain [(x in dom m - k)
+                  ==> (x in dom m - key)                 [(key = k)]
+                  ==> (x in dom rest - key)              [remove-def]
+                  ==> (x in dom rest)                    [IH1 Set.SC]
+                  ==> (x in key ++ dom rest)             [Set.in-lemma-3]
+                  ==> (x in dom m)                       [dom-def]])
+           assume case-2 := (key =/= k)                     
+             (!chain [(x in dom m - k)                    
+                  ==> (x in dom [key val] ++ (rest - k)) [remove-def]
+                  ==> (x in key ++ dom rest - k)         [dom-def]
+                  ==> (x = key | x in dom rest - k)      [Set.in-def]
+                  ==> (x = key | x in dom rest)          [Set.SC IH2]
+                  ==> (x in key ++ dom rest)             [Set.in-def]
+                  ==> (x in dom m)                       [dom-def]])))
+}
+

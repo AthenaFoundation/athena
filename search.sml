@@ -193,15 +193,15 @@ structure Term_Search: STATE_SPACE_SEARCH = MakeStateSearch(structure state_spac
 
 fun println(s) = print(s^"\n")
 
-fun mprintln(s) = if Term_Search.isSilentOutput() then () else println(s)
+fun debugPrintln(s) = if Term_Search.isSilentOutput() then () else println(s)
 
 fun getDerivation(s as state({term,parent=NONE,equation,score,matching_sub,...}),results) = (term,NONE,matching_sub)::results
   | getDerivation(s as state({term,parent=SOME(s'),equation,score,matching_sub,...}),results) = getDerivation(s',(term,SOME(equation),matching_sub)::results)
        
 fun showSolution(final_state) = 
      let val derivation = getDerivation(final_state,[])
-         fun showPair(term,NONE,sub) = mprintln(AT.toStringDefault(term))
-           | showPair(term,SOME(eqn),sub) = mprintln("-------->\n"^(AT.toStringDefault(term))^"\nby:\n"^(Prop.toPrettyStringDefault(0,eqn)))
+         fun showPair(term,NONE,sub) = debugPrintln(AT.toStringDefault(term))
+           | showPair(term,SOME(eqn),sub) = debugPrintln("-------->\n"^(AT.toStringDefault(term))^"\nby:\n"^(Prop.toPrettyStringDefault(0,eqn)))
      in 
         (List.app showPair derivation;())
      end

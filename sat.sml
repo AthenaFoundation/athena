@@ -230,25 +230,25 @@ fun getRSatResult(rsat_file_stream,inverse_htable) =
   end
 
 fun getSkolemCount(spass_cnf_stream) = 
-      let fun mprint(s) = ()
+      let fun debugPrint(s) = ()
           fun continue() = ()
           fun countSkolemConstants(toks) = Basic.countAll(toks,isSkolemConstant)
           fun loop(res,line_num) = 
 		 let val line = TextIO.inputLine(spass_cnf_stream)
-                     val _ = mprint("\nHere's line #"^(Int.toString(line_num))^":\n"^line^"\n")
+                     val _ = debugPrint("\nHere's line #"^(Int.toString(line_num))^":\n"^line^"\n")
                  in 
                     if line = "end_of_line.\n" then res
                     else let val toks = String.tokens 
 					   (fn c => Basic.isMember(c,[#" ",#"\n",
                                                                       #",",#"(",#")",#"[",#"]"])) line
                              val tokens = if line_num = 1 then tl toks else toks 
-                             val _ = (mprint("\nHere are the symbol tokens on line #"^
-			  	           (Int.toString(line_num))^":\n");
-                                      mprint(Basic.printListStr(tokens,Basic.id," / ")))
+                             val _ = (debugPrint("\nHere are the symbol tokens on line #"^
+			  	                (Int.toString(line_num))^":\n");
+                                      debugPrint(Basic.printListStr(tokens,Basic.id," / ")))
                              val _ = continue()
                              val res' = res+(countSkolemConstants tokens)
                              val next_to_last_tok = List.nth(tokens,List.length(tokens)-2)
-                             val _ = mprint("\nLast token: "^next_to_last_tok)
+                             val _ = debugPrint("\nLast token: "^next_to_last_tok)
                          in 
                             if not(isSkolemConstant(next_to_last_tok)) then res'
                             else loop(res',line_num+1)
@@ -262,7 +262,7 @@ fun makeAndProcessDimacsFile(cnf_stream:TextIO.instream,dimacs_stream,
                              dimacs_file_name,minisat_out_file_name,rsat_out_file_name,
                              htable,inverse_htable,leaf_count) = 
 
-  let fun mprint(s) = print(s) 
+  let fun debugPrint(s) = print(s) 
       fun writeDimacsFile(str) = TextIO.output(dimacs_stream,str)
       fun makeDimacsFileFromTPTPCnf() = 
            let fun isClause(line) = (String.substring(line,0,3) = "cnf") handle _ => false  
@@ -311,7 +311,7 @@ fun makeAndProcessDimacsFile(cnf_stream:TextIO.instream,dimacs_stream,
                                   end
                       end 
                val (clauses,clause_count) = makeDimacsClauses([],0)
-               val _ = mprint("\nEPROVER introduced "^(Int.toString(!max_evar_index))^" variables...\n")
+               val _ = debugPrint("\nEPROVER introduced "^(Int.toString(!max_evar_index))^" variables...\n")
                val new_leaf_count = leaf_count + (!max_evar_index)               
                val (rsat_bogus_var1,rsat_bogus_var2) = (Int.toString(new_leaf_count+1),
 		  		                        Int.toString(new_leaf_count+2))
@@ -325,7 +325,7 @@ fun makeAndProcessDimacsFile(cnf_stream:TextIO.instream,dimacs_stream,
       fun makeDimacsFileFromSpassCNF() = 
              let val _ = findAndSkipLine(cnf_stream,"list_of_symbols.\n")     
                  val skolem_count = getSkolemCount(cnf_stream)
-                 val _ = mprint("\nSKOLEM COUNT: "^(Int.toString(skolem_count))^"\n")
+                 val _ = debugPrint("\nSKOLEM COUNT: "^(Int.toString(skolem_count))^"\n")
                  val _ = findAndSkipLine(cnf_stream,"list_of_clauses(axioms, cnf).\n")
                  val leaf_count' = leaf_count + 1
                  val new_leaf_count = leaf_count + skolem_count
@@ -391,7 +391,7 @@ fun makeAndProcessDimacsFile(cnf_stream:TextIO.instream,dimacs_stream,
       val out_file_name = if !sat_solver = "rsat" then rsat_out_file_name else minisat_out_file_name
       val _ = if !cnf_converter = "flotter" then makeDimacsFileFromSpassCNF()
               else makeDimacsFileFromTPTPCnf()
-      val _ = mprint("\nCalling the sat solver...\n")
+      val _ = debugPrint("\nCalling the sat solver...\n")
       val _ = OS.Process.system(makeCommand(dimacs_file_name,out_file_name))
       val out_stream = if !sat_solver = "rsat" then TextIO.openIn(rsat_out_file_name) 
                        else TextIO.openIn(minisat_out_file_name)
@@ -403,7 +403,7 @@ fun makeAndProcessDimacsFile(cnf_stream:TextIO.instream,dimacs_stream,
   end
   
 fun sat(props) = 
-  let fun mprint(s) = ()
+  let fun debugPrint(s) = ()
       val {p_strings,sym_list,htable,inverse_htable,leaf_count} = 
                if !cnf_converter = "flotter" then makeSpassProps(props) 
                else makeTPTPFormulas(props)
@@ -443,7 +443,7 @@ fun sat(props) =
            end
       val _ = if !cnf_converter = "flotter" then writeSpassInputFile() 
 	      else writeTPTPInputFile()
-      val _ = mprint("\nin_file_name: "^in_file_name^"\ncnf_file_name: "^cnf_file_name^"\n")
+      val _ = debugPrint("\nin_file_name: "^in_file_name^"\ncnf_file_name: "^cnf_file_name^"\n")
       fun makeCommand() = if !cnf_converter = "flotter" then                
                              "SPASS -Flotter "^in_file_name^" > "^cnf_file_name
                           else

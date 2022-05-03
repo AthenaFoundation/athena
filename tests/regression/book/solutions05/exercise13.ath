@@ -1,0 +1,84 @@
+define move-quant-1 := 
+  method (premise)
+    match premise {
+      (forall (some-var _) (and _ _)) =>
+         (!both pick-any x 
+                  (!left-and (!instance premise x))
+                (!right-and (!instance premise (fresh-var))))
+    | (and (forall (some-var _) _) _) =>
+        pick-any x 
+          (!both (!instance (!left-and premise) x)
+                 (!right-and premise))
+    }
+
+define move-quant-2 := 
+  method (premise)
+    match premise {
+      (forall (some-var x) (or p1 p2)) =>      
+         (!two-cases
+            assume p2 
+              (!either (forall x p1) p2)
+            assume -p2 := (~ p2) 
+              let {all-x-p1 := pick-any v:(sort-of x)
+                                 let {premise' := (!instance premise v);
+                                      p1'      := (replace-var x v p1)}
+                                   (!cases (p1' | p2)
+                                     assume p1' (!claim p1')
+                                     assume p2 (!from-complements p1' p2 -p2))}
+               (!either all-x-p1 p2))
+     | ((forall (some-var x) p) | q) => 
+          pick-any v
+            (!cases premise
+              assume h := (forall x p) 
+                (!either (!instance h v) q)
+              assume q
+                (!either (replace-var x v p) q))
+     }
+
+define (move-quant-3 premise) := 
+  match premise {
+    (exists (some-var x) (p & q)) =>
+      pick-witness w for premise # p(w) & q in the a.b. now
+        (!both (!egen (exists x p) w) q)
+  | ((exists (some-var x) p) & q) =>
+      pick-witness w for (!left-and premise) wspec
+        let {_ := (!both wspec q)}
+          (!egen (exists x . p & q) w)
+  }
+
+define (move-quant-4 premise) := 
+  match premise {
+    (exists (some-var x) (p | q)) =>
+      pick-witness w for premise # (p(w) | q) in the a.b. now
+        let {p-w := (replace-var x w p)}
+          (!cases (p-w | q)
+            assume p-w
+              (!either (!egen (exists x . p) w) q)
+            assume q 
+              (!either (exists x p) q))
+  | ((exists (some-var x) p) | q) => 
+      (!cases premise 
+        assume case-1 := (exists x p)
+          pick-witness w for case-1 
+            let {p-w := (replace-var x w p);
+                 _ := (!either p-w q)}
+              (!egen (exists x . p | q) w)
+        assume q
+          let {v := (fresh-var);
+               p' := (replace-var x v p);
+               _ := (!either p' q)}
+            (!egen (exists x . p | q) v))
+  }
+
+define (move-quant premise) := 
+  match premise {
+    (forall _ (_ & _)) => (!move-quant-1 premise)
+  | ((forall _ _) & _) => (!move-quant-1 premise)
+  | (forall _ (_ | _)) => (!move-quant-2 premise)
+  | ((forall _ _) | _) => (!move-quant-2 premise)
+  | (exists _ (_ & _)) => (!move-quant-3 premise)
+  | ((exists _ _) & _) => (!move-quant-3 premise)
+  | (exists _ (_ | _)) => (!move-quant-4 premise)
+  | ((exists _ _) | _) => (!move-quant-4 premise)
+  }
+

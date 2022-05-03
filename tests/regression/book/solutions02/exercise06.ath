@@ -1,0 +1,6 @@
+define (flatten L) := 
+  match L {
+    [] => []
+  | (list-of first-list more) => (join first-list (flatten more))
+  } 
+

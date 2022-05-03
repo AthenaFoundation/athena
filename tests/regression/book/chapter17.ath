@@ -1,0 +1,655 @@
+#====================================================================================
+# 
+#	Code (including student solutions) for chapter 17 of FPMICS.
+#
+#====================================================================================
+
+load "nat-div" 
+load "lib/main/list-of"
+
+module TC {
+
+datatype Exp := (const N)  
+              | (sum Exp Exp) 
+              | (diff Exp Exp)
+              | (prod Exp Exp)
+              | (quot Exp Exp)
+
+(sum (const (S zero))
+     (const (S (S zero))))
+
+(sum (const (S zero))
+     (prod (const (S (S zero)))
+           (const (S (S (S zero))))))
+
+((const S zero) sum (const S S zero))
+
+set-precedence (sum diff) 300
+set-precedence (prod quot) 350
+set-precedence const 400
+set-precedence S 410
+
+define 1+2*3 := ((const S zero) sum (const S S zero) prod (const S S S zero))
+
+set-precedence const 350
+
+(1+2*3 equals? const S zero sum const S S zero prod const S S S zero)
+
+define (int->const x) := 
+  check {(integer-numeral? x) => (const int->nat x)
+       | else => x}
+
+expand-input const [int->nat]
+expand-input sum, diff, prod, quot [int->const int->const]
+
+(const 3)
+
+(1 sum 2 prod 3)
+
+overload (+ sum) (- diff) (* prod) (/ quot)
+overload (+ N.+) (- N.-) (* N.*) (/ N./)
+
+define [e e' e1 e2 e3 e4] := [?e:Exp ?e':Exp ?e1:Exp ?e2:Exp ?e3:Exp ?e4:Exp]
+
+define [n n' n1 n2 n3 n4] := [?n:N ?n':N ?n1:N ?n2:N ?n3:N ?n4:N]
+
+(e1 + e2)
+
+(n1 * n2)
+
+declare I: [Exp] -> N [350]
+
+(I e1 + I e2)
+
+assert* I-def := 
+  [(I const n = n)
+   (I (e1 + e2) = I e1 + I e2)
+   (I (e1 - e2) = I e1 - I e2)
+   (I (e1 * e2) = I e1 * I e2)
+   (I (e1 / e2) = I e1 / I e2)]
+
+transform-output eval [nat->int (clist->alist nat->int)]
+
+let {2+3  := (2 sum 3);
+       10-6 := (10 diff 6);
+       10/2 := (10 quot 2); 
+       9*9  := (9 prod 9)}
+   (print "\nValue of 2+3:\t" (eval I 2+3) "\nand 10-6:\t" (eval I 10-6) 
+          "\nand 10/2:\t" (eval I 10/2) "\nand 9*9:\t" (eval I 9*9) "\n")
+
+(eval I (4 quot 0))
+
+datatype Command := (push N) | add | sub | mult | div 
+
+expand-input push [int->nat]
+set-precedence push 350
+
+define-sort Program := (List Command)
+
+define-sort Stack := (List N)
+
+define [cmd cmd' prog prog1 prog2 rest stack stack1 stack2] := 
+       [?cmd:Command ?cmd':Command ?prog:Program ?prog1:Program 
+        ?prog2:Program ?rest:Program ?stack:Stack ?stack1:Stack 
+	?stack2:Stack]
+
+declare exec: [Program Stack] -> N [wrt 101 [(alist->clist id) 
+                                             (alist->clist int->nat)]]
+
+expand-input :: [id (alist->clist int->nat)]
+define ++ := List.join
+
+assert* exec-def := 
+    [([] wrt n::_ = n)
+     ((push n)::rest wrt stack = rest wrt n::stack)
+     (add::rest  wrt n1::n2::stack = rest wrt (n1 + n2)::stack)
+     (sub::rest  wrt n1::n2::stack = rest wrt (n1 - n2)::stack)
+     (mult::rest wrt n1::n2::stack = rest wrt (n1 * n2)::stack)
+     (div::rest  wrt n1::n2::stack = rest wrt (n1 / n2)::stack)]
+
+
+# Execute an empty program on a nonempty stack: 
+
+(eval [] wrt [99])
+
+# Execute an addition instruction on a stack with at least two numbers:
+
+(eval [add] wrt [2 3])
+
+# First add 2 and 3, then multiply the result by 6: 
+
+(eval [add mult] wrt [2 3 6])
+
+# Add 2 and 3, multiply by 6, then divide by 10: 
+
+(eval [add mult div] wrt [2 3 6 10])
+
+# Execute a binary instruction with too few stack operands:
+
+(eval [add] wrt [2])
+
+# Divide by zero: 
+
+(eval [div] wrt [8 0])
+
+define input-program := [(push 1) (push 2) add (push 2) mult mult]
+
+define input-stack := [4]
+
+(eval input-program wrt input-stack)
+
+declare run-vm: [Program] -> N [[(alist->clist id)]]
+
+assert* vm-def := [(run-vm prog = prog wrt [])]
+
+(eval run-vm [(push 2) (push 3) add])
+
+declare compile: [Exp] -> Program [380]
+
+assert* compiler-def :=
+   [(compile const n = (push n)::[])
+    (compile (e1 + e2) = compile e2 ++ compile e1 ++ [add])
+    (compile (e1 - e2) = compile e2 ++ compile e1 ++ [sub])
+    (compile (e1 * e2) = compile e2 ++ compile e1 ++ [mult])
+    (compile (e1 / e2) = compile e2 ++ compile e1 ++ [div])]
+
+(eval compile const 5)
+
+(eval compile (2 sum 3))
+
+(eval compile (2 sum 3 prod 5))
+
+define compiler-correctness := (forall e . run-vm compile e = I e)
+
+define (correctness e) := (forall stack . compile e wrt stack = I e)
+
+define conjecture := (forall e . correctness e)
+
+# (falsify conjecture 30)
+
+define (correctness e) :=
+  (forall prog stack . compile e ++ prog wrt stack = prog wrt I e::stack)  
+
+define (basis-step n) :=
+  pick-any p:Program stack:Stack
+    (!chain [((compile const n) ++ p wrt stack)
+           = ([(push n)] ++ p wrt stack)        [compiler-def]
+           = ((push n)::p wrt stack)            [List.join.left-singleton]
+           = (p wrt n::stack)                   [exec-def]
+           = (p wrt I const n :: stack)         [I-def]])
+
+(!basis-step zero)
+
+define (exp-op->cmd-and-num-op exp-op) :=
+  match exp-op {
+    sum =>  [add N.+]
+  | diff => [sub N.-]
+  | prod => [mult N.*]
+  | quot => [div N./]
+  }
+
+define (inductive-step e) := 
+ match e {
+  ((some-symbol exp-op:(OP 2)) e1:Exp e2:Exp) =>
+    let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op);
+         C:(OP 1) := compile;
+         # Two inductive hypotheses, one for each sub-expression,
+         # can be assumed to be in the a.b. when this method is called.
+         [ih1 ih2] := [(correctness e1) (correctness e2)]}
+      pick-any p:Program stack:Stack
+       (!chain 
+         [(C (e1 exp-op e2) ++ p wrt stack)
+        = (C e2 ++ C e1 ++ [cmd] ++ p wrt stack)  [compiler-def 
+                                                   List.join.Associative] 
+        = ([cmd] ++ p wrt (I e1)::(I e2)::stack)  [ih1 ih2]
+        = (cmd::p wrt (I e1)::(I e2)::stack)      [List.join.left-singleton]
+        = (p wrt (I e1 num-op I e2)::stack)       [exec-def]
+        = (p wrt (I e)::stack)                    [I-def]])
+ }
+
+set-flag print-var-sorts "off" 
+
+pick-any e1:Exp e2:Exp 
+    assume (correctness e1)
+      assume (correctness e2)
+        (!inductive-step (e1 + e2))
+
+set-flag print-var-sorts "on" 
+define main-correctness-theorem :=
+    by-induction (forall e . correctness e) {
+      (const n) =>           (!basis-step n)
+    | (e as (sum _ _)) =>  (!inductive-step e)
+    | (e as (diff _ _)) => (!inductive-step e)
+    | (e as (prod _ _)) => (!inductive-step e)
+    | (e as (quot _ _)) => (!inductive-step e)
+    }
+
+conclude compiler-correctness 
+  pick-any e
+    (!chain 
+      [(run-vm compile e)
+    = (compile e wrt [])          [vm-def]
+    = (compile e ++ [] wrt [])    [List.join.right-empty]
+    = ([] wrt (I e)::[])          [main-correctness-theorem]
+    = (I e)                       [exec-def]])
+
+# Shorter versions: 
+
+retract main-correctness-theorem
+
+define basis-step-shorter :=
+  method (n) 
+    pick-any p:Program stack:Stack
+      (!chain [(compile const n ++ p wrt stack)
+            = (p wrt n::stack)       
+            = (p wrt I const n :: stack)])
+
+define inductive-step-shorter := 
+ method (exp)
+  match exp {
+   ((some-symbol exp-op:(OP 2)) e1:Exp e2:Exp) =>
+    let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op);
+         [ih1 ih2] := [(correctness e1) (correctness e2)]} 
+     pick-any p:Program stack:Stack
+      (!chain 
+        [(compile (e1 exp-op e2) ++ p wrt stack)
+       = (compile e2 ++ 
+            compile e1 ++ 
+               [cmd] ++ p wrt stack)             [compiler-def 
+                                                  List.join.Associative]
+                                          
+       = ([cmd] ++ p wrt (I e1)::(I e2)::stack)  [ih1 ih2] 
+                                                                                           
+       = (p wrt (I exp)::stack)                  [List.join.left-singleton
+                                                  exec-def I-def]])
+    }
+
+define main-correctness-theorem :=
+    by-induction (forall e . correctness e) {
+      (const n) =>           (!basis-step-shorter n)
+    | (e as (sum _ _)) =>  (!inductive-step-shorter e)
+    | (e as (diff _ _)) => (!inductive-step-shorter e)
+    | (e as (prod _ _)) => (!inductive-step-shorter e)
+    | (e as (quot _ _)) => (!inductive-step-shorter e)
+    }
+
+# And even shorter: 
+
+define inductive-step-shortest := 
+ method (exp)
+  match exp {
+   ((some-symbol exp-op:(OP 2)) e1:Exp e2:Exp) =>
+    let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op);
+         [ih1 ih2] := [(correctness e1) (correctness e2)]} 
+      pick-any p:Program stack:Stack
+       (!chain [(compile (e1 exp-op e2) ++ p wrt stack)
+              = (p wrt (I exp)::stack)])
+   }
+
+retract main-correctness-theorem
+
+define main-correctness-theorem :=
+    by-induction (forall e . correctness e) {
+      (const n) =>           (!basis-step-shorter n)
+    | (e as (sum _ _)) =>  (!inductive-step-shorter e)
+    | (e as (diff _ _)) => (!inductive-step-shorter e)
+    | (e as (prod _ _)) => (!inductive-step-shorter e)
+    | (e as (quot _ _)) => (!inductive-step-shorter e)
+    }
+
+# If we don't retract then we'll discover a trivial proof: 
+retract main-correctness-theorem
+
+define inductive-step-with-proof := 
+ method (exp)
+  match exp {
+   ((some-symbol exp-op:(OP 2)) e1:Exp e2:Exp) =>
+    let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op);
+         [ih1 ih2] := [(correctness e1) (correctness e2)]} 
+      pick-any p:Program stack:Stack
+       let {left := (compile (e1 exp-op e2) ++ p wrt stack);
+            right := (p wrt (I exp)::stack);
+            proof := (find-eqn-proof left right (ab));
+            _     := (print "\nFound proof:\n" proof "\n")}
+       (!chain [left = right])
+   }
+
+pick-any e1:Exp e2:Exp 
+    assume (correctness e1)
+      assume (correctness e2)
+        (!inductive-step-with-proof (e1 + e2))
+
+(eval I (0 quot 0))
+
+declare I': [Exp] -> (Option N)
+
+(I' const n = SOME n)
+
+assert* I'-def :=
+  [(I' const n = SOME n)
+
+   (I' e1 = SOME n1 & I' e2 = SOME n2 ==> I' e1 + e2 = SOME n1 + n2)
+   (I' e1 = SOME n1 & I' e2 = SOME n2 ==> I' e1 - e2 = SOME n1 - n2)
+   (I' e1 = SOME n1 & I' e2 = SOME n2 ==> I' e1 * e2 = SOME n1 * n2)
+   (I' e1 = SOME n1 & I' e2 = SOME n2 & n2 =/= zero ==> 
+                                          I' e1 / e2 = SOME n1 / n2)
+
+   (I' e1 = NONE | I' e2 = NONE ==> I' e1 + e2 = NONE)
+   (I' e1 = NONE | I' e2 = NONE ==> I' e1 - e2 = NONE)
+   (I' e1 = NONE | I' e2 = NONE ==> I' e1 * e2 = NONE)
+   (I' e1 = NONE | I' e2 = NONE | I' e2 = SOME zero ==> 
+                                          I' e1 / e2 = NONE)]
+
+(eval I' 2 sum 3)
+
+(eval I' 3 prod 5)
+
+(eval I' 11 sum 3 prod 3)
+
+(eval I' 18 quot 6)
+
+(eval I' 4 quot 0)
+
+(eval I' 4 quot (2 diff 2))
+
+declare exec': [Program Stack] -> (Option N)  
+               [wrt' 101 [(alist->clist id) 
+                          (alist->clist int->nat)]]
+
+define exec-axiom-empty-1 := (nil wrt' nil = NONE)
+
+define exec-axiom-empty-2 := (nil wrt' n::_ = SOME n)
+
+define exec-axiom-push :=
+  ((push n)::prog wrt' stack = prog wrt' n::stack)
+
+define neg-op-axioms := 
+  (flatten (map lambda (op) [(op::_ wrt' [] = NONE) 
+                             (op::_ wrt' [_] = NONE)]
+                [add sub mult]))
+
+define pos-op-axioms := 
+  [(add::prog wrt'  n1::n2::stack = prog wrt' (n1 + n2)::stack)
+   (sub::prog wrt'  n1::n2::stack = prog wrt' (n1 - n2)::stack)
+   (mult::prog wrt' n1::n2::stack = prog wrt' (n1 * n2)::stack)]
+
+define pos-div-axiom :=
+  (n2 =/= zero ==> div::prog wrt' n1::n2::stack = prog wrt' (n1 / n2)::stack)
+
+define neg-div-axiom :=
+  (n2 = zero ==> div::prog wrt' _::n2::stack = NONE)
+
+assert* exec'-def := 
+  (join [exec-axiom-empty-1 exec-axiom-empty-2 exec-axiom-push]
+        pos-op-axioms neg-op-axioms [pos-div-axiom neg-div-axiom])
+
+declare run-vm': [Program] -> (Option N) [[(alist->clist id)]]
+
+assert* vm-def' := (run-vm' prog = prog wrt' [])
+
+(eval [] wrt' [5])
+
+(eval [(push 3)] wrt' [])
+
+(eval [(push 3) (push 4) add] wrt' [])
+
+(eval run-vm' [(push 1) add])
+
+(eval run-vm' [(push 0) (push 4) div])
+
+define (correctness' e) :=
+  (forall n prog stack . 
+    I' e = SOME n ==> compile e ++ prog wrt' stack = prog wrt' n::stack)
+
+define conjecture := (forall e . correctness' e)
+
+#(falsify conjecture 10)
+
+define get-lemma :=
+  method (premise)
+     match premise {
+        (= (I' (exp-op:(OP 2) e1 e2))
+           (SOME n)) => 
+          let {[_ num-op:(OP 2)] := (exp-op->cmd-and-num-op exp-op)}
+            (!force (exists n1 n2 . 
+                       I' e1 = SOME n1 & 
+                       I' e2 = SOME n2 & 
+                       n = n1 num-op n2))
+      }
+
+
+module Exercise_17_1 {
+
+# Insert your own solution to exercise 17.01 here:
+load "./solutions17/exercise01"
+  
+} # close Exercise_17_1
+
+open Exercise_17_1
+
+define get-div-lemma :=
+  method (premise)
+    match premise {
+     ((I' (e1 quot e2)) = (SOME n)) =>
+       (!force (exists n1 n2 . 
+                I' e1 = SOME ?n1 & 
+                I' e2 = SOME ?n2 & 
+                n2 =/= zero & 
+                n = n1 / n2))
+    }
+
+
+module Exercise_17_2 {
+
+# Insert your own solution to exercise 17.02 here:
+load "./solutions17/exercise02"
+
+} # close Exercise_17_2
+
+open Exercise_17_2
+
+define (test-get-lemma op:(OP 2)) := 
+  let {goal := (I' e1 op e2 = SOME n ==> 
+                 exists n1 n2 . I' e1 = SOME n1 & 
+                                I' e2 = SOME n2 & 
+                                 n = n1 op n2);
+       result := assume h := (I' e1 op e2 = SOME n)
+                   (!get-lemma h)}
+   check {(result equal? goal) => 
+            let {_ := (print "\nTest successful!\n")} true
+        | else => 
+            let {_ := (print "\nTest failed!\n")} false 
+         }
+
+(test-get-lemma +)
+
+(test-get-lemma -)
+
+(test-get-lemma *)
+
+define basis-step :=
+  method (k)
+    pick-any n:N prog:Program stack:Stack
+       assume hyp := (I' const k = SOME n)
+        let {k=n := (!chain-> 
+                      [(SOME k) <-- (I' const k)  [I'-def]
+                                  = (SOME n)      [hyp] 
+                   ==> (k = n)                    [option-results]])}
+          (!chain                                 
+            [(compile const k ++ prog wrt' stack)   
+           = ([(push k)] ++ prog wrt' stack)      [compiler-def]
+           = (push k :: prog wrt' stack)          [List.join.left-singleton]
+           = (prog wrt' k::stack)                 [exec'-def]
+           = (prog wrt' n::stack)                 [k=n]])
+
+
+
+define istep :=
+  method (exp)
+    match exp {
+     ((some-symbol op:(OP 2)) e1 e2) => 
+        pick-any n:N prog:Program stack:Stack
+          assume hyp := (I' e1 op e2 = SOME n)
+             let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op op);
+                  [ih1 ih2] := [(correctness' e1) (correctness' e2)];
+                  lemma := (!chain-> 
+                              [hyp ==> (exists n1 n2 . 
+                                         I' e1 = SOME n1 & 
+                                         I' e2 = SOME n2 & 
+                                         n = n1 num-op n2)
+                                [get-lemma]])
+                 }
+               pick-witnesses n1 n2 for lemma spec-lemma
+                 (!chain 
+                   [(compile (e1 op e2) ++ prog wrt' stack)
+
+                  = ((compile e2 ++ compile e1 ++ [cmd]) ++ prog wrt' stack)
+                      [compiler-def] 
+
+                  = (compile e2 ++ compile e1 ++ [cmd] ++ prog wrt' stack)
+                      [List.join.Associative]
+ 
+                  = ([cmd] ++ prog wrt' n1::n2::stack)
+                      [ih1 ih2]
+
+                  = (cmd::prog wrt' n1::n2 ::stack)       
+                      [List.join.left-singleton]
+
+                  = (prog wrt' (n1 num-op n2)::stack)                  
+  	 	      [exec'-def]
+                      
+                  = (prog wrt' (n :: stack))                               
+                      [spec-lemma]])
+        }
+
+define istep-div := 
+  method (exp)
+    match exp {
+     (quot e1 e2) => 
+       pick-any n:N prog:Program stack:Stack
+         assume hyp := (I' e1 quot e2 = SOME n) 
+           let {[ih1 ih2] := [(correctness' e1) (correctness' e2)];
+                lemma := (!chain-> 
+                           [hyp ==> (exists n1 n2 . 
+                                      I' e1 = SOME n1 & 
+                                      I' e2 = SOME n2 & 
+                                      n2 =/= zero & 
+                                      n = n1 / n2)
+                            [get-div-lemma]])}
+            pick-witnesses n1 n2 for lemma spec-lemma 
+              (!chain 
+                [((compile (e1 / e2)) ++ prog wrt' stack)                    
+
+               = ((compile e2 ++ compile e1 ++ [div]) ++ prog wrt' stack)
+                   [compiler-def] 
+
+               = (compile e2 ++ compile e1 ++ [div] ++ prog wrt' stack)
+                   [List.join.Associative]
+
+               = ([div] ++ prog wrt' n1::n2::stack)               
+                   [ih1 ih2]
+
+               = (div::prog wrt' n1::n2::stack)
+                   [List.join.left-singleton]
+
+               = (prog wrt' (n1 N./ n2)::stack)
+                   [exec'-def]
+
+               = (prog wrt' n::stack)
+                   [spec-lemma]])
+    }
+
+define (prove-main-correctness-theorem' basis-step istep istep-div) := 
+  conclude main-correctness-theorem' := (forall e . correctness' e)
+    by-induction main-correctness-theorem' {
+      (const k) => (!basis-step k)
+    | (e as (_ sum _))  => (!istep e)
+    | (e as (_ diff _)) => (!istep e)
+    | (e as (_ diff _)) => (!istep e)
+    | (e as (_ prod _)) => (!istep e)
+    | (e as (_ quot _)) => (!istep-div e)
+    }
+
+  
+conclude main-correctness-theorem' := (forall e . correctness' e)
+  (!prove-main-correctness-theorem' basis-step istep istep-div)
+
+conclude compiler-correctness' :=    
+  (forall e n . I' e = SOME n ==> run-vm' compile e = SOME n)
+    pick-any e:Exp n:N
+      assume hyp := (I' e = SOME n)
+        (!chain 
+          [(run-vm' compile e)
+        = (compile e wrt' [])        [vm-def']
+        = (compile e ++ [] wrt' [])  [List.join.right-empty]
+        = ([] wrt' n::[])            [main-correctness-theorem']
+        = (SOME n)                   [exec'-def]])
+
+define (correctness-conv e) :=
+  (forall prog stack . 
+    I' e = NONE ==> compile e ++ prog wrt' stack = NONE)
+
+define conjecture := (forall e . correctness-conv e)
+
+#(falsify conjecture 20)
+
+define (basis-step-conv k) :=
+  pick-any prog:Program stack:Stack
+    assume hyp := (I' const k = NONE)
+      let {_ := (!absurd 
+                  (!chain-> [true 
+                         ==> (I' const k = SOME k)   [I'-def]])
+                  (!chain-> [hyp 
+                         ==> (I' const k =/= SOME k) [option-results]]))}
+        (!from-false (compile const k ++ prog wrt' stack = NONE))
+
+define get-lemma-conv :=
+  method (premise)
+     match premise {
+        (= (I' (_ e1 e2)) NONE) => 
+         (!force (I' e2 = NONE | I' e2 =/= NONE & I' e1 = NONE))
+     }
+
+
+module Exercise_17_4 { 
+
+# Insert your own solution to exercise 17.04 here:
+load "./solutions17/exercise04"
+
+} # close Exercise_17_4
+
+open Exercise_17_4
+
+module Exercise_17_6 {
+
+# Insert your own solution to exercise 17.06 here:
+load "./solutions17/exercise06"
+
+} # close Exercise_17_6 
+
+open Exercise_17_6
+
+define istep-conv :=
+  method (exp)
+    match exp {
+     ((some-symbol op:(OP 2)) e1 e2) => 
+        pick-any prog:Program stack:Stack
+          assume hyp := (I' e1 op e2 = NONE)
+             let {[cmd num-op:(OP 2)] := (exp-op->cmd-and-num-op op)}
+               (!force ((compile (e1 op e2) ++ prog wrt' stack) = NONE))
+    }
+
+# Full definition of istep-conv is left as an exercise. 
+
+conclude main-correctness-theorem-conv := (forall e . correctness-conv e)
+  by-induction main-correctness-theorem-conv {
+    (const k) => (!basis-step-conv k)
+  | (e as (_ sum _))  => (!istep-conv e)
+  | (e as (_ diff _)) => (!istep-conv e)
+  | (e as (_ prod _)) => (!istep-conv e)
+  | (e as (_ quot _)) => (!istep-conv-div e)
+  }
+
+} # close module TC
+
+

@@ -1,0 +1,86 @@
+#========================== Solution to exercise 4.31 =========================
+
+  define (nnf? p) := 
+    match p {
+      (some-atom _) => true
+    | (~ q) => (atom? q)
+    | ((some-sent-con _) (some-list args)) => (for-each args nnf?)
+    }
+
+  define (nnf-one-step p) := 
+    match p {
+      (~ (~ q)) => q                                    # Double negations
+    | (~ (and (some-list args))) => 
+           (or (map complement args))                   # De Morgan's
+    | (~ (or (some-list args)))  => 
+           (and (map complement args))                  # De Morgan's
+    | (~ (p1 ==> p2)) => (p1 & ~ p2)                    # Negated conditional 
+    | (~ (p1 <==> p2)) => (p1 & ~ p2 | ~ p1 & p2)       # Bicond. definition
+    | _ => ()
+    }
+
+  (nnf-one-step ~ ~ A)
+
+  (nnf-one-step ~ (A & B))
+
+  (nnf-one-step (A ==> B))
+
+  define (apply-top-down f) := 
+    lambda (p) 
+      match (f p) {
+       (some-sent q) => q
+      | _ => match p {
+               ((some-sent-con sc) (some-list args)) => 
+                  (sc (map (apply-top-down f) args))
+             | _ => p
+             }
+      }
+
+  define (fix f) :=
+    lambda (x) 
+      let {y := (f x)}
+        check {(y equal? x) => x | else => ((fix f) y)}
+
+  define nnf := (fix (apply-top-down nnf-one-step))
+
+  let {p := (~ (A & B ==> ~ C))}
+    (print "\nInput p:" p "\nAnd its nnf:\n" (nnf p))
+
+  define (size p) := 
+    match p {
+      ((some-sent-con _) (some-list args)) => 
+         (plus 1 (foldr plus 0 (map size args)))
+    | _ => 1
+    }
+
+  define (flip b) := match b {true => false | false => true}
+
+  define (nnf-linear p negated?) := 
+    match p {
+      (some-atom _) => check {negated? => (~ p) | else => p}
+    | (~ q) => (nnf-linear q (flip negated?))
+    | (p1 ==> p2) => (nnf-linear (~ p1 | p2) negated?)
+    | (p1 <==> p2) => (nnf-linear (p1 & p2 | ~ p1 & ~ p2) negated?) 
+    | ((some-sent-con sc) (some-list args)) => 
+            ((switch sc negated?) (map lambda (p) (nnf-linear p negated?)
+                                       args))
+    }
+
+  let {p := (~ (A & B ==> ~ C))}
+    (print "\nInput p:" p "\nAnd its nnf-linear:\n" (nnf-linear p false))
+
+  define nn-methods := [bdn dm-2 neg-cond bicond-def' negated-bicond]
+
+  define (derive-nnf-one-step p) := 
+    (!transform p ((apply-top-down nnf-one-step) p) nn-methods)
+
+ define (dfix M p) := 
+    let {q := (!M p)}
+      check {(q equal? p) => (!claim p) | else => (!dfix M q)}
+
+  define (derive-nnf p) := 
+    (!dfix derive-nnf-one-step p)
+
+  assume p := (~ (A & B ==> ~ C))
+    (!derive-nnf p)
+

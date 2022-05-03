@@ -1,0 +1,242 @@
+define (unpack-existentials premise K) := 
+  match premise { 
+
+    (asgn-axiom derives (yields (pair c s) s')) => 
+      pick-witnesses x e for 
+            (!chain-> [premise
+                   ==> (exists x e . 
+                         c = x <- e & 
+                         s' =  x @ (e wrt s) ++ s) [asgn-semantics]]) 
+            wp
+        (!K (get-conjuncts wp))
+          
+  | ((if-true-rule p) derives (yields (pair c s) s')) => 
+      pick-witnesses b c1 c2 for 
+            (!chain-> [premise
+                   ==> (exists b c1 c2 . 
+                         c = (cond b c1 c2) & 
+                         b true-in s & 
+                         p |- [c1 s] -->> s') [if-true-semantics]]) 
+            wp
+        let {(premises as [premise1 premise2 premise3]) := 
+                 (get-conjuncts wp)}
+          (!unpack-existentials premise3
+              method (L)
+                (!K (join premises L)))
+
+  | ((if-false-rule p) derives (yields (pair c s) s')) => 
+      pick-witnesses b c1 c2 for 
+            (!chain-> [premise
+                   ==> (exists b c1 c2 . 
+                         c = (cond b c1 c2) & 
+                         ~ b true-in s & 
+                         p |- [c2 s] -->> s') [if-false-semantics]]) 
+            wp
+        let {(premises as [premise1 premise2 premise3]) := 
+                 (get-conjuncts wp)}
+          (!unpack-existentials premise3
+              method (L)
+                (!K (join premises L)))
+
+  | ((seq-rule p1 p2) derives (yields (pair c s) s')) => 
+      pick-witnesses c1 c2 s'' for 
+            (!chain-> [premise
+                   ==> (exists c1 c2 s'' . 
+                          c = c1 ^ c2 &
+                          p1 |- [c1 s] -->> s'' &
+                          p2 |- [c2 s''] -->> s') [sequence-semantics]]) 
+            wp
+        let {(premises as [premise1 premise2 premise3]) := 
+                 (get-conjuncts wp)}
+          (!unpack-existentials premise2
+              method (L1)
+                (!unpack-existentials premise3
+                   method (L2)
+                     (!K (join premises L1 L2))))
+           
+  | ((while-rule p1 p2) derives (yields (pair c s) s')) => 
+      pick-witnesses b body s'' for 
+            (!chain-> [premise
+                   ==> (exists b body s'' . 
+                         c = (while-loop b body) & 
+                         b true-in s & 
+                         p1 |- [body s] -->> s'' &
+                         p2 |- [(while-loop b body) s''] -->> s') 
+                                    [while-true-semantics]]) 
+            wp
+        let {(premises as [premise1 premise2 premise3 premise4]) := 
+                 (get-conjuncts wp)}
+          (!unpack-existentials premise3
+              method (L1)
+                (!unpack-existentials premise4
+                   method (L2)
+                     (!K (join premises L1 L2))))
+
+  | (while-axiom derives (yields (pair c s) s')) => 
+      pick-witnesses b body for 
+            (!chain-> [premise
+                   ==> (exists b body . 
+                         c = (while-loop b body) & 
+                         ~ b true-in s & s' = s) 
+                                  [while-false-semantics]]) wp
+        (!K (get-conjuncts wp))
+
+  | (p derives (bind judgment 
+                     (yields (pair (sequence c1 c2)
+                                   start-s) 
+                             final-s))) =>
+       pick-witnesses p1 p2 s' for
+              (!chain-> [premise 
+                   ==>  (exists p1 p2 s' . 
+                          p = (seq-rule p1 p2) &
+                          p1 |- [c1 start-s] -->> s' &
+                          p2 |- [c2 s'] -->> final-s) [seq-excl]]) 
+              wp
+         let {(premises as [premise1 premise2 premise3]) := 
+                         (get-conjuncts wp)}
+           (!unpack-existentials premise2
+            method (L1)
+              (!unpack-existentials premise3
+               method (L2) (!K (join premises L1 L2))))
+
+  | (and (p derives (bind judgment 
+                          (yields (pair (cond b c1 _) start-s)
+                                  final-s)))
+         (b true-in start-s)) => 
+       pick-witnesses p' for 
+              (!chain-> [premise 
+                   ==>  (exists p' . 
+                          p = (if-true-rule p') &
+                          p' |- [c1 start-s] -->> final-s) 
+                                   [if-true-excl]]) 
+               wp
+         let {(premises as [premise1 premise2]) := 
+                   (get-conjuncts wp)}
+           (!unpack-existentials premise2
+            method (L) (!K (join premises L)))
+
+  | (and (p derives (bind judgment 
+                          (yields (pair (cond b _ c2) start-s)
+                                  final-s)))
+         (~ (b true-in start-s))) => 
+       pick-witnesses p' for 
+              (!chain-> [premise 
+                   ==>  (exists p' . 
+                          p = (if-false-rule p') &
+                          p' |- [c2 start-s] -->> final-s) 
+                                     [if-false-excl]]) 
+              wp
+         let {(premises as [premise1 premise2]) := 
+                    (get-conjuncts wp)}
+           (!unpack-existentials premise2
+            method (L) (!K (join premises L)))
+
+  | (and (p derives (bind judgment 
+                          (yields (pair (while-loop b body) s)
+                                  s')))
+         (b true-in s)) => 
+       pick-witnesses p1 p2 s'' for 
+              (!chain-> [premise 
+                   ==>  (exists p1 p2 s'' . 
+                          p = (while-rule p1 p2) &
+                          p1 |- [body s] -->> s'' &
+                          p2 |- [(while-loop b body) s''] -->> s') 
+                                    [while-true-excl]]) 
+              wp
+         let {(premises as [premise1 premise2 premise3]) := 
+                 (get-conjuncts wp)}
+           (!unpack-existentials premise2
+             method (L) (!K (join premises L)))
+  | (provable judgment) => 
+          pick-witness p for 
+                 (!chain-> [premise 
+                        ==> (exists p . p |- judgment) 
+                               [provable-def]]) 
+                 wp
+             (!unpack-existentials wp 
+               method (L) (!K (add wp L)))
+           
+  | _ => (!K [premise])
+  }
+
+define (unpack premise K) := 
+  (!unpack-existentials premise 
+    method (L) 
+      (!K (dedup L)))
+
+define assoc-dir-1 :=
+  method (premise)
+    match premise {
+      (provable (bind judgment 
+                  (yields (pair (sequence c1 (sequence c2 c3))
+                                start-s) 
+                          final-s))) => 
+        let {right := ((c1 ^ c2) ^ c3);
+             goal := (provable [right start-s] -->> final-s)}
+          conclude goal
+            (!unpack premise 
+              method (unpacked-conclusions)
+                match unpacked-conclusions {              
+                  (split [(p derives (val-of judgment))
+                          (p = (seq-rule p1 p2))
+                          (p1 derives ((pair c1 start-s) yields s'))
+                          (p2 derives ((pair (c2 sequence c3) s') 
+                                       yields final-s))
+                          (p2 = (seq-rule p3 p4))
+                          (p3 derives ((pair c2 s') yields s''))
+                          (p4 derives ((pair c3 s'') yields final-s))]
+                         _) =>
+                   (!chain-> 
+                     [(p1 |- [c1 start-s] -->> s')
+                  ==> (p1 |- [c1 start-s] -->> s' &   
+                       p3 |- [c2 s'] -->> s'')          [augment]
+                  ==> ((seq-rule p1 p3) |-             
+                        [(c1 ^ c2) start-s] -->> s'')   [seq-horn-clause] 
+                  ==> ((seq-rule p1 p3) |-             
+                        [(c1 ^ c2) start-s] -->> s'' & 
+                       p4 |- [c3  s''] -->> final-s)    [augment]
+                  ==> ((seq-rule (seq-rule p1 p3) p4)
+                       |- [right start-s] -->> final-s) [seq-horn-clause]
+                  ==> (exists p . 
+                        p |- [right start-s] 
+                               -->> final-s)            [existence]
+                  ==> goal                              [provable-def]])
+               })
+    }
+
+define determinism-sequence-case :=
+ method (seq-proof)
+  match seq-proof {
+   (seq-rule p1 p2) => 
+    pick-any other-proof:Proof c:Cmd s:State s':State s'':State
+     assume hyp1 := (seq-proof   |- [c s] -->> s') ;
+            hyp2 := (other-proof |- [c s] -->> s'') 
+      let {ih1 := (det-property p1); ih2 := (det-property p2)}
+       (!unpack hyp1
+        method (unpacked-conclusions-1)
+         match  unpacked-conclusions-1 {              
+          (split [(c = (c1 sequence c2))
+                  (p1 derives (yields (pair c1 s) is))
+                  (p2 derives (yields (pair c2 is) s'))] _) => 
+           let {hyp2' := (!chain-> 
+                            [hyp2 
+                         ==> (other-proof |- [(c1 ^ c2) s] -->> s'') 
+                                 [(c = c1 ^ c2)]])}
+            (!unpack hyp2' 
+              method (unpacked-conclusions-2)
+               match  unpacked-conclusions-2 {         
+                (split [(other-proof = (seq-rule proof1 proof2)) 
+                        (proof1 derives (yields (pair c1 s) s1))
+                        (proof2 derives (yields (pair c2 s1) s''))] _) =>
+                 (!chain-> 
+                  [(p2 |- [c2 is] -->> s' & 
+                    proof2 |- [c2 s1] -->> s'')
+               ==> (p2 |- [c2 is] -->> s' & 
+                    proof2 |- [c2 is] -->> s'') 
+                        [(s1 = is) <== (p1 |- [c1 s] -->> is & 
+                                        proof1 |- [c1 s] -->> s1) [ih1]]
+               ==> (s'' = s')  [ih2]])
+               })
+         })
+  }
+

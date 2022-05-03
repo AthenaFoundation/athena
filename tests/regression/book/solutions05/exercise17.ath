@@ -1,0 +1,227 @@
+domain D
+
+declare Q: [D D] -> Boolean
+
+declare *: [D D] -> D
+
+define [x y z z' u v x1 x2 x3 x4] := [?x ?y ?z ?z' ?u ?v ?x1 ?x2 ?x3 ?x4]
+
+assert* mass-axioms := 
+  [(x Q y & y Q z ==> x Q z)
+   ((x * y) * z Q x * (y * z))
+   (x Q y ==> x * z Q z * y)
+   (~ x Q y ==> exists z . x Q y * z & y * z Q x)
+   (~ x * y Q x)] 
+
+define [A1 A2 A3 A4 A5] := mass-axioms
+
+define (transitivity premise-1 premise-2) := 
+  match [premise-1 premise-2] {
+    [(x Q y) (y Q z)] => (!fire A1 [x y z])
+  }
+
+define (l->r-assoc g) := 
+  match g {
+    (((x * y) * z) Q (x * (y * z))) => 
+     conclude g 
+       (!fire A2 [x y z])
+  }
+
+define (augment-with premise z) := 
+  match premise {
+    (x Q y) => conclude (x * z Q z * y) 
+                 (!fire A3 [x y z])               
+  }
+
+conclude theorem-1 := (forall x . x Q x)
+  pick-any x:D 
+    (!by-contradiction (x Q x)
+      assume hyp := (~ x Q x)
+        let {z-balance := conclude (exists z . x Q x * z & x * z Q x)
+                            (!fire A4 [x x])}
+          pick-witness z for z-balance 
+          # we now have (x Q x * z) and (x * z Q x)
+            (!absurd conclude (x Q x)
+                       (!transitivity (x Q x * z) (x * z Q x)) 
+                     hyp))
+
+conclude theorem-2 := (forall x y . x * y Q y * x)
+  pick-any x:D y:D
+    let {xQx := conclude (x Q x)
+                  (!fire theorem-1 [x])}
+      conclude (x * y Q y * x)
+        (!augment-with xQx y)
+
+define (commutativity goal) := 
+  match goal {
+    ((x * y) Q (y * x)) => conclude goal
+                             (!fire theorem-2 [x y])
+  }
+
+conclude left-comm := (forall x y z . x * y Q z ==> y * x Q z)
+ pick-any x:D y:D z:D
+   assume xyQz := (x * y Q z)
+     let {yxQxy := (!commutativity (y * x Q x * y))}
+       conclude (y * x Q z)
+         (!transitivity yxQxy xyQz)
+
+conclude right-comm := (forall x y z . z Q x * y ==> z Q y * x)
+ pick-any x:D y:D z:D
+   assume zQxy := (z Q x * y)
+     let {xyQyx := (!commutativity (x * y Q y * x))}
+       conclude (z Q y * x)
+         (!transitivity zQxy xyQyx)
+
+define (commute-lhs premise) := 
+  match premise { 
+    ((x * y) Q z) => conclude (y * x Q z)
+                       (!fire left-comm [x y z])
+  }
+
+define (commute-rhs premise) := 
+  match premise { 
+    (z Q (x * y)) => conclude (z Q y * x)
+                     (!fire right-comm [x y z])
+  }
+
+conclude A3-right := (forall x y z . x Q y ==> x * z Q y * z)
+ pick-any x:D y:D z:D
+   assume xQy := (x Q y)
+     let {xzQzy := conclude (x * z Q z * y)
+                     (!augment-with xQy z)}
+       conclude (x * z Q y * z)
+         (!commute-rhs xzQzy)
+
+define (augment-at-right premise z) := 
+  match premise {
+    (x Q y) => conclude (x * z Q y * z)
+                 (!fire A3-right [x y z])
+  }
+  
+conclude A3-left := (forall x y z . x Q y ==> z * x Q z * y)
+ pick-any x y z
+   assume xQy := (x Q y)
+     let {xzQzy := conclude (x * z Q z * y)
+                     (!augment-with xQy z)}
+       conclude (z * x Q z * y)
+         (!commute-lhs xzQzy)
+
+define (augment-at-left premise z) := 
+  match premise {
+    (x Q y) => conclude (z * x Q z * y)
+                 (!fire A3-left [x y z])               
+  }
+
+conclude theorem-3 :=
+   (forall x1 x2 x3 x4 . x1 Q x2 & x3 Q x4 ==> x1 * x3 Q x2 * x4)
+  pick-any x1:D x2:D x3:D x4:D
+    assume hyp := (x1 Q x2 & x3 Q x4)
+      let {x1x3Qx3x2 := conclude (x1 * x3 Q x3 * x2)
+                          (!augment-with (x1 Q x2) x3);
+           x1x3Qx2x3 := conclude (x1 * x3 Q x2 * x3)
+                          (!commute-rhs x1x3Qx3x2);
+           x3x2Qx2x4 := conclude (x3 * x2 Q x2 * x4)
+                          (!augment-with (x3 Q x4) x2);
+           x2x3Qx2x4 := conclude (x2 * x3 Q x2 * x4)
+                          (!commute-lhs x3x2Qx2x4)}
+       conclude (x1 * x3 Q x2 * x4)
+         (!transitivity x1x3Qx2x3 x2x3Qx2x4)
+
+conclude theorem-4 := (forall x y z . x * (y * z) Q (x * y) * z)
+  pick-any a b c
+   let {a|bcQbc|a := (!commutativity (a * (b * c) Q (b * c) * a));
+
+        bc|aQb|ca := (!l->r-assoc ((b * c) * a Q b * (c * a)));
+
+        bc|aQca|b := (!commute-rhs bc|aQb|ca);
+
+        ca|bQc|ba := let {ca|bQc|ab := (!l->r-assoc 
+                                         ((c * a) * b Q c * (a * b)));
+                          c|abQc|ba := (!augment-at-left 
+                                         (!commutativity (a * b Q b * a)) c)}
+                       (!transitivity ca|bQc|ab c|abQc|ba);
+        
+        bc|aQc|ba := (!transitivity bc|aQca|b ca|bQc|ba);
+                          
+        a|bcQc|ba := (!transitivity a|bcQbc|a bc|aQc|ba);
+
+        c|baQba|c := (!commutativity (c * (b * a) Q (b * a) * c));
+
+        ba|cQab|c := (!augment-at-right 
+                       (!commutativity (b * a Q a * b)) c);
+
+        c|baQab|c := (!transitivity c|baQba|c ba|cQab|c)}
+
+     conclude (a * (b * c) Q (a * b) * c)
+       (!transitivity a|bcQc|ba c|baQab|c)
+
+define (r->l-assoc g) := 
+  match g {
+    ((x * (y * z)) Q ((x * y) * z)) => 
+     conclude g 
+       (!fire theorem-4 [x y z])
+  }
+
+conclude theorem-5 := (forall x y . x Q y | y Q x)
+ pick-any x y 
+  let {-xQy=>yQx := 
+        assume -xQy := (~ x Q y)
+         (!by-contradiction (y Q x)
+           assume -yQx := (~ y Q x)
+            let {z-balance := conclude (exists z . x Q y * z & y * z Q x)
+                                (!fire A4 [x y]);
+                 w-balance := conclude (exists w . y Q x * w & x * w Q y)
+                                (!fire A4 [y x])}
+             pick-witness z for z-balance 
+             # we now have (x Q y * z) and (y * z Q x)                     
+               pick-witness w for w-balance {
+               # we now have (y Q x * w) and (x * w Q y)
+                 xw|zQx  := let {xw|zQyz := (!augment-at-right 
+                                              (x * w Q y) z)}
+                             (!transitivity xw|zQyz (y * z Q x));
+                 x|wzQx  := let {x|wzQxw|z := (!r->l-assoc (x * (w * z) Q 
+                                                           (x * w) * z))}
+                            (!transitivity x|wzQxw|z xw|zQx);
+                -x|wzQx := (!fire A5 [x (w * z)]);
+                (!absurd x|wzQx -x|wzQx)
+             })}
+    (!cond-def -xQy=>yQx)
+
+conclude swap-lemma := (forall x y z . (x * y) * z Q (x * z) * y)
+  pick-any a b c
+    let {ab|cQa|bc := (!l->r-assoc ((a * b) * c Q a * (b * c)));
+         bcQbc     := (!instance theorem-1 (b * c));
+         bcQcb     := (!commutativity (b * c Q c * b));
+         a|bcQa|cb := (!augment-at-left bcQcb a);
+         a|cbQac|b := (!r->l-assoc (a * (c * b) Q (a * c) * b));
+         a|bcQac|b := (!transitivity a|bcQa|cb a|cbQac|b)}
+      (!transitivity ab|cQa|bc a|bcQac|b)
+
+conclude theorem-6 := (forall x y z . x * z Q y * z ==> x Q y)
+  pick-any x y z
+    assume xzQyz := (x * z Q y * z)
+      (!by-contradiction (x Q y)
+         assume -xQy := (~ x Q y)
+           let {w-balance := conclude (exists w . x Q y * w & y * w Q x)
+                             (!fire A4 [x y])}
+             pick-witness w for w-balance # (x Q y * w) and (y * w Q x)
+               let {yw|zQxz   := (!augment-at-right (y * w Q x) z);
+                    yz|wQyw|z := (!instance swap-lemma [y z w]);
+                    yz|wQxz   := (!transitivity yz|wQyw|z yw|zQxz);
+                    yz|wQyz   := (!transitivity yz|wQxz xzQyz);
+                    -yz|wQyz  := (!instance A5 [(y * z) w])}
+                 (!absurd yz|wQyz -yz|wQyz))
+                 
+conclude theorem-7 := (forall x y z u . y * z Q u & x Q y ==> x * z Q u)
+  pick-any x y z u 
+    assume hyp := (y * z Q u & x Q y)
+      conclude (x * z Q u)
+        let {xzQyz := (!augment-at-right (x Q y) z)}
+          (!transitivity xzQyz (y * z Q u))
+             
+conclude theorem-8 := (forall x y z u . u Q x * z & x Q y ==> u Q y * z)
+  pick-any x y z u
+    assume hyp := (u Q x * z & x Q y)
+      let {xzQyz := (!augment-at-right (x Q y) z)}
+        (!transitivity (u Q x * z) xzQyz)
+

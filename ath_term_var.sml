@@ -8,7 +8,7 @@ structure AthTermVar : ATH_TERM_VAR =
 
 struct
 
-  structure F = FTerm;
+  structure F = FTerm
 
   type sort = F.term
 
@@ -18,15 +18,15 @@ struct
     with fast equality testing) along with a sort, where a sort is a 'fast term' (implemented in fterm.sml).
 **)
 
-  type ath_term_var = (Atom.atom * sort);
+  type ath_term_var = (Atom.atom * sort)
 
-  fun getSort(_,s) = s;
+  fun getSort(_,s) = s
 
-  fun hash((a,_)) = Atom.hash(a);
+  fun hash((a,_)) = Atom.hash(a)
 
-  fun swapSorts((a,_),new_sort) = (a,new_sort);
+  fun swapSorts((a,_),new_sort) = (a,new_sort)
 
-  fun applySortSub(sub,(a,s)) = (a,F.applySub(sub,s));
+  fun applySortSub(sub,(a,s)) = (a,F.applySub(sub,s))
 
   fun renameSortVars((a,sort),sub) = 
       let val (sort',sub') = FTerm.renameAux(sort,sub)	      
@@ -34,69 +34,69 @@ struct
         ((a,sort'),sub')
       end
 
-  fun applySortSubLst(sub,vars) = map (fn (v) =>  applySortSub(sub,v)) vars;
+  fun applySortSubLst(sub,vars) = map (fn (v) =>  applySortSub(sub,v)) vars
 
-  fun isPoly(_,s) = not(F.isGround(s));
+  fun isPoly(_,s) = not(F.isGround(s))
 
   fun compareNames((a1,_),(a2,_)) = Atom.compare(a1,a2)
 
-  fun tagVar(a,s) = (a,F.tagSort(s));
+  fun tagVar(a,s) = (a,F.tagSort(s))
 
-  fun isTagged(a,s) = F.someTaggedVars(s);
+  fun isTagged(a,s) = F.someTaggedVars(s)
          
-  fun athTermVarEq((a1,s1),(a2,s2)) = Atom.sameAtom(a1,a2) andalso F.sortEq(s1,s2);
+  fun athTermVarEq((a1,s1),(a2,s2)) = Atom.sameAtom(a1,a2) andalso F.sortEq(s1,s2)
     
-  fun athTermVarLitEq((a1,s1),(a2,s2)) = Atom.sameAtom(a1,a2) andalso F.termEq(s1,s2);
+  fun athTermVarLitEq((a1,s1),(a2,s2)) = Atom.sameAtom(a1,a2) andalso F.termEq(s1,s2)
           
-  fun nameEq((a1,_),(a2,_)) = Atom.sameAtom(a1,a2);
+  fun nameEq((a1,_),(a2,_)) = Atom.sameAtom(a1,a2)
 
-  exception Atom_Table;
+  exception Atom_Table
 
-  structure H = HashTable;
+  structure H = HashTable
 
-  val sizeHint = 3571;
+  val sizeHint = 3571
          
   val name_table : (Atom.atom,bool) H.hash_table = 
        let fun  hashFunction(a:Atom.atom) = Atom.hash(a)
        in
           H.mkTable(hashFunction,Atom.sameAtom) (sizeHint,Atom_Table)
-       end;
+       end
 
 (*======================= Hash Tables For Athena Variables =======================*)
 
-  exception Ath_Term_Var;
+  exception Ath_Term_Var
 
-  type 'a htable = (ath_term_var,'a) H.hash_table;
+  type 'a htable = (ath_term_var,'a) H.hash_table
 
   fun makeHTable() = 
        let fun hashFunction(a:Atom.atom,sort:F.term) = Atom.hash(a)
            in
                H.mkTable (hashFunction,athTermVarEq) (sizeHint,Ath_Term_Var)
-           end;
+           end
 
   fun makeHTableWithVarEq(varEqFun) = 
        let fun hashFunction(a:Atom.atom,sort:F.term) = Atom.hash(a)
            in
                H.mkTable (hashFunction,varEqFun) (sizeHint,Ath_Term_Var)
-           end;
+           end
 
-  fun insert(ht,atv,datum) =  H.insert ht (atv,datum);
+  fun insert(ht,atv,datum) =  H.insert ht (atv,datum)
 
-  fun clearTable(ht) = H.clear(ht);
+  fun clearTable(ht) = H.clear(ht)
 
-  fun removeHT(ht,atv) =  H.remove ht atv;
+  fun removeHT(ht,atv) =  H.remove ht atv
 
-  fun find(ht,atv) = H.find ht atv;
+  fun find(ht,atv) = H.find ht atv
 
   fun exists(ht,atv) = case H.find ht atv of
                           SOME(_) => true
-                        | _ => false;
+                        | _ => false
 
-  fun numItems(ht) = H.numItems ht;
+  fun numItems(ht) = H.numItems ht
 
-  fun listItems(ht) = H.listItems ht;
+  fun listItems(ht) = H.listItems ht
 
-  fun listItemsi(ht) = H.listItemsi ht;
+  fun listItemsi(ht) = H.listItemsi ht
 
 fun athTermVarWithSort(name,sort) = 
       let val name_atom = Atom.atom(name)
@@ -107,22 +107,22 @@ fun athTermVarWithSort(name,sort) =
                        in          
                          (name_atom,sort)
  		       end)
-      end;
+      end
 
-fun athTermVar name = athTermVarWithSort(name,F.makeFreshVar());
+fun athTermVar name = athTermVarWithSort(name,F.makeFreshVar())
 
-val fresh_counter:InfNum.inf_num ref = ref (InfNum.makeInfNum());
+val fresh_counter:InfNum.inf_num ref = ref (InfNum.makeInfNum())
 
-fun name(a,_) = Atom.toString(a);
+fun name(a,_) = Atom.toString(a)
 
 fun compare((a1,s1),(a2,s2)) = 
       let val r = Atom.compare(a1,a2)
       in
 	if r = EQUAL then (if F.variants(s1,s2) then EQUAL else F.compare(s1,s2))
 	else r
-      end;
+      end
 
-val fresh_name_prefix = Names.fresh_var_name_prefix;
+val fresh_name_prefix = Names.fresh_var_name_prefix
 
 fun freshVarAtom(str_opt) = let val index = InfNum.toString(!fresh_counter)
                                 val _ = fresh_counter := InfNum.increment(!fresh_counter)
@@ -137,38 +137,38 @@ fun freshVarAtom(str_opt) = let val index = InfNum.toString(!fresh_counter)
                                        in
                                           name_try_atom
                                        end)
-                            end;
+                            end
 
-fun freshVarName() = Atom.toString(freshVarAtom(NONE));
+fun freshVarName() = Atom.toString(freshVarAtom(NONE))
 
-fun fresh() = (freshVarAtom(NONE),F.makeFreshVar());
+fun fresh() = (freshVarAtom(NONE),F.makeFreshVar())
 
-fun freshWithPrefix(str) = (freshVarAtom(SOME(str)),F.makeFreshVar());
+fun freshWithPrefix(str) = (freshVarAtom(SOME(str)),F.makeFreshVar())
 
-fun freshLst(L) = map (fn (_) => fresh()) L;
+fun freshLst(L) = map (fn (_) => fresh()) L
 
-fun freshWithSort(sort) = (freshVarAtom(NONE),sort);
+fun freshWithSort(sort) = (freshVarAtom(NONE),sort)
 
-fun freshWithSortAndPrefix(str,sort) = (freshVarAtom(SOME(str)),sort);
+fun freshWithSortAndPrefix(str,sort) = (freshVarAtom(SOME(str)),sort)
 
 fun changeNames((_,sort),name) =  athTermVarWithSort(name,sort)
 
-fun toStringWithSort((a,sort)) = (Atom.toString a)^":"^(F.toStringDefault sort);
+fun toStringWithSort((a,sort)) = (Atom.toString a)^":"^(F.toStringDefault sort)
 
-val toStringDefault = toStringWithSort;
+val toStringDefault = toStringWithSort
 
   fun toString((a,s),printVarSort) = 
 	 (Names.variable_prefix)^(Atom.toString(a))^
-	  (if (!(Options.print_var_sorts)) then ":"^(F.toString(s,printVarSort)) else "");
+	  (if (!(Options.print_var_sorts)) then ":"^(F.toString(s,printVarSort)) else "")
 
   fun toPrettyString(s,(a,sort),printVarSort) = 
                             (Names.variable_prefix)^(Atom.toString(a))^(if (!(Options.print_var_sorts)) 
 			    then ":"^(F.toPrettyString(s+(String.size(Atom.toString(a)))+2,
-				      sort,printVarSort)) else "");
+				      sort,printVarSort)) else "")
 
-  fun toPrettyStringDefault(s,v) = toPrettyString(s,v,F.varToString);
+  fun toPrettyStringDefault(s,v) = toPrettyString(s,v,F.varToString)
 
-  fun toPrettyStringDefaultLst(s,vars) = map (fn v => toPrettyString(s,v,F.varToString)) vars; 
+  fun toPrettyStringDefaultLst(s,vars) = map (fn v => toPrettyString(s,v,F.varToString)) vars 
 
   fun varListsMatch(vars1,vars2) = 
      let val (sorts1,sorts2) = (map getSort vars1,map getSort vars2)
@@ -176,7 +176,7 @@ val toStringDefault = toStringWithSort;
        (case (F.matchLst(sorts1,sorts2),F.matchLst(sorts2,sorts1)) of
            (SOME(_),SOME(_)) => true
          | _ => false)
-     end;
+     end
 
   fun varInstance(v1 as (a1,s1),v2 as (a2,s2)) = Atom.sameAtom(a1,a2) andalso F.matches(s1,s2)
 
@@ -184,16 +184,16 @@ val toStringDefault = toStringWithSort;
   struct
 	type ord_key = ath_term_var
         val compare = compare
-  end;
+  end
 
   structure ATVNameKey : ORD_KEY = 
   struct
 	type ord_key = ath_term_var
         val compare = compareNames
-  end;
+  end
 
-  structure Table: ORDERED_MAP = makeOrdMap(ATVKey);
-  structure NameOnlyTable: ORDERED_MAP = makeOrdMap(ATVNameKey);
+  structure Table: ORDERED_MAP = makeOrdMap(ATVKey)
+  structure NameOnlyTable: ORDERED_MAP = makeOrdMap(ATVNameKey)
 
   type 'a mapping = 'a Table.map
 
@@ -201,25 +201,25 @@ val toStringDefault = toStringWithSort;
 
   val isEmptyMapping = Table.isEmpty
 
-  fun enter(t:'a mapping,v:ath_term_var,x: 'a) = Table.insert(t,v,x);
+  fun enter(t:'a mapping,v:ath_term_var,x: 'a) = Table.insert(t,v,x)
 
-  val listImages = Table.listItems;
+  val listImages = Table.listItems
 
-  val listAll = Table.listItemsi;
+  val listAll = Table.listItemsi
 
-  val foldl  = Table.foldl;
+  val foldl  = Table.foldl
 
   val map = Table.map 
 
   fun enter_lst(table,[]) = table 
-    | enter_lst(table,(v,x)::rest) = enter_lst(enter(table,v,x),rest);
+    | enter_lst(table,(v,x)::rest) = enter_lst(enter(table,v,x),rest)
 
   val lookUp = Table.find
 
   fun augment(t1,t2,[]) = t1 
     | augment(t1,t2,v::rest) = (case Table.find(t2,v) of
                                         NONE => augment(t1,t2,rest)
-                                      | SOME(x) => augment(enter(t1,v,x),t2,rest));
+                                      | SOME(x) => augment(enter(t1,v,x),t2,rest))
 
 
   type 'a name_mapping = 'a NameOnlyTable.map
@@ -228,29 +228,29 @@ val toStringDefault = toStringWithSort;
  
   val empty_name_mapping = NameOnlyTable.empty
 
-  fun nameEnter(t:'a name_mapping,v:ath_term_var,x: 'a) = NameOnlyTable.insert(t,v,x);
+  fun nameEnter(t:'a name_mapping,v:ath_term_var,x: 'a) = NameOnlyTable.insert(t,v,x)
 
-  val nameListImages = NameOnlyTable.listItems;
+  val nameListImages = NameOnlyTable.listItems
 
-  val nameListAll = NameOnlyTable.listItemsi;
+  val nameListAll = NameOnlyTable.listItemsi
 
-  val nameFoldl  = NameOnlyTable.foldl;
+  val nameFoldl  = NameOnlyTable.foldl
 
   val nameMap = NameOnlyTable.map 
 
   fun nameEnterLst(table,[]) = table 
-    | nameEnterLst(table,(v,x)::rest) =  nameEnterLst(nameEnter(table,v,x),rest);
+    | nameEnterLst(table,(v,x)::rest) =  nameEnterLst(nameEnter(table,v,x),rest)
 
   val nameLookUp = NameOnlyTable.find
 
   fun nameAugment(t1,t2,[]) = t1 
     | nameAugment(t1,t2,v::rest) = (case NameOnlyTable.find(t2,v) of
                                         NONE => nameAugment(t1,t2,rest)
-                                      | SOME(x) => nameAugment(nameEnter(t1,v,x),t2,rest));
+                                      | SOME(x) => nameAugment(nameEnter(t1,v,x),t2,rest))
 
 
   structure VSet = MakeSet(type element = ath_term_var
-                           val compare = compare);
+                           val compare = compare)
 
   type var_set = VSet.set
 
@@ -302,7 +302,7 @@ val toStringDefault = toStringWithSort;
 		end
       	in
 	   f(vars,true_vars)
-	end;
+	end
 
   fun updatePolyConstants(poly_constants_and_sorts,poly_constants_and_sorts') = 
 	let fun f([],L) = []
@@ -315,14 +315,14 @@ val toStringDefault = toStringWithSort;
 		end
       	in
 	   f(poly_constants_and_sorts,poly_constants_and_sorts')
-	end;		
+	end		
 
   fun simpleMergeLst(objects: 'a list, getVars: 'a -> ath_term_var list) = 
     let fun f([],res) = res
           | f(x::more,res) = f(more,simpleMerge(getVars x,res))
     in
        f(objects,[])
-    end;
+    end
 
 fun reconcilePolyConstants(objects, getConstantsAndTheirSorts, in_theta) = 
  		 let val glb_disagreements = ref(false)
@@ -370,7 +370,7 @@ fun reconcilePolyConstants(objects, getConstantsAndTheirSorts, in_theta) =
 
 		 in
 		   loop(objects,([],in_theta))
-		 end;
+		 end
 
 (*** Caution: Everytime reconcileVars is applied to obtain a result of the form  *****)
 (*** ((new_vars,theta),vars_diff), ensure that theta is applied to new_vars      *****)
@@ -425,6 +425,6 @@ fun reconcilePolyConstants(objects, getConstantsAndTheirSorts, in_theta) =
 
 		 in
 		   loop(objects,([],in_theta))
-		 end;
+		 end
 
 end (* end of the AthTermVar structure *)

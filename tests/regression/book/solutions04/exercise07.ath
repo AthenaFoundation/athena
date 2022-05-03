@@ -1,0 +1,6 @@
+#========================== Solution to exercise 4.7 =========================
+
+  assume B
+    assume hyp := (~ (A ==> B))
+      (!from-complements C B (!neg-cond-con hyp))
+

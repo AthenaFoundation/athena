@@ -1,0 +1,921 @@
+#====================================================================================
+# 
+#	Code (including student solutions) for chapter 18 of FPMICS.
+#
+#====================================================================================
+
+load "lib/basic/dmaps"
+load "nat-div"
+load "lib/basic/prolog.ath"
+
+module Chapter18 {
+
+datatype Exp := (num N) 
+              | (var Ide)  
+              | (sum Exp Exp) 
+              | (diff Exp Exp) 
+              | (prod Exp Exp)
+
+datatype BCond := (eq Exp Exp) 
+                | (leq Exp Exp)  
+                | (neg BCond)
+                | (conj BCond BCond)
+
+datatype Cmd := skip
+              | (asgn Ide Exp)
+              | (sequence Cmd Cmd)
+              | (cond BCond Cmd Cmd)
+              | (while-loop BCond Cmd)
+
+
+(sequence (asgn 'x
+                (num zero))
+          (while-loop (leq (var 'x)
+                           (var 'y))
+                      (asgn 'x
+                            (sum (var 'x)
+                                 (num (S zero))))))
+
+define [n n' n1 n2 n3 m m'] := [?n:N ?n':N ?n1:N ?n2:N ?n3:N ?m:N ?m':N]
+
+define [e e' e1 e2 e3] := [?e:Exp ?e':Exp ?e1:Exp ?e2:Exp ?e3:Exp]
+define [b b' b1 b2 b3] := [?b:BCond ?b':BCond ?b1:BCond ?b2:BCond ?b3:BCond]
+
+define [x y z x' y' z'] := [?x ?y ?z ?x' ?y' ?z'] 
+
+define [cmd cmd' cmd1 cmd2 cmd3 body body' c c' c1 c2 c3 c1' c2' c3'] := 
+       [?cmd:Cmd ?cmd':Cmd ?cmd1:Cmd ?cmd2:Cmd ?cmd3:Cmd ?body:Cmd ?body':Cmd
+        ?c:Cmd ?c':Cmd ?c1:Cmd ?c2:Cmd ?c3:Cmd ?c1':Cmd ?c2':Cmd ?c3':Cmd]
+
+define [^ <-] := [sequence asgn]
+
+define [+ - * <= null ++ in subset singleton \/ /\ \] := 
+       [N.+ N.- N.* N.<= Set.null DMap.++ Set.in Set.subset 
+        Set.singleton Set.\/ Set./\ Set.\]
+
+overload (+ sum) (- diff) (* prod) (<= leq) (/\ conj)
+
+expand-input num [int->nat]
+set-precedence num 350
+set-precedence var 350
+
+define [== --] := [eq neg]
+
+set-precedence <= 110
+set-precedence == 110
+
+module Exercise_18_1 {
+
+# Insert your own solution to exercise 18.01 here:
+load "./solutions18/exercise01"
+
+} # close Exercise_18_1
+
+open Exercise_18_1 # make the parsers available inside Chapter18 
+
+(bcond-parser "x = 1")
+
+(bcond-parser "x <= 2 * y & ~(z = 0)")
+
+(bcond-parser "x != 1")
+
+(bcond-parser "~ (x <= y & z = 1) & w = w & 1 <= foo")
+
+(parse "x := 1")
+
+(parse "x := 1; y := x * 2")
+
+(parse "x := 0; while x <= y do x := x + 1; z := z + x")
+
+(parse "x := 0; while x <= y do begin x := x + 1; z := z + x end")
+
+(exp-parser "x + 2")
+
+(exp-parser "x + ?FOO")
+
+(cmd-parser "x := 1; ?C")
+
+(parse "x := 0; while ?someCondition do begin x := x + 1; ?someOtherCommand end")
+
+
+define-sort State := (DMap.DMap Ide N)
+
+define [s s' s'' s1 s1' s2 s2' s3 is is'] := 
+       [?s:State ?s':State ?s'':State ?s1:State ?s1':State ?s2:State 
+        ?s2':State ?s3:State ?is:State ?is':State]
+
+define (state L) := 
+  match L {
+    (some-list _) => (DMap.alist->dmap-general [zero L] int->nat)
+  | _ => L}
+
+(state [])
+
+(state [['a --> 1] ['b --> 2]])
+
+declare V: [Exp State] -> N 
+           [150 [exp-parser 
+                 lambda (x) (DMap.alist->dmap-general x int->nat)]]
+                              
+define [wrt at] := [V DMap.at]
+
+transform-output eval 
+   [nat->int lambda (m) (DMap.dmap->alist-general m nat->int)]
+
+("x + 1" wrt state [['x --> 2]])
+
+assert* V-def := 
+  [(num n wrt _ = n)
+   (var x wrt s = s at x)
+   (e1 + e2 wrt s = (e1 wrt s) + (e2 wrt s)) 
+   (e1 - e2 wrt s = (e1 wrt s) - (e2 wrt s)) 
+   (e1 * e2 wrt s = (e1 wrt s) * (e2 wrt s))]
+
+transform-output eval [Set.set->lst]
+   
+define sample-state := (state [['x --> 2] ['y --> 3]])
+
+(eval "x + 1" wrt sample-state)
+
+(eval "x * 3" wrt sample-state)
+
+(eval "x + 2 * y" wrt sample-state)
+
+(eval "(x - 1) + (y - 1)" wrt sample-state)
+
+(eval "2 * counter" wrt sample-state)
+
+declare evars: [Exp] -> (Set.Set Ide) [105 [exp-parser]]
+
+assert* evars-def := 
+  [(evars num _ = null) 
+   (evars var x = singleton x)
+   (evars e1 + e2 = (evars e1) \/ (evars e2))
+   (evars e1 - e2 = (evars e1) \/ (evars e2))
+   (evars e1 * e2 = (evars e1) \/ (evars e2))]
+
+(eval evars "x + 1 <= y")
+
+declare bcond-vars: [BCond] -> (Set.Set Ide) [105 [bcond-parser]]
+
+module Exercise_18_2 { 
+
+# Insert your own solution to exercise 18.02 here:
+load "./solutions18/exercise02"
+
+} # close Exercise_18_2
+
+open Exercise_18_2
+
+define var-agreement := 
+  (forall e s1 s2 . (DMap.agree-on s1 s2 evars e) ==> e wrt s1 = e wrt s2)
+
+var-agreement
+
+module Exercise_18_3 {
+
+# Insert your own solution to exercise 18.03 here:
+load "./solutions18/exercise03"
+
+} # close Exercise_18_3
+
+open Exercise_18_3
+
+define (var-agreement-property e) := 
+  (forall s1 s2 . (DMap.agree-on s1 s2 evars e) ==> e wrt s1 = e wrt s2)
+
+define (istep op:(OP 2) e1 e2) := 
+  pick-any s1:State s2:State 
+    assume hyp := (DMap.agree-on s1 s2 evars e1 op e2) 
+      let {ih1 := (var-agreement-property e1); 
+           ih2 := (var-agreement-property e2);
+           dal := DMap.downward-agreement-lemma;
+           e := (e1 op e2);
+           _ := conclude (evars e1 subset evars e & evars e2 subset evars e)
+                  (!var-subset op e1 e2);
+           _ := (!chain-> [hyp
+                       ==> (hyp & evars e1 subset evars e) [augment]
+                       ==> (DMap.agree-on s1 s2 evars e1)  [dal]]);
+           _ := (!chain-> [hyp
+                       ==> (hyp & evars e2 subset evars e) [augment]
+                       ==> (DMap.agree-on s1 s2 evars e2)  [dal]])
+          }
+        conclude (e wrt s1 = e wrt s2)
+          (!chain [(e wrt s1) 
+                 = ((e1 wrt s1) op (e2 wrt s1)) [V-def]
+                 = ((e1 wrt s2) op (e2 wrt s2)) [ih1 ih2]
+                 = (e wrt s2)                   [V-def]])
+
+by-induction var-agreement {
+  (num n) => 
+    pick-any s1:State s2:State 
+      assume hyp := (DMap.agree-on s1 s2 evars num n)
+        (!chain [(num n wrt s1) --> n              [V-def]
+                                <-- (num n wrt s2) [V-def]]) 
+| (e as (var x)) => 
+    pick-any s1:State s2:State  
+      assume hyp := (DMap.agree-on s1 s2 evars e)
+        (!chain<- [(e wrt s1 = e wrt s2)
+               <== (s1 at x = s2 at x) [V-def]
+               <== (x in evars e)      [DMap.agreement-characterization]
+               <== (x in singleton x)  [evars-def]
+               <== true                [Set.singleton-lemma]])
+| (sum e1 e2)  => (!istep + e1 e2)
+| (diff e1 e2) => (!istep - e1 e2) 
+| (prod e1 e2) => (!istep * e1 e2) 
+}
+
+
+declare true-in: [BCond State] -> Boolean 
+                 [105 [bcond-parser 
+                       lambda (L) (DMap.alist->dmap-general L int->nat)]]
+
+assert* true-in-def :=
+  [(e1 == e2 true-in s <==> e1 wrt s = e2 wrt s)
+   (e1 <= e2 true-in s <==> e1 wrt s <= e2 wrt s)
+   (-- b true-in s <==> ~ b true-in s)
+   (b1 /\ b2 true-in s <==> b1 true-in s & b2 true-in s)]
+
+
+datatype Judgment := (yields (Pair Cmd State) State)
+declare provable: [Judgment] -> Boolean 
+expand-input yields [lambda (x) (lst->pair-general x cmd-parser state) state]
+define -->> := yields 
+([c s] -->> s')
+
+((pair c s) -->> s')
+
+(c pair s -->> s')
+
+datatype Proof := asgn-axiom
+                | skip-axiom 
+                | (seq-rule Proof Proof)
+                | (if-true-rule Proof)
+                | (if-false-rule Proof)
+                | while-axiom
+                | (while-rule Proof Proof)
+
+declare derives: [Proof Judgment] -> Boolean
+
+module Semantics_Of_Commands {
+
+define [proof proof' proof1 proof2 p p' p1 p1' p2 p2' p3 p4] := 
+       [?proof:Proof ?proof':Proof ?proof1:Proof ?proof2:Proof 
+        ?p:Proof ?p':Proof ?p1:Proof ?p1':Proof ?p2:Proof 
+	?p2':Proof ?p3:Proof ?p4:Proof]
+
+define [judgment j j' j1 j2] := 
+       [?judgment:Judgment ?j:Judgment ?j':Judgment 
+        ?j1:Judgment ?j2:Judgment]
+
+define |- := derives
+
+(proof |- judgment)
+
+assert* skip-semantics := 
+  (skip-axiom |- [c s] -->> s' <==> c = skip & s' = s)
+
+assert* asgn-semantics := 
+  (asgn-axiom |- [c s] -->> s' <==> 
+     exists x e . c = x <- e & s' = [x (e wrt s)] ++ s)
+
+assert* sequence-semantics := 
+  ((seq-rule p1 p2) |- [c s] -->> s' <==> 
+     exists c1 c2 s'' . c = c1 ^ c2 
+                      & p1 |- [c1 s] -->> s'' 
+                      & p2 |- [c2 s''] -->> s')
+
+assert* if-true-semantics := 
+ (if-true-rule p |- [c s] -->> s' <==>
+   exists b c1 c2 . 
+     c = (cond b c1 c2) & b true-in s & p |- [c1 s] -->> s')
+
+assert* if-false-semantics := 
+ (if-false-rule p |- [c s] -->> s' <==>
+  exists b c1 c2 . 
+     c = (cond b c1 c2) & ~ b true-in s & p |- [c2 s] -->> s')
+
+assert* while-false-semantics := 
+  (while-axiom |- [c s] -->> s' <==>
+     exists b body . c = (while-loop b body) & ~ b true-in s & s' = s)
+
+assert* while-true-semantics := 
+  ((while-rule p1 p2) |- [c s] -->> s' <==>
+      exists b body s'' . c = (while-loop b body) & 
+                             b true-in s & 
+                             p1 |- [body s] -->> s'' &
+                             p2 |- [(while-loop b body) s''] -->> s')
+
+define semantics := 
+   [skip-semantics asgn-semantics sequence-semantics if-true-semantics 
+    if-false-semantics while-true-semantics while-false-semantics]
+
+assert* provable-def := 
+   [(provable judgment <==> exists proof . proof |- judgment)]
+
+assert structural-axioms := 
+  (join (datatype-axioms "Exp") 
+        (datatype-axioms "BCond") 
+        (datatype-axioms "Cmd") 
+        (datatype-axioms "Judgment")
+        (datatype-axioms "Proof"))
+
+(length structural-axioms)
+
+} # close Semantics_Of_Commands
+
+open Semantics_Of_Commands
+
+module Testing_The_Semantics { 
+
+(Prolog.add-transformer nat->int) 
+
+(Prolog.auto-solve "x + 3" wrt sample-state = ?RESULT)
+
+(Prolog.auto-solve ?E1 + var 'x wrt state [['x --> 2]] = S S S S zero)
+
+define goal := (?E1 + var 'x wrt state [['x --> 2]] = S S S S zero)
+
+define sample-state := (state [['x --> 2] ['y --> 3]])
+
+define goal := ("5 + x <= y" true-in sample-state)
+
+(Prolog.auto-solve goal)
+
+(Prolog.auto-solve "~ 5 + x <= y" true-in sample-state)
+
+(Prolog.auto-solve num 5 <= ?E true-in sample-state)
+
+(Prolog.add-transformer 
+   lambda (m) (DMap.dmap->alist-canonical-general m nat->int))
+
+(Prolog.auto-solve skip-axiom |- [skip sample-state] -->> ?RESULT)
+
+(Prolog.auto-solve ?PROOF |- [skip sample-state] -->> ?STATE)
+
+define swap := "z := x; x := y; y := z"
+  
+define goal := 
+  (?PROOF |-  [swap (state [['x --> 1] ['y --> 2]])] -->> ?RESULT)
+
+(Prolog.auto-solve goal)
+
+declare x-val, y-val: N
+
+define goal := 
+  (?PROOF |-  [swap (state [['x --> x-val] ['y --> y-val]])] -->> ?RESULT)
+
+
+define prog := "if (x = 0) then y := 1 else y := 2 * x"
+
+define goal := 
+  (?PROOF |-  [prog (state [['x --> 0]])] -->> ?RESULT)
+
+(Prolog.auto-solve goal)
+
+(Prolog.auto-solve 
+     ?PROOF |-  [prog (state [['x --> 4]])] -->> ?RESULT)
+
+define factorial-program := 
+   "y := 1; while (x !=  0) do begin y := y * x; x := x - 1 end"
+
+define goal := 
+  (?PROOF |-  [factorial-program (state [['x --> 3]])] -->> ?RESULT)
+
+(Prolog.auto-solve goal)
+
+define goal := 
+  (?PROOF |-  [factorial-program (state [['x --> 5]])] -->> ?RESULT)
+
+(Prolog.auto-solve goal)
+
+define pow := 
+ "y := 1; while (n != 0) do begin y := y * x; n := n - 1 end"
+
+define goal := 
+  (?PROOF |-  [pow (state [['x --> 2] ['n --> 3]])] -->> ?RESULT)
+
+(Prolog.auto-solve goal)
+
+define loop := "while (1 = 1) do skip"
+
+define goal := (?PROOF |-  [loop sample-state] -->> ?RESULT)
+
+# This will loop and then fail: 
+# (Prolog.auto-solve goal)
+
+} # close Testing_The_Semantics
+
+module Some_Lemmas {
+
+define skip-horn-clause := (forall s . skip-axiom |- [skip s] -->> s)
+
+conclude skip-horn-clause
+  pick-any s:State 
+    (!chain-> [(skip = skip & s = s) 
+           ==> (skip-axiom |- [skip s] -->> s) [skip-semantics]])
+
+define asgn-horn-clause := 
+  (forall x e s . asgn-axiom |- [(x <- e) s] -->> [x (V e s)] ++ s)
+
+conclude asgn-horn-clause
+  pick-any x e s:State 
+    (!chain-> 
+      [(x <- e = x <- e & [x (e wrt s)] ++ s = [x (e wrt s)] ++ s)
+   ==> (exists x' e' . 
+         (x <- e) = (x' <- e') & 
+         [x (e wrt s)] ++ s = [x' (e' wrt s)] ++ s)   [existence]
+   ==> (asgn-axiom |- 
+         [(x <- e) s] -->> [x (e wrt s)] ++ s)        [asgn-semantics]])
+
+define seq-horn-clause := 
+  (forall cmd1 cmd2 s s' s'' p1 p2 . 
+    p1 |- [cmd1 s] -->> s' & p2 |- [cmd2 s'] -->> s'' ==>  
+      (seq-rule p1 p2) |- [(cmd1 ^ cmd2) s] -->> s'')
+
+define if-true-horn-clause := 
+  (forall b cmd1 cmd2 p s s' . 
+    b true-in s & p |- [cmd1 s] -->> s' ==>
+        (if-true-rule p) |- [(cond b cmd1 cmd2) s] -->> s')
+
+define if-false-horn-clause := 
+  (forall b cmd1 cmd2 p s s' . 
+    ~ b true-in s & p |- [cmd2 s] -->> s' ==>
+         (if-false-rule p) |- [(cond b cmd1 cmd2) s] -->> s')
+
+define while-true-horn-clause := 
+  (forall b body p1 p2 s s' s'' . 
+    b true-in s & 
+    p1 |- [body s] -->> s' &
+    p2 |- [(while-loop b body) s'] -->> s'' 
+  ==> (while-rule p1 p2) |- [(while-loop b body) s] -->> s'')
+
+define while-false-horn-clause :=
+  (forall b body s . 
+    ~ b true-in s ==> 
+       while-axiom |- [(while-loop b body) s] -->> s)
+
+
+define semantics-horn-clauses := 
+  [skip-horn-clause asgn-horn-clause seq-horn-clause 
+   if-false-horn-clause if-false-horn-clause 
+   while-false-horn-clause while-true-horn-clause]
+
+# The derivations of these are left as exercises: 
+assert* semantics-horn-clauses
+
+define skip-excl := 
+  (forall proof s s' . 
+     proof |- [skip s] -->> s' ==> proof = skip-axiom & s' = s)
+
+define asgn-excl :=
+  (forall proof x e s s' . 
+    proof |- [(x <- e) s] -->> s' ==> proof = asgn-axiom & 
+                                      s' =  [x (V e s)] ++ s)
+
+define seq-excl :=
+  (forall p c1 c2 s s' . 
+    p |- [(c1 ^ c2) s] -->> s' ==> 
+      exists p1 p2 s'' . p = (seq-rule p1 p2) &
+                         p1 |-  [c1 s] -->> s'' &  
+                         p2 |-  [c2 s''] -->> s')
+       
+define if-true-excl :=
+ (forall p b c1 c2 s s' . 
+   p |- [(cond b c1 c2) s] -->> s' & b true-in s ==> 
+     exists p' . p = if-true-rule p' & p' |- [c1 s] -->> s')
+     
+define if-false-excl :=
+ (forall p b c1 c2 s s' . 
+   p |- [(cond b c1 c2) s] -->> s' & ~ b true-in s ==> 
+     exists p' . p = if-false-rule p' & p' |- [c2 s] -->> s')
+                             
+define while-true-excl :=
+ (forall p b body s s' . 
+   p |- [(while-loop b body) s] -->> s' & b true-in s ==> 
+     exists p1 p2 s'' . p = (while-rule p1 p2) &
+                        p1 |- [body s] -->> s'' &
+                        p2 |- [(while-loop b body) s''] -->> s')
+     
+define while-false-excl :=
+ (forall p b body s s' . 
+   p |- [(while-loop b body) s] -->> s' & ~ b true-in s ==> 
+     p = while-axiom & s' = s)
+
+define excl-lemmas := 
+  [skip-excl asgn-excl seq-excl if-true-excl if-false-excl 
+   while-true-excl while-false-excl]
+
+define (make-goal proof c1 c2 s s') := 
+    (exists p1 p2 s'' . proof = (seq-rule p1 p2) & 
+                        p1 |- [c1 s] -->> s'' &
+                        p2 |- [c2 s''] -->> s')
+
+module Exercise_18_5 {
+
+# Insert your own solution to exercise 18.05 here:
+load "./solutions18/exercise05"
+
+} # close Exercise_18_5
+
+open Exercise_18_5 
+
+datatype-cases seq-excl {
+  asgn-axiom => 
+    pick-any c1 c2 s s'
+      assume hyp := (asgn-axiom |- [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal asgn-axiom c1 c2 s s')}
+          (!chain-> [hyp ==> (exists x e . c1 ^ c2 = x <- e &
+                                           s' = [x (V e s)] ++ s)  
+                                [semantics]
+                         ==> goal [free-gen]])
+| skip-axiom => 
+     pick-any c1 c2 s:State s':State 
+       assume hyp := (skip-axiom |- [(c1 ^ c2) s] -->> s') 
+         let {goal := (make-goal skip-axiom c1 c2 s s')}
+           (!chain-> [hyp ==> (c1 ^ c2 = skip & s' = s) [semantics]
+                             ==> goal [free-gen]])
+| (seq-rule p1 p2) =>
+     pick-any c1 c2 s:State s':State  
+       assume hyp := ((seq-rule p1 p2) |- [(c1 ^ c2) s] -->> s') 
+         let {goal := (make-goal (seq-rule p1 p2) c1 c2 s s');
+              L := (!chain->
+                     [hyp ==>  (exists cmd1 cmd2 s'' . 
+                                 c1 ^ c2 = cmd1 ^ cmd2 & 
+                                 p1 |- [cmd1 s] -->> s'' & 
+                                 p2 |- [cmd2 s'']  -->> s') 
+                                              [semantics]])}
+           pick-witnesses c1' c2' s'' for L 
+             (!chain-> [(p1 |- [c1' s] -->> s'' &
+                         p2 |-  [c2' s'']  -->> s') 
+                   ==> (p1 |- [c1 s] -->> s'' &
+                        p2 |-  [c2 s'']  -->> s') 
+                           [(c1 = c1' & c2 = c2') <==
+                            (c1 ^ c2 = c1' ^ c2')    [structural-axioms]]
+                   ==> ((seq-rule p1 p2) = (seq-rule p1 p2) & 
+                         p1 |- [c1 s] -->> s'' &
+                         p2 |-  [c2 s'']  -->> s')   [augment]
+                   ==> goal [existence]])
+| (if-true-rule p) =>
+    pick-any c1 c2 s:State s':State  
+      assume hyp := ((if-true-rule p) |-  [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal (if-true-rule p) c1 c2 s s')}
+          (!chain-> 
+             [hyp ==> (exists b cmd1 cmd2 . 
+                        c1 ^ c2 = (cond b cmd1 cmd2) & 
+                        b true-in s & 
+                        p |- [cmd1 s] -->> s') [semantics]
+                  ==> goal [free-gen]])
+| (if-false-rule p) =>
+    pick-any c1 c2 s:State s':State  
+      assume hyp := (if-false-rule p |- [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal (if-false-rule p) c1 c2 s s')}
+          (!chain-> 
+             [hyp ==> (exists b cmd1 cmd2 . 
+                        c1 ^ c2 = (cond b cmd1 cmd2) & 
+                        ~ b true-in s & 
+                        p |- [cmd2 s] -->> s') [semantics]
+                 ==> goal [free-gen]])
+| (while-rule p1 p2) =>
+    pick-any c1 c2 s:State s':State
+      assume hyp := ((while-rule p1 p2) |- [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal (while-rule p1 p2) c1 c2 s s')}
+          (!chain-> [hyp 
+                 ==> (exists b body s'' . 
+                       c1 ^ c2 = (while-loop b body) & 
+                       b true-in s & 
+                       p1 |- [body s] -->> s'' &
+                       p2 |- [(while-loop b body) s''] -->> s') 
+                                               [semantics]
+                ==> goal [free-gen]])
+| while-axiom => 
+    pick-any c1 c2 s:State s':State 
+      assume hyp := (while-axiom |- [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal while-axiom c1 c2 s s')}
+          (!chain-> [hyp ==> (exists b body . 
+                               c1 ^ c2 = (while-loop b body) & 
+                              ~ b true-in s & s' = s) [semantics]
+                         ==> goal [free-gen]])
+}
+
+define (auto-dtc-for-proofs goal M) := 
+  datatype-cases goal {
+    asgn-axiom         => (!M asgn-axiom)
+  | skip-axiom         => (!M skip-axiom)
+  | (seq-rule p1 p2)   => (!M (seq-rule p1 p2))
+  | (if-true-rule p)   => (!M (if-true-rule p))
+  | (if-false-rule p)  => (!M (if-false-rule p))
+  | while-axiom        => (!M while-axiom)
+  | (while-rule p1 p2) => (!M (while-rule p1 p2)) 
+}
+
+define (fire-semantic-axiom hyp) := 
+  (find-first 
+    semantics
+    lambda (axiom)
+      match axiom {
+        (forall (some-list _) (left <==> right)) => 
+           match (match-sentences hyp left) {
+             (some-sub sub) => (sub right)
+           | _ => false 
+           }
+      })
+
+(fire-semantic-axiom (asgn-axiom |- [c s] -->> s'))
+(fire-semantic-axiom ((if-true-rule p) |- [c s] -->> s'))
+
+(!auto-dtc-for-proofs skip-excl
+  method (proof)
+    pick-any s:State s':State
+      assume hyp := (proof |- [skip s] -->> s') 
+        let {goal := (proof = skip-axiom & s' = s)}
+        match proof {
+          skip-axiom => 
+            (!chain-> [hyp ==> (s' = s)         [semantics]
+                           ==> goal             [augment]])
+        | _ => (!chain-> [hyp 
+                     ==> (fire-semantic-axiom hyp) [semantics]
+                     ==> goal                      [free-gen]])
+        })
+
+(!auto-dtc-for-proofs seq-excl 
+  method (proof)
+    pick-any c1 c2 s s'  
+      assume hyp := (proof |- [(c1 ^ c2) s] -->> s') 
+        let {goal := (make-goal proof c1 c2 s s')}
+        match proof {
+          (seq-rule p1 p2) => 
+            let {L := (!chain-> 
+                        [hyp 
+                     ==> (exists cmd1 cmd2 s'' . 
+                           c1 ^ c2 = cmd1 ^ cmd2 & 
+                           p1 |- [cmd1 s] -->> s'' & 
+                           p2 |- [cmd2 s'']  -->> s') [semantics]])}
+            pick-witnesses c1' c2' s'' for L 
+              (!chain->                                      
+                 [(p1 |- [c1' s] -->> s'' & p2 |- [c2' s'']  -->> s') 
+              ==> (p1 |- [c1 s] -->> s'' & p2 |-  [c2 s'']  -->> s') 
+                    [(c1 = c1' & c2 = c2') <== 
+                     (c1 ^ c2 = c1' ^ c2') [structural-axioms]]
+              ==> ((seq-rule p1 p2) = (seq-rule p1 p2) &  
+                   p1 |- [c1 s] -->> s'' &            
+                   p2 |- [c2 s'']  -->> s')        [augment]
+              ==> goal [existence]])
+        | _ => (!chain->                                            
+                 [hyp ==> (fire-semantic-axiom hyp) [semantics]
+                      ==> goal                      [free-gen]])
+      })
+
+module Exercise_18_6 {
+
+# Insert your own solution to exercise 18.06 here:
+load "./solutions18/exercise06"
+
+} # close Exercise_18_6
+
+open Exercise_18_6 
+
+} # close Some_Lemmas
+
+open Some_Lemmas 
+
+declare equivalent: [Cmd Cmd] -> Boolean [[cmd-parser cmd-parser]]
+
+module Reasoning_About_The_Language {
+
+assert equivalent-def := 
+  (forall cmd1 cmd2 . cmd1 equivalent cmd2 <==> 
+      (forall s s' . provable [cmd1 s] -->> s' <==>
+                     provable [cmd2 s] -->> s'))
+
+
+overload == equivalent 
+
+set-precedence == 105
+
+define assoc-theorem := 
+  (forall c1 c2 c3 . c1 ^ (c2 ^ c3) == (c1 ^ c2) ^ c3)
+
+define assoc-dir-1 :=
+  (method (premise)
+    match premise {
+      (provable (bind judgment 
+                  (yields (pair (bind left (sequence c1 
+                                                    (sequence c2 c3)))
+                                start-s) 
+                          final-s))) => {
+        right := ((c1 ^ c2) ^ c3);
+        conclude goal := (provable [right start-s] -->> final-s) 
+          pick-witness p for (!chain->
+                               [premise
+                           ==> (exists p . p |- judgment) [provable-def]]) {
+            L1 := (!chain-> 
+                    [(p |- judgment)
+                 ==> (exists p1 p2 s' . 
+                       p = (seq-rule p1 p2) &
+                       p1 |- [c1 start-s] -->> s' &
+                       p2 |- [(c2 ^ c3) s'] -->> final-s) [seq-excl]]);
+            pick-witnesses p1 p2 s' for L1 {
+              L2 := (!chain-> 
+                      [(p2 |- [(c2 ^ c3) s'] -->> final-s)
+                   ==> (exists p3 p4 s'' . 
+                         p2 = (seq-rule p3 p4) &
+                         p3 |- [c2 s'] -->> s'' &
+                         p4 |- [c3 s''] -->> final-s)     [seq-excl]]);
+              pick-witnesses p3 p4 s'' for L2
+                (!chain-> 
+                  [(p1 |- [c1 start-s] -->> s')
+               ==> (p1 |- [c1 start-s] -->> s' & 
+                    p3 |- [c2 s'] -->> s'')               [augment]
+               ==> ((seq-rule p1 p3) |- 
+                    [(c1 ^ c2) start-s] -->> s'')         [seq-horn-clause]
+               ==> ((seq-rule p1 p3) |- 
+                      [(c1 ^ c2) start-s] -->> s'' & 
+                    p4 |- [c3  s''] -->> final-s)         [augment]
+               ==> ((seq-rule (seq-rule p1 p3) p4) |- 
+                    [right start-s] -->> final-s)         [seq-horn-clause]
+               ==> (exists p . 
+                     p |- [right start-s] -->> final-s)   [existence]
+               ==> goal                                   [provable-def]])
+            }
+          }}})
+
+
+module Exercise_18_7 {
+
+# Insert your own solution to exercise 18.07 here:
+load "./solutions18/exercise07"
+
+} # close Exercise_18_7
+
+open Exercise_18_7
+
+conclude assoc-theorem 
+  pick-any c1 c2 c3 
+    let {left := (c1 ^ (c2 ^ c3));
+         right := ((c1 ^ c2) ^ c3);
+         eqv := pick-any s:State s':State 
+                  let {imp1 := assume hyp1 := (provable [left s] -->> s')
+                                 (!assoc-dir-1 hyp1);
+                       imp2 := assume hyp2 := (provable [right s] -->> s')
+                                 (!assoc-dir-2 hyp2)}
+                    (!equiv imp1 imp2)}
+       (!chain-> [eqv ==> (left == right) [equivalent-def]])
+
+define deterministic-semantics := 
+  (forall c s s' s'' . 
+    provable [c s] -->> s' & provable [c s] -->> s''  ==> s' = s'')
+
+define determinism :=
+  (forall proof1 proof2 c s s' s'' . 
+     proof1 |- [c s] -->> s' & 
+     proof2 |- [c s] -->> s'' ==> s'' = s')
+
+define det-property := 
+  lambda (proof1)
+    (forall proof2 c s s' s'' . 
+      proof1 |- [c s] -->> s' & 
+      proof2 |- [c s] -->> s'' ==> s'' = s')
+
+define determinism-sequence-case :=
+  method (seq-proof)
+    match seq-proof {
+      (seq-rule p1 p2) => 
+        pick-any other-proof:Proof c:Cmd s:State s':State s'':State
+          assume hyp1 := (seq-proof   |- [c s] -->> s') ;
+                 hyp2 := (other-proof |- [c s] -->> s'') 
+           let {ih1 := (det-property p1); 
+                ih2 := (det-property p2);
+                L1 := (!chain-> 
+                        [hyp1 
+                     ==> (exists c1 c2 is . 
+                           c = c1 ^ c2 & 
+                           p1 |- [c1 s] -->> is & 
+                           p2 |-  [c2 is]  -->> s')       [semantics]])}
+             pick-witnesses c1 c2 is for L1 
+               let {L2 := (!chain-> 
+                            [hyp2 
+                         ==> (other-proof |- [(c1 ^ c2) s] -->> s'') 
+                                                          [(c = c1 ^ c2)]
+                         ==> (exists proof1 proof2 s1 . 
+                              other-proof = (seq-rule proof1 proof2) & 
+                              proof1 |- [c1 s] -->> s1 & 
+                              proof2 |- [c2 s1] -->> s'') [seq-excl]])}
+                 pick-witnesses proof1 proof2 s1 for L2
+                   (!chain-> 
+                     [(p2 |- [c2 is] -->> s' & 
+                       proof2 |- [c2 s1] -->> s'')
+                  ==> (p2 |- [c2 is] -->> s' & 
+                       proof2 |- [c2 is] -->> s'') 
+                          [(s1 = is) <== (p1 |- [c1 s] -->> is & 
+                                         proof1 |- [c1 s] -->> s1) [ih1]]
+                  ==> (s'' = s')  [ih2]])
+    }
+
+
+set-flag print-var-sorts "off" 
+
+pick-any p1:Proof p2:Proof
+    assume (det-property p1)
+      assume (det-property p2)
+        let {composition := (seq-rule p1 p2)}
+          conclude (det-property composition)
+            (!determinism-sequence-case composition)
+
+define determinism-if-true-case :=
+  method (if-true-proof)
+    match if-true-proof {
+     (if-true-rule p) => 
+       pick-any other-proof:Proof c:Cmd s:State s':State s'':State
+         assume hyp1 := (if-true-proof |- [c s] -->> s');
+                hyp2 := (other-proof   |- [c s] -->> s'') 
+           let {ih := (det-property p); 
+                L1 := (!chain-> 
+                        [hyp1 ==> (exists b c1 c2 . 
+                                     c = (cond b c1 c2) & 
+                                     b true-in s &
+                                     p |- [c1 s] -->> s') [semantics]])}
+             pick-witnesses b c1 c2 for L1 
+              let {L2 := (!chain-> 
+                           [hyp2 
+                        ==> (other-proof |- 
+                              [(cond b c1 c2) s] -->> s'') 
+                                                    [(c = (cond b c1 c2))]
+                        ==> (other-proof |-         
+                             [(cond b c1 c2) s] -->> s'' & 
+                              b true-in s)          [augment]
+                        ==> (exists proof' .         
+                              other-proof = if-true-rule proof' &
+                              proof' |- [c1 s] -->> s'') [if-true-excl]])}
+                pick-witness proof' for L2  
+                  (!chain-> 
+                    [(p |- [c1 s] -->> s' & 
+                     proof' |- [c1 s] -->> s'')
+                 ==> (s'' = s') [ih]])
+    }
+
+
+pick-any p:Proof
+    assume (det-property p)
+      conclude (det-property if-true-rule p)
+        (!determinism-if-true-case (if-true-rule p))
+
+module Exercise_18_8 {
+
+# Insert your own solution to exercise 18.08 here:
+load "./solutions18/exercise08"
+
+} # close Exercise_18_8
+
+open Exercise_18_8
+
+by-induction (forall proof . det-property proof) {
+  skip-axiom => 
+   pick-any proof2 c s:State s':State s'':State 
+     assume hyp1 := (skip-axiom |- [c s] -->> s');
+            hyp2 := (proof2 |- [c s] -->> s'')  
+      (!chain-> 
+        [hyp2 ==> (proof2 |- [skip s] -->> s'') 
+                               [(c = skip) <== hyp1 [semantics]]
+              ==> (s'' = s)    [skip-excl]
+                       = s'    [(s' = s) <== hyp1  [semantics]]])
+| asgn-axiom =>  
+     pick-any proof2 c s:State s':State s'':State 
+       assume hyp1 := (asgn-axiom |- [c s] -->> s');
+              hyp2 := (proof2 |- [c s] -->> s'') 
+         let {L1 := (!chain-> 
+                     [hyp1 ==> 
+                       (exists x e . c = x <- e &
+                                     s' = [x (V e s)] ++ s) [semantics]])}
+          pick-witnesses x e for L1 
+            (!chain-> 
+              [hyp2 
+          ==> (proof2 |- [(x <- e) s] -->> s'') [(c = x <- e)]
+          ==> (s'' = [x (V e s)] ++ s)          [asgn-excl]
+                   = s'                         [(s' = [x (V e s)] ++ s)]])
+| (seq-rule p1 p2) =>   (!determinism-sequence-case (seq-rule p1 p2))
+| (if-true-rule p) =>   (!determinism-if-true-case (if-true-rule p))
+| (if-false-rule p) =>  (!determinism-if-false-case (if-false-rule p))
+| (while-rule p1 p2) => (!determinism-while-true-case (while-rule p1 p2))
+| while-axiom =>        (!determinism-while-axiom-case) 
+}
+
+(forall ?B ?C .  
+  "while ?B do ?C" == "if ?B then begin ?C; while ?B do ?C end else skip")
+
+module Exercise_18_11 {
+
+# Insert your own solution to exercise 18.11 here:
+load "./solutions18/exercise11"
+
+} # close Exercise_18_11
+
+open Exercise_18_11
+
+} # close Reasoning_About_The_Language
+
+open Reasoning_About_The_Language
+
+} # close Chapter18
+
+

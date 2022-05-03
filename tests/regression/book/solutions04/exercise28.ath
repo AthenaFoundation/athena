@@ -1,0 +1,55 @@
+#========================== Solution to exercise 4.28 =========================
+
+    define (or-cong premise1 premise2) := 
+      match [premise1 premise2] {
+        [(p1 <==> q1) (p2 <==> q2)] =>
+          let {cond-1 := assume (p1 | p2)
+                           (!cases (p1 | p2)
+                             assume p1 
+                               (!left-either (!mp (!left-iff premise1) 
+                                                  p1) 
+                                             q2)
+                             assume p2
+                               (!right-either q1 
+                                              (!mp (!left-iff premise2) 
+                                                   p2)));
+               cond-2 := assume (q1 | q2)
+                            (!cases (q1 | q2)
+                              assume q1
+                                (!left-either (!mp (!right-iff premise1) 
+                                                   q1) 
+                                              p2)
+                              assume q2
+                                (!right-either p1 
+                                               (!mp (!right-iff premise2) 
+                                                    q2)))}
+            (!equiv cond-1 cond-2)
+      }
+
+  define (iff-cong premise1 premise2) := 
+    match [premise1 premise2] {
+      [(p1 <==> q1) (p2 <==> q2)] =>
+        let {cond-1 := assume (p1 <==> p2)
+                         (!equiv assume q1
+                                   (!mp (!left-iff premise2)
+                                        (!mp (!left-iff (p1 <==> p2))
+                                             (!mp (!right-iff premise1) 
+                                                  q1)))
+                                 assume q2
+                                   (!mp (!left-iff premise1)
+                                        (!mp (!right-iff (p1 <==> p2))
+                                             (!mp (!right-iff premise2) 
+                                                  q2))));
+             cond-2 := assume (q1 <==> q2)
+                         (!equiv assume p1
+                                   (!mp (!right-iff premise2)
+                                        (!mp (!left-iff (q1 <==> q2))
+                                             (!mp (!left-iff premise1) 
+                                                  p1)))
+                                 assume p2
+                                   (!mp (!right-iff premise1)
+                                        (!mp (!right-iff (q1 <==> q2))
+                                             (!mp (!left-iff premise2) 
+                                                  p2))))}
+        (!equiv cond-1 cond-2)
+    }

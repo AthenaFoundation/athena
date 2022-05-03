@@ -1,0 +1,36 @@
+define get-lemma-conv-div :=
+ method (premise)
+  match premise {
+    (= (I' (quot e1 e2)) NONE) => 
+      let {goal := (I' e1 = NONE | I' e2 = NONE | I' e2 = SOME zero)}
+        (!two-cases
+          assume case1 := (I' e1 = NONE)
+            (!chain-> [case1 ==> goal                    [alternate]])
+          assume case2 := (I' e1 =/= NONE)
+            pick-witness n1 for 
+              (!chain-> [case2 
+                    ==> (exists n1 . I' e1 = SOME n1)    [option-results]])
+              (!two-cases
+                assume case2-a := (I' e2 = NONE)
+                  (!chain-> [case2-a ==> goal            [alternate]])
+                assume case2-b := (I' e2 =/= NONE)
+                  pick-witness n2 for 
+                                  (!chain->
+	 	                    [case2-b 
+                                 ==> (exists n2 .
+				       I' e2 = SOME n2) [option-results]])
+                    (!two-cases
+                      assume case2-b-1 := (n2 = zero)
+                        (!chain-> [(I' e2 = SOME n2) 
+                               ==> (I' e2 = SOME zero)   [case2-b-1] 
+                               ==> goal                  [alternate]])
+                      assume case2-b-2 := (n2 =/= zero) 
+                        let {p := (!chain->
+	                            [(I' e1 quot e2) 
+                                  = (SOME n1 / n2)       [I'-def]
+                                ==> (I' e1 quot e2 =/=
+				     NONE)               [option-results]]);
+                             _ := (!absurd premise p)}
+                          (!from-false goal))))
+  }
+

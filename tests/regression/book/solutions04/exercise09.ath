@@ -1,0 +1,8 @@
+#========================== Solution to exercise 4.9 =========================
+
+  define (find-some M L K) := 
+    match L {
+      [] => (!K)
+    | (list-of x rest) => try { (!M first) | (!find-some rest M K) }
+    }
+

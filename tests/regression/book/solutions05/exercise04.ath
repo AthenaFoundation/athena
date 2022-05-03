@@ -1,0 +1,32 @@
+# Implement qn-1: 
+
+define (qn-1 premise) := 
+  match premise {
+    (~ (forall x p)) =>
+     let {goal :=  (exists x . complement p)}
+       (!by-contradiction goal
+         assume -goal := (~ goal)
+           (!absurd conclude (forall x p)
+                      pick-any x 
+                        (!instance (!qn-3 -goal) x)
+                    premise))
+  }
+
+# An alternative approach: 
+
+define qn-1 := 
+  method (premise)
+    match premise {
+      (~ (forall x p)) =>
+        let {goal := (exists x . complement p)}
+          (!by-contradiction goal
+            assume -goal := (~ goal)
+              (!absurd conclude (forall x p)
+                         pick-any y
+                           let {p_y := (replace-var x y p)}
+                             (!by-contradiction p_y
+                                assume (complement p_y)
+                                  (!absurd (!egen goal y) -goal))
+                       premise))
+    }
+

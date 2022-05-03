@@ -1,0 +1,2207 @@
+#====================================================================================
+# 
+#	Code (including student solutions) for chapter 10 of FPMICS.
+#
+#====================================================================================
+
+load "nat-minus" # needed for simple theory of set cardinality
+
+structure (Set S) :=  null | (insert S (Set S))
+
+structure (Map Key Value) := empty-map 
+                           | (update (Pair Key Value) (Map Key Value))
+
+module Ordered_Pairs {
+
+# The Pair datatype is already defined, no need to duplicate it. 
+#datatype (Pair S T) := (pair pair-left:S pair-right:T)
+
+set-precedence pair 310
+
+define @ := pair
+
+define (lst->pair-general x pre-left pre-right) := 
+  match x { 
+     [v1 v2] => (pair (pre-left v1) (pre-right v2))
+  | _ => x
+  }
+
+define (lst->pair x) :=  (lst->pair-general x id id)
+
+define (pair->lst-general x pre-left pre-right) := 
+  match x {
+    (pair v1 v2) => [(pre-left v1) (pre-right v2)]
+  | _ => x
+  }     
+
+define (pair->lst x) := (pair->lst-general x id id)
+
+define [x y z w p p1 p2] := 
+       [?x ?y ?z ?w ?p:(Pair 'S 'T) ?p1:(Pair 'S1 'T1) 
+        ?p2:(Pair 'S2 'T2)]
+
+assert pair-axioms := 
+  (datatype-axioms "Pair" joined-with selector-axioms "Pair")
+
+define fp := (forall x y z w . x @ y = z @ w <==> x = z & y = w)
+
+(member? fp pair-axioms)
+
+conclude pair-theorem-1 :=
+     (forall p . p = (pair-left p) @ (pair-right p))
+  datatype-cases pair-theorem-1 {
+    (P as (pair x y)) => 
+      (!chain [P = ((pair-left P) @ (pair-right P))  [pair-axioms]])
+  }
+
+conclude pair-theorem-2 :=
+    (forall x y z w . x @ y = z @ w <==> y @ x = w @ z)
+  pick-any x y z w
+    (!chain [(x @ y = z @ w) <==> (x = z & y = w)    [pair-axioms]
+                             <==> (y = w & x = z)    [comm] 
+                             <==> (y @ x = w @ z)    [pair-axioms]])
+
+declare swap:  (S, T) [(Pair S T)] -> (Pair T S)
+
+assert* swap-def := [(swap x @ y = y @ x)]
+
+(eval swap swap 1 @ 'a)
+
+(eval swap swap swap 1 @ 'a)
+
+conclude swap-theorem-1 := 
+  (forall x y . swap swap x @ y = x @ y)
+pick-any x y 
+  (!chain [(swap swap x @ y) = (swap y @ x) [swap-def]
+                             = (x @ y)      [swap-def]])
+conclude swap-theorem-1b := (forall p . swap swap p = p)
+ pick-any p
+  let {E := (!chain-> [true ==> (exists x y . p = x @ y) [pair-axioms]])}
+    pick-witnesses x y for E  # we now have (p = x @ y)
+      (!chain-> [(swap swap x @ y)
+               = (swap y @ x)       [swap-def]
+               = (x @ y)            [swap-def]
+             ==> (swap swap p = p)  [(p = x @ y)]])
+
+define (pair-converter premise) := 
+  match premise {
+    (forall u (forall v body)) => 
+      pick-any p:(Pair 'S 'T)
+        let {E := (!chain-> [true ==> (exists ?x ?y . p = ?x @ ?y) [pair-axioms]])}
+          pick-witnesses x y for E
+            let {body' := (!uspec* premise [x y]);
+                 goal := (replace-term-in-sentence (x @ y) body' p)}
+              (!chain-> [body' ==> goal  [(p = x @ y)]])
+  }
+
+conclude swap-theorem-1b := (forall p . swap swap p = p)
+  (!pair-converter 
+     pick-any x y 
+       (!chain [(swap swap x @ y) = (swap y @ x) [swap-def]
+                                  = (x @ y)      [swap-def]]))
+
+ conclude swap-theorem-1b := (forall p . swap swap p = p)
+    (!pair-converter swap-theorem-1)
+
+module Exercise_10_1 { 
+
+# Insert your own solution to exercise 10.01 here:
+load "./solutions10/exercise01"
+
+} # close Exercise_10_1
+
+} # close Ordered_Pairs 
+
+module Options { 
+
+# The (Option S) datatype is already defined at the top level so no need to repeat it here.
+# datatype (Option S) := NONE | (SOME option-val:S)
+
+(SOME 'foo :: nil)
+
+(?x = SOME 3.14)
+
+NONE
+
+(eval option-val SOME 99 - 1)
+
+assert opt-axioms := (datatype-axioms "Option")  
+
+define [x y z] := [?x ?y ?z]
+
+conclude option-lemma-1 := (forall x y . x = SOME y ==> x =/= NONE)
+  pick-any x y
+    assume hyp := (x = SOME y)
+      (!chain-> [true ==> (NONE =/= SOME y)  [opt-axioms]
+                      ==> (NONE =/= x)       [hyp]
+                      ==> (x =/= NONE)       [sym]])
+
+conclude option-lemma-2 := 
+           (forall x . x =/= NONE ==> exists y . x = SOME y)
+  pick-any x 
+    assume hyp := (x =/= NONE)
+      (!chain-> 
+        [true ==> (x = NONE | exists y . x = SOME y) [opt-axioms]
+ 	      ==> (exists y . x = SOME y)            [(dsyl with hyp)]])
+
+define option-lemma-2-conv := 
+  (forall x . (forall y . x =/= SOME y) ==> x = NONE)
+
+define option-lemma-3 := 
+  (forall x . x = NONE ==> ~ exists y . x = SOME y)
+
+define option-lemma-4 := 
+   (forall x y . x = NONE ==> x =/= SOME y)
+
+conclude option-lemma-5 :=
+  (forall x y z . x = SOME y & y =/= z ==> x =/= SOME z)
+ pick-any x y z
+   assume h := (x = SOME y & y =/= z)
+     (!chain-> [h ==> (y =/= z)           [right-and]
+                  ==> (SOME y =/= SOME z) [opt-axioms]
+                  ==> (x =/= SOME z)      [h]])
+
+define opt-lemmas := 
+  [option-lemma-1 option-lemma-2 option-lemma-2-conv 
+   option-lemma-3 option-lemma-4 option-lemma-5]
+
+define option-results := (join opt-axioms opt-lemmas)
+
+} # close Options
+
+module Set {
+
+define (alist->set L) :=
+  match L {
+    [] => null 
+  | (list-of x rest) => (insert (alist->set x) (alist->set rest))
+  | _ => L 
+  }
+
+(?x = alist->set [[1 2]])
+
+define (set->alist-aux s) :=
+  match s {
+    null => []
+  | (insert x rest) => (add (set->alist-aux x) (set->alist-aux rest))
+  | _ => s
+  }
+
+define (set->alist s) := 
+  match (set->alist-aux s) {
+    (some-list L) => (dedup L)
+  | _ => s
+  }
+
+(set->alist 1 insert 2 insert 1 insert null)
+
+expand-input insert [id alist->set]
+
+define ++ := insert
+
+(1 ++ [2 3])
+
+set-precedence ++ 210 
+
+define [x y z a b h h' s s' t t' s1 s2 s3 A B C D E U] := 
+       [?x:'S1 ?y:'S2 ?z:'S3 ?a:'S4 ?b:'S5 ?h:'S6 ?h':'S7 
+        ?s:(Set 'T1) ?s':(Set 'T2) 
+        ?t:(Set 'T3) ?t:(Set 'T4) ?s1:(Set 'T5)
+        ?s2:(Set 'T6) ?S3:(Set 'T7) ?A:(Set 'T8) ?B:(Set 'T9) 
+        ?C:(Set 'T10) ?D:(Set 'T11) ?E:(Set 'T12) ?U:(Set 'T13)]
+
+declare in: (S) [S (Set S)] -> Boolean [[id alist->set]]
+
+assert* in-def := 
+  [(~ _ in null)
+   (x in h ++ t <==> x = h | x in t)]
+
+(eval 23 in [1 5 23 98])
+
+(eval 23 in [1 5 98])
+
+conclude null-characterization := (forall x . x in [] <==> false)
+  pick-any x
+    (!equiv
+      assume hyp := (x in [])
+        (!absurd hyp (!chain-> [true ==> (~ x in []) [in-def]]))
+      assume false
+        (!from-false (x in [])))
+
+conclude in-lemma-1 := (forall x A . x in x ++ A)
+  pick-any x A
+    (!chain-> [(x = x) ==> (x in x ++ A) [in-def]])
+
+define NC := null-characterization
+
+declare subset: (S) [(Set S) (Set S)] -> Boolean [[alist->set alist->set]]
+                                                 
+assert* subset-def :=
+  [([] subset _)
+   (h ++ t subset A <==> h in A & t subset A)]
+
+(eval [1 2] subset [3 2 4 1 5])
+(eval [1 2] subset [3 2])
+
+define subset-characterization-1 := 
+  by-induction (forall A B . A subset B ==> forall x . x in A ==> x in B) {
+    null => pick-any B
+             assume (null subset B) 
+               pick-any x
+                 (!chain [(x in null) ==> false        [NC]
+                                      ==> (x in B)     [prop-taut]])
+  | (A as (insert h t)) => 
+      pick-any B
+        assume hyp := (A subset B) 
+          let {IH := (forall B . t subset B ==> forall x . x in t ==> x in B);
+                _ := (!chain-> [hyp ==> (t subset B) [subset-def]])}
+            pick-any x
+              assume (x in A)
+                (!cases (!chain<- [(x = h | x in t) 
+                               <== (x in A)            [in-def]])
+                  assume (x = h)
+                    (!chain-> [hyp ==>  (h in B)       [subset-def]
+                                   ==>  (x in B)       [(x = h)]])
+                  (!chain [(x in t) ==> (x in B)       [IH]]))
+  }
+
+define subset-characterization-2 := 
+  (forall A B . (forall x . x in A ==> x in B) ==> A subset B)
+
+define subset-characterization := 
+  (forall s1 s2 . s1 subset s2 <==> forall x . x in s1 ==> x in s2)
+
+module Exercise_10_3 { 
+
+# Insert your own solution to exercise 10.03 here:
+load "./solutions10/exercise03"
+
+} # close Exercise_10_3
+
+define SC := subset-characterization
+
+define subset-intro :=
+  method (p)
+    match p {
+      (forall x ((x in A) ==> (x in B))) => 
+        (!chain-> [p ==> (A subset B) [SC]])
+    }
+
+assert* set-identity := (A = B <==> A subset B & B subset A)
+
+(eval 1 ++ 2 ++ [] = 2 ++ 1 ++ [])
+
+# The following can be proved. The proof is left as an exercise in the text.
+# Here we simply force it: 
+
+define set-identity-characterization :=
+  (forall A B . A = B <==> forall x . x in A <==> x in B)
+
+(!force set-identity-characterization)
+
+define SIC := set-identity-characterization
+
+define set-identity-intro :=
+  method (p1 p2) 
+    match [p1 p2] {
+      [(A subset B) (B subset A)] =>
+        (!chain-> [p1 ==> (p1 & p2) [augment]
+                      ==> (A = B)   [set-identity]])
+    }
+
+define set-identity-intro-direct :=
+  method (premise)
+    match premise {
+      (forall x ((x in A) <==> (x in B))) =>
+        (!chain-> [premise ==> (A = B) [SIC]])
+    }
+
+conclude NC-2 := (forall A . A = null <==> forall x . ~ x in A)
+pick-any A 
+  (!chain [(A = null)
+      <==> (forall x . x in A <==> x in null)   [SIC]
+      <==> (forall x . x in A <==> false)       [NC]
+      <==> (forall x . ~ x in A)                [prop-taut]])
+
+conclude NC-3 := 
+  (forall A . A =/= null <==> exists x . x in A)
+pick-any A
+  (!chain [(A =/= null) 
+      <==> (~ forall x . ~ x in A) [NC-2]
+      <==> (exists x . ~ ~ x in A) [qn-strict]
+      <==> (exists x . x in A)     [bdn]])
+
+define (non-empty S) := (S =/= null)
+
+define subset-reflexivity := (forall A . A subset A)
+
+define subset-antisymmetry := 
+  (forall A B . A subset B & B subset A ==> A = B)
+
+# Reflexivity and antisymmetry are left as exercises, forced here. 
+
+(!force subset-reflexivity)
+(!force subset-antisymmetry)
+
+conclude subset-transitivity := 
+ (forall A B C . A subset B & B subset C ==> A subset C)
+   pick-any A B C
+     assume (A subset B & B subset C)
+       (!subset-intro
+          pick-any x
+           (!chain [(x in A) 
+                ==> (x in B) [SC]
+                ==> (x in C) [SC]]))
+
+declare proper-subset: (S) [(Set S) (Set S)] -> Boolean 
+                           [[alist->set alist->set]]
+
+assert* proper-subset-def :=
+  [(s1 proper-subset s2 <==> s1 subset s2 & s1 =/= s2)]
+
+(eval [1 2] proper-subset [2 3 1])
+
+define proper-subset-characterization := 
+  (forall s1 s2 . s1 proper-subset s2 <==> 
+                  s1 subset s2 & exists x . x in s2 & ~ x in s1)
+
+# PSC, proper-subset-lemma, and the three auxiliary in-lemma's 
+# below are left as exercises: 
+
+define PSC := proper-subset-characterization
+
+(!force PSC)
+
+define proper-subset-lemma := 
+  (forall A B x . A subset B & x in B & ~ x in A ==> A proper-subset B)
+
+(!force proper-subset-lemma)
+
+define in-lemma-2 := (forall h t . h in t ==> h ++ t = t)
+
+define in-lemma-3 := (forall x h t . x in t ==> x in h ++ t) 
+
+define in-lemma-4 :=
+  (forall A x y . x in A ==> y in A <==> y = x | y in A)
+
+(!force in-lemma-2)
+(!force in-lemma-3)
+(!force in-lemma-4)
+
+declare singleton: (S) [S] -> (Set S)
+
+assert* singleton-def := [(singleton x = x ++ null)]
+  
+conclude singleton-characterization := 
+  (forall x y . x in singleton y <==> x = y)
+ pick-any x y
+  (!chain [(x in singleton y) 
+      <==> (x in y ++ null)       [singleton-def]
+      <==> (x = y | x in null)    [in-def]
+      <==> (x = y | false)        [NC]
+      <==> (x = y)                [prop-taut]])
+
+declare union, intersection, diff: 
+   (S) [(Set S) (Set S)] -> (Set S) [120 [alist->set alist->set]]
+
+define [\/ /\ \] := [union intersection diff]
+
+assert* union-def :=
+ [([] \/ s = s)
+  (h ++ t \/ s = h ++ (t \/ s))]
+
+transform-output eval [set->alist]
+
+(eval [1 2 3] \/ [4 5 6 3])
+
+datatype U := (int Int) | (ide Ide)
+
+(exists x . x = [(int 1) (int 2) (int 3)] \/ [(ide 'a) (ide 'b)])
+
+conclude union-characterization-1 := 
+  (forall A B x . x in A \/ B ==> x in A | x in B)
+ by-induction union-characterization-1 {
+   null => pick-any B x
+            (!chain [(x in null \/ B) 
+                 ==> (x in B)                [union-def]
+                 ==> (x in null | x in B)    [alternate]])
+ | (A as (h insert t)) =>
+    let {IH := (forall B x . x in t \/ B ==> x in t | x in B)}
+      pick-any B x        
+        (!chain [(x in A \/ B)
+             ==> (x in h ++ (t \/ B))        [union-def]
+             ==> (x = h | x in t \/ B)       [in-def] 
+             ==> (x = h | x in t | x in B)   [IH]
+             ==> ((x = h | x in t) | x in B) [prop-taut]
+             ==> (x in A | x in B)           [in-def]])
+}
+
+define union-characterization-2 := 
+ (forall A B x . x in A | x in B ==> x in A \/ B)
+
+define union-characterization := 
+  (forall A B x . x in A \/ B <==> x in A | x in B)
+
+define UC := union-characterization
+
+module Exercise_10_7 {
+
+# Insert your own solution to exercise 10.07 here:
+load "./solutions10/exercise07"
+
+} # close Exercise_10_7
+
+assert* intersection-def :=
+ [(null /\ s = null)
+  (h ++ t /\ A = h ++ (t /\ A) <== h in A)
+  (h ++ t /\ A = t /\ A <== ~ h in A)]
+
+(eval [1 2 1] /\ [5 1 3])
+
+conclude intersection-characterization-1 := 
+  (forall A B x . x in A /\ B ==> x in A & x in B)  
+by-induction intersection-characterization-1 {
+  null => 
+    pick-any B x
+      (!chain [(x in null /\ B) 
+           ==> (x in null)                         [intersection-def]
+           ==> false                               [NC]
+           ==> (x in null & x in B)                [prop-taut]])
+| (A as (insert h t)) =>
+  let {IH := (forall B x . x in t /\ B ==> x in t & x in B)}
+    pick-any B x
+      (!two-cases
+        assume (h in B)
+          (!chain 
+            [(x in (h ++ t) /\ B)
+         ==> (x in h ++ (t /\ B))                  [intersection-def]
+         ==> (x = h | x in t /\ B)                 [in-def]
+         ==> (x = h | x in t & x in B)             [IH]
+         ==> ((x = h | x in t) & (x = h | x in B)) [prop-taut]
+         ==> (x in A & (x in B | x in B))          [in-def (h in B)]
+         ==> (x in A & x in B)                     [prop-taut]])
+        assume (~ h in B)
+          (!chain [(x in A /\ B)  
+               ==> (x in t /\ B)                   [intersection-def]
+               ==> (x in t & x in B)               [IH]
+               ==> (x in A & x in B)               [in-def]]))
+    }
+
+define intersection-characterization-2 := 
+ (forall A B x . x in A & x in B ==> x in A /\ B)
+
+define intersection-characterization := 
+ (forall A B x . x in A /\ B <==> x in A & x in B)
+
+define IC := intersection-characterization
+
+module Exercise_10_8 { 
+
+# Insert your own solution to exercise 10.08 here:
+load "./solutions10/exercise08"
+
+} # close Exercise_10_8
+
+conclude intersection-subset-theorem := 
+  (forall A B . A /\ B subset A)
+pick-any A B
+  (!subset-intro
+    pick-any x
+      (!chain [(x in A /\ B) 
+           ==> (x in A)       [IC]]))
+
+
+assert* diff-def :=
+ [(null \ _ = null)
+  (h ++ t \ A = t \ A <== h in A)
+  (h ++ t \ A = h ++ (t \ A) <== ~ h in A)]
+
+(eval [1 2 3] \ [3 1])
+
+define diff-characterization-1 := 
+  (forall A B x . x in A \ B ==> x in A & ~ x in B)
+
+define diff-characterization-2 := 
+  (forall A B x . x in A & ~ x in B ==> x in A \ B)
+
+# The proofs of these two are left as exercises. 
+
+(!force diff-characterization-1)
+(!force diff-characterization-2)
+
+conclude diff-characterization := 
+  (forall A B x . x in A \ B <==> x in A & ~ x in B)
+  pick-any A B x
+    (!equiv 
+       (!chain [(x in A \ B) 
+            ==> (x in A & ~ x in B) [diff-characterization-1]])
+       (!chain [(x in A & ~ x in B) 
+            ==> (x in A \ B)        [diff-characterization-2]]))
+
+define DC := diff-characterization
+
+declare remove: (S) [(Set S) S] -> (Set S) [- [alist->set id]]
+
+assert* remove-def := 
+  [(null - _ = null)
+   (h ++ t - x = t - x <== x = h)
+   (h ++ t - x = h ++ (t - x) <== x =/= h)]
+
+(eval [1 2 3 2 5] - 2)
+
+define remove-characterization := 
+  (forall A x y . y in A - x <==> y in A & y =/= x)
+
+define RC := remove-characterization
+
+define remove-corollary :=   (forall A x  . ~ x in A - x)
+define remove-corollary-2 := (forall A x  . ~ x in A ==> A - x = A)
+define remove-corollary-3 := (forall A x y . x in A & y =/= x ==> x in A - y)
+define remove-corollary-4 := (forall A x y  . ~ x in A ==> ~ x in A - y)
+define remove-corollary-5 := 
+  (forall A B x . A subset B & ~ x in A ==> A subset B - x)
+
+# These 5 corollaries are left as exercises:
+
+(!force remove-corollary) 
+(!force remove-corollary-2)
+(!force remove-corollary-3) 
+(!force remove-corollary-4) 
+(!force remove-corollary-5)
+
+conclude intersection-commutes := (forall A B . A /\ B = B /\ A)
+ pick-any A B
+   (!set-identity-intro-direct
+     pick-any x
+       (!chain [(x in A /\ B) <==> (x in A & x in B)  [IC] 
+                              <==> (x in B & x in A)  [prop-taut]
+                              <==> (x in B /\ A)      [IC]]))
+
+
+conclude union-commutes := (forall A B . A \/ B = B \/ A)
+ pick-any A B
+   (!set-identity-intro-direct
+      pick-any x
+        (!chain [(x in A \/ B) <==> (x in A | x in B)  [UC] 
+                               <==> (x in B | x in A)  [prop-taut]
+                               <==> (x in B \/ A)      [UC]]))
+
+conclude intersection-commutes := (forall A B . A /\ B = B /\ A)
+ pick-any A B
+   let {A-subset-of-B := 
+         (!subset-intro
+           pick-any x
+            (!chain [(x in A /\ B) 
+                 ==> (x in A & x in B) [IC]
+                 ==> (x in B & x in A) [prop-taut]
+                 ==> (x in B /\ A)     [IC]]));
+        B-subset-of-A := 
+         (!subset-intro 
+            pick-any x 
+              (!chain [(x in B /\ A) 
+                   ==> (x in B & x in A) [IC]
+                   ==> (x in A & x in B) [prop-taut]
+                   ==> (x in A /\ B)     [IC]]))
+        }
+      (!set-identity-intro A-subset-of-B B-subset-of-A)
+
+conclude intersection-commutes := (forall A B . A /\ B = B /\ A)
+  let {M := method (A B) # derive (A /\ B subset B /\ A)
+              (!subset-intro
+                 pick-any x
+                   (!chain [(x in A /\ B) 
+                        ==> (x in A & x in B) [IC]
+                        ==> (x in B & x in A) [prop-taut]
+                        ==> (x in B /\ A)     [IC]]))}
+    pick-any A B
+      (!set-identity-intro (!M A B) (!M B A))
+
+conclude intersection-associativity :=  
+  (forall A B C . A /\ (B /\ C) = (A /\ B) /\ C)
+ pick-any A B C
+   (!set-identity-intro-direct
+     pick-any x 
+       (!chain [(x in A /\ B /\ C) 
+           <==> (x in A & x in B /\ C)       [IC]
+           <==> (x in A & x in B & x in C)   [IC]
+           <==> ((x in A & x in B) & x in C) [prop-taut]
+           <==> ((x in A /\ B) & x in C)     [IC]
+           <==> (x in (A /\ B) /\ C)         [IC]]))
+
+define union-associativity := (forall A B C . A \/ B \/ C = (A \/ B) \/ C)
+
+conclude /\-idempotence := (forall A . A /\ A = A)
+  pick-any A 
+   (!set-identity-intro-direct 
+     pick-any x 
+       (!chain [(x in A /\ A) 
+          <==> (x in A & x in A)  [IC]
+          <==> (x in A)           [prop-taut]]))
+
+conclude union-null-theorem := 
+  (forall A B . A \/ B = null <==> A = null & B = null)
+pick-any A B 
+  (!chain [(A \/ B = null) 
+      <==> (forall x . x in A \/ B <==> x in null)       [SIC]
+      <==> (forall x . x in A \/ B <==> false)           [NC]
+      <==> (forall x . x in A | x in B <==> false)       [UC]
+      <==> (forall x . ~ x in A & ~ x in B)              [prop-taut]
+      <==> ((forall x . ~ x in A) & (forall x ~ x in B)) [quant-dist]
+      <==> (A = null & B = null)                         [NC-2]])    
+
+
+conclude distributivity-1 := 
+  (forall A B C . A \/ (B /\ C) = (A \/ B) /\ (A \/ C))
+  pick-any A B C 
+    (!set-identity-intro-direct
+       pick-any x
+         (!chain [(x in A \/ (B /\ C)) 
+             <==> (x in A | x in B /\ C)                  [UC]
+             <==> (x in A | x in B & x in C)              [IC]
+             <==> ((x in A | x in B) & (x in A | x in C)) [prop-taut]
+             <==> (x in A \/ B & x in A \/ C)             [UC]
+             <==> (x in (A \/ B) /\ (A \/ C))             [IC]]))
+
+define distributivity-2 := 
+  (forall A B C . A /\ (B \/ C) = (A /\ B) \/ (A /\ C))
+
+module Exercise_10_11 {
+
+# Insert your own solution to exercise 10.11 here:
+load "./solutions10/exercise11"
+
+} # close Exercise_10_11
+
+conclude diff-theorem-1 := (forall A . A \ A = null)
+  pick-any A 
+    (!set-identity-intro-direct
+       pick-any x
+        (!chain [(x in A \ A) 
+            <==> (x in A & ~ x in A) [DC]
+            <==> false               [prop-taut]
+            <==> (x in null)         [NC]]))
+
+conclude diff-theorem-2 := 
+  (forall A B C . B subset C ==> A \ C subset A \ B) 
+pick-any A B C
+  assume (B subset C)
+    (!subset-intro
+       pick-any x 
+        (!chain [(x in A \ C) 
+             ==> (x in A & ~ x in C) [DC]
+             ==> (x in A & ~ x in B) [SC]
+             ==> (x in A \ B)        [DC]]))
+
+
+define p := (forall A B C . B subset C ==> A \ B subset A \ C) 
+  
+#(falsify p 20)
+
+define diff-theorem-3 := (forall A B . A \ (A /\ B) = A \ B)
+
+conclude diff-theorem-4 :=
+  (forall A B . A /\ (A \ B) = A \ B)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A /\ (A \ B)) 
+              <==> (x in A & x in A \ B)        [IC]
+              <==> (x in A & x in A & ~ x in B) [DC]
+              <==> (x in A & ~ x in B)          [prop-taut]
+              <==> (x in A \ B)                 [DC]]))
+
+define diff-theorem-5 := (forall A B . (A \ B) \/ B = A \/ B)
+define diff-theorem-6 := (forall A B . (A \/ B) \ B = A \ B)
+define diff-theorem-7 := (forall A B . (A /\ B) \ B = null)
+
+conclude diff-theorem-8 :=
+  (forall A B . (A \ B) /\ B = null)
+    pick-any A B
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in (A \ B) /\ B)        
+              <==> (x in A \ B & x in B)          [IC]
+              <==> ((x in A & ~ x in B) & x in B) [DC]
+              <==> false                          [prop-taut]
+              <==> (x in null)                    [NC]]))
+
+define diff-theorem-9 := (forall A B C . A \ (B \/ C) = (A \ B) /\ (A \ C))
+
+conclude diff-theorem-10 :=
+  (forall A B C . A \ (B /\ C) = (A \ B) \/ (A \ C))
+    pick-any A B C
+      (!set-identity-intro-direct
+        pick-any x 
+          (!chain [(x in A \ (B /\ C)) 
+              <==> (x in A & ~ x in B /\ C)                    [DC]
+              <==> (x in A & ~ (x in B & x in C))              [IC]
+              <==> (x in A & (~ x in B | ~ x in C))            [prop-taut]
+              <==> ((x in A & ~ x in B) | (x in A & ~ x in C)) [prop-taut]
+              <==> (x in A \ B | x in A \ C)                   [DC]
+              <==> (x in (A \ B) \/ (A \ C))                   [UC]]))
+
+define diff-theorem-11 := (forall A B . A \ (A \ B) = A /\ B)
+define diff-theorem-12 := (forall A B . A subset B ==> A \/ (B \ A) = B)
+
+conclude subset-theorem-1 := 
+  (forall A B . A subset B ==> A \/ B = B) 
+pick-any A B
+  assume (A subset B)    
+    (!set-identity-intro-direct
+      pick-any x 
+        (!chain [(x in A \/ B) 
+            <==> (x in A | x in B) [UC]
+            <==> (x in B | x in B) [prop-taut SC]
+            <==> (x in B)          [prop-taut]]))
+
+define subset-theorem-2 := (forall A B . A subset B ==> A /\ B = A)
+
+define intersection-subset-theorem' := 
+  (forall A B C . A subset B /\ C <==> A subset B & A subset C)
+
+conclude union-lemma-2 := 
+  (forall A B x . x ++ (A \/ B) = A \/ x ++ B)
+pick-any A B x
+  (!chain [(x ++ (A \/ B)) 
+        = (x ++ (B \/ A)) [union-commutes]
+        = ((x ++ B) \/ A) [union-def]
+        = (A \/ (x ++ B)) [union-commutes]])
+
+conclude absorption-1 := 
+  (forall x A . x in A <==> x ++ A = A)
+  pick-any x A
+    (!equiv
+       assume hyp := (x in A)        
+          (!set-identity-intro-direct 
+             pick-any y
+               (!chain [(y in x ++ A) 
+                  <==> (y = x | y in A)    [in-def]
+                  <==> (y in A | y in A)   [hyp prop-taut]
+                  <==> (y in A)            [prop-taut]]))
+       assume (x ++ A = A)
+         (!chain-> [true ==> (x in x ++ A) [in-lemma-1]
+                         ==> (x in A)      [SIC]]))
+
+module Exercise_10_12 {
+
+# Insert your own solution to exercise 10.12 here:
+load "./solutions10/exercise12"
+
+} # close Exercise_10_12
+
+#(falsify (forall A B C . A subset B \/ C <==> A subset B | A subset C) 10)
+
+define union-subset-theorem := 
+  (forall A B C . A subset B | A subset C ==> A subset B \/ C)
+
+module Exercise_10_13 { 
+
+# Insert your own solution to exercise 10.13 here:
+load "./solutions10/exercise13"
+
+} # close Exercise_10_13
+
+declare paired-with: (S, T) [S (Set T)] -> (Set (Pair S T)) 
+                            [130 [id alist->set]]
+
+assert* paired-with-def := 
+  [(_ paired-with null = null)
+   (x paired-with h ++ t = x @ h ++ (x paired-with t))]
+
+(eval 3 paired-with [2 8])
+
+conclude paired-with-characterization := 
+   (forall B x y a . x @ y in a paired-with B <==> x = a & y in B)
+  by-induction paired-with-characterization {
+    null => pick-any x y a
+                (!chain [(x @ y in a paired-with null) 
+                    <==> (x @ y in null)                [paired-with-def]
+                    <==> false                          [NC]      
+                    <==> (x = a & false)                [prop-taut]
+                    <==> (x = a & y in null)            [NC]])         
+  | (B as (insert h t)) =>                                 
+      pick-any x y a                                               
+        let {IH := (forall x y a . x @ y in a paired-with t <==> x = a & y in t)}                             
+          (!chain                                       
+            [(x @ y in a paired-with h ++ t)            
+        <==> (x @ y in a @ h ++ (a paired-with t))      [paired-with-def]
+        <==> (x @ y = a @ h | x @ y in a paired-with t) [in-def]
+        <==> (x = a & y = h | x @ y in a paired-with t) [pair-axioms]
+        <==> (x = a & y = h | x = a & y in t)           [IH]
+        <==> (x = a & (y = h | y in t))                 [prop-taut]
+        <==> (x = a & y in B)                           [in-def]])
+   }
+
+define PWC := paired-with-characterization
+
+define paired-with-lemma-1 :=
+  (forall A  x . x paired-with A = null ==> A = null)
+
+module Exercise_10_14 {
+
+# Insert your own solution to exercise 10.14 here:
+load "./solutions10/exercise14"
+
+} # close Exercise_10_14 
+
+declare product: (S, T) [(Set S) (Set T)] -> (Set (Pair S T)) 
+                                             [150 [alist->set alist->set]]
+
+define X := product
+
+assert* product-def := 
+  [(null X _ = null)
+   (h ++ t X A = h paired-with A \/ t X A)]
+
+ (eval [1 2] X ['a 'b])
+
+define cartesian-product-characterization := 
+  (forall A B a b . a @ b in A X B <==> a in A & b in B)
+
+define CPC := cartesian-product-characterization
+
+define cartesian-product-characterization-2 := 
+  (forall x A B . x in A X B <==> exists a b . x = a @ b & a in A & b in B)
+
+define CPC-2 := cartesian-product-characterization-2
+
+module Exercise_10_15 {
+
+# Insert your own solution to exercise 10.15 here:
+load "./solutions10/exercise15"
+
+} # close Exercise_10_15
+
+conclude product-theorem-1 :=
+  (forall A B . A X B = null ==> A = null | B = null)
+datatype-cases product-theorem-1 {
+  null => 
+     pick-any B
+       (!chain [(null X B = null)
+            ==> (null = null)                     [product-def]
+            ==> (null = null | B = null)          [prop-taut]])
+ | (A as (insert h t)) =>                            
+     pick-any B                                     
+       (!chain                                      
+         [(h ++ t X B = null)                     
+      ==> (h paired-with B \/ t X B = null)       [product-def]
+      ==> (h paired-with B = null & t X B = null) [union-null-theorem]
+      ==> (B = null)                              [paired-with-lemma-1]
+      ==> (h ++ t = null | B = null)              [prop-taut]])
+}
+
+
+define product-theorem-3 := 
+  (forall A B . non-empty A & non-empty B ==> A X B = B X A <==> A = B)
+
+define product-theorem-4 := 
+  (forall A  B C . non-empty A &  A X B subset A X C ==> B subset C)
+
+define product-theorem-5 :=
+  (forall A B C . B subset C ==> A X B subset A X C)
+
+conclude product-theorem-6 :=
+ (forall A B C . A X (B /\ C) = A X B /\ A X C)
+pick-any A B C
+  (!set-identity-intro-direct 
+    (!pair-converter
+       pick-any x y
+        (!chain [(x @ y in A X (B /\ C))
+            <==> (x in A & y in B /\ C)                   [CPC]
+            <==> (x in A & y in B & y in C)               [IC]
+            <==> ((x in A & y in B) & (x in A & y in C))  [prop-taut]
+            <==> (x @ y in A X B & x @ y in A X C)        [CPC]
+            <==> (x @ y in A X B /\ A X C)                [IC]])))
+
+define product-theorem-7 := (forall A B C . A X (B \/ C) = A X B \/ A X C)
+
+define product-theorem-8 := (forall A B C . A X (B \ C) = A X B \ A X C) 
+
+module Exercise_10_16 {
+
+# Insert your own solution to exercise 10.16 here:
+load "./solutions10/exercise16"
+
+} # close Exercise_10_16
+
+define [R R1 R2 R3 R4] := 
+       [?R:(Set (Pair 'T14 'T15)) ?R1:(Set (Pair 'T16 'T17)) 
+        ?R2:(Set (Pair 'T18 'T19)) ?R3:(Set (Pair 'T20 'T21)) 
+	?R4:(Set (Pair 'T22 'T23))]
+
+declare dom: (S, T) [(Set (Pair S T))] -> (Set S) [150 [alist->set]]
+
+assert* dom-def := 
+  [(dom null = null)
+   (dom x @ _ ++ t = x ++ dom t)]
+
+(eval dom [('a @ 1) ('b @ 2) ('c @ 98)])
+
+declare range: (S, T) [(Set (Pair S T))] -> (Set T) [150 [alist->set]]
+
+assert* range-def := 
+  [(range null = null)
+   (range _ @ y ++ t = y ++ range t)]
+
+(eval range [('a @ 1) ('b @ 2) ('c @ 98)])
+
+conclude in-dom-lemma-1 := 
+  (forall R a x y . a = x ==> a in dom x @ y ++ R)
+pick-any R a x y
+  (!chain [(a = x) ==> (a in x ++ dom R)      [in-def]
+                   ==> (a in dom x @ y ++ R)  [dom-def]])
+
+
+conclude in-dom-lemma-2 := 
+  (forall R x a b . x in dom R ==> x in dom a @ b ++ R)
+pick-any R x a b
+  (!chain   [(x in dom a @ b ++ R)
+         <== (x in a ++ dom R)     [dom-def]
+         <== (x in dom R)          [in-def]])
+
+define in-range-lemma-2 := 
+  (forall R y a b . y in range R ==> y in range a @ b ++ R)
+
+module Exercise_10_17 {
+
+# Insert your own solution to exercise 10.17 here:
+load "./solutions10/exercise17"
+	 
+} # close Exercise_10_17
+
+define dom-characterization := 
+  (forall R x . x in dom R <==> exists y . x @ y in R)
+
+define range-characterization := 
+  (forall R y . y in range R <==> exists x . x @ y in R)
+
+define [DOMC RANC] := [dom-characterization range-characterization]
+
+# These two theorems are left as exercises.
+
+(!force DOMC)
+(!force RANC)
+
+define (M premise) := 
+  match premise {
+    ((p1 as (exists _ q)) | q) => 
+       (!cases premise
+         assume p1
+	   pick-witness w for p1
+	     (!claim q)
+	 assume q (!claim q))
+  }	 
+
+conclude dom-theorem-1 :=
+  (forall R1 R2 . dom (R1 \/ R2) = dom R1 \/ dom R2)
+pick-any R1 R2
+  (!set-identity-intro-direct
+    pick-any x
+      (!chain 
+        [(x in dom (R1 \/ R2)) 
+    <==> (exists y . x @ y in R1 \/ R2)                        [DOMC]
+    <==> (exists y . x @ y in R1 | x @ y in R2)                [UC] 
+    <==> ((exists y . x @ y in R1) | (exists y . x @ y in R2)) [quant-dist]
+    <==> (x in dom R1 | x in dom R2)                           [DOMC]
+    <==> (x in dom R1 \/ dom R2)                               [UC]]))
+
+define range-theorem-1 :=
+  (forall R1 R2 . range (R1 \/ R2) = range R1 \/ range R2)	
+
+module Exercise_10_19 {
+
+# Insert your own solution to exercise 10.19 here:
+load "./solutions10/exercise19"
+
+} # close Exercise_10_19
+
+define dom-intersection-conjecture := 
+  (forall R1 R2 . dom (R1 /\ R2) = dom R1 /\ dom R2)
+
+#(falsify dom-intersection-conjecture 10)
+
+conclude dom-theorem-2 :=
+  (forall R1 R2 . dom (R1 /\ R2) subset dom R1 /\ dom R2)
+pick-any R1 R2
+  (!subset-intro
+    pick-any x 
+      (!chain 
+        [(x in dom (R1 /\ R2))
+     ==> (exists y . x @ y in R1 /\ R2)                        [DOMC]
+     ==> (exists y . x @ y in R1 & x @ y in R2)                [IC]
+     ==> ((exists y . x @ y in R1) & (exists y . x @ y in R2)) [quant-dist]
+     ==> (x in dom R1 & x in dom R2)                           [DOMC]
+     ==> (x in dom R1 /\ dom R2)                               [IC]]))
+
+define range-theorem-2 :=
+  (forall R1 R2 . range (R1 /\ R2) subset range R1 /\ range R2)
+
+define dom-theorem-3 :=
+  (forall R1 R2 . dom R1 \ dom R2 subset dom (R1 \ R2))
+
+define range-theorem-3 :=
+  (forall R1 R2 . range R1 \ range R2 subset range (R1 \ R2))
+
+# These 3 are left as exercises
+
+(!force range-theorem-2) 
+(!force dom-theorem-3)
+(!force range-theorem-3)
+
+declare conv: (S, T) [(Set (Pair S T))] -> (Set (Pair T S)) 
+                                                 [210 [alist->set]]
+define -- := conv
+
+assert* conv-def := 
+  [(-- null = null)
+   (-- x @ y ++ t = y @ x ++ -- t)]
+
+(eval -- [(1 @ 'a) (2 @ 'b) (3 @ 'c)])
+
+conclude converse-characterization := 
+  (forall R x y . x @ y in -- R <==> y @ x in R)
+by-induction converse-characterization {
+  null => pick-any x y
+           (!chain [(x @ y in -- null)
+               <==> (x @ y in null)     [conv-def]
+               <==> false               [NC]
+               <==> (y @ x in null)     [NC]])
+| (R as (insert (pair a b) t)) => 
+    let {IH := (forall x y . x @ y in -- t <==> y @ x in t)}
+      pick-any x y 
+        (!chain [(x @ y in -- R)
+            <==> (x @ y in b @ a ++ -- t)          [conv-def]
+            <==> (x @ y = b @ a | x @ y in -- t)   [in-def]
+            <==> (y @ x = a @ b | x @ y in -- t)   [pair-theorem-2]
+            <==> (y @ x = a @ b | y @ x in t)      [IH]
+            <==> (y @ x in R)                      [in-def]])
+}
+
+define CC := converse-characterization
+
+define converse-theorem-1 := (forall R . -- -- R = R)
+
+conclude converse-theorem-2 := 
+  (forall R1 R2 . -- (R1 /\ R2) = -- R1 /\ -- R2)
+ pick-any R1 R2
+   (!set-identity-intro-direct  
+     (!pair-converter
+        pick-any x y
+          (!chain [(x @ y in -- (R1 /\ R2)) 
+              <==> (y @ x in R1 /\ R2)               [CC]
+              <==> (y @ x in R1 & y @ x in R2)       [IC] 
+              <==> (x @ y in -- R1 & x @ y in -- R2) [CC]
+              <==> (x @ y in -- R1 /\ -- R2)         [IC]])))
+
+define converse-theorem-3 := (forall R1 R2 . -- (R1 \/ R2) = -- R1 \/ -- R2)
+define converse-theorem-4 := (forall R1 R2 . -- (R1 \ R2) = -- R1 \ -- R2)
+
+declare composed-with: (S1, S2, S3) 
+   [(Pair S1 S2) (Set (Pair S2 S3))] -> (Set (Pair S1 S3))
+   [200 [id alist->set]]
+
+assert* composed-with-def := 
+  [(_ composed-with null = null)
+   (x @ y composed-with z @ w ++ t = 
+    x @ w ++ (x @ y composed-with t) <== y = z)
+
+   (x @ y composed-with z @ w ++ t = 
+    x @ y composed-with t <== y =/= z)]
+
+(eval 1 @ 2 composed-with [(2 @ 5) (7 @ 8) (2 @ 3)])
+
+define composed-with-characterization :=
+  (forall R x y z w . w @ z in x @ y composed-with R <==> w = x & y @ z in R)
+
+# This is left as an exercise. 
+(!force composed-with-characterization)
+
+declare o: (S1, S2, S3) [(Set (Pair S1 S2)) (Set (Pair S2 S3))] 
+                      -> (Set (Pair S1 S3)) [200 [alist->set alist->set]]
+
+assert* o-def := 
+ [(null o _ = null)
+  (x @ y ++ t o R = x @ y composed-with R \/ t o R)]
+
+(eval [('nyc @ 'boston) ('houston @ 'dallas) ('austin @ 'dc)] o 
+      [('boston @ 'montreal) ('dallas @ 'chicago) ('dc @ 'nyc)] o 
+      [('chicago @ 'seattle) ('montreal @ 'london)])
+
+define o-characterization := 
+  (forall R1 R2 x z . x @ z in R1 o R2 <==> 
+                      exists y . x @ y in R1 & y @ z in R2)
+
+# Most of the following proofs are left as exercises
+
+define OC := o-characterization
+
+(!force OC)
+
+define compose-theorem-1 := (forall R1 R2 . dom R1 o R2 subset dom R1)
+  
+(!force compose-theorem-1)
+
+define compose-theorem-2 :=
+  (forall R1 R2 R3 R4 . R1 subset R2 & R3 subset R4 
+                          ==> R1 o R3 subset R2 o R4)
+
+(!force compose-theorem-2)
+
+define compose-theorem-3 :=
+  (forall R1 R2 R3  . R1 o (R2 \/ R3) = R1 o R2 \/ R1 o R3)
+
+(!force compose-theorem-3)
+
+define compose-theorem-4 :=
+  (forall R1 R2 R3  . R1 o (R2 /\ R3) subset R1 o R2 /\ R1 o R3)
+
+(!force compose-theorem-4)
+
+define compose-theorem-5 :=
+  (forall R1 R2 R3 . R1 o R2 \ R1 o R3 subset R1 o (R2 \ R3))
+
+(!force compose-theorem-5)
+
+define composition-associativity := 
+   (forall R1 R2 R3 . R1 o R2 o R3 = (R1 o R2) o R3)
+  
+(!force composition-associativity)
+
+conclude compose-theorem-6 :=
+  (forall R1 R2 . -- (R1 o R2) = -- R2 o -- R1)
+pick-any R1 R2 
+  (!set-identity-intro-direct
+    (!pair-converter
+      pick-any x y
+        (!chain [(x @ y in -- (R1 o R2))
+            <==> (y @ x in R1 o R2)                           [CC]
+            <==> (exists z . y @ z in R1 & z @ x in R2)       [OC] 
+            <==> (exists z . z @ y in -- R1 & x @ z in -- R2) [CC]
+            <==> (exists z . x @ z in -- R2 & z @ y in -- R1) [prop-taut]
+            <==> (x @ y in -- R2 o -- R1)                     [OC]])))
+
+declare restrict1: (S, T) [(Set (Pair S T)) S] -> (Set (Pair S T)) 
+                                                     [200 [alist->set id]]
+
+define ^1 := restrict1
+
+assert* restrict1-def := 
+  [(null ^1 _ = null)
+   (x @ y ++ t ^1 z = x @ y ++ (t ^1 z) <== x = z)
+   (x @ y ++ t ^1 z = t ^1 z            <== x =/= z)]
+
+(eval [(1 @ 'a) (2 @ 'b) (1 @ 'c)] ^1 1)
+
+define restrict1-characterization :=
+ (forall R x y a . x @ y in R ^1 a <==> x @ y in R & x = a)
+
+declare restrict: (S, T) [(Set (Pair S T)) (Set S)] -> 
+                          (Set (Pair S T)) [200 [alist->set alist->set]]
+                          
+define ^ := restrict
+
+assert* restrict-def := 
+[(R ^ null = null)
+ (R ^ h ++ t = R ^1 h \/ R ^ t)]
+
+(eval [(1 @ 'a) (2 @ 'b) (3 @ 'c) (1 @ 'f)] ^ [1 2])
+
+define restrict-characterization :=
+ (forall A R x y . x @ y in R restrict A <==> x @ y in R & x in A)
+
+define RSC := restrict-characterization
+
+(!force RSC)
+
+define restriction-theorem-1 :=
+ (forall R A B . A subset B ==> R ^ A subset R ^ B)
+
+define restriction-theorem-2 :=
+ (forall R A B . R ^ (A /\ B) = R ^ A /\ R ^ B)
+
+conclude restriction-theorem-3 :=
+ (forall R A B . R ^ (A \/ B) = R ^ A \/ R ^ B)
+pick-any R A B
+  (!set-identity-intro-direct
+    (!pair-converter
+      pick-any x y
+        (!chain [(x @ y in R ^ (A \/ B))
+            <==> (x @ y in R & x in A \/ B)                      [RSC]
+            <==> (x @ y in R & (x in A | x in B))                [UC]
+            <==> ((x @ y in R & x in A) | (x @ y in R & x in B)) [prop-taut]
+            <==> (x @ y in R ^ A | x @ y in R ^ B)               [RSC]
+            <==> (x @ y in R ^ A \/ R ^ B)                       [UC]])))
+
+define restriction-theorem-4 := (forall R A B . R ^ (A \ B) = R ^ A \ R ^ B)
+
+define restriction-theorem-5 := 
+  (forall R1 R2 A . (R1 o R2) ^ A = (R1 ^ A) o R2)
+
+declare image: (S, T) [(Set (Pair S T)) (Set S)] -> (Set T) 
+                      [** 200 [alist->set alist->set]]
+
+assert* image-def :=  [(R ** A = range R ^ A)]
+
+(eval [(1 @ 'a) (2 @ 'b) (3 @ 'c)] ** [1 3])
+
+define image-characterization :=
+  (forall R A y . y in R ** A <==> exists x . x @ y in R & x in A)
+
+define IMGC := image-characterization
+
+define image-theorem-1 := 
+  (forall R A B . R ** (A \/ B) = R ** A \/ R ** B)
+
+define image-theorem-2 := 
+  (forall R A B . R ** (A /\ B) subset R ** A /\ R ** B)
+
+define image-theorem-3 := 
+  (forall R A B . R ** A \ R ** B subset R ** (A \ B))
+
+define image-theorem-4 :=
+  (forall R A B . A subset B ==> R ** A subset R ** B)
+
+define image-theorem-5 :=
+  (forall R A . R ** A = null <==> dom R /\ A = null)
+
+define image-theorem-6 :=
+  (forall R A . dom R /\ A subset -- R ** R ** A)
+
+define image-theorem-7 :=
+  (forall R A B . (R ** A) /\ B subset R ** (A /\ -- R ** B))
+
+declare card: (S) [(Set S)] -> N [[alist->set]] 
+
+define S := N.S  # Natural-number successor
+
+assert* card-def := 
+  [(card null = zero)
+   (card h ++ t = card t   <== h in t)
+   (card h ++ t = S card t <== ~ h in t)]
+
+transform-output eval [nat->int]
+
+define [+ < <=] := [N.+ N.< N.<=]
+overload + N.+
+overload - N.- 
+
+(eval card [1 2 3] \/ [4 7 8])
+
+define card-theorem-1 := (forall x . card singleton x = S zero)
+
+conclude card-theorem-2 := 
+  (forall A x . ~ x in A ==> card A < card x ++ A)
+pick-any A x
+  assume hyp := (~ x in A)
+     (!chain-> [true ==> (card A < S card A)    [N.Less.<S]
+                     ==> (card A < card x ++ A) [card-def]])
+
+define minus-card-theorem := (forall A x . x in A ==> card A = S card A - x)
+
+define subset-card-theorem := (forall A B . A subset B ==> card A <= card B)
+
+# Left as an exercise
+(!force subset-card-theorem)
+
+define proper-subset-card-theorem := 
+  (forall A B . A proper-subset B ==> card A < card B)
+
+conclude intersection-card-theorem-1 := 
+  (forall A B . card A /\ B <= card A)
+pick-any A B 
+  (!chain-> [true ==> (A /\ B subset A)       [intersection-subset-theorem]
+                  ==> (card A /\ B <= card A) [subset-card-theorem]])
+
+define intersection-card-theorem-2 := (forall A B . card A /\ B <= card B)
+
+define intersection-card-theorem-3 := 
+  (forall A B x . ~ x in A & x in B ==> card (x ++ A) /\ B = S card A /\ B)
+
+define union-card := 
+  (forall A B . card A \/ B = ((card A) + (card B)) - card A /\ B)
+
+define diff-card-lemma := 
+  (forall A B . card A = (card A \ B) + (card A /\ B))
+
+# Exercise:
+(!force diff-card-lemma)
+
+conclude diff-card-theorem := 
+  (forall A B . card A \ B =  (card A) - card A /\ B)
+pick-any A B 
+  (!chain-> 
+    [true 
+ ==> (card A = (card A \ B) + card A /\ B) [diff-card-lemma]
+ ==> ((card A \ B) + card A /\ B = card A) [sym]
+ ==> (card A \ B = (card A) - card A /\ B) [N.Minus.Plus-Minus-properties]])
+
+declare powerset: (S) [(Set S)] -> (Set (Set S)) [[alist->set]]
+
+declare in-all: (S) [S (Set (Set S))] -> (Set (Set S)) [[id alist->set]]
+                                                
+assert* in-all-def := 
+  [(_ in-all null = null)
+   (x in-all A ++ t = (x ++ A) ++ (x in-all t))]
+
+(eval 7 in-all [[1 2] [] [4 5 6]])
+
+define in-all-characterization :=
+  (forall U s x . s in x in-all U <==> exists B . B in U & s = x ++ B)
+
+# Exercise: 
+(!force in-all-characterization)
+
+assert* powerset-def := 
+  [(powerset null = singleton null)
+   (powerset x ++ t = (powerset t) \/ (x in-all powerset t))]
+
+(eval powerset [1 2 3])
+
+define powerset-characterization :=
+  (forall A B . B in powerset A <==> B subset A)
+
+define POSC := powerset-characterization
+
+# Exercise:
+(!force POSC)
+
+conclude ps-theorem-1 := (forall A . null in powerset A)
+  pick-any A
+   (!chain-> [true ==> (null subset A)      [subset-def]
+                   ==> (null in powerset A) [POSC]])
+   
+conclude ps-theorem-2 := (forall A . A in powerset A)
+  pick-any A 
+    (!chain-> [true ==> (A subset A)      [subset-reflexivity]
+                    ==> (A in powerset A) [POSC]])
+
+conclude ps-theorem-3 := 
+  (forall A B . A subset B <==> powerset A subset powerset B)
+pick-any A B
+  (!equiv assume (A subset B)
+            (!subset-intro
+              pick-any C
+                (!chain [(C in powerset A)
+                     ==> (C subset A)              [POSC]
+                     ==> (C subset B)              [subset-transitivity]
+                     ==> (C in powerset B)         [POSC]]))
+          assume (powerset A subset powerset B)
+            (!chain-> [true ==> (A in powerset A)  [ps-theorem-2]
+                            ==> (A in powerset B)  [SC]
+                            ==> (A subset B)       [POSC]]))
+
+conclude ps-theorem-4 := 
+  (forall A B . powerset A /\ B = (powerset A) /\ (powerset B))
+pick-any A B
+  (!set-identity-intro-direct
+    pick-any C
+      (!chain 
+        [(C in powerset A /\ B)
+    <==> (C subset A /\ B)                   [POSC]
+    <==> (C subset A & C subset B)           [intersection-subset-theorem']
+    <==> (C in powerset A & C in powerset B) [POSC]
+    <==> (C in (powerset A) /\ (powerset B)) [IC]]))
+
+define p := (forall A B . powerset A \/ B = (powerset A) \/ (powerset B))
+
+#(falsify p 10)
+
+(eval powerset [1] \/ [2])
+
+(eval (powerset [1]) \/ (powerset [2]))
+
+define ps-theorem-5 := 
+  (forall A B . (powerset A) \/ (powerset B) subset powerset A \/ B)
+
+module Exercise_10_21 {
+
+# Insert your own solution to exercise 10.21 here:
+load "./solutions10/exercise21"
+
+} # close Exercise_10_21 
+
+} # close Set 
+
+module FMap {
+
+define [A B C] := [?A:(Set 'S1) ?B:(Set 'S2) ?C:(Set 'S3)]
+
+define (alist->map L) :=
+  match L {
+    [] => empty-map
+  | (list-of (|| [k --> v] [k v]) rest) => (update (pair k v) 
+                                                   (alist->map rest))
+  | _ => L 
+  }
+
+define (map->alist m) :=
+  match m {
+    empty-map => []
+  | (update (pair k v) rest) => (add [k --> v] map->alist rest)
+  | _ => m
+  }
+
+define (alist->pair inner-1 inner-2) :=
+  lambda (L)
+    match L  {
+      [a b] =>     ((inner-1 a) @ (inner-2 b))
+    | [a --> b] => ((inner-1 a) @ (inner-2 b))
+    | _ => L
+    }
+
+expand-input update [(alist->pair id id) alist->map]
+
+define [null ++ in subset \/ /\ \ -] := 
+   [null Set.++ Set.in Set.subset Set.\/ Set./\ Set.\ Set.-]
+
+overload ++ update
+
+(['a --> 1] ++ [])
+
+(75 ++ [])
+
+transform-output eval [Set.set->alist map->alist]
+
+define [key key1 key2 k k' k1 k2] := [?key ?key1 ?key2 ?k ?k' ?k1 ?k2]
+
+define [val val1 val2 v v' v1 v2 x x1 x2] := 
+       [?val ?val1 ?val2 ?v ?v' ?v1 ?v2 ?x ?x1 ?x2]
+
+define [m m1 m2 m3 rest rest1] := 
+       [?m:(Map 'S1 'S2) ?m1:(Map 'S3 'S4) ?m2:(Map 'S5 'S6)
+        ?m3:(Map 'S7 'S8) ?rest:(Map 'S9 'S10) ?rest1:(Map 'S11 'S12)]
+
+define [s1 s2 s3 A B C D] := [Set.s1 Set.s2 Set.s3 Set.A Set.B Set.C Set.D]
+
+declare apply: (Key, Value) [(Map Key Value) Key] -> (Option Value) 
+                            [110 [alist->map id]]
+
+define at := apply
+
+([['a --> 1] ['b --> 2] ['c --> 3]] at 'a)
+
+assert* apply-def := 
+   [([] at _ = NONE)
+    ([key val] ++ _ at x = SOME val   <== key = x)
+    ([key _] ++ rest at x = rest at x <== key =/= x)]
+
+define ide-map := [['a --> 1] ['b --> 2] ['c --> 3] ['a --> 99]]
+
+(eval ide-map at 'a)
+
+(eval ide-map at 'b)
+
+(eval ide-map at 'foo)
+
+conclude apply-lemma-1 :=
+  (forall key val rest x .
+     [key val] ++ rest at x = NONE ==> rest at x = NONE)
+   pick-any key val rest x
+    let {m := ([key val] ++ rest);
+         hyp := (m at x = NONE);
+         goal := (rest at x = NONE)}
+      assume hyp
+        (!two-cases 
+          (!chain [(key = x)
+               ==> (m at x = SOME val)  [apply-def]
+               ==> (m at x =/= NONE)    [option-results]
+               ==> (hyp & ~hyp)         [augment]
+               ==> goal                 [prop-taut]])
+          (!chain [(key =/= x) 
+	       ==> (m at x = rest at x) [apply-def]
+               ==>  (NONE = rest at x)  [hyp]
+               ==> goal                 [sym]]))
+
+
+define apply-lemma-2 :=
+  (forall k v rest x .
+     [k v] ++ rest at x =/= NONE <==> k = x | rest at x =/= NONE)
+
+define apply-lemma-3 := 
+  (forall m k v1 v2 . m at k = SOME v1 & m at k = SOME v2 ==> v1 = v2)
+
+# Exercises:
+(!force apply-lemma-2)
+(!force apply-lemma-3)
+
+declare remove: (Key, Value) [(Map Key Value) Key] -> (Map Key Value) 
+                             [- 120 [alist->map id]]
+
+left-assoc - 
+
+assert* remove-def := 
+  [(empty-map - _ = empty-map)
+   ([key _] ++ rest - key = rest - key)
+   (key =/= x ==> [key val] ++ rest - x = [key val] ++ (rest - x))]
+
+(eval ide-map - 'a)
+
+(eval ide-map - 'a - 'c)
+
+(eval ide-map - 'a - 'b at 'c)
+
+conclude remove-correctness := 
+  (forall m x . m - x at x = NONE)
+by-induction remove-correctness {
+  empty-map => 
+    pick-any x 
+      (!chain [([] - x at x)
+             = ([] at x)                            [remove-def]
+             = NONE                                 [apply-def]])
+| (m as (update (pair key val) rest)) =>
+    let {IH := (forall x . rest - x at x = NONE)}
+      pick-any x
+        (!two-cases  
+           assume case1 := (key = x)
+             (!chain [(m - x at x)      
+                    = (m - key at key)               [case1]
+                    = (rest - x at x)                [case1 remove-def]
+                    = NONE                           [IH]])
+           assume case2 := (key =/= x)               
+             (!chain [(m - x at x)                   
+                    = ([key val] ++ (rest - x) at x) [remove-def]
+                    = (rest - x at x)                [apply-def]
+                    = NONE                           [IH]]))
+}
+
+define remove-correctness-2 := 
+  (forall m k k' . k =/= k' ==> m - k at k' = m at k')
+
+module Exercise_10_23 { 
+
+# Insert your own solution to exercise 10.23 here:
+load "./solutions10/exercise23"
+
+} # close Exercise_10_23
+
+declare dom: (Key, Value) [(Map Key Value)] -> (Set Key) [[alist->map]]
+                          
+assert* dom-def := 
+  [(dom empty-map = null)
+   (dom [k _] ++ rest = k ++ dom rest)]
+
+(eval dom ide-map)
+
+declare size: (S, T) [(Map S T)] -> N [[alist->map]]
+
+assert* size-def := [(size m = Set.card dom m)]
+
+transform-output eval [nat->int]
+
+(eval size ide-map)
+
+(eval size ide-map - 'a - 'b)
+
+define dom-lemma-1 := (forall k v rest . k in dom [k v] ++ rest)
+
+define dom-lemma-2 := (forall m k v . dom m subset dom [k v] ++ m)
+
+conclude dom-characterization :=
+  (forall m k . k in dom m <==> m at k =/= NONE)
+by-induction dom-characterization {
+  (m as empty-map) => 
+    pick-any k   
+      (!equiv 
+        (!chain [(k in dom m)
+             ==> (k in null)                 [dom-def]
+             ==> false                       [Set.NC]
+             ==> (m at k =/= NONE)           [prop-taut]])
+       assume hyp := (m at k =/= NONE)      
+         (!chain-> [true                            
+                ==> (m at k = NONE)          [apply-def]
+                ==> (m at k = NONE & hyp)    [augment]
+                ==> false                    [prop-taut]
+                ==> (k in dom m)             [prop-taut]]))
+| (m as (update (pair x y) rest)) =>                 
+   let {IH := (forall k . k in dom rest <==> rest at k =/= NONE)}
+     pick-any k                                        
+       (!chain [(k in dom m)                          
+           <==> (k in x ++ dom rest)         [dom-def]
+           <==> (k = x | k in dom rest)      [Set.in-def]
+           <==> (k = x | rest at k =/= NONE) [IH]
+           <==> (x = k | rest at k =/= NONE) [sym]
+           <==> (m at k =/= NONE)            [apply-lemma-2]])
+}
+
+define dom-lemma-3 := (forall m k . dom (m - k) subset dom m)
+
+module Exercise_10_24 {
+
+# Insert your own solution to exercise 10.24 here:
+load "./solutions10/exercise24"
+
+} # close Exercise_10_24
+
+declare map->set: (K, V) [(Map K V)] -> (Set (Pair K V)) [[alist->map]]
+
+assert* map->set-def := 
+  [(map->set empty-map = null)
+   (map->set (k @ v) ++ rest = (k @ v) ++ map->set rest - k)]
+
+assert* map-identity := (m1 = m2 <==> map->set m1 = map->set m2)
+
+
+let {map1 := (alist->map [['b --> 2] ['a --> 1]]);
+     map2 := (alist->map [['a --> 1] ['b --> 2] ['b --> 3]])}
+  (eval map1 = map2)
+
+let {map1 := (alist->map [['b --> 2] ['a --> 1]]);
+     map2 := (alist->map [['b --> 2]])}
+  (eval map1 = map2)
+
+
+module Exercise_10_25 {
+
+# Insert your own solution to exercise 10.25 here:
+load "./solutions10/exercise25"
+
+} # close Exercise_10_25 
+
+define identity-characterization := 
+  (forall m1 m2 . m1 = m2 <==> forall k . m1 at k = m2 at k)
+
+define map->set-characterization := 
+  (forall m k v . k @ v in map->set m <==> m at k = SOME v)
+
+# These two results are left as exercises: 
+
+(!force identity-characterization)
+(!force map->set-characterization)
+
+declare range: (K, V) [(Map K V)] -> (Set V) [[alist->map]]
+
+assert* range-def := [(range m = Set.range map->set m)]
+
+(eval range ide-map)
+
+conclude range-lemma-1 := 
+  (forall m v . v in range m <==> exists k . k @ v in map->set m)
+pick-any m v
+  (!chain [(v in range m)
+      <==> (v in Set.range map->set m)      [range-def]
+      <==> (exists k . k @ v in map->set m) [Set.range-characterization]])
+
+conclude range-characterization := 
+  (forall m v . v in range m <==> exists k . m at k = SOME v)
+pick-any m v 
+  (!chain [(v in range m) 
+      <==> (exists k . k @ v in map->set m) [range-lemma-1]
+      <==> (exists k . m at k = SOME v)     [map->set-characterization]])
+
+conclude range-lemma-2 := 
+   (forall k v rest . v in range [k v] ++ rest)
+pick-any k v rest
+  (!chain<- [(v in range [k v] ++ rest)
+         <== (v in Set.range map->set [k v] ++ rest)     [range-def]
+         <== (v in Set.range k @ v ++ map->set rest - k) [map->set-def]
+         <== (v in v ++ Set.range map->set rest - k)     [Set.range-def]
+         <== (v = v | v in Set.range map->set rest - k)  [Set.in-def]
+         <== (v = v)                                     [alternate]])
+
+define range-lemma-conjecture := 
+  (forall m k v . range m subset range [k v] ++ m)
+
+#(falsify range-lemma-conjecture 10)
+
+module Exercise_10_27 {
+
+# Insert your own solution to exercise 10.27 here:
+load "./solutions10/exercise27"
+
+} # close Exercise_10_27
+
+declare restricted-to: (S, T) [(Map S T) (Set S)] -> (Map S T) 
+                              [|^ 120 [alist->map Set.alist->set]]
+
+assert* restrict-def :=
+   [(empty-map |^ _ = empty-map)
+    (k in A ==> [k v] ++ rest |^ A = [k v] ++ (rest |^ A))
+    (~ k in A ==> [k v] ++ rest |^ A = rest |^ A)]
+
+(eval ide-map |^ ['b 'c])
+
+conclude restriction-theorem-1 := (forall m A . dom m |^ A subset A)
+by-induction restriction-theorem-1 {  
+  empty-map => 
+    pick-any A 
+      (!Set.subset-intro
+        pick-any x
+          (!chain [(x in dom empty-map |^ A)
+               ==> (x in dom empty-map)     [restrict-def]
+               ==> (x in null)              [dom-def]
+               ==> false                    [Set.NC]
+               ==> (x in A)                 [prop-taut]]))
+| (m as (update (pair k v) rest)) =>
+    pick-any A 
+      let {IH := (forall A . dom rest |^ A subset A);
+           lemma := (!chain-> [true ==> (dom rest |^ A subset A) [IH]])}
+        (!two-cases
+          assume (k in A)
+            (!Set.subset-intro
+              pick-any x
+                (!chain [(x in dom m |^ A)
+                     ==> (x in dom [k v] ++ (rest |^ A)) [restrict-def]
+                     ==> (x in k ++ dom rest |^ A)       [dom-def]
+                     ==> (x = k | x in dom rest |^ A)    [Set.in-def]
+                     ==> (x in A | x in dom rest |^ A)   [(k in A)]
+                     ==> (x in A | x in A)               [Set.SC]
+                     ==> (x in A)                        [prop-taut]]))
+          assume (~ k in A)                     
+            (!Set.subset-intro                           
+              pick-any x                                     
+                (!chain [(x in dom m |^ A)                  
+                     ==> (x in dom rest |^ A)           [restrict-def]
+                     ==> (x in A)                       [Set.SC]])))
+}
+
+module Exercise_10_28 {
+
+# Insert your own solution to exercise 10.28 here:
+load "./solutions10/exercise28"
+
+} # close Exercise_10_28 
+
+declare range-restriction: (S, T) [(Map S T) (Set T)] -> (Map S T) 
+                                  [150 ^| [alist->map Set.alist->set]]
+
+assert* range-restriction-def := 
+  [(empty-map ^| _ = empty-map)
+   ([k v] ++ rest ^| A = [k v] ++ (rest ^| A) <== v in A)
+   ([k v] ++ rest ^| A = rest ^| A <== ~ v in A)]
+
+define eye-color := [['bob --> 'brown]  ['tom --> 'blue] ['lisa --> 'green] 
+                     ['peter --> 'blue] ['ann --> 'brown]]
+
+
+(eval eye-color ^| ['blue])
+
+declare agree-on: (S, T) [(Map S T) (Map S T) (Set S)] -> Boolean 
+                         [[alist->map alist->map Set.alist->set]]
+
+assert* agree-on-def := [((agree-on m1 m2 A) <==> m1 |^ A = m2 |^ A)]
+
+(eval (agree-on ide-map ide-map ['a 'b]))
+
+(eval (agree-on [['a --> 1] ['b --> 2]] 
+                [['b --> 3] ['a --> 1]]
+                ['b]))
+
+conclude agree-on-sym := 
+  (forall m1 m2 A . (agree-on m1 m2 A) <==> (agree-on m2 m1 A)) 
+pick-any m1 m2 A
+  (!chain [(agree-on m1 m2 A) 
+      <==> (m1 |^ A = m2 |^ A)  [agree-on-def]
+      <==> (m2 |^ A = m1 |^ A)  [sym] 
+      <==> (agree-on m2 m1 A)   [agree-on-def]])
+
+declare override: (S, T) [(Map S T) (Map S T)] -> (Map S T) 
+                         [** [alist->map alist->map]]
+
+assert* override-def := 
+  [(m ** [] = m)
+   (m ** [k v] ++ rest = [k v] ++ (m ** rest))]
+
+(eval [[1 --> 'a] [2 --> 'b]] ** [[1 --> 'foo] [3 --> 'c]])
+
+by-induction (forall m . [] ** m = m) {
+  (m as empty-map) =>  
+    (!chain [(empty-map ** m) = empty-map [override-def]])
+| (m as (update (pair k v) rest)) => 
+    (!chain [(empty-map ** m)
+           = ([k v] ++ (empty-map ** rest))  [override-def]
+           = ([k v] ++ rest)                 [([] ** rest = rest)]])
+}
+
+module Exercise_10_29 {
+
+# Insert your own solution to exercise 10.29 here:
+load "./solutions10/exercise29"
+
+} # close Exercise_10_29 
+
+declare compose: (S1, S2, S3) [(Map S2 S3) (Map S1 S2)] -> (Map S1 S3) 
+                              [o [alist->map alist->map]]
+
+assert* compose-def := 
+  [(_ o empty-map = empty-map)
+   (m o [k v] ++ rest = [k v'] ++ (m o rest) <== m at v = SOME v')
+   (m o [k v] ++ rest = m o rest <== m at v = NONE)]
+
+let {m1 := [[1 --> 'a] [2 --> 'b] [1 --> 'c]];
+     m2 := [['a --> true] ['b --> false] ['foo --> true]]}
+  (eval m2 o m1)
+
+define capitals := 
+  [['paris --> 'france] ['tokyo --> 'japan] ['cairo --> 'egypt]]
+
+define countries := 
+  [['france --> 'europe] ['algeria --> 'africa] ['japan --> 'asia]]
+  
+(eval countries o capitals)
+
+#(falsify (forall m1 m2 . m1 o m2 = m2 o m1) 10)
+
+#(falsify (forall m1 m2 m3 . m1 o (m2 o m3) = (m1 o m2) o m3) 10)
+
+define n := ?n:N
+
+declare iterate: (S, S) [(Map S S) N] -> (Map S S) 
+                        [^^ [alist->map int->nat]]
+
+assert* iterate-def :=
+	[(m ^^ zero = m)
+         (m ^^ N.S n =  m o (m ^^ n))]
+
+let {m := (alist->map [[1 --> 2] [2 --> 3] [3 --> 1]]);
+       _ := (print "\nm iterated once:   " (eval m ^^ 1));
+       _ := (print "\nm iterated twice:  " (eval m ^^ 2));
+       _ := (print "\nm iterated thrice: " (eval m ^^ 3))}
+    (print "\nAre m and m^^3 identical?: " (eval m = m ^^ 3))
+
+module Exercise_10_30 {
+
+# Insert your own solution to exercise 10.30 here:
+load "./solutions10/exercise30"
+
+} # close Exercise_10_30
+
+declare compatible: (K, V) [(Map K V) (Map K V)] -> Boolean 
+                           [<-> [alist->map alist->map]]
+
+assert* compatible-def := 
+  [(m1 <-> m2 <==> agree-on m1 m2 (dom m1) /\ (dom m2))]
+
+module Exercise_10_31 {
+
+# Insert your own solution to exercise 10.31 here:
+load "./solutions10/exercise31"
+
+} # close Exercise_10_31 
+
+declare o': (S) [(Map S S) (Map S S)] -> (Map S S) 
+                                         [[alist->map alist->map]]
+
+assert* o'-def := 
+  [(m o' [] = m)
+   (m o' [k v] ++ rest = [k v'] ++ (m o' rest) <== m at v = SOME v')
+   (m o' [k v] ++ rest = [k v] ++ (m o' rest)  <== m at v = NONE)]
+
+} # close FMap 
+
+module DMap {
+
+structure (DMap K V) := (empty-map V) | (update (Pair K V) (DMap K V))
+
+set-precedence empty-map 250
+
+define (alist->dmap-general L preprocessor) :=
+  match L {
+    [d (some-list pairs)] => 
+       letrec {loop := lambda (L)
+                         match L {
+                           [] => (empty-map d)
+                         | (list-of (|| [k --> v] [k v]) rest) => 
+                             (update (pair (preprocessor k) 
+                                           (preprocessor v)) 
+                                     (loop rest))}}
+         (loop pairs)
+  | _ => L 
+  }
+
+define (alist->dmap L) := (alist->dmap-general L id)
+
+define (dmap->alist-general m preprocessor) :=
+  letrec {loop := lambda (m pairs)
+                    match m {
+                      (empty-map d) => [d (rev pairs)]
+                    | (update (pair k v) rest) => 
+                        (loop rest (add [(preprocessor k) --> 
+                                         (preprocessor v)] 
+                                        pairs))
+                    | _ => m}}
+    (loop m [])
+
+define (dmap->alist m) := (dmap->alist-general m id)
+
+define dm := (alist->dmap [0 [['a --> 1] ['b --> 2] ['a --> 99]]])
+
+dm 
+
+(dmap->alist dm)
+
+define (remove-from m k) := 
+  match m {
+    (empty-map _) => m
+  | (update (binding as (pair key val)) rest) => 
+      check {(k equal? key) => (remove-from rest k)
+           | else => (update binding (remove-from rest k))}
+  }
+
+define (dmap->alist-canonical-general m preprocessor) :=
+  letrec {loop := lambda (m pairs)
+                    match m {
+                      (empty-map d) => [d (rev pairs)]
+                    | (update (pair k v) rest) => 
+                        (loop (remove-from rest k)  
+                              (add [(preprocessor k) --> 
+                                    (preprocessor v)] 
+                                   pairs))
+                    | _ => m}}
+    (loop m [])
+
+(dmap->alist-canonical-general dm id)
+
+expand-input update [(FMap.alist->pair id id) alist->dmap]
+
+define [null ++ in subset \/ /\ \ -] := 
+   [null Set.++ Set.in Set.subset Set.\/ Set./\ Set.\ Set.-]
+
+overload ++ update
+
+set-precedence ++ 210
+
+define [key k k' k1 k2 d d' val v v' v1 v2] := [?key ?k ?k' ?k1 ?k2 ?d ?d' ?val ?v ?v' ?v1 ?v2]
+
+define [h t A B] := [Set.h Set.t Set.A Set.B]
+
+define [m m' m1 m2 rest] := 
+   [?m:(DMap 'S1 'S2) ?m':(DMap 'S3 'S4) ?m1:(DMap 'S5 'S6) ?m2:(DMap 'S7 'S8) ?rest:(DMap 'S9 'S10)]
+
+declare apply: (K, V) [(DMap K V) K] -> V [110 [alist->dmap id]]
+
+define at := apply
+
+assert* apply-def := 
+  [(empty-map d at _ = d)
+   ([k v] ++ rest at x = v <== k = x)
+   ([k v] ++ rest at x = rest at x <== k =/= x)]
+
+define dm := (alist->dmap [0 [['a --> 1] ['b --> 2] ['c --> 3]]])
+
+(eval dm at 'a)
+
+[(eval dm at 'b) (eval dm at 'c)]
+
+(eval dm at 'foo)
+
+declare default: (K, V) [(DMap K V)] -> V [200 [alist->dmap]]
+
+assert* default-def := 
+  [(default empty-map d = d)
+   (default _ ++ rest = default rest)]
+
+(eval default dm)
+
+declare remove: (S, T) [(DMap S T) S] -> (DMap S T) 
+                       [- 120 [alist->dmap id]]
+
+left-assoc -
+
+assert* remove-def := 
+  [(empty-map d - _ = empty-map d)
+   ([key _] ++ rest - key = rest - key)
+   (key =/= x ==> [key val] ++ rest - x = [key val] ++ (rest - x))]
+
+(eval dm - 'b)
+
+declare dom: (K, V) [(DMap K V)] -> (Set K) [[alist->dmap]]
+
+assert* dom-def := 
+  [(dom empty-map _ = null)
+   (dom [k v] ++ rest = dom (rest - k) <== v = default rest)
+   (dom [k v] ++ rest = k ++ dom rest <== v =/= default rest)]
+
+define dm := 
+   (alist->dmap [0 [['a --> 1] ['b --> 0] ['c --> 3] ['b --> 99]]])
+
+(eval dom dm)
+
+declare size: (S, T) [(DMap S T)] -> N [[alist->dmap]]
+
+assert* size-def := [(size m = Set.card dom m)]
+
+conclude remove-correctness-1 := (forall m x . m - x at x = default m)
+by-induction remove-correctness-1 {
+  (m as (empty-map d)) => 
+     pick-any x
+      (!chain [(m - x at x)
+             = (m at x)                            [remove-def]
+             = d                                   [apply-def]
+             = (default m)                         [default-def]])
+| (m as (update (pair k v) rest)) =>
+    let {IH := (forall x . rest - x at x = default rest)}
+      pick-any x
+        (!two-cases
+           assume (k = x) 
+            (!chain [(m - x at x) 
+                   = (m - k at k)                  [(k = x)] 
+                   = (rest - k at k)               [remove-def]
+                   = (default rest)                [IH]
+                   = (default m)                   [default-def]
+                    ])
+           assume (k =/= x)  
+             (!chain [(m - x at x) 
+                    = ((k @ v) ++ (rest - x) at x) [remove-def]
+                    = (rest - x at x)              [apply-def]
+                    = (default rest)               [IH]
+                    = (default m)                  [default-def]]))
+}
+
+define remove-correctness-2 := 
+  (forall m k x . k =/= x ==> m - k at x = m at x)
+
+define remove-correctness-3 := 
+  (forall m k . default m = default m - k)
+
+(!force remove-correctness-2)
+(!force remove-correctness-3)
+
+define dom-lemma-1 := 
+  (forall k v rest . v =/= default rest ==> k in dom [k v] ++ rest)
+
+define dom-lemma-2 := 
+  (forall m k v . v =/= default m ==> dom m subset dom [k v] ++ m)
+
+define dom-lemma-2b := 
+  (forall m x k v . v =/= default m & x in dom m ==> x in dom [k v] ++ m)
+
+define [< <=] := [N.< N.<=]
+
+declare len: (K, V) [(DMap K V)] -> N [[alist->dmap]]
+
+assert* len-def := 
+  [(len empty-map _ = zero)
+   (len [_  _] ++ rest = S len rest)]
+
+define len-lemma-1 := (forall m k v . len m < len (k @ v) ++ m)
+define len-lemma-2 := (forall m k . len m - k <= len m)
+define len-lemma-3 := (forall key val k rest . 
+                          len rest - k < len key @ val ++ rest)
+
+define lemma-D := (forall m k . k in dom m <==> m at k =/= default m)
+(!force lemma-D)
+
+define remove-correctness-0 := (forall m x . ~ x in dom m - x)
+
+define dom-lemma-3 := (forall m k . dom m - k subset dom m)
+
+conclude dom-lemma-3 := (forall m k . dom (m - k) subset dom m) 
+pick-any m:(DMap 'K 'V) k:'K
+  (!Set.subset-intro
+    pick-any x:'K
+      let {[rc1 rc2 rc3] := [remove-correctness-1 
+                             remove-correctness-2 
+                             remove-correctness-3]}
+      assume hyp := (x in dom m - k)
+        (!two-cases
+           assume (x = k)
+            let {L := (!chain-> [true 
+                             ==> (m - k at k = default m) [rc1]])}
+               (!chain-> [hyp
+                      ==> (k in dom m - k)                [(x = k)]
+                      ==> (m - k at k =/= default m - k)  [lemma-D]
+                      ==> (m - k at k =/= default m)      [rc3]
+                      ==> (L & m - k at k =/= default m)  [augment]
+                      ==> false                           [prop-taut]
+                      ==> (x in dom m)                    [prop-taut]])
+           assume (x =/= k)
+  	     (!chain-> [hyp
+                    ==> (m - k at x =/= default m - k)    [lemma-D]
+                    ==> (m at x =/= default m - k)        [rc2]
+                    ==> (m at x =/= default m)            [rc3]
+                    ==> (x in dom m)                      [lemma-D]])))
+
+define dom-corollary-1 :=
+  (forall key val k rest  . 
+    k in dom rest - key ==> k in dom [key val] ++ rest)
+
+
+declare dmap->set: (K, V) [(DMap K V)] -> (Set (Pair K V)) 
+                          [[alist->dmap]]
+
+assert* dmap->set-def :=
+  [(dmap->set empty-map _ = null)
+
+   (dmap->set k @ v ++ rest = dmap->set rest - k 
+          <== v = default rest)
+
+   (dmap->set k @ v ++ rest = (k @ v) ++ dmap->set rest - k 
+          <== v =/= default rest)]
+
+
+define dms-lemma-1 := (forall k v . k @ v in dmap->set m ==> k in dom m)
+
+define dms-lemma-1b := 
+   (forall m k . ~ k in dom m ==> forall v . ~ k @ v in dmap->set m)
+
+define dms-lemma-1b' := 
+  (forall m k . ~ k in dom m ==> ~ exists v . k @ v in dmap->set m)
+
+define dms-theorem-1 := 
+  (forall m k v . k @ v in dmap->set m ==> m at k = v)
+
+define dms-theorem-2 :=
+  (forall m k . ~ k in dom m ==> m at k = default m)
+
+define dms-lemma-2 := 
+  (forall m k k' . k in dom m & k =/= k' ==> k in dom m - k')
+
+define dms-lemma-3 := 
+  (forall m key val . 
+    val =/= default m ==> dom key @ val ++ m = key ++ dom m - key)
+                     
+define dms-theorem-3 := 
+  (forall m k . k in dom m ==> exists v . k @ v in dmap->set m)
+
+define at-characterization := 
+  (forall m k v . m at k = v <==> k @ v in dmap->set m | 
+                                  ~ k in dom m & v = default m)
+
+assert* dmap-identity := 
+ (forall m1 m2 . m1 = m2 <==> default m1 = default m2 & 
+                              dmap->set m1 = dmap->set m2)
+
+
+(eval dm = dm)
+(eval dm = alist->dmap [0 [['a --> 1] ['b --> 0] ['c --> 4] ['b --> 99]]])
+
+declare agree-on: (S, T) [(DMap S T) (DMap S T) (Set S)] -> Boolean 
+                         [[alist->dmap alist->dmap Set.alist->set]]
+
+
+assert* agree-on-def := 
+  [(agree-on m1 m2 null)
+   ((agree-on m1 m2 h Set.++ t) <==> m1 at h = m2 at h & 
+                                      (agree-on m1 m2 t))]
+
+let {dm1 := (alist->dmap [0 [['a --> 1] ['b --> 2] ['c --> 3]]]);
+     dm2 := (alist->dmap [9 [['a --> 1] ['b --> 8] ['c --> 3]]])}
+  [(eval agree-on dm1 dm2 ['a 'c]) 
+   (eval agree-on dm1 dm2 ['a 'b])]
+
+define agreement-characterization :=
+  (forall A m1 m2 . (agree-on m1 m2 A) <==> 
+                      forall k . k in A ==> m1 at k = m2 at k)
+
+define downward-agreement-lemma := 
+  (forall B A m1 m2 . (agree-on m1 m2 A) & B subset A ==> 
+                      (agree-on m1 m2 B))
+
+
+declare restricted-to: (S, T) [(DMap S T) (Set S)] -> (DMap S T) 
+                              [150 |^ [alist->dmap Set.alist->set]]
+
+assert* restrict-def :=
+   [(empty-map d |^ _ = empty-map d)
+    (k in A ==> [k v] ++ rest |^ A = [k v] ++ (rest |^ A))
+    (~ k in A ==> [k v] ++ rest |^ A = rest |^ A)]
+
+
+define identity-characterization := 
+  (forall m1 m2 . m1 = m2 <==> default m1 = default m2 & 
+                               forall k . m1 at k = m2 at k)
+
+} # close DMap 
+
+
+

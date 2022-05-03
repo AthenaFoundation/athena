@@ -1,0 +1,194 @@
+#========================== Solution to exercise 4.32 =========================
+
+  define (literal? p) := 
+    match p {
+      (|| (some-atom _) (~ (some-atom _))) => true
+    | _ => false
+    }
+
+  define (clause? p) := 
+    match p {
+      (or (some-list args)) => (for-each args clause?)
+    | _ => (literal? p)
+    }
+
+  define (cnf? p) := 
+    match p {
+      (and (some-list args)) => (for-each args cnf?)
+    | _ => (clause? p)
+    }
+
+  define (cnf-one-step p) := 
+    match p {
+      (~ (~ q)) => q
+    | (~ (or (some-list args))) =>  (and (map ~ args))
+    | (~ (and (some-list args))) => (or  (map ~ args))
+    | (p1 ==> p2) => (~ p1 | p2)
+    | (p1 <==> p2) => (p1 & p2 | ~ p1 & ~ p2)
+    | ((p & q) | (p & r)) => (p & (q | r))
+    | (p1 | (p2 & p3)) => ((p1 | p2) & (p1 | p3))
+    | ((p1 & p2) | p3) => (p3 | (p1 & p2))
+    | _ => ()
+    }
+
+  define naive-cnf := (fix (apply-top-down cnf-one-step))
+
+  define (simplify-clause lits) := 
+    letrec {loop := lambda (args previous)
+                      match args {
+                        [] => previous
+                      | (list-of true rest) => true
+                      | (list-of false rest) => (loop rest previous)
+                      | (list-of l rest) =>  
+                           check {(member? (complement l) previous) => true
+                                | (member? l previous) => 
+                                          (loop rest previous)
+                                | else => (loop rest (add l previous))}
+                       }}
+        match (loop lits []) {
+          true => true
+        | [] => false
+        | [p] => p
+        | L => (or L)
+        }
+
+  define (flatten-disjunction d) := 
+    match (get-disjuncts d) {
+      [p] => p
+    | (some-list L) => (simplify-clause L)
+    }
+
+  define (flatten-and-simplify p) := 
+    let {clauses := (get-conjuncts p)}
+      match (filter (rd (map flatten-disjunction clauses))
+                    (unequal-to true)) {
+        [] => true 
+      | [p] => p  
+      | L => check {(member? false L) => false
+                  | else => (and L)}
+      }
+
+  define naive-cnf0 := (fix (apply-top-down cnf-one-step))
+
+  define (naive-cnf p) := 
+      (flatten-and-simplify naive-cnf0 p)
+
+  define (make n) :=
+    check {
+      (n less? 2) => (and (fresh-var) (fresh-var))
+    | else => (or (and (fresh-var) (fresh-var))
+                  (make (n minus 1)))
+    }
+
+  define (test-naive-cnf p) := 
+    let {_ := (print "\nAbout to compute the naive-cnf of this sentence:" p);
+         res := (naive-cnf p);
+         _ := match ((sat-solve (not (iff p res))) 'satisfiable) 
+                {true => (print "\nConversion incorrect...\n") 
+               | _ => (print "\nConversion correct...\n")}}
+      (print "\nResult:\n" res "\n")
+  
+  (test-naive-cnf (make 3))
+
+  define (rand N) := (make-random-sentence-general N 5 2)
+
+#  (test-naive-cnf (rand 20))
+
+module Tseitin {
+
+  define (get-var entry) := 
+    match entry { 
+      (list-of tv _) => tv 
+    | (some-atom _) => entry
+    }
+
+  define (get-def entry) := 
+    match entry { 
+      (list-of _ (list-of d _)) => d
+    | (some-atom _) => entry
+    }
+       
+  define (non-atomic-entry V i) := 
+    match vector-sub V i {
+      (some-list _) => true
+    | _ => false
+    }
+
+  define (get-clauses V root-index) :=
+    let {N := (vector-size V)}
+      letrec {loop := lambda (i results)
+                         check {((i less? N) && (non-atomic-entry V i)) => 
+                                  (loop (1 plus i) 
+                                       (add (get-def vector-sub V i) 
+                                            results))
+  ## Atomic vector element, no definition to be found there:                                           
+                              | (i less? N) => (loop (1 plus i) results)
+                              | else => results}}
+        (add (get-var vector-sub V root-index) (loop 0 []))
+
+} # close Tseitin
+
+extend-module Tseitin { 
+
+  define (post-inc c) := 
+    let {res := (ref c);
+           _ := set! c (1 plus res)}
+      res;
+
+  define (make-def tv p) := (tv <==> p)
+
+  define (cnf p) := 
+    let {V := make-vector (size p) ();
+         counter := (cell 0);
+         ht := (HashTable.table);
+         apply-ht := lambda (key)
+                       try { (HashTable.lookup ht key) | () }}
+      letrec 
+        {loop := 
+          lambda (p)
+            match p {
+              (some-atom A) =>
+                match (apply-ht A) {
+                  () => let {res := (post-inc counter);
+                               _ := vector-set! V res A;
+                               _ := (HashTable.add ht [A --> res])}
+                          res
+                | k => k
+                }
+            | ((some-sent-con sc) (some-list args)) => 
+                let {indices := (map loop args);
+                       tvars := (map lambda (i) 
+                                       (get-var vector-sub V i) 
+                                     indices);
+                       key := [sc indices]}
+                  match (apply-ht key) {
+                    () => let {res := (post-inc counter);
+                               tv := (fresh-var "Boolean");
+                               def := (make-def tv (sc tvars));
+                               new-entry := [tv def sc indices];
+                               _ := vector-set! V res new-entry;
+                              _ := (HashTable.add ht [key --> res])}
+                            res
+                  | j => j
+                  }
+            }
+        }
+        let {top-index := (loop p)}
+          (get-clauses V top-index)
+
+} #close extend-module Tseitin 
+
+  (Tseitin.cnf (A & B | C & D))
+
+  define cnf-methods := [bdn dist comm dm-2 cond-def-2 bicond-def-2] 
+
+  define (derive-cnf-one-step p) :=
+    (!transform p ((apply-top-down cnf-one-step) p) cnf-methods)
+
+  define (derive-cnf p) := 
+    (!dfix derive-cnf-one-step p)
+
+#  let {p := (rand 10)}  
+#    assume p 
+#      (!derive-cnf p)
+

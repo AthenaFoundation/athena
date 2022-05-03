@@ -1,0 +1,19 @@
+datatype-cases paired-with-lemma-1 {
+  null => pick-any x
+            (!chain [(x paired-with null = null)
+                 ==> (null  = null)              [paired-with-def]])
+| (insert h t) => 
+   pick-any x 
+    (!chain 
+      [(x paired-with h ++ t = null) 
+   ==> (x @ h ++ (x paired-with t) = null)               [paired-with-def]
+   ==> (forall z . ~ z in x @ h ++ (x paired-with t))    [NC-2]
+   ==> (forall z . ~ (z = x @ h | z in x paired-with t)) [in-def]
+
+   ==> (forall z . z =/= x @ h)                      [prop-taut]
+   ==> (x @ h =/= x @ h)                             [(uspec with x @ h)]
+   ==> (x @ h =/= x @ h & x @ h = x @ h)             [augment]
+   ==> false                                         [prop-taut]
+   ==> (h ++ t = null)                               [prop-taut]])
+}
+

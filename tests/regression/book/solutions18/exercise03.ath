@@ -1,0 +1,11 @@
+define (var-subset op:(OP 2) e1 e2) := 
+  let {M := method (e-i) 
+             (!Set.subset-intro
+               pick-any x
+                 let {e := (e1 op e2)}
+                   (!chain 
+                     [(x in evars e-i)
+                  ==> (x in (evars e1) \/ (evars e2)) [Set.UC]
+                  ==> (x in evars e)                  [evars-def]]))}
+   (!both (!M e1) (!M e2))
+

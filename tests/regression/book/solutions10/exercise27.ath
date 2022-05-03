@@ -1,0 +1,26 @@
+conclude removal-range-theorem := 
+  (forall m k . range m - k subset range m)
+pick-any m k 
+ (!Set.subset-intro 
+   pick-any v
+    assume hyp := (in v range m - k)         
+     pick-witness key for 
+       (!chain<- [(exists key . m - k at key = SOME v)  
+              <== hyp [range-characterization]])
+       key-premise 
+       let {k!=key := 
+             (!by-contradiction (k =/= key) 
+               assume (k = key)
+                (!absurd 
+                 (!chain-> [key-premise 
+                        ==> (m - key at key = SOME v) [(k = key)]])
+                 (!chain-> [true 
+                        ==> (m - key at key = NONE)     
+                        ==> (m - key at key =/= SOME v)])))}
+        (!chain-> [k!=key 
+              ==> (m - k at key = m at key)        [remove-correctness-2]
+              ==> (SOME v = m at key)              [key-premise]
+              ==> (m at key = SOME v)              [sym]
+              ==> (exists key . m at key = SOME v) [existence]
+              ==> (v in range m)                   [range-characterization]]))
+

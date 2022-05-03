@@ -1,0 +1,11 @@
+define (M t) :=
+  conclude (P t <==> exists x . x = t & P x)
+    (!equiv assume h := (P t)
+              let {_ := conclude (t = t & P t)
+                          (!both (!reflex t) h)}
+                (!egen (exists x . x = t & P x) t)
+            assume h := (exists x . x = t & P x)
+              pick-witness w for h 
+                (!rcong (P w) (P t)))
+
+(!M a)

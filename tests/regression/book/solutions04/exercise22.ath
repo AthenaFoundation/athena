@@ -1,0 +1,13 @@
+#========================== Solution to exercise 4.22 =========================
+
+  conclude ((A ==> B) | (B ==> C))
+    (!two-cases 
+      assume B
+        (!left-either assume A
+                        (!claim B)
+                      (B ==> C))
+      assume (~ B)
+        (!right-either (A ==> B)
+                       assume B 
+                         (!from-complements C B (~ B))))
+

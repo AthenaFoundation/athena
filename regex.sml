@@ -90,7 +90,7 @@ fun reToString'(lit(pat,_,t)) = "lit(" ^ (patToString pat) ^ "," ^ (tagToString'
 
 val inside_constraint = ref(false)
 
-fun mprint(str) = if !inside_constraint then () else print(str) 
+fun debugPrint(str) = if !inside_constraint then () else print(str) 
 
 fun translate(e0,id_codes,all_ids) =     
   let fun getCode(name) = 
@@ -407,8 +407,8 @@ fun match(e0:RE0,re_mem_code:int,
                 end
         | M(stack as (se as star(e,{code=NONE,con,free_ids,...}))::more,i) = 
                  let  (****
-                      val _ = mprint("\n\nUNTAGGED STAR Stack: [" ^ (printStack stack) ^ "]")
-                      val _ = mprint("\nUNTAGGED STAR Value list: " ^ (printSuffix i)) 
+                      val _ = debugPrint("\n\nUNTAGGED STAR Stack: [" ^ (printStack stack) ^ "]")
+                      val _ = debugPrint("\nUNTAGGED STAR Value list: " ^ (printSuffix i)) 
                       ****)
                  in
                     M((cc(con,free_ids))::more,i) orelse   M(e::(diff i)::se::more,i)
