@@ -1,6 +1,6 @@
 OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 prefix ?= $(pwd)/build
-TEST_LOGS_DIR ?= ./logs/tests
+TEST_LOGS_DIR ?= ./logs/tests/
 INSTALLDIR ?= $(prefix)/athena
 version=$(shell cat ./version.txt)
 ATHENA_POSTFIX=$(OS)-$(version)
@@ -9,7 +9,7 @@ ATHENA_POSTFIX=$(OS)-$(version)
 .PHONY: test
 test: smlnj
 	mkdir -p $(TEST_LOGS_DIR)
-	TEST_LOGS_DIR=$(TEST_LOGS_DIR) python3 ./tests/regression/regressionTest.py 2> $(TEST_OUT_DIR)/test_error.txt 1> $(TEST_OUT_DIR)/test_out.txt
+	ATHENA_HOME=${ATHENA_HOME} TEST_LOGS_DIR=$(TEST_LOGS_DIR) python3 ./tests/regression/regressionTest.py 2> $(TEST_LOGS_DIR)/test_error.txt 1> $(TEST_LOGS_DIR)/test_out.txt
 
 .PHONY: smlnj
 smlnj:
@@ -28,4 +28,5 @@ dist:
 .PHONY: clean
 clean:
 	rm -rf $(INSTALLDIR)
+	rm -rf $(TEST_LOGS_DIR)
 
