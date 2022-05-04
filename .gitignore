@@ -9,3 +9,5 @@ dimacs_file.txt
 athena-*
 /build
 minisat_out.txt
+test_*.txt
+/tmp

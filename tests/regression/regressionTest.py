@@ -48,9 +48,6 @@ def errorLine(l):
     return 'error:' in toks or any([l.startswith(p) for p in error_phrases])
 
 def runAthenaTests(athena_executable="sml @SMLload=athena_image.x86-linux"):
-    print(os.getcwd())
-    
-   
     output_file = "regression_results.txt"
     os.system('echo "" > ' + output_file)
     res_files=[]
