@@ -6,3 +6,6 @@ athena
 regression_results.txt
 *.pl
 dimacs_file.txt
+athena-*
+/build
+minisat_out.txt
