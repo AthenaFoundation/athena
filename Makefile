@@ -1,6 +1,6 @@
 OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
-prefix ?= .
-INSTALLDIR ?= $(prefix)
+prefix ?= ./build
+INSTALLDIR ?= $(prefix)/athena
 version=$(shell cat ./version.txt)
 ATHENA_POSTFIX=$(OS)-$(version)
 
@@ -12,7 +12,13 @@ test:
 .PHONY: build
 build:
 	mkdir -p $(INSTALLDIR)
-	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./make_mlton_binary >> athena-$(OS)
+	touch $(INSTALLDIR)/error_logs.txt
+	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./make_mlton_binary  2> $(INSTALLDIR)/error_logs.txt
 
-.PHONE: dist
+.PHONY: dist
 dist:
+
+.PHONY: clean
+clean:
+	rm -rf $(INSTALLDIR)
+
