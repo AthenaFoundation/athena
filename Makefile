@@ -5,11 +5,14 @@ INSTALLDIR ?= $(prefix)/athena
 version=$(shell cat ./version.txt)
 ATHENA_POSTFIX=$(OS)-$(version)
 
+.PHONY: install_external_tools
+install_external_tools: 
+	$(shell ./scripts/install_external_tools.sh)
 
 .PHONY: test
 test: smlnj
 	mkdir -p $(TEST_LOGS_DIR)
-	ATHENA_HOME=${ATHENA_HOME} TEST_LOGS_DIR=$(TEST_LOGS_DIR) python3 ./tests/regression/regressionTest.py 2> $(TEST_LOGS_DIR)/test_error.txt 1> $(TEST_LOGS_DIR)/test_out.txt
+	ATHENA_HOME=${ATHENA_HOME} TEST_LOGS_DIR=$(TEST_LOGS_DIR) python3 ./tests/regression/regressionTest.py 2> $(TEST_LOGS_DIR)test_error.txt 1> $(TEST_LOGS_DIR)test_out.txt
 
 .PHONY: smlnj
 smlnj:
