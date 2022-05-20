@@ -2,8 +2,9 @@ name: Release
 
 on:
   push:
-    tags:
-    - 'v*'
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 
 jobs:
   release-linux:
@@ -17,7 +18,7 @@ jobs:
           sudo apt-get install -y make mlton minisat spass cvc4 smlnj ml-yacc ml-ulex
       - name: Build
         run: | 
-          make clean packages
+          make smlnj packages
       - name: version
         run: |
           echo "::set-output name=version::$(cat version.txt)"

@@ -1,9 +1,6 @@
 name: Build
 
 on:
-  push:
-    branches: [master]
-
   pull_request:
     branches: [master]
 
@@ -21,9 +18,9 @@ jobs:
         env:
           prefix: ${{ runner.temp }}
         run: |
-          make smlnj packages
+          make smlnj
       - name: Regression tests
         run: |
-          make smlnj test
+          make test
 
 
