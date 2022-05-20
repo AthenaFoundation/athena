@@ -1,7 +1,9 @@
-name: Build
+name: ci_regression_tests
 
 on:
   pull_request:
+    branches: [master]
+  push:
     branches: [master]
 
 jobs:
