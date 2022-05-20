@@ -13,6 +13,9 @@ jobs:
   generate-release:
     name: Generate release & tag
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
     steps:
       - uses: actions/checkout@v2
       - name: version
@@ -43,16 +46,15 @@ jobs:
       - name: Build
         run: | 
           make smlnj packages
-
       - name: Upload artifacts
         uses: actions/upload-release-asset@v1
         id: upload-artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.generate-release.steps.create_release.outputs.upload_url }}
-          asset_path: ./packages/athena-linux-${{ needs.generate-release.steps.version.outputs.version }}.zip
-          asset_name: athena-linux-${{ needs.generate-release.steps.version.outputs.version }}.zip
+          upload_url: ${{ needs.generate-release.outputs.upload_url }}
+          asset_path: ./packages/athena-linux-${{ needs.generate-release.outputs.version }}.zip
+          asset_name: athena-linux-${{ needs.generate-release.outputs.version }}.zip
           asset_content_type: application/zip
 
 
@@ -78,7 +80,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ needs.generate-release.steps.create_release.outputs.upload_url }}
-          asset_path: ./packages/athena-darwin-${{ needs.generate-release.steps.version.outputs.version }}.zip
-          asset_name: athena-darwin-${{ needs.generate-release.steps.version.outputs.version }}.zip
+          upload_url: ${{ needs.generate-release.outputs.upload_url }}
+          asset_path: ./packages/athena-darwin-${{ needs.generate-release.outputs.version }}.zip
+          asset_name: athena-darwin-${{ needs.generate-release.outputs.version }}.zip
           asset_content_type: application/zip
