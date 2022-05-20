@@ -1,9 +1,10 @@
 OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
-prefix ?= $(pwd)/build
+prefix ?= $(shell pwd)/build
 TEST_LOGS_DIR ?= ./logs/tests/
 INSTALLDIR ?= $(prefix)/athena
 version=$(shell cat ./version.txt)
 ATHENA_POSTFIX=$(OS)-$(version)
+ATHENA_HOME ?= $(shell pwd)
 
 .PHONY: install_external_tools
 install_external_tools: 
@@ -22,8 +23,18 @@ smlnj:
 .PHONY: build
 build:
 	mkdir -p $(INSTALLDIR)
-	touch $(INSTALLDIR)/error_logs.txt
-	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./scripts/make_mlton_binary  2> $(INSTALLDIR)/error_logs.txt
+	cp -r ./lib $(INSTALLDIR)
+	cp -r ./util $(INSTALLDIR)
+	touch $(INSTALLDIR)/build_logs.txt
+	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./scripts/make_mlton_binary  2> $(INSTALLDIR)/build_logs.txt
+
+.PHONY: packages
+packages: build
+	mkdir ./packages
+	cd $(prefix) && tar czvf athena-$(ATHENA_POSTFIX).tgz ./athena
+	cd $(prefix) && zip athena-$(ATHENA_POSTFIX).zip ./athena/*
+	mv $(prefix)/*.tgz ./packages
+	mv $(prefix)/*.zip ./packages
 
 .PHONY: dist
 dist:
@@ -32,4 +43,6 @@ dist:
 clean:
 	rm -rf $(INSTALLDIR)
 	rm -rf $(TEST_LOGS_DIR)
-
+	rm -rf ./*.tgz
+	rm -rf ./*.zip
+	rm -rf ./packages

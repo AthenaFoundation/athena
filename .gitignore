@@ -11,3 +11,6 @@ athena-*
 minisat_out.txt
 test_*.txt
 /tmp
+sml.json
+sp.e*
+/logs
