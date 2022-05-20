@@ -9,19 +9,24 @@ on:
 
 
 jobs:
+
   generate-release:
     name: Generate release & tag
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - name: version
-        id: version
         run: echo "::set-output name=version::$(cat version.txt)"
+        shell: bash
+        id: version
       - name: create-release
         uses: actions/create-release@v1
         id: create_release
         with:
-          tag_name: ${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: false
           release_name: Athena ${{ steps.version.outputs.version }}
+          tag_name: ${{ steps.version.outputs.version }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
