@@ -1,3 +1,4 @@
+[![ci_regression_tests](https://github.com/AthenaFoundation/athena/actions/workflows/main.yaml/badge.svg)](https://github.com/AthenaFoundation/athena/actions/workflows/main.yaml)
 # Athena Proof Framework
 
 This repo contains the source code for Athena, a system for proof engineering based on polymorphic multi-sorted first-order logic.
