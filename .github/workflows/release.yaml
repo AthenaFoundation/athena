@@ -3,19 +3,41 @@ name: Release
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 
 
 jobs:
 
+  compare_latest_tag_and_current_version:
+    runs-on: ubuntu-latest
+    outputs:
+      current_version: ${{ steps.read_current_version.outputs.version}}
+      latest_version: ${{ steps.previous_tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v2.2.0
+        with:
+          fetch-depth: 0 # Required due to the way Git works, without it this action won't be able to find any or the correct tags
+      - name: Get previous tag
+        id: previous_tag
+        uses: "WyriHaximus/github-action-get-previous-tag@v1"
+        with:
+          fallback: 0.0.0 # Optional fallback tag to use when no tag can be found
+      - name: Get current version
+        id: read_current_version
+        run: echo "::set-output name=version::$(cat version.txt)"
+
   generate-release:
     name: Generate release & tag
     runs-on: ubuntu-latest
+    needs: compare_latest_tag_and_current_version
+    if: |
+      (needs.compare_latest_tag_and_current_version.outputs.current_version != 
+       needs.compare_latest_tag_and_current_version.outputs.latest_version) &&
+      (needs.compare_latest_tag_and_current_version.outputs.latest_version != '0.0.0')
     outputs:
       version: ${{ steps.version.outputs.version }}
       upload_url: ${{ steps.create_release.outputs.upload_url }}
+      
     steps:
       - uses: actions/checkout@v2
       - name: version
@@ -36,7 +58,11 @@ jobs:
   release-linux:
     name: Release binaries and supporting files (Linux)
     runs-on: ubuntu-latest
-    needs: generate-release
+    needs: [generate-release, compare_latest_tag_and_current_version]
+    if: |
+      (needs.compare_latest_tag_and_current_version.outputs.current_version != 
+       needs.compare_latest_tag_and_current_version.outputs.latest_version) &&
+      (needs.compare_latest_tag_and_current_version.outputs.latest_version != '0.0.0')
     steps:
       - uses: actions/checkout@v2
       - name: Install pre-requisites
@@ -61,7 +87,11 @@ jobs:
   release-macos:
     name: Release binaries and supporting files (macos)
     runs-on: macos-latest
-    needs: generate-release
+    needs: [generate-release, compare_latest_tag_and_current_version]
+    if: |
+      (needs.compare_latest_tag_and_current_version.outputs.current_version != 
+       needs.compare_latest_tag_and_current_version.outputs.latest_version) &&
+      (needs.compare_latest_tag_and_current_version.outputs.latest_version != '0.0.0')
     steps:
       - uses: actions/checkout@v2
       - name: Install pre-requisites
