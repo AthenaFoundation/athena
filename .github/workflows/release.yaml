@@ -15,8 +15,7 @@ jobs:
     steps:
       - name: version
         id: version
-        run: |
-          echo "::set-output name=version::$(cat version.txt)"
+        run: echo "::set-output name=version::$(cat version.txt)"
       - name: create-release
         uses: actions/create-release@v1
         id: create_release
