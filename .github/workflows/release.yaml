@@ -6,10 +6,27 @@ on:
   pull_request:
     branches: [ master ]
 
+
+
 jobs:
+  generate-release:
+    - name: version
+      run: |
+        echo "::set-output name=version::$(cat version.txt)"
+      id: version
+    - name: create-release
+      uses: actions/create-release@v1
+      id: create_release
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        release_name: Release ${{ steps.version.outputs.version }}
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   release-linux:
     name: Release binaries and supporting files (Linux)
     runs-on: ubuntu-latest
+    needs: generate-release
     steps:
       - uses: actions/checkout@v2
       - name: Install pre-requisites
@@ -19,33 +36,23 @@ jobs:
       - name: Build
         run: | 
           make smlnj packages
-      - name: version
-        run: |
-          echo "::set-output name=version::$(cat version.txt)"
-        id: version
-      - name: create-release
-        uses: actions/create-release@v1
-        id: create_release
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          release_name: Release ${{ steps.version.outputs.version }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload artifacts
         uses: actions/upload-release-asset@v1
         id: upload-artifact
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./packages/athena-linux-${{ steps.version.outputs.version }}.zip
-          asset_name: athena-linux-${{ steps.version.outputs.version }}.zip
+          upload_url: ${{ needs.generate-release.steps.create_release.outputs.upload_url }}
+          asset_path: ./packages/athena-linux-${{ needs.generate-release.steps.version.outputs.version }}.zip
+          asset_name: athena-linux-${{ needs.generate-release.steps.version.outputs.version }}.zip
           asset_content_type: application/zip
 
 
   release-macos:
     name: Release binaries and supporting files (macos)
     runs-on: macos-latest
+    needs: generate-release
     steps:
       - uses: actions/checkout@v2
       - name: Install pre-requisites
@@ -64,7 +71,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./packages/athena-darwin-${{ steps.version.outputs.version }}.zip
-          asset_name: athena-darwin-${{ steps.version.outputs.version }}.zip
+          upload_url: ${{ needs.generate-release.steps.create_release.outputs.upload_url }}
+          asset_path: ./packages/athena-darwin-${{ needs.generate-release.steps.version.outputs.version }}.zip
+          asset_name: athena-darwin-${{ needs.generate-release.steps.version.outputs.version }}.zip
           asset_content_type: application/zip
