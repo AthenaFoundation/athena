@@ -1,5 +1,6 @@
 .cm/
-*.grm.desc
+*.grm.*
+*.lex.*
 *.x86-linux
 athena
 regression_results.txt
@@ -12,4 +13,3 @@ test_*.txt
 /tmp
 sml.json
 sp.e*
-/logs
