@@ -18,8 +18,10 @@ jobs:
           sudo apt-get -y update
           sudo apt-get install -y make mlton minisat spass cvc4 smlnj ml-yacc ml-ulex
       - name: Build
-        run: | 
-          make packages
+        env:
+          prefix: ${{ runner.temp }}
+        run: |
+          make smlnj packages
       - name: Regression tests
         run: |
           make smlnj test
