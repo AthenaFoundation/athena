@@ -1,0 +1,29 @@
+name: Build
+
+on:
+  push:
+    branches: [master]
+
+  pull_request:
+    branches: [master]
+
+jobs:
+  build-and-test-linux:
+    name: Build and test on linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install pre-requisites
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y make mlton minisat spass cvc4 smlnj ml-yacc ml-ulex
+      - name: Build
+        env:
+          prefix: ${{ runner.temp }}
+        run: |
+          make smlnj packages
+      - name: Regression tests
+        run: |
+          make smlnj test
+
+

@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+
+jobs:
+  release-linux:
+    name: Release binaries and supporting files (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install pre-requisites
+        run: |
+          sudo apt-get -y update
+          sudo apt-get install -y make mlton minisat spass cvc4 smlnj ml-yacc ml-ulex
+      - name: Build
+        run: | 
+          make clean packages
+      - name: version
+        run: |
+          echo "::set-output name=version::$(cat version.txt)"
+        id: version
+      - name: create-release
+        uses: actions/create-release@v1
+        id: create_release
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          release_name: Release ${{ steps.version.outputs.version }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload artifacts
+        uses: actions/upload-release-asset@v1
+        id: upload-artifact
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./packages/athena-linux-${{ steps.version.outputs.version }}.zip
+          asset_name: athena-linux-${{ steps.version.outputs.version }}.zip
+          asset_content_type: application/zip

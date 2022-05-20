@@ -1,0 +1,1 @@
+apt-get update -y && apt-get install -y mlton minisat spass cvc4 smlnj ml-yacc ml-ulex

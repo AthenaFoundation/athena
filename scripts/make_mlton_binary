@@ -1,0 +1,1 @@
+mlton @MLton gc-summary -- -output $INSTALLDIR/athena-$ATHENA_POSTFIX -verbose 1 -default-ann 'allowFFI true' -drop-pass deepFlatten -codegen native athena.mlb
