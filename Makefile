@@ -26,7 +26,7 @@ build:
 	cp -r ./lib $(INSTALLDIR)
 	cp -r ./util $(INSTALLDIR)
 	touch $(INSTALLDIR)/build_logs.txt
-	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./scripts/make_mlton_binary  2> $(INSTALLDIR)/build_logs.txt
+	ATHENA_POSTFIX=$(ATHENA_POSTFIX) INSTALLDIR=$(INSTALLDIR) ./scripts/make_mlton_binary
 
 .PHONY: packages
 packages: build
