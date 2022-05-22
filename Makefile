@@ -32,12 +32,9 @@ build:
 packages: build
 	mkdir ./packages
 	cd $(prefix) && tar czvf athena-$(ATHENA_POSTFIX).tgz ./athena
-	cd $(prefix) && zip athena-$(ATHENA_POSTFIX).zip ./athena/*
+	cd $(prefix) && zip -r athena-$(ATHENA_POSTFIX).zip ./athena/*
 	mv $(prefix)/*.tgz ./packages
 	mv $(prefix)/*.zip ./packages
-
-.PHONY: dist
-dist:
 
 .PHONY: clean
 clean:
