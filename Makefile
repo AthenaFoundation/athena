@@ -1,9 +1,10 @@
 OS=$(shell uname -s | tr '[:upper:]' '[:lower:]')
 prefix ?= $(shell pwd)/build
-TEST_LOGS_DIR ?= ./logs/tests/
-INSTALLDIR ?= $(prefix)/athena
-version=$(shell cat ./version.txt)
 ATHENA_POSTFIX=$(OS)-$(version)
+TEST_LOGS_DIR ?= ./logs/tests/
+INSTALLDIR ?= $(prefix)/athena-$(ATHENA_POSTFIX)
+version=$(shell cat ./version.txt)
+
 ATHENA_HOME ?= $(shell pwd)
 
 .PHONY: install_external_tools
@@ -31,8 +32,8 @@ build:
 .PHONY: packages
 packages: build
 	mkdir ./packages
-	cd $(prefix) && tar czvf athena-$(ATHENA_POSTFIX).tgz ./athena
-	cd $(prefix) && zip -r athena-$(ATHENA_POSTFIX).zip ./athena/*
+	cd $(prefix) && tar czvf athena-$(ATHENA_POSTFIX).tgz ./athena-$(ATHENA_POSTFIX)
+	cd $(prefix) && zip -r athena-$(ATHENA_POSTFIX).zip ./athena-$(ATHENA_POSTFIX)/*
 	mv $(prefix)/*.tgz ./packages
 	mv $(prefix)/*.zip ./packages
 

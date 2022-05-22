@@ -36,6 +36,28 @@ module Asymmetry {
 
 } 
 ```
+
+## Quickstart
+
+To start using Athena right away, simply download and unpack the latest [release](https://github.com/AthenaFoundation/athena/releases/latest). After doing so, ensure that the `ATHENA_HOME` environment variable is set to the path to the files.
+
+After expanding the packaged release, the contents of the `athena-[platform]-[version]` directory should look like this
+
+```sh
+
+tannr@pop-os: ~/athena-linux-v1.4.1$ ls ./
+
+athena*  build_logs.txt  lib/  util/
+```
+
+It is recommended to also add Athena to your `$PATH` for convenience.
+
+Some features and tests may require an external automated theorem prover and/or SAT solver. The defaults are SPASS and Minisat. These tools are *not* shipped with Athena, so must be installed independently if they are needed (you will need them, for example, if you intend on using the `sat` or `prove` functions within an Athena project).
+
+# Building From Source
+
+For build instructions, please refer to the [Building Athena](https://github.com/AthenaFoundation/athena/wiki/Building-Athena) page in the wiki.
+
 ## Codebase Structure
 Athena is implemented in SML. At its present state, that implementation comprises 80 files, listed in sources.cm.
 
@@ -51,9 +73,6 @@ Note that `athena.sml` is at the top of the graph (it's essentially the 'main' f
 `base.sml` is at the bottom.
 
 
-# Building Athena
-
-For build instructions, please refer to the [Building Athena](https://github.com/AthenaFoundation/athena/wiki/Building-Athena) page in the wiki.
 
 
 # Regression testing
