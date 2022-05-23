@@ -54,6 +54,9 @@ It is recommended to also add Athena to your `$PATH` for convenience.
 
 Some features and tests may require an external automated theorem prover and/or SAT solver. The defaults are SPASS and Minisat. These tools are *not* shipped with Athena, so must be installed independently if they are needed (you will need them, for example, if you intend on using the `sat` or `prove` functions within an Athena project).
 
+### For Windows users
+If you are on Windows, it is recommended to use [WSL](https://docs.microsoft.com/en-us/windows/wsl/about), which will allow you to use the packaged release of Athena for linux platforms. 
+
 # Building From Source
 
 For build instructions, please refer to the [Building Athena](https://github.com/AthenaFoundation/athena/wiki/Building-Athena) page in the wiki.
