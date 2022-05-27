@@ -111,3 +111,89 @@ Binary Search unit
 test   [`binary-search_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/search/binary-search_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/search/binary-search_unittest.ath.pdf))\
 Binary tree over
 T   [`binary-tree.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/search/binary-tree.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/search/binary-tree.ath.pdf))
+
+# lib/memory-range files and listings 
+
+Iterator with forward and backward
+movement   [`bidirectional-iterator.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/bidirectional-iterator.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/bidirectional-iterator.ath.pdf))\
+Bidirectional Iterator unit
+test   [`bidirectional-iterator_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/bidirectional-iterator_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/bidirectional-iterator_unittest.ath.pdf))\
+Binary search on a
+range   [`binary-search-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/binary-search-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/binary-search-range.ath.pdf))\
+Binary Search Range unit
+test   [`binary-search-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/binary-search-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/binary-search-range_unittest.ath.pdf))\
+Collect memory locations into a
+list   [`collect-locs.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/collect-locs.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/collect-locs.ath.pdf))\
+Collect Locs unit
+test   [`collect-locs_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/collect-locs_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/collect-locs_unittest.ath.pdf))\
+Copy starting at
+end   [`copy-range-backward.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/copy-range-backward.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/copy-range-backward.ath.pdf))\
+Copy Range Backward unit
+test   [`copy-range-backward_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/copy-range-backward_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/copy-range-backward_unittest.ath.pdf))\
+Copy starting at
+beginning   [`copy-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/copy-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/copy-range.ath.pdf))\
+Copy Range unit
+test   [`copy-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/copy-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/copy-range_unittest.ath.pdf))\
+Count elements equal to a given
+value   [`count-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/count-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/count-range.ath.pdf))\
+Count Range unit
+test   [`count-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/count-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/count-range_unittest.ath.pdf))\
+Iterator with forward
+movement   [`forward-iterator.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/forward-iterator.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/forward-iterator.ath.pdf))\
+Forward Iterator unit
+test   [`forward-iterator_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/forward-iterator_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/forward-iterator_unittest.ath.pdf))\
+Basic memory access and
+modification   [`memory.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/memory.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/memory.ath.pdf))\
+Memory unit
+test   [`memory_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/memory_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/memory_unittest.ath.pdf))\
+Operations on a range over a strict weak
+order   [`ordered-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/ordered-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/ordered-range.ath.pdf))\
+Ordered Range unit
+test   [`ordered-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/ordered-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/ordered-range_unittest.ath.pdf))\
+Iterator with "big jump"
+movement   [`random-access-iterator.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/random-access-iterator.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/random-access-iterator.ath.pdf))\
+Random Access Iterator unit
+test   [`random-access-iterator_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/random-access-iterator_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/random-access-iterator_unittest.ath.pdf))\
+Operations involving range
+lengths   [`range-length.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/range-length.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/range-length.ath.pdf))\
+Range Length unit
+test   [`range-length_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/range-length_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/range-length_unittest.ath.pdf))\
+Range datatype and basic
+operations   [`range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/range.ath.pdf))\
+Range unit
+test   [`range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/range_unittest.ath.pdf))\
+Replace elements equal to x with a value
+y   [`replace-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/replace-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/replace-range.ath.pdf))\
+Replace Range unit
+test   [`replace-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/replace-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/replace-range_unittest.ath.pdf))\
+Iterator adapter that reverses direction of
+movement   [`reverse-range.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/reverse-range.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/reverse-range.ath.pdf))\
+Reverse Range unit
+test   [`reverse-range_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/reverse-range_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/reverse-range_unittest.ath.pdf))\
+Implementation of swap operation on
+memory   [`swap-implementation.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/swap-implementation.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/swap-implementation.ath.pdf))\
+Swap Implementation unit
+test   [`swap-implementation_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/swap-implementation_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/swap-implementation_unittest.ath.pdf))\
+Base of iterator
+refinements   [`trivial-iterator.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/trivial-iterator.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/trivial-iterator.ath.pdf))\
+Trivial Iterator unit
+test   [`trivial-iterator_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/trivial-iterator_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/trivial-iterator_unittest.ath.pdf))
+
+# lib/basic files and listings
+
+DMap, default finite map
+structure   [`dmaps.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/dmaps.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/dmaps.ath.pdf))\
+Dmaps unit
+test   [`dmaps_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/dmaps_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/dmaps_unittest.ath.pdf))\
+Map, finite map
+structure   [`fmaps.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/fmaps.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/fmaps.ath.pdf))\
+Fmaps unit
+test   [`fmaps_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/fmaps_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/fmaps_unittest.ath.pdf))\
+Pair, ordered pair
+datatype   [`pairs.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/pairs.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/pairs.ath.pdf))\
+Set, finite set
+structure   [`sets.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/sets.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/sets.ath.pdf))\
+Sets unit
+test   [`sets_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/sets_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/sets_unittest.ath.pdf))\
+ST, structured theory
+module   [`st.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/st.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/st.ath.pdf))
