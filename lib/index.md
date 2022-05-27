@@ -112,7 +112,7 @@ test   [`binary-search_unittest.ath`](https://github.com/AthenaFoundation/ath
 Binary tree over
 T   [`binary-tree.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/search/binary-tree.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/search/binary-tree.ath.pdf))
 
-# lib/memory-range files and listings 
+## lib/memory-range files and listings 
 
 Iterator with forward and backward
 movement   [`bidirectional-iterator.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/bidirectional-iterator.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/bidirectional-iterator.ath.pdf))\
@@ -179,7 +179,7 @@ refinements   [`trivial-iterator.ath`](https://github.com/AthenaFoundation/at
 Trivial Iterator unit
 test   [`trivial-iterator_unittest.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/memory-range/trivial-iterator_unittest.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/memory-range/trivial-iterator_unittest.ath.pdf))
 
-# lib/basic files and listings
+## lib/basic files and listings
 
 DMap, default finite map
 structure   [`dmaps.ath`](https://github.com/AthenaFoundation/athena/blob/master/lib/basic/dmaps.ath)  ([listing](https://github.com/AthenaFoundation/athena/blob/master/listings/lib/basic/dmaps.ath.pdf))\
