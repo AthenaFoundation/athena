@@ -1957,7 +1957,7 @@ fun getFlotterIndex() = let val cv = !flotter_counter
 			end
 
 val spass_proof_line = "SPASS beiseite: Proof found.\n"
-val vamp_proof_line = "Satisfiable!\n"
+val vamp_proof_line = "% Refutation found. Thanks to Tanya!\n"
 val e_proof_line = "# Proof found!\n"
 val paradox_proof_line = "== Model ==================================================================="
 
@@ -2842,8 +2842,8 @@ fun vProve(goal_val, premise_vals,env,ab,max_seconds) =
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
       val _ = TextIO.closeIn(vamp_answer_stream)
-      val _ = deleteFile(vamp_in_fname)
-      val _ = deleteFile(vamp_out_fname)
+      (* val _ = deleteFile(vamp_in_fname)
+      val _ = deleteFile(vamp_out_fname) *)
   in
      (answer_bit,desired_conc)
   end
@@ -2901,8 +2901,8 @@ fun unLimVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
       val _ = TextIO.closeIn(vamp_answer_stream)
-      val _ = deleteFile(vamp_in_fname)
-      val _ = deleteFile(vamp_out_fname)
+      (* val _ = deleteFile(vamp_in_fname)
+      val _ = deleteFile(vamp_out_fname) *)
   in
      if answer_bit then propVal(desired_conc) else primError("Failed application of "^N.vpfPrimMethod_name^
 							":\nUnable to derive the conclusion "^
@@ -2955,8 +2955,8 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
                                 | loop(i::more,res) = loop(more,(Array.sub(premise_array,i-1))::res)
                           in SOME(loop(used_premise_indices,[])) end handle _ => NONE
       val _ = TextIO.closeIn(vamp_answer_stream)
-      val _ = deleteFile(vamp_in_fname)
-      val _ = deleteFile(vamp_out_fname)
+      (* val _ = deleteFile(vamp_in_fname)
+      val _ = deleteFile(vamp_out_fname) *)
       val _ = List.app (fn (_,f') => Data.removeFSymByName(f')) syms_and_new_syms
   in
      (answer_bit,goal,used_premises)
