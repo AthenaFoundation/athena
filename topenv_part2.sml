@@ -1957,7 +1957,7 @@ fun getFlotterIndex() = let val cv = !flotter_counter
 			end
 
 val spass_proof_line = "SPASS beiseite: Proof found.\n"
-val vamp_proof_line = "Refutation found. Thanks to Tanya!\n"
+val vamp_proof_line = "Satisfiable!\n"
 val e_proof_line = "# Proof found!\n"
 val paradox_proof_line = "== Model ==================================================================="
 
@@ -2946,7 +2946,7 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       fun write(str) = TextIO.output(vamp_problem_stream,str)
       val _ = (List.app write hyps;write conc)
       val _ = TextIO.closeOut(vamp_problem_stream)
-      val cmd = Names.vampire_binary ^ " -proof tptp -show_skolemisations on -time_limit "^max_seconds^" -input_file "^vamp_in_fname^" > "^vamp_out_fname
+      val cmd = Names.vampire_binary ^ " --proof tptp --show_skolemisations on --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname
       val _ = OS.Process.system(cmd)
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
