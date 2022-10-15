@@ -39,7 +39,10 @@ packages: build
 
 .PHONY: clean
 clean:
-	rm -rf $(INSTALLDIR)
+	rm -rf $(INSTALLDIR)/lib
+	rm -rf $(INSTALLDIR)/tmp
+	rm -rf $(INSTALLDIR)/build_logs.txt
+	rm -rf $(INSTALLDIR)/athena
 	rm -rf $(TEST_LOGS_DIR)
 	rm -rf ./*.tgz
 	rm -rf ./*.zip
