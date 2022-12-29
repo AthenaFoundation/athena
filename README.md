@@ -97,8 +97,5 @@ Other tutorials and online courses are undergoing active development.
 
 Athena was developed by Konstantine Arkoudas, roughly between 2000 and 2015. The core of the language had more or less settled by 2004, but there were a number of subsequent changes and extensions, some of them conceived and implemented after 2010, such as modules, a good deal of infix syntax, proof chaining (implemented via the primitive 'chain' procedure, both for equations and for logical implications/equivalences), integration with SMT solvers and tabled Prolog systems such as XSB, and others. 
 
-In early 2022, Tannr Allard - already familiar with Athena from a few years of personal use - began applying Athena to research efforts in collaboration with the Ethereum Foundation, MakerDAO, and other projects.
+In early 2022, Tannr Allard - a long time Athena user - formed the Athena Foundation, a non-profit organization dedicated to the maintenance and continued development of the Athena language. Tannr is now the core maintainer of the Athena language & regularly collaborates with Konstantine, who serves as a board member & expert advisor in the Athena Foundation.
  
-In an effort to improve the verification tooling available for developers, Tannr formed the Athena Foundation, a non-profit organization dedicated to the maintenance and continued development of the Athena language, auxiliary tooling, and educational materials. The Athena Foundation also aims to facilitate R&D efforts related to formal verification across various organizations and industries.
- 
-Tannr is now the core maintainer of the Athena language and regularly collaborates with Konstantine, who serves as an expert advisor and board member of the Athena Foundation.
