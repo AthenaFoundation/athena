@@ -440,7 +440,7 @@ fun cvcSolveGeneric(P,timeout_option,ht_option) =
                          val cmd_predix = if Paths.is_unix then Names.cvc4_binary else "cvcopt.exe "
                          val command = (case timeout_option of
                                            SOME(str) => cmd_predix ^ "--tlimit= " ^ str  ^ " --produce-models cvc0.cvc > cvco.ys 2> cvce.ys"
-                                         | _ => cmd_predix ^ "--produce-models cvc0.cvc > cvco.ys 2> cvce.ys")
+                                         | _ => cmd_predix ^ " --produce-models cvc0.cvc > cvco.ys 2> cvce.ys")
                          val _ = OS.Process.system(command)
                          val t3 = Time.toReal(Time.now())
                          val _ = debugPrint("\nCVC finished in "^(Real.toString(Real.-(t3,t2)))^" seconds...\n")
