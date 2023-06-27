@@ -9,7 +9,7 @@ on:
 jobs:
 
   compare_latest_tag_and_current_version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     outputs:
       current_version: ${{ steps.read_current_version.outputs.version}}
       latest_version: ${{ steps.previous_tag.outputs.tag }}
@@ -28,7 +28,7 @@ jobs:
 
   generate-release:
     name: Generate release & tag
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: compare_latest_tag_and_current_version
     if: |
       (needs.compare_latest_tag_and_current_version.outputs.current_version != 
@@ -56,7 +56,7 @@ jobs:
 
   release-linux:
     name: Release binaries and supporting files (Linux)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     needs: [generate-release, compare_latest_tag_and_current_version]
     if: |
       (needs.compare_latest_tag_and_current_version.outputs.current_version != 
