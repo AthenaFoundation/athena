@@ -1,0 +1,1961 @@
+\newcounter{algorithm}[subsection]
+\renewcommand{\thealgorithm}{\thesection.\arabic{algorithm}}
+
+\newcommand{\mendmarker}{\rule{1.2ex}{1.2ex}}
+%% Theorems: 
+
+%   \theoremstyle{marginbreak}
+ \theoremstyle{plain}
+   \theoremheaderfont{\normalfont\bfseries}\theorembodyfont{\slshape}
+%   \theoremsymbol{\ensuremath{\diamondsuit}}
+   \theoremseparator{:}
+   \newtheorem{theorem}{Theorem}
+
+
+ \theoremstyle{plain}
+   \theoremheaderfont{\normalfont\bfseries}\theorembodyfont{\slshape}
+   \theoremseparator{:}
+   \newtheorem{problem}{Problem}
+
+%% Lemmas:
+
+   \theoremstyle{plain}
+%   \theoremsymbol{\ensuremath{\heartsuit}}
+ %  \theoremindent0.5cm
+%   \theoremnumbering{greek}
+   \newtheorem{lemma}[theorem]{Lemma}
+%% Corollaries:
+  
+   \theoremindent0cm
+%   \theoremsymbol{\ensuremath{\spadesuit}}
+   \theoremnumbering{arabic}
+   \newtheorem{corollary}[theorem]{Corollary}
+%% Examples:
+  
+   \theoremstyle{plain}
+   \theorembodyfont{\upshape}
+   \theoremsymbol{\ensuremath{\mendmarker}}
+   \theoremseparator{:}
+   \newtheorem{example}{Example}
+%% Definitions:
+  
+   \theoremstyle{plain}
+   \theoremsymbol{\ensuremath{\mendmarker}}
+   \theoremseparator{:}
+   \newtheorem{definition}{Definition}
+%% Proofs:   
+   \theoremheaderfont{\sc}\theorembodyfont{\upshape}
+   \theoremstyle{nonumberplain}
+   \theoremseparator{:}
+   \theoremsymbol{\mendmarker}
+   \newtheorem{proof}{Proof}
+
+                
+\newcounter{exc}
+\newcounter{inexc}
+\newcounter{Romanc}
+\newcounter{romanc}
+                
+\newenvironment{exlist} {\begin{list} {{\bf \arabic{exc}}.} {\usecounter{exc}} 
+\addtolength{\itemsep}{-0.6\itemsep}}{\end{list}}
+              
+
+\newenvironment{inexlist} {\begin{list} {(\alph{inexc})} {\usecounter{inexc}}}{\end{list}}
+               
+\newenvironment{romaninexlist} {\begin{list} {(\roman{inexc})} {\usecounter{inexc}}}{\end{list}}
+
+\newenvironment{Romanlist} {\begin{list} {(\Roman{Romanc})} {\usecounter{Romanc}}}{\end{list}}
+
+\newenvironment{romanlist} {\begin{list} {(\roman{romanc})} {\usecounter{romanc}}}{\end{list}}
+
+
+
+
+\newcommand{\restrict}{\mbox{$\restriction$}}
+\newcommand{\restrictsp}{\mbox{$\restriction$} }
+\newcommand{\ar}{\mbox{\em r}}
+\newcommand{\arsp}{\mbox{\em r} }
+\newcommand{\arity}{\mbox{\em r}}
+\newcommand{\aritysp}{\mbox{\em r} }
+\newcommand{\dom}[1]{\mbox{\rm $\temls{Dom}(#1)$}}
+\newcommand{\domsp}{\mbox{\em Dom\/}}
+\newcommand{\ran}{\mbox{\em Ran}}
+\newcommand{\ransp}{\mbox{\em Ran }}
+\newcommand{\Bool}{\mbox{\bf Bool}}
+\newcommand{\Boolsp}{\mbox{\bf Bool} }
+\newcommand{\eps}{\mbox{$\epsilon$}}
+\newcommand{\epsp}{\mbox{$\epsilon$} }
+\newcommand{\sig}{\mbox{$\sigma$}}
+\newcommand{\sigsp}{\mbox{$\sigma$} }
+\newcommand{\Sig}{\mbox{$\Sigma$}}
+\newcommand{\Sigsp}{\mbox{$\Sigma$} }
+\newcommand{\Gam}{\mbox{$\Gamma$}}
+\newcommand{\Gamsp}{\mbox{$\Gamma$} }
+\newcommand{\gam}{\mbox{$\gamma$}}
+\newcommand{\gamsp}{\mbox{$\gamma$} }
+\newcommand{\mrho}{\mbox{$\rho$}}
+\newcommand{\mrhosp}{\mbox{$\rho$ }}
+\newcommand{\msigma}{\mbox{$\sigma$}}
+\newcommand{\msigmasp}{\mbox{$\sigma$} }
+\newcommand{\mtheta}{\mbox{$\theta$}}
+\newcommand{\mthetasp}{\mbox{$\theta$ }}
+\newcommand{\al}{\mbox{$\alpha$}}
+\newcommand{\alt}{\mbox{$\alpha$ }}
+\newcommand{\bet}{\mbox{$\beta$}}
+\newcommand{\bett}{\mbox{$\beta$ }}
+\newcommand{\mlam}{\mbox{$\lambda$}}
+\newcommand{\mlamsp}{\mbox{$\lambda$} }
+\newcommand{\Lam}{\mbox{$\Lambda$}}
+\newcommand{\Lamt}{\mbox{$\Lambda$ }}
+\newcommand{\negsp}{\mbox{$\neg$ }}
+\newcommand{\negnsp}{\mbox{$\neg$}}
+\newcommand{\mand}{\mbox{$\:\wedge \:$}}
+\newcommand{\mandsp}{\mbox{$\wedge$ }}
+\newcommand{\mor}{\mbox{$\:\vee \:$}}
+\newcommand{\morsp}{\mbox{$\vee$ }}
+\newcommand{\mif}{\mbox{$\:\Rightarrow\,$}}
+\newcommand{\mlif}{\mbox{$\:\Leftarrow\,$}}
+\newcommand{\mifsp}{\mbox{$\:\Rightarrow\,$ }}
+\newcommand{\miff}{\mbox{$\:\Leftrightarrow \,$}}
+\newcommand{\miffsp}{\mbox{$\Leftrightarrow$ }}
+\newcommand{\mnegnsp}{\mbox{$\neg$}}
+\newcommand{\mandnsp}{\mbox{$\wedge$}}
+\newcommand{\mornsp}{\mbox{$\vee$}}
+\newcommand{\mifnsp}{\mbox{$\Rightarrow$}}
+\newcommand{\miffnsp}{\mbox{$\Leftrightarrow$}}
+\newcommand{\at}{\mbox{\em ATOM}}
+\newcommand{\tvs}{\mbox{$\{${\bf T, F}$\}\:$}}
+\newcommand{\tv}{\mbox{${\mathcal TV}$}}
+\newcommand{\True}{\mbox{\bf T}}
+\newcommand{\False}{\mbox{\bf F}}
+\newcommand{\true}{\mbox{\bf true}}
+\newcommand{\false}{\mbox{\bf false}}
+\newcommand{\strue}{\mbox{\bf t}}
+\newcommand{\sfalse}{\mbox{\bf f}}
+\newcommand{\struesp}{\mbox{\bf t} }
+\newcommand{\sfalsesp}{\mbox{\bf f} }
+\newcommand{\Truesp}{\mbox{\bf T }}
+\newcommand{\Falsesp}{\mbox{\bf F }}
+\newcommand{\truesp}{\mbox{\bf true }}
+\newcommand{\falsesp}{\mbox{\bf false }}
+\newcommand{\sposet}{\mbox{$(A,\prec)$ }}
+\newcommand{\wposet}{\mbox{$(A,\preceq)$ }}
+\newcommand{\ssqposet}{\mbox{$(A,\sqpsub)$ }}
+\newcommand{\wsqposet}{\mbox{$(A,\sqsub)$ }}
+\newcommand{\rarrs}{\mbox{$\;\rightarrow\;$}}
+\newcommand{\rarrls}{\mbox{$\,\rightarrow\:$}}
+\newcommand{\dhrarr}{\mbox{$\twoheadrightarrow$}}
+\newcommand{\dhrarrs}{\mbox{$\;\twoheadrightarrow\;$}}
+\newcommand{\dhrarrls}{\mbox{$\,\twoheadrightarrow\,$}}
+\newcommand{\larrls}{\mbox{$\,\leftarrow\;$}}
+\newcommand{\rarrstarls}{\mbox{$\,\rightarrow^*\,$}}
+\newcommand{\rarrcrossls}{\mbox{$\,\rightarrow+*\,$}}
+\newcommand{\rarr}{\mbox{$\rightarrow$}}
+\newcommand{\rarrt}{\mbox{$\rightarrow$} }
+\newcommand{\Rarr}{\mbox{$\Rightarrow$}}
+\newcommand{\Rarrls}{\mbox{$\,\Rightarrow\,$}}
+\newcommand{\Rarrtc}{\mbox{$\,\Rightarrow^+ \,$}}
+\newcommand{\Rarrtrc}{\mbox{$\,\Rightarrow^* \,$}}
+\newcommand{\larr}{\mbox{$\leftarrow$}}
+\newcommand{\Larr}{\mbox{$\Leftarrow$}}
+\newcommand{\hrarr}{\mbox{$\hookrightarrow$}}
+\newcommand{\hrarrsp}{\mbox{$\hookrightarrow$ }}
+\newcommand{\hrarrls}{\mbox{$\:\hookrightarrow\:$}}
+\newcommand{\sub}{\mbox{$\; \subseteq \;$}}
+\newcommand{\psub}{\mbox{$\; \subset \;$}}
+\newcommand{\super}{\mbox{$\; \supseteq \;$}}
+\newcommand{\psuper}{\mbox{$\; \supset \;$}}
+\newcommand{\lrarr}{\mbox{$\leftrightarrow$}}
+\newcommand{\lrarrls}{\mbox{$\:\leftrightarrow\:$}}
+\newcommand{\Lrarr}{\mbox{$\Leftrightarrow$}}
+\newcommand{\lRarr}{\mbox{$\Longrightarrow$}}
+\newcommand{\lRarrsp}{\mbox{$\Longrightarrow$ }}
+\newcommand{\lRarrls}{\mbox{$\,\Longrightarrow\,$}}
+\newcommand{\sep}{\mbox{$\; | \;$}}
+\newcommand{\sepls}{\mbox{$\:\, | \:$}}
+\newcommand{\sepms}{\mbox{$\; | \;$}}
+\newcommand{\sats}{\mbox{$\, \models \,$}}
+\newcommand{\nsats}{\mbox{$\, \not\models \,$}}
+\newcommand{\nullset}{\mbox{$\emptyset\,\:$}}
+\newcommand{\eset}{\mbox{$\emptyset$}}
+\newcommand{\esetsp}{\mbox{$\emptyset$ }}
+\newcommand{\sqsub}{\mbox{$\; \sqsubseteq \;$}}
+\newcommand{\sqpsub}{\mbox{$\; \sqsubset \;$}}
+\newcommand{\sqsup}{\mbox{$\; \sqsupseteq \;$}}
+\newcommand{\sqpsup}{\mbox{$\; \sqsupset \;$}}
+\newcommand{\bsquare}{\rule{2.2mm}{2.2mm}}
+\newcommand{\bsig}{\mbox{$\;\bsquare$}}
+\newcommand{\inc}{\mbox{\em s}}
+\newcommand{\incsp}{\mbox{\em s} }
+\newcommand{\tar}{\mbox{${\mathcal T}\hspace*{-0.017in}{\mathcal A}{\mathcal R}$}}
+\newcommand{\tarsp}{\mbox{${\mathcal T}\hspace*{-0.017in}{\mathcal A}{\mathcal R}$} }
+\newcommand{\zero}{\mbox{\em 0}}
+\newcommand{\zerosp}{\mbox{\em 0 }}
+\newcommand{\plus}{\mbox{\em plus}}
+\newcommand{\plusp}{\mbox{\em plus }}
+\newcommand{\mult}{\mbox{\em times}}
+\newcommand{\multsp}{\mbox{\em times }}
+\newcommand{\pset}[1]{\mbox{$\mathcal{P}(#1)$}}
+\newcommand{\psetsp}[1]{\mbox{$\mathcal{P}(#1)$} }
+\newcommand{\finpset}[1]{\mbox{$\mathcal{P}_{\infty}(#1)$}}
+\newcommand{\finpsetsp}[1]{\mbox{$\mathcal{P}_{\infty}(#1)$} }
+\newcommand{\ded}{\mbox{$\mathcal{D}$}}
+\newcommand{\dedsp}{\mbox{$\mathcal{D}$} }
+\newcommand{\lttp}{\mbox{\tt (}}
+\newcommand{\lttpsp}{\mbox{\tt (} }
+\newcommand{\rttp}{\mbox{\tt )}}
+\newcommand{\rttpsp}{\mbox{\tt )} }
+\newcommand{\mc}[1]{\mbox{$\mathcal{#1}$}}
+\newcommand{\beq}[2]{\begin{equation} #1 \label{#2} \end{equation}}
+\newcommand{\irule}[3]{
+\begin{tabular}{cl} 
+$\;\;$#1$\;$ & \mbox{}  \\[-0.099in] \hrulefill & \hspace*{-0.08in} \mbox{$\;\:$#3} \\[-0.03in] 
+$\;\;$#2$\;$ & \mbox{} 
+\end{tabular}}
+
+
+\newcommand{\lirule}[3]{
+\begin{tabular}{rc} 
+\mbox{} & $\;\;$#1$\;$  \\[-0.099in] 
+#3 \hspace*{-0.08in} & \hrulefill \\[-0.03in] 
+\mbox{} & $\;\;$#2$\;$ 
+\end{tabular}}
+
+\newcommand{\extrairule}[4]{
+\begin{tabular}{cl} 
+\begin{tabular}{c}
+$\;\;$#1$\;$ \\[-0.099in] 
+\hrulefill  \\[-0.03in] $\;\;$#2$\;$ \end{tabular} & \hspace*{-0.2in} #3 \\
+#4 & \mbox{} 
+\end{tabular}}
+
+\newcommand{\extralirule}[6]{
+\begin{tabular}{rc}  
+#3 \hspace*{#4} & 
+\begin{tabular}{c}
+$\;\;$#1$\;$ \\[-0.099in] 
+\hrulefill  \\[-0.03in] $\;\;$#2$\;$ \end{tabular} \\[#6]
+\mbox{} & #5 
+\end{tabular}}
+
+
+\newcommand{\mtt}[1]{\mbox{\tt #1}}
+\newcommand{\smtt}[1]{\mbox{\small\tt #1}}
+\newcommand{\fmtt}[1]{\mbox{\footnotesize\tt #1}}
+\newcommand{\scmtt}[1]{\mbox{\scriptsize\tt #1}}
+\newcommand{\mbf}[1]{\mbox{\bf #1}}
+\newcommand{\mforall}{\mbox{$\forall$}}
+\newcommand{\mforallsp}{\mbox{$\forall$} }
+\newcommand{\mexists}{\mbox{$\exists$}}
+\newcommand{\mexistsp}{\mbox{$\exists$} }
+\newcommand{\freevar}{\mbox{\em FV\/}}
+\newcommand{\freevarls}{\mbox{\em FV}\hspace*{0.006in}}
+\newcommand{\freevarsp}{\mbox{\em FV\/} }
+\newcommand{\boundvar}{\mbox{\em BV}}
+\newcommand{\boundvarls}{\mbox{\em BV}\hspace*{0.006in}}
+\newcommand{\boundvarsp}{\mbox{\em BV\/} }
+\newcommand{\be}{\begin{enumerate}}
+\newcommand{\ee}{\end{enumerate}}
+\newcommand{\bi}{\begin{itemize}}
+\newcommand{\ei}{\end{itemize}}
+%\newcommand{\bv}{\begin{verbatim}}
+\newcommand{\bit}{\begin{itemize}}
+\newcommand{\eit}{\end{itemize}}
+\newcommand{\bdesc}{\begin{description}}
+\newcommand{\edesc}{\end{description}}
+\newcommand{\ben}{\begin{enumerate}}
+\newcommand{\een}{\end{enumerate}}
+\newcommand{\tem}[1]{\mbox{\em #1}}
+\newcommand{\temv}[1]{\mbox{\em #1\/}}
+\newcommand{\temls}[1]{\mbox{\em #1}\hspace*{0.006in}}
+\newcommand{\temts}[1]{\mbox{\em #1}\hspace*{0.009in}}
+\newcommand{\temTMode}[1]{\mbox{#1}}
+\newcommand{\temvTMode}[1]{\mbox{#1\/}}
+\newcommand{\temlsTMode}[1]{\mbox{#1}\hspace*{0.006in}}
+\newcommand{\mcup}{\mbox{$\cup$}}
+\newcommand{\mcupsp}{\mbox{$\cup$ }}
+\newcommand{\mcupls}{\mbox{$\:\cup\:$}}
+%\newcommand{\terms}{\mbox{${\mathcal T}$}}
+%\newcommand{\termsp}{\mbox{${\mathcal T}$} }
+
+\newcommand{\terms}[2]{\mbox{$\mbf{Terms}(#1,#2)$}}
+
+\newcommand{\tterms}[3]{\mbox{$\mbf{Terms}(#1,#2,#3)$}}
+
+\newcommand{\grterms}[1]{\mbox{$\mbf{Terms}(#1)$}}
+
+
+
+\newcommand{\nats}{\mbox{$N$}}
+\newcommand{\natsp}{\mbox{$N$ }}
+\newcommand{\pnats}{\mbox{$N_+$}}
+\newcommand{\pnatsp}{\mbox{$N_+$ }}
+\newcommand{\bools}{\mbox{$B$}}
+\newcommand{\boolsp}{\mbox{$B$ }}
+\newcommand{\nat}{\mbox{nat}}
+\newcommand{\formsub}[4]{$\mbox{#1}\hspace*{-0.04in}\overset{\small \mbox{#2}/\mbox{#3}}
+{\leadsto}\hspace*{-0.04in}\mbox{#4}$}
+\newcommand{\altformsub}[4]{$\mbox{#1}\leadsto\mbox{#2}\{\mbox{#3}/\mbox{#4}\}$}
+\newcommand{\propsent}{\mbox{\bf PropSent}}
+\newcommand{\propsentsp}{\mbox{\bf PropSent }}
+\newcommand{\propat}{\mbox{\bf PropAt}}
+\newcommand{\propatsp}{\mbox{\bf PropAt }}
+\newcommand{\var}[1]{\mbox{\rm $\mbox{\em Var\/}(#1)$}}
+\newcommand{\varls}{\mbox{\em Var}\hspace*{0.006in}}
+\newcommand{\varsp}{\mbox{\em Var\/} }
+\newcommand{\typsub}{\mbox{$\{v_1\mapsto t_1,\ldots,v_n \mapsto t_n\}$}}
+\newcommand{\typsubsp}{\mbox{$\{v_1\mapsto t_1,\ldots,v_n \mapsto t_n\}$} }
+\newcommand{\id}[1]{$\mbox{id}_{#1}$}
+\newcommand{\idsp}[1]{$\mbox{id}_{#1}$ }
+\newcommand{\aka}{\mbox{a.k.a. }}
+\newcommand{\ie}{\mbox{i.e.} }
+\newcommand{\iensp}{\mbox{i.e.}}
+\newcommand{\Iensp}{\mbox{I.e.}}
+\newcommand{\iesp}{\mbox{i.e. }}
+\newcommand{\Ie}{\mbox{I.e.} }
+\newcommand{\Iesp}{\mbox{I.e. }}
+\newcommand{\etc}{\mbox{etc.}}
+\newcommand{\etcsp}{\mbox{etc.} }
+\newcommand{\eg}{\mbox{e.g.} }
+\newcommand{\egnsp}{\mbox{e.g.}}
+\newcommand{\Egnsp}{\mbox{E.g.}}
+\newcommand{\Eg}{\mbox{E.g.} }
+\newcommand{\egsp}{\mbox{e.g. }}
+\newcommand{\Egsp}{\mbox{E.g. }}
+\newcommand{\successor}{\mbox{$\,^{\prime}$}}
+\newcommand{\successorsp}{\mbox{$\,^{\prime}\,$ }}
+\newcommand{\mtilde}{\mbox{$\tilde{}\:$}}
+\newcommand{\mbar}{\mbox{$\:\bar{}\:$}}
+\newcommand{\mbarsp}{\mbox{$\:\bar{}\:$ }}
+\newcommand{\mbarls}{\mbox{$\,\bar{}\,$}}
+
+
+\newcommand{\mqed}{\hfill \rule{5pt}{5pt}}
+%\newenvironment{sproof}{\noindent{\bf Proof:}\hspace*{0.2em}}{\qed\bigskip}
+
+%\newenvironment{proof}{\noindesnt{\bf Proof:}\hspace*{0.2em}}{}
+%\newtheorem{solution}{Solution}
+%\newenvironment{proof}{{\bf Proof}: }{\vspace*{0.08in} \mbox{} \\}
+%\newenvironment{proofFollowedByNewParagraph}{{\bf Proof}: }{\vspace*{-0.03in} \mbox{} \\}
+
+
+\newenvironment{solutionFollowedByNewParagraph}{{\bf Solution}. }{\vspace*{-0.03in} \\}
+
+%\newcommand{\bp}{\begin{proof}}
+%\newcommand{\ep}{\mbox{} \\ \vspace*{-0.3in} \end{proof}}
+%\newcommand{\bpnp}{\begin{proofFollowedByNewParagraph}}
+%\newcommand{\epnp}{\end{proofFollowedByNewParagraph}}
+
+%% \newcommand{\bs}{\begin{solution}}
+%% \newcommand{\es}{\end{solution}}
+%% \newcommand{\bsnp}{\begin{solutionFollowedByNewParagraph}}
+%% \newcommand{\esnp}{\end{solutionFollowedByNewParagraph}}
+
+\newenvironment{alphaEnum}{\begin{list}{(\alph{enumi})}{\usecounter{enumi}
+\setlength{\leftmargin}{0.44in}}}{\end{list}}
+\newcommand{\mprime}[1]{\mbox{$#1'$}}
+
+\newcommand{\fcomp}{\mbox{$\cdot$}}
+\newcommand{\fcompls}{\mbox{$\:\cdot\:$}}
+\newcommand{\fcompsp}{\mbox{$\cdot$} }
+
+
+\newcommand{\lam}[2]{\mbox{$\lambda\,#1\,.\,#2$}}
+\newcommand{\lamsp}[2]{\mbox{$\lambda\,#1\,.\,#2$} }
+\newcommand{\plam}[2]{\mbox{$(\lambda\,#1\,.\,#2)$}}
+\newcommand{\plamsp}[2]{\mbox{$(\lambda\,#1\,.\,#2$)} }
+
+
+\newcommand{\fix}[2]{\mbox{$\mbf{fix}\,#1\,.\,#2$}}
+\newcommand{\fixsp}[2]{\mbox{$\mbf{fix}\,#1\,.\,#2$} }
+
+\newcommand{\wh}[1]{\mbox{$\widehat{#1}$}}
+\renewcommand\wh[1]{\hstretch{2}{\hat{\hstretch{.5}{#1}}}}
+\newcommand\whs[1]{\hstretch{2}{\hat{\hstretch{.5}{\hspace*{-0.02in}#1}}}}
+
+\newcommand{\ol}[1]{\mbox{$\overline{#1}$}}
+
+\newcommand{\ul}[1]{\mbox{$\underline{#1}$}}
+
+\newcommand{\nth}[1]{\mbox{$#1^{\mbox{\scriptsize\em th}}$}}
+\newcommand{\nthsp}[1]{\mbox{$#1^{\mbox{\scriptsize\em th}}$} }
+
+
+\newcommand{\darr}{\mbox{$\downarrow$}}
+\newcommand{\uarr}{\mbox{$\downarrow$}}
+
+\newcommand{\mless}{\mbox{\symbol{60}}}
+\newcommand{\mlesssp}{\mbox{\symbol{60}} }
+
+\newcommand{\mgreater}{\mbox{\symbol{62}}}
+\newcommand{\mgreatersp}{\mbox{\symbol{62}} }
+
+\newcommand{\types}{\mbox{$\vdash$}}
+\newcommand{\typessp}{\mbox{$\vdash$} }
+\newcommand{\typesls}{\mbox{$\;\vdash\;$}}
+
+\newcommand{\mmin}[2]{\mbox{$\mbox{min}_{#1}\,#2$}}
+\newcommand{\mmax}[2]{\mbox{$\mbox{max}_{#1}\,#2$}}
+
+\newcommand{\proves}{\mbox{$\vdash$}}
+\newcommand{\provesp}{\mbox{$\vdash$} }
+\newcommand{\provesls}{\mbox{$\;\vdash\:$}}
+
+\newcommand{\tproves}[1]{\mbox{$\vdash_{#1}$}}
+\newcommand{\tprovesp}[1]{\mbox{$\vdash_{#1}$} }
+\newcommand{\tprovesls}[1]{\mbox{$\:\vdash_{#1}\:$}}
+
+\newcommand{\tnproves}[1]{\mbox{$\not{\hspace*{-0.007in}\vdash_{#1}}$}}
+\newcommand{\tnprovesp}[1]{\mbox{$\not{\hspace*{-0.007in}\vdash_{#1}}$} }
+\newcommand{\tnprovesls}[1]{\mbox{$\not{\hspace*{-0.007in}\vdash_{#1}}\:$} }
+
+
+\newcommand{\mdef}[1]{\mbox{\em #1\/}}
+
+\newcommand{\mdash}{\mbox{\symbol{45}}}
+\newcommand{\mdashsp}{\mbox{\symbol{45}} }
+
+
+
+\newcommand{\singleton}[1]{\mbox{$\langle #1 \rangle$}}
+
+\newcommand{\lefttuplemarker}{\mbox{$\langle$}}
+\newcommand{\righttuplemarker}{\mbox{$\rangle$}}
+
+\newcommand{\mpair}[2]{\mbox{$\langle #1, #2\rangle$}}
+\newcommand{\mpairsp}[2]{\mbox{$\langle #1, #2\rangle$} }
+
+
+
+
+\newcommand{\mtriple}[3]{\mbox{$\langle #1, #2, #3\rangle$}}
+\newcommand{\mtriplesp}[3]{\mbox{$\langle #1, #2, #3\rangle$} }
+
+
+\newcommand{\mquadruple}[4]{\mbox{$\langle #1, #2, #3, #4\rangle$}}
+\newcommand{\mquadruplesp}[4]{\mbox{$\langle #1, #2, #3, #4\rangle$} }
+
+\newcommand{\us}{\symbol{95}}
+
+\newcommand{\ttlp}{\mbox{\tt (}}
+\newcommand{\ttlpsp}{\mbox{\tt ( }}
+\newcommand{\ttrp}{\mbox{\tt )}}
+\newcommand{\ttrpsp}{\mbox{\tt ) }}
+
+\newcommand{\lamc}{\mbox{$\lambda$-calculus}}
+\newcommand{\lamcsp}{\mbox{$\lambda$-calculus} }
+
+\newcommand{\concat}[2]{\mbox{$#1\mbox{::}#2$}}
+\newcommand{\append}[2]{\mbox{$#1\oplus#2$}}
+\newcommand{\appendsymbol}{\mbox{$\oplus$}}
+\newcommand{\appendsymbolsp}{\mbox{$\oplus$} }
+
+\newcommand{\prefix}{\mbox{$\sqsubset$}}
+\newcommand{\prefixeq}{\mbox{$\sqsubseteq$}}
+\newcommand{\prefixls}{\mbox{$\:\sqsubset\:$}}
+\newcommand{\prefixeqls}{\mbox{$\:\sqsubseteq\:$}}
+
+
+\newcommand{\card}[1]{\mbox{$|#1|$}}
+
+\newcommand{\longpage}{\enlargethispage{\baselineskip}}
+\newcommand{\shortpage}{\enlargethispage{-\baselineskip}}
+\newcommand{\clearemptydoublepage}{\newpage{\pagestyle{empty}\cleardoublepage}}
+
+\newcommand{\mphi}{\mbox{$\Phi$}}
+\newcommand{\mphisp}{\mbox{$\Phi$} }
+
+\newcommand{\rsp}{\mbox{$\;\;\;\;\;$}}
+
+\newcommand{\aquote}[1]{\mbox{$\lceil #1\rceil$}}
+
+%\newcommand{\mcond}[3]{\mbox{$#1\,$?$\,\rarrls #2,\,#3$}} 
+
+\newcommand{\elsesym}{\mbox{$\diamondsuit$}}
+\newcommand{\elsesymls}{\mbox{$\,\diamondsuit\,$}}
+\newcommand{\elsesymsp}{\mbox{$\diamondsuit$} }
+\newcommand{\mcond}[3]{\mbox{$#1\,$?$\,\rarrls #2 \, \elsesym \,#3$}} 
+
+
+\newcommand{\derives}{\mbox{$\Vdash$}}
+\newcommand{\derivesp}{\mbox{$\Vdash$} }
+\newcommand{\derivesls}{\mbox{$\:\Vdash\:$}}
+
+\newcommand{\subderives}[1]{\mbox{$\Vdash_{\mbox{\scriptsize #1}}$}}
+\newcommand{\subderivesp}[1]{\mbox{$\Vdash_{\mbox{\scriptsize #1}}$} }
+\newcommand{\subderivesls}[1]{\mbox{$\:\Vdash_{\mbox{\scriptsize #1}}\:$}}
+
+
+\newcommand{\subprovesls}[1]{\mbox{$\:\vdash_{\mbox{\scriptsize #1}}\:$}}
+\newcommand{\subproves}[1]{\mbox{$\vdash_{\mbox{\scriptsize #1}}$}}
+\newcommand{\subprovesp}[1]{\mbox{$\vdash_{\mbox{\scriptsize #1}}$} }
+
+\newcommand{\propsof}[1]{\mbox{$\mbf{Prop}[#1]$}}
+\newcommand{\propsofsp}[1]{\mbox{$\mbf{Prop}[#1]$} }
+
+\newcommand{\abof}[1]{\mbox{$\mbf{AB}[#1]$}}
+\newcommand{\abofsp}[1]{\mbox{$\mbf{AB}[#1]$} }
+
+
+\newcommand{\dedsof}[1]{\mbox{$\mbf{Ded}[#1]$}}
+\newcommand{\dedsofsp}[1]{\mbox{$\mbf{Ded}[#1]$} }
+
+\newcommand{\mlb}{\textnormal{[\kern-.15em[}}
+\newcommand{\mrb}{\textnormal{]\kern-.15em]}}
+
+\newcommand{\denot}[2]{\mbox{$#1\mlb#2\mrb$}}
+\newcommand{\denotsp}[2]{\mbox{$#1\mlb#2\mrb$} }
+
+\newcommand{\yields}{\mbox{$\hookrightarrow$}}
+\newcommand{\yieldsls}{\mbox{$\:\hookrightarrow\:$}}
+\newcommand{\yieldsp}{\mbox{$\hookrightarrow$} }
+
+\newcommand{\msp}{\mbox{$\;\:$}}
+
+\newcommand{\mssp}{\mbox{$\;$}}
+
+\newcommand{\fappsp}{\mbox{$\;\,$}}
+
+\newcommand{\ala}[1]{\mbox{\`{a} la #1}}
+
+\newcommand{\lc}{\mbox{$\lambda$-calculus}}
+\newcommand{\lcsp}{\mbox{$\lambda$-calculus} }
+
+\newcommand{\funtype}[2]{\mbox{$#1 \rarrls #2$}}
+\newcommand{\prodtype}[2]{\mbox{$#1 \times #2$}}
+\newcommand{\sumtype}[2]{\mbox{$#1 + #2$}}
+
+\newcommand{\fpslc}{\mbox{$\lambda_{\,\rarr,\,\times,\,+}$}}
+\newcommand{\fpslcsp}{\mbox{$\lambda_{\,\rarr,\,\times,\,+}$} }
+
+\newcommand{\lapp}[2]{\mbox{$#1\;#2$}}
+\newcommand{\lappsp}[2]{\mbox{$#1\;#2$} }
+
+\newcommand{\lproj}[1]{\mbox{$\pi_1(#1)$}}
+\newcommand{\rproj}[1]{\mbox{$\pi_2(#1)$}}
+
+\newcommand{\mcase}[3]{\mbox{$\mbf{case}(#1,#2,#3)$}}
+\newcommand{\mcasesp}[3]{\mbox{$\mbf{case}(#1,#2,#3)$} }
+
+\newcommand{\linj}[2]{\mbox{$\mbf{in-left}_{#1}(#2)$}}
+\newcommand{\linjsp}[2]{\mbox{$\mbf{in-left}_{#1}(#2)$} }
+\newcommand{\rinj}[2]{\mbox{$\mbf{in-right}_{#1}(#2)$}}
+\newcommand{\rinjsp}[2]{\mbox{$\mbf{in-right}_{#1}(#2)$} }
+\newcommand{\qdot}{\mbox{$\ . \ $}}
+
+\newcommand{\wrt}{\mbox{w.r.t.} } 
+
+\newcommand{\mrestriction}[2]{\mbox{$#1 \restriction #2$}}
+
+
+\newcommand{\lessgen}{\mbox{$\preceq$}}
+\newcommand{\lessgensp}{\mbox{$\preceq$ }}
+\newcommand{\varment}{\mbox{$\rarr_{\text{M}}$}}
+\newcommand{\varmentsp}{\mbox{$\rarr_{\text{M}}$} }
+\newcommand{\varmentls}{\mbox{$\:\rarr_{\text{M}}\:$}}
+\newcommand{\algmod}{\mbox{Mod}}
+\newcommand{\algmodsp}{\mbox{Mod }}
+%\newcommand{\env}{\mbox{Env}}
+%\newcommand{\envsp}{\mbox{Env }}
+\newcommand{\gterms}{\mbox{$\terms{\fsyms}{\variables}$}}
+\newcommand{\gtermsp}{\mbox{$\terms{\fsyms}{\variables}$ }}
+\newcommand{\natmap}{\mbox{nat}}
+\newcommand{\natmapsp}{\mbox{nat }}
+\newcommand{\height}{\mbox{hgt}}
+\newcommand{\heightsp}{\mbox{hgt }}
+\newcommand{\subcomp}{\mbox{$\circ$}}
+\newcommand{\subeq}{\mbox{$\equiv$}}
+\newcommand{\subeqls}{\mbox{$\:\equiv\:$}}
+\newcommand{\subeqsp}{\text{$\equiv$ }}
+\newcommand{\subcompsp}{\mbox{$\circ$} }
+\newcommand{\subcompls}{\mbox{$\:\circ\:$}}
+\newcommand{\compsub}[2]{\mbox{$#1 \subcompls #2$}}
+\newcommand{\eqsfv}{\text{$\text{Eqn}(\fsyms,V)$}}
+\newcommand{\eqsfvsp}{\text{$\text{Eqn}(\fsyms,V)$} }
+\newcommand{\subalg}[1]{\text{\em Sub$\{\hspace*{-0.01in}#1\}$}}
+\newcommand{\tmsubalg}[1]{\text{Sub$(\hspace*{-0.01in}#1)$}} %% (``Theorem-Mode'')
+\newcommand{\simalg}[1]{$\text{Sim}\{#1\}$}
+\newcommand{\con}{\tem{Con}}
+\newcommand{\conls}{\temls{Con}}
+\newcommand{\consp}{\temv{Con} }
+\newcommand{\conTMode}{\temTMode{Con}}
+\newcommand{\conlsTMode}{\temlsTMode{Con}}
+\newcommand{\conspTMode}{\temvTMode{Con} }
+\newcommand{\iso}{\text{$\cong$}}
+\newcommand{\isosp}{\text{$\cong$ }}
+\newcommand{\isols}{\text{$\:\cong\:$}}
+\newcommand{\grar}{\text{\bf GA}}
+\newcommand{\grarsp}{\text{\bf GA} }
+\newcommand{\pa}{\text{\mc{P}\hspace*{-0.02in}\mc{A}}}
+\newcommand{\pasp}{\text{\mc{P}\hspace*{-0.02in}\mc{A}} }
+\newcommand{\quot}[1]{\text{$#1/\hspace*{-0.04in}\equiv$}}
+\newcommand{\quotls}[1]{\text{$#1/\hspace*{-0.04in}\equiv\,$}}
+\newcommand{\quotsp}[1]{\text{$#1/\hspace*{-0.04in}\equiv$ }}
+\newcommand{\indexQuot}[2]{\text{$#1/\hspace*{-0.04in}\equiv_{#2}$}}
+\newcommand{\indexQuotls}[2]{\text{$#1/\hspace*{-0.04in}\equiv_{#2}\,$}}
+\newcommand{\indexQuotsp}[2]{\text{$#1/\hspace*{-0.04in}\equiv_{#2}$ }}
+\newcommand{\alg}[1]{\text{$\text{Alg}(#1)$}}
+%% Standard algebra:
+\newcommand{\salg}{\text{$\mc{A}$}}
+\newcommand{\salgsp}{\text{$\mc{A}$} }
+
+\newcommand{\ranvar}[1]{\text{\rm $\text{\em RanVar\/}(#1)$}}
+\newcommand{\ranvarsp}{\text{\em RanVar} }
+\newcommand{\ranvarnsp}{\text{\em RanVar}}
+\newcommand{\supp}[1]{\text{\rm $\text{\em Supp\/}(#1)$}}
+\newcommand{\uppsp}{\text{\em Supp} }
+\newcommand{\tvar}{\text{Var}}
+\newcommand{\tvarsp}{\text{Var} }
+\newcommand{\hex}[1]{\ol{#1}}
+\newcommand{\hext}{\text{$\hex{\theta}$}}
+\newcommand{\hextsp}{\text{$\hex{\theta}$} }
+
+\newcommand{\unifset}[1]{\text{$U(#1)$}}
+\newcommand{\unifsetsp}{\text{$U$}}
+
+
+\newcommand{\termdom}[1]{\text{$\temls{TDom}(#1)$}}
+\newcommand{\termdomsp}{\temv{TDom} }
+\newcommand{\fdom}[1]{\text{$\temls{FunDom}(#1)$}}
+\newcommand{\fdomsp}{\temv{FunDom} }
+\newcommand{\vdom}[1]{\text{$\temls{VarDom}(#1)$}}
+\newcommand{\vdomsp}{\temv{VarDom} }
+
+
+\newcommand{\comp}{\mbox{$\cdot$}}
+\newcommand{\compsp}{\mbox{$\cdot$} }
+\newcommand{\compls}{\mbox{$\:\cdot\:$}}
+
+
+\newcommand{\ssig}{\text{$\Sigma$}}
+\newcommand{\ssigsp}{\text{$\Sigma$} }
+
+\newcommand{\termlabel}[1]{\text{$\temls{TLabel}(#1)$}}
+\newcommand{\termlabelsp}{\temv{TLabel} }
+\newcommand{\termlabelnsp}{\tem{TLabel}}
+
+%\newcommand{\subterm}[1]{\text{$\temls{Subterm}(#1)$}}
+%\newcommand{\subtermsp}{\temv{Subterm} }
+%\newcommand{\subtermnsp}{\tem{Subterm}}
+
+
+\newcommand{\hil}{\text{$\mathcal{H}$}}
+\newcommand{\hilb}{\text{\hil\hspace*{-0.02in}}}
+\newcommand{\hilsp}{\text{$\mathcal{H}$ }}
+\newcommand{\hilder}{\text{$\vdash_{\mathcal{H}}$}}
+\newcommand{\hilderls}{\text{$\:\vdash_{\mathcal{H}}\:$}}
+\newcommand{\hildersp}{\text{$\vdash_{\mathcal{H}}$ }}
+\newcommand{\jder}{\text{$\vdash_{\mathcal{J}}$}}
+\newcommand{\jderls}{\text{$\:\vdash_{\mathcal{J}}\:$}}
+\newcommand{\jdersp}{\text{$\vdash_{\mathcal{J}}$ }}
+\newcommand{\hilj}{\text{$\mathcal{J}$}}
+\newcommand{\hiljb}{\text{$\mathcal{J}$\hspace*{-0.02in}}}
+\newcommand{\hiljsp}{\text{$\mathcal{J}$ }}
+\newcommand{\hiljder}{\text{$\vdash_{\mathcal{J}}$}}
+\newcommand{\hiljderls}{\text{$\:\vdash_{\mathcal{J}}\:$}}
+\newcommand{\hiljdersp}{\text{$\vdash_{\mathcal{J}}$ }}
+\newcommand{\propform}{\text{\bf P}}
+\newcommand{\propformsp}{\text{\bf P} }
+\newcommand{\judge}{\text{$\Gamma \rarrls A$}}
+\newcommand{\judgesp}{\text{$\Gamma \rarrls A$} }
+\newcommand{\nhil}[1]{\text{$\hil_{#1}$}}
+\newcommand{\nhilsp}[1]{\text{$\hil_{#1}$ }}
+\newcommand{\nhilj}[1]{\text{$\hilj_{#1}$}}
+\newcommand{\nhiljsp}[1]{\text{$\hilj_{#1}$ }}
+
+\newcommand{\zhil}{\text{$\hilb_0$}}
+\newcommand{\zhilsp}{\text{$\hilb_0$ }}
+\newcommand{\zhilj}{\text{$\hiljb_0$}}
+\newcommand{\zhiljsp}{\text{$\hiljb_0$ }}
+\newcommand{\ohil}{\text{$\hilb_1$}}
+\newcommand{\ohilsp}{\text{$\hilb_1$ }}
+\newcommand{\ohilj}{\text{$\hiljb_1$}}
+\newcommand{\ohiljsp}{\text{$\hiljb_1$ }}
+
+\newcommand{\zhilder}{\text{$\vdash_{\mathcal{H}_0}$}}
+\newcommand{\zhilderls}{\text{$\:\vdash_{\mathcal{H}_0}\:$}}
+\newcommand{\zhildersp}{\text{$\vdash_{\mathcal{H}_0}$ }}
+
+\newcommand{\ohilder}{\text{$\vdash_{\mathcal{H}_1}$}}
+\newcommand{\ohilderls}{\text{$\:\vdash_{\mathcal{H}_1}\:$}}
+\newcommand{\ohildersp}{\text{$\vdash_{\mathcal{H}_1}$ }}
+
+\newcommand{\zhiljder}{\text{$\vdash_{\mathcal{J}_0}$}}
+\newcommand{\zhiljderls}{\text{$\:\vdash_{\mathcal{J}_0}\:$}}
+\newcommand{\zhiljdersp}{\text{$\vdash_{\mathcal{J}_0}$ }}
+\newcommand{\ohiljder}{\text{$\vdash_{\mathcal{J}_1}$}}
+\newcommand{\ohiljderls}{\text{$\:\vdash_{\mathcal{J}_1}\:$}}
+\newcommand{\ohiljdersp}{\text{$\vdash_{\mathcal{J}_1}$ }}
+
+
+%% NEW FOL COMMANDS:
+
+\newcommand{\sfola}{\text{$\Sigma_{\text{\it fol}}$}}
+\newcommand{\sfolasp}{\text{$\Sigma_{\text{\it fol}}$} }
+\newcommand{\lvoc}{\text{$\mathcal{L}$}}
+\newcommand{\lvocsp}{\text{$\mathcal{L}$} }
+\newcommand{\variables}{\text{$\mathcal{V}$}}
+\newcommand{\variablesp}{\text{$\mathcal{V}$} }
+%% Standard variable set: 
+\newcommand{\svars}{\text{$V$}}
+\newcommand{\svarsp}{\text{$V$}}
+\newcommand{\csyms}{\text{$\mathcal{C}$}}
+\newcommand{\csymsp}{\text{$\mathcal{C}$} }
+\newcommand{\fsyms}{\text{$\mathcal{F}$}}
+\newcommand{\fsymsp}{\text{$\mathcal{F}$} }
+\newcommand{\rsyms}{\text{$\mathcal{R}$}}
+\newcommand{\rsymsp}{\text{$\mathcal{R}$} }
+\newcommand{\psig}{\text{$\mathbf{\Omega}$}}
+\newcommand{\psigvar}{\text{$(\mathbf{\Omega},\variables)$}}
+\newcommand{\fsig}{\text{$\mathbf{\Sigma}$}}
+%% ``Standard'' relational signature:
+\newcommand{\spsig}{\text{$(\csyms,\fsyms,\rsyms)$}}
+\newcommand{\spsigsp}{\text{$(\consyms,\fsyms,\rsyms)$} }
+
+\newcommand{\svoc}{\text{$(\psig,\variables)$}}
+\newcommand{\svocsp}{\text{$(\psig,\variables)$} }
+
+\newcommand{\psigsp}{\text{$\mathbf{\Omega}$} }
+\newcommand{\consymbols}{\text{$\mathcal{C}$}}
+\newcommand{\consymbolsp}{\text{$\mathcal{C}$} }
+\newcommand{\funsig}{\text{$\mathcal{F}$}}
+\newcommand{\funsigsp}{\text{$\mathcal{F}$} }
+\newcommand{\relsig}{\text{$\mathcal{R}$}}
+\newcommand{\relsigsp}{\text{$\mathcal{R}$} }
+
+
+\newcommand{\arlvoc}{\text{$\mathcal{L}_{\text{\footnotesize\em ar}}$}}
+\newcommand{\arlvocsp}{\text{$\mathcal{L}_{\text{\footnotesize\em ar}}$ }}
+
+\newcommand{\arsig}{\text{$\psig_{\text{\em Ar}}$}}
+\newcommand{\arsigsp}{\text{$\psig_{\text{\em Ar}}$} }
+
+
+
+\newcommand{\lfam}{\text{$\mc{L}_{\text{\em Fam}}$}}
+\newcommand{\lfamsp}{\text{$\mc{L}_{\text{\em Fam}}$ }}
+
+\newcommand{\lblock}{\text{$\mc{L}_{\text{\em Blocks}}$}}
+\newcommand{\lblocksp}{\text{$\mc{L}_{\text{\em Blocks}}$ }}
+
+\newcommand{\inter}{\mc{I}}
+\newcommand{\intersp}{\mc{I} }
+\newcommand{\struc}{\mc{D}}
+\newcommand{\strucsp}{\mc{D} }
+\newcommand{\interar}{\text{$\mathcal{I}_{\text{\em Ar}}$}}
+\newcommand{\interarsp}{\text{$\mathcal{I}_{\text{\em Ar}}$ }}
+
+
+\newcommand{\arstruc}{\text{$\struc_{\text{\em Ar}}$}}
+\newcommand{\arstrucsp}{\text{$\struc_{\text{\em Ar}}$} }
+
+\newcommand{\form}[1]{\text{$\text{\bf Form}_{#1}$}}
+\newcommand{\tform}[2]{\text{$\text{\bf Form}(#1,#2)$}}
+\newcommand{\forml}{\form{\lvoc}}
+\newcommand{\formlsp}{\form{\lvoc} }
+
+
+\newcommand{\alphaeq}{\text{$\approx_{\alpha}$}}
+\newcommand{\alphaeqsp}{\text{$\approx_{\alpha}$} }
+\newcommand{\alphaeqls}{\text{$\:\approx_{\alpha}\,$}}
+
+\newcommand{\aleq}{\text{$\approx_{\alpha}$}}
+\newcommand{\aleqsp}{\text{$\approx_{\alpha}$} }
+\newcommand{\aleqls}{\text{$\:\approx_{\alpha}\,$}}
+
+%% Apply a substitution to a variable:
+\newcommand{\appv}[2]{\text{$#1(#2)$}}
+%% Apply a substitution to a term: 
+\newcommand{\appt}[2]{\text{$\hex{#1}(#2)$}}
+%% Apply an extended substitution---in long hand---to a term: 
+\newcommand{\appte}[2]{\text{$#1\,#2$}}
+\newcommand{\appf}[2]{\text{$#1\,#2$}}
+
+
+
+%% Apply a valuation to a term: 
+\newcommand{\valappt}[2]{\text{$\hex{#1}(#2)$}}
+%% Apply a valuation to a variable:
+\newcommand{\valappv}[2]{\text{$#1(#2)$}}
+
+%% Subscripted valappt: 
+\newcommand{\svalappt}[3]{\text{$\hex{#1}_{#2}(#3)$}}
+
+
+\newcommand{\quant}[3]{\text{$(#1\,#2)\,#3$}}
+
+\newcommand{\fvar}[1]{\text{\rm $\text{\em FV\/}(#1)$}}
+\newcommand{\fvarsp}{\text{\rm\text{\em FV\/}} }
+
+\newcommand{\bvar}[1]{\text{\rm $\text{\em BV\/}(#1)$}}
+\newcommand{\bvarsp}{\text{\rm\text{\em BV\/}} }
+
+\newcommand{\valmod}[2]{\text{\rm $#1/#2$}}
+
+%% Subscripted valmod:
+\newcommand{\svalmod}[3]{\text{\rm $#1/_{#2}\,#3$}}
+
+%% ``Standard'' logic vocabulary:
+\newcommand{\slvoc}{\text{$(\consymbols,\funsig,\relsig,\variables)$}}
+\newcommand{\slvocsp}{\text{$(\consymbols,\funsig,\relsig,\variables)$} }
+
+\newcommand{\ssub}[2]{\text{$\{#1 \mapsto #2\}$}}
+\newcommand{\extend}[3]{\text{$#1[#2 \mapsto #3]$}}
+\newcommand{\hv}{\text{$\mathbf{V}$}}
+\newcommand{\hvsp}{\text{$\mathbf{V}$} }
+
+\newcommand{\allvars}{\text{$\variables \cup \mathbf{V}$}}
+\newcommand{\allvarsp}{\text{$\variables \cup \mathbf{V}$} }
+
+\newcommand{\hlvoc}{\text{$\lvoc^{\hv}$}}
+\newcommand{\hlvocsp}{\text{$\lvoc^{\hv}$} }
+
+\newcommand{\hvoc}{\text{$(\psig,\variables \cup \hv)$}}
+\newcommand{\hvocsp}{\text{$(\psig,\variables \cup \hv)$} }
+
+
+
+\newcommand{\jone}{\text{$\mc{J}_1$}}
+\newcommand{\jonesp}{\text{$\mc{J}_1$} }
+
+\newcommand{\jprovesls}{\tprovesls{\jone}}
+
+\newcommand{\njproves}{\text{$\not{\hspace*{-0.007in}\vdash_{\jone}$}}}
+
+\newcommand{\njprovesp}{\text{$\not{\hspace*{-0.007in}\vdash_{\jone}}$} }
+
+\newcommand{\njprovesls}{\text{$\:\not{\hspace*{-0.007in}\vdash_{\jone}}\,$}}
+
+\newcommand{\mequiv}{\text{$\equiv$}}
+\newcommand{\mequivls}{\text{$\:\equiv\:$}}
+\newcommand{\mequivsp}{\text{$\equiv$} }
+
+
+\newcommand{\cnd}{\text{\mc{NDL}}}
+\newcommand{\cndsp}{\text{\mc{NDL}} }
+
+\newcommand{\ndl}{\text{\mc{NDL}}}
+\newcommand{\ndlsp}{\text{\mc{NDL}} }
+
+\newcommand{\cndo}{\text{$\cnd_1$}}
+\newcommand{\cndosp}{\text{$\cnd_1$} }
+
+\newcommand{\cndz}{\text{$\cnd_0$}}
+\newcommand{\cndzsp}{\text{$\cnd_0$} }
+
+\newcommand{\ndlz}{\text{$\cnd_0$}}
+\newcommand{\ndlzsp}{\text{$\cnd_0$} }
+
+\newcommand{\ndlo}{\text{$\cnd_1$}}
+\newcommand{\ndlosp}{\text{$\cnd_1$} }
+
+
+
+\newcommand{\cndzomega}{\text{$\cnd_0^{\omega}$}}
+\newcommand{\cndzomegasp}{\text{$\cnd_0^{\omega}$} }
+
+\newcommand{\ndlzomega}{\text{$\cnd_0^{\omega}$}}
+\newcommand{\ndlzomegasp}{\text{$\cnd_0^{\omega}$} }
+
+\newcommand{\ndloomega}{\text{$\cnd_1^{\omega}$}}
+\newcommand{\ndloomegasp}{\text{$\cnd_1^{\omega}$} }
+
+
+\newcommand{\cndoomega}{\text{$\cnd_1^{\omega}$}}
+\newcommand{\cndoomegasp}{\text{$\cnd_1^{\omega}$} }
+
+\newcommand{\rds}{\mbox{${\cal R}$}}
+\newcommand{\rdsp}{\mbox{${\cal R}$ }}
+\newcommand{\rder}{\mbox{$\vdash_{\cal R}$}}
+\newcommand{\rderls}{\mbox{$\: \vdash_{\cal R}\:$}}
+\newcommand{\rdersp}{\mbox{$\vdash_{\cal R}$ }}
+
+\newcommand{\cndprovesls}{\text{$\:\vdash_{\text{\scriptsize \cnd}}\:$}}
+\newcommand{\cndproves}{\text{$\vdash_{\text{\scriptsize \cnd}}$}}
+\newcommand{\cndprovesp}{\text{$\vdash_{\text{\scriptsize \cnd}}$} }
+\newcommand{\ncndprovesls}
+{\text{$\:\not{\hspace*{-0.007in}\vdash_{\scriptsize \cnd}}\:$}}
+
+\newcommand{\wf}{\text{$\vdash_{\text{\em\tiny W}}\;$}}
+\newcommand{\wfnsp}{\text{$\vdash_{\text{\em\scriptsize W}}$}}
+\newcommand{\wfsp}{\text{$\vdash_{\text{\em\scriptsize W}}$}}
+
+\newcommand{\man}{\text{$\mathcal{M}$}}
+\newcommand{\mansp}{\text{$\mathcal{M}$ }}
+\newcommand{\mander}{\text{$\vdash_{\mathcal{M}}$}}
+\newcommand{\manderls}{\text{$\:\vdash_{\mathcal{M}}\:$}}
+\newcommand{\mandersp}{\text{$\vdash_{\mathcal{M}}$ }}
+
+\newcommand{\myprop}{\mbox{\bf P}}
+\newcommand{\mypropsp}{\mbox{\bf P} }
+
+\newcommand{\props}{\text{Props}}
+
+\newcommand{\ainter}{\text{$\mathcal{I}$}}  
+\newcommand{\aintersp}{\text{$\mathcal{I}$} }  
+\newcommand{\aprop}{\text{\bf Prop}}
+\newcommand{\apropsp}{\text{\bf Prop} }
+\newcommand{\aide}{\text{\bf Ide}}
+\newcommand{\aidesp}{\text{\bf Ide} }
+\newcommand{\freeid}{\text{\em FId}$\,$}
+\newcommand{\freeidls}{\text{\em FId$\,$ }}
+\newcommand{\freeidsp}{\text{\em FId\/} }
+\newcommand{\freepatid}{\text{\em FPtId}$\,$}
+\newcommand{\freepatidls}{\text{\em FPtId$\,$ }}
+\newcommand{\freepatidsp}{\text{\em FPtId\/} }
+\newcommand{\patvar}{\text{\em PtVar}$\,$}
+\newcommand{\patvarsp}{\text{\em PtVar$\,$} }
+\newcommand{\patidsp}{\text{\em PatId\/} }
+\newcommand{\avar}{\text{\bf Var}}
+\newcommand{\avarsp}{\text{\bf Var} }
+\newcommand{\apat}{\text{\bf Pat}}
+\newcommand{\apatsp}{\text{\bf Pat} }
+\newcommand{\compat}{\text{\bf ComPat}}
+\newcommand{\compatsp}{\text{\bf ComPat} }
+\newcommand{\aexp}{\text{\bf Exp}}
+\newcommand{\aexpsp}{\text{\bf Exp} }
+\newcommand{\aded}{\text{\bf Ded}}
+\newcommand{\adedsp}{\text{\bf Ded} }
+\newcommand{\aphrase}{\text{\bf Phr}}
+\newcommand{\aphrasesp}{\text{\bf Phr} }
+\newcommand{\avexp}{\text{\bf ValExp}}
+\newcommand{\avexpsp}{\text{\bf ValExp} }
+\newcommand{\ttrue}{\text{\tt true}}
+\newcommand{\ttruesp}{\text{\tt true} }
+\newcommand{\ttfalse}{\text{\tt false}}
+\newcommand{\ttfalsesp}{\text{\tt false} }
+\newcommand{\aerror}{\text{\em error\/}}
+\newcommand{\aerrorsp}{\text{\em error\/ }}
+%\newcommand{\idwo}{\text{$\prec_{\text{\em Id}}$}}
+%\newcommand{\idwosp}{\text{$\prec_{\text{\em Id}}$} }
+\newcommand{\idwo}{\text{$\prec$}}
+\newcommand{\idwosp}{\text{$\prec$} }
+\newcommand{\adom}{\text{$\mathcal{D}$}}
+\newcommand{\adomsp}{\text{$\mathcal{D}$ }}
+\newcommand{\aval}{\text{\bf Val}}
+\newcommand{\avalsp}{\text{\bf Val }}
+\newcommand{\propval}{\text{\bf PropVal}}
+\newcommand{\propvalsp}{\text{\bf PropVal }}
+\newcommand{\fval}{\text{\bf FVal}}
+\newcommand{\fvalsp}{\text{\bf FVal }}
+\newcommand{\tval}{\text{\bf MVal}}
+\newcommand{\tvalsp}{\text{\bf MVal }}
+\newcommand{\topval}{\text{\bf TopVal}}
+\newcommand{\topvalsp}{\text{\bf TopVal }}
+\newcommand{\propc}{\text{\em prop}}
+\newcommand{\propcls}{\text{\em prop$\,$}}
+\newcommand{\propcsp}{\text{\em prop\/} }
+\newcommand{\fclos}{\text{\em fclos}}
+\newcommand{\fclosls}{\text{\em fclos$\,$}}
+\newcommand{\fclosp}{\text{\em fclos\/} }
+\newcommand{\tclos}{\text{\em mclos}}
+\newcommand{\tclosls}{\text{\em mclos$\,$}}
+\newcommand{\tclosp}{\text{\em mclos\/} }
+\newcommand{\aop}{\text{\em op}}
+\newcommand{\aopls}{\text{\em op$\,$}}
+\newcommand{\aopsp}{\text{\em op} }
+\newcommand{\arule}{\text{\em rule}}
+\newcommand{\arulels}{\text{\em rule$\,$}}
+\newcommand{\arulesp}{\text{\em rule} }
+\newcommand{\aenv}{\text{$\rho$}}
+\newcommand{\aenvsp}{\text{$\rho$ }}
+\newcommand{\ab}{\text{$\beta$}}
+\newcommand{\absp}{\text{$\beta$ }}
+%\newcommand{\abdom}{\text{$\mathcal{A}\mathcal{B}$}}
+%\newcommand{\abdomsp}{\text{$\mathcal{A}\mathcal{B}$} }
+\newcommand{\aenvdom}{\text{\em Env}}
+\newcommand{\aenvdomsp}{\text{\em Env} }
+\newcommand{\aprocdom}{\text{\em Proc}}
+\newcommand{\aprocdomsp}{\text{\em Proc} }
+\newcommand{\unbound}{\text{\em unbound}}
+\newcommand{\unboundsp}{\text{\em unbound} }
+\newcommand{\emean}{\text{$\mathcal{E}$}}
+\newcommand{\emeansp}{\text{$\mathcal{E}$ }}
+\newcommand{\cmean}{\text{$\mathcal{A}$}}
+\newcommand{\cmeansp}{\text{$\mathcal{A}$ }}
+\newcommand{\mmean}{\text{$\mathcal{M}$}}
+\newcommand{\mmeansp}{\text{$\mathcal{M}$ }}
+\newcommand{\smallsome}{\text{\small SOME}}
+\newcommand{\smallsomesp}{\text{\small SOME} }
+\newcommand{\smallnone}{\text{\small NONE}}
+\newcommand{\smallnonesp}{\text{\small NONE} }
+\newcommand{\enew}{\text{$E_{\text{new}}$}}
+\newcommand{\enewsp}{\text{$E_{\text{new}}$} }
+\newcommand{\isub}{\text{$I_{\text{sub}}$}}
+\newcommand{\isubsp}{\text{$I_{\text{sub}}$} }
+\newcommand{\sab}{\text{$\{\enew/\isub\}$}}
+\newcommand{\sabsp}{\text{$\{\enew/\isub\}$} }
+\newcommand{\apsem}{\text{$\mathcal{A}\mathcal{S}$}}
+\newcommand{\apsemsp}{\text{$\mathcal{A}\mathcal{S}$} }
+\newcommand{\tupn}{\text{\em tup$_n$}}
+\newcommand{\tupnsp}{\text{\em tup$_n$} }
+\newcommand{\proj}{\text{\em proj}}
+\newcommand{\projsp}{\text{\em proj} }
+\newcommand{\cmode}{\text{$\mathcal{C}$}}
+\newcommand{\cmodesp}{\text{$\mathcal{C}$} }
+\newcommand{\dmode}{\text{$\mathcal{D}$}}
+\newcommand{\dmodesp}{\text{$\mathcal{D}$} }
+\newcommand{\cder}{\text{$\vdash_{\mathcal C}$}}
+\newcommand{\cderls}{\text{$\;\,\vdash_{\mathcal C}\:$}}
+\newcommand{\cdersp}{\text{$\vdash_{\mathcal C}$} }
+\newcommand{\dder}{\text{$\vdash_{\mathcal D}$}}
+\newcommand{\dderls}{\text{$\:\,\vdash_{\mathcal D}\:$}}
+\newcommand{\ddersp}{\text{$\vdash_{\mathcal D}$} }
+\newcommand{\ttand}{\text{\tt and}}
+\newcommand{\ttandsp}{\text{\tt and }}
+\newcommand{\ttor}{\text{\tt or}}
+\newcommand{\ttorsp}{\text{\tt or }}
+\newcommand{\ttif}{\text{\tt if}}
+\newcommand{\ttifsp}{\text{\tt if }}
+\newcommand{\ttiff}{\text{\tt iff}}
+\newcommand{\ttiffsp}{\text{\tt iff }}
+\newcommand{\ttnot}{\text{\tt not}}
+\newcommand{\ttnotsp}{\text{\tt not }}
+\newcommand{\ttqm}{\text{\tt ?}}
+\newcommand{\ttqmsp}{\text{\tt ?} }
+\newcommand{\ttbq}{\text{\tt `}}
+\newcommand{\ttbqsp}{\text{\tt `} }
+\newcommand{\ttdollar}{\text{\tt \$}}
+\newcommand{\ttdollarsp}{\text{\tt \$} }
+
+%\newcommand{\ttlp}{\text{\tt (}}
+%\newcommand{\ttlpsp}{\text{\tt ( }}
+%\newcommand{\ttrp}{\text{\tt )}}
+%\newcommand{\ttrpsp}{\text{\tt ) }}
+
+\newcommand{\ttin}{\text{\tt in}}
+\newcommand{\ttinsp}{\text{\tt in }}
+\newcommand{\ttul}{\text{\tt \_}}
+\newcommand{\ttulsp}{\text{\tt \_ }}
+\newcommand{\topname}{\text{\em TopName}}
+\newcommand{\topnamesp}{\text{\em TopName\/ }}
+\newcommand{\logop}{\text{\em LogOp}}
+\newcommand{\logopsp}{\text{\em LogOp\/ }}
+\newcommand{\primrule}{\text{\em Prim-Rule}}
+\newcommand{\primrulesp}{\text{\em Prim-Rule\/ }}
+\newcommand{\mlceil}{\text{$\lceil$}}
+\newcommand{\mlceilsp}{\text{$\lceil$ }}
+\newcommand{\mrceil}{\text{$\rceil$}}
+\newcommand{\mrceilsp}{\text{$\rceil$ }}
+\newcommand{\mlfloor}{\text{$\lfloor$}}
+\newcommand{\mlfloorsp}{\text{$\lfloor$ }}
+\newcommand{\mrfloor}{\text{$\rfloor$}}
+\newcommand{\mrfloorsp}{\text{$\rfloor$ }}
+\newcommand{\eval}[1]{\text{$\temls{Eval}(#1)$}}
+\newcommand{\evalsp}{\text{\em Eval\/} }
+\newcommand{\evalnsp}{\temv{Eval}}
+\newcommand{\sev}[1]{\text{$\temls{ev}(#1)$}}
+\newcommand{\evals}{\text{$\:\leadsto\;$}}
+%\newcommand{\evalsp}{\text{$\leadsto$} }
+%\newcommand{\evalnsp}{\text{$\leadsto$}}
+\newcommand{\tevals}{\text{$\:\leadsto^*\:$}}
+\newcommand{\eevals}{\text{$\:\hookrightarrow\:$}}
+\newcommand{\error}{\text{\tem{error}}}
+\newcommand{\errorsp}{\text{\tem{error}} }
+\newcommand{\proptype}{\text{\bf prop}}
+\newcommand{\proptypesp}{\text{\bf prop }}
+\newcommand{\env}{\text{\bf Env}}
+\newcommand{\envsp}{\text{\bf Env }}
+%\newcommand{\proves}{\text{$\:\vdash\,$}}
+%\newcommand{\nproves}{\text{$\:\not{\hspace*{-0.005in}\vdash}\,$}}
+%\newcommand{\nproves}{\text{$\:\not{\vspace*{0.0015in}\vdash}\,$}}
+
+\newcommand{\fdl}{\text{\mc{FND}}}
+\newcommand{\fdlsp}{\text{\mc{FND}} }
+
+
+\newcommand{\obeqproves}{\text{$\vdash_{\text{\scriptsize OE}}\,$}}
+
+\newcommand{\obeq}{\text{$\approx$}}
+\newcommand{\obeqsp}{\text{$\approx$} }
+\newcommand{\obeqls}{\text{$\:\approx\,$}}
+\newcommand{\nobeqls}{\text{$\:\not\approx\,$}}
+
+
+
+\newcommand{\subobeq}[1]{\text{$\approx_{#1}$}}
+\newcommand{\subobeqsp}[1]{\text{$\approx_{#1}$} }
+\newcommand{\subobeqls}[1]{\text{$\:\approx_{#1}\,$}}
+\newcommand{\subnobeqls}[1]{\text{$\:\not\approx_{#1}\,$}}
+
+
+
+
+\newcommand{\give}{\text{$\rightarrowtail$}}
+\newcommand{\givesp}{\text{$\rightarrowtail$} }
+\newcommand{\gives}{\text{$\,\rightarrowtail\:$}}
+\newcommand{\ngives}{\text{$\:\not\rightarrowtail\,$}}
+
+\newcommand{\dep}{\text{$\twoheadrightarrow$}}
+\newcommand{\depsp}{\text{$\twoheadrightarrow$} }
+\newcommand{\depls}{\text{$\,\twoheadrightarrow\:$}}
+\newcommand{\ndepls}{\text{$\,\not\twoheadrightarrow\:$}}
+
+\newcommand{\mdep}{\text{$\Rrightarrow$}}
+\newcommand{\mdepsp}{\text{$\Rrightarrow$} }
+\newcommand{\mdepls}{\text{$\,\Rrightarrow\:$}}
+\newcommand{\mndepls}{\text{$\,\not\Rrightarrow\:$}}
+
+\newcommand{\tcdep}{\text{$\twoheadrightarrow^+$}}
+\newcommand{\tcdepsp}{\text{$\twoheadrightarrow^+$} }
+\newcommand{\tcdepls}{\text{$\,\twoheadrightarrow^+\:$}}
+\newcommand{\tcndepls}{\text{$\,\not\twoheadrightarrow^+\:$}}
+
+
+\newcommand{\ttcdep}[1]{\text{$\twoheadrightarrow_{#1}^+$}}
+\newcommand{\ttcdepsp}[1]{\text{$\twoheadrightarrow_{#1}^+$} }
+\newcommand{\ttcdepls}[1]{\text{$\,\twoheadrightarrow_{#1}^+\:$}}
+\newcommand{\ttncdepls}[1]{\text{$\,\not\twoheadrightarrow_{#1}^+\:$}}
+
+\newcommand{\strict}{\text{$\vdash_{\text{\em Strict}}$}}
+\newcommand{\strictsp}{\text{$\vdash_{\text{\em Strict}}$} }
+\newcommand{\strictls}{\text{$\vdash_{\text{\em Strict}}\,$}}
+
+
+\newcommand{\el}[1]{\text{$\mc{E}(#1)$}}
+
+
+\newcommand{\fass}[1]{\text{\rm $\text{\em FA\/}(#1)$}}
+\newcommand{\fassp}{\text{\rm\text{\em FA\/}} }
+\newcommand{\fassnsp}{\text{\rm\text{\em FA}}}
+
+\newcommand{\st}[1]{\fass{#1}}
+
+\newcommand{\fst}[1]{\text{$\tem{Strict}(#1)$}}
+
+\newcommand{\concl}[1]{\text{$\mc{C}(#1)$}}
+
+\newcommand{\conclnsp}{\mc{C}}
+
+\newcommand{\conclsp}{\mc{C} }
+
+\newcommand{\fconcl}[1]{\text{$\tem{Con}(#1)$}}
+
+\newcommand{\mhex}[1]{\widehat{#1}}
+
+\newcommand{\grab}[1]{\text{$\mless #1 \mgreater\:$}}
+\newcommand{\grabsp}[1]{\text{$\mless #1 \mgreater$} }
+
+%\newcommand{\grab}[1]{\text{$|#1|\:$}}
+%\newcommand{\grabsp}[1]{\text{$|#1|$} }
+
+\newcommand{\sz}[1]{\text{$\temls{SZ}(#1)$}}
+
+\newcommand{\lsz}[1]{\text{$\temls{LSZ}(#1)$}}
+
+\newcommand{\allprops}[2]{\text{$\text{\bf Prop}(#1,#2)$}}
+
+
+\newcommand{\appdsub}[3]{\text{$#1\{#2/#3\}$}}
+
+\newcommand{\dsub}[2]{\text{$\{#1/#2\}$}}
+
+
+\newcommand{\mappt}[2]{\text{$\hex{#1}(#2)$}}
+
+\newcommand{\fa}[1]{\text{$\tem{FA}(#1)$}}
+
+\newcommand{\abdom}{\mc{B}}
+\newcommand{\abdomsp}{\mc{B} }
+
+\newcommand{\err}{\tem{error}}
+\newcommand{\errsp}{\tem{error} }
+
+
+\newcommand{\PrimDed}{\mbf{PrimDed}}
+\newcommand{\PrimDedsp}{\mbf{PrimDed} }
+
+\newcommand{\pdom}{\mbf{Prop}}
+\newcommand{\pdomsp}{\mbf{Prop} }
+
+
+\newcommand{\dm}{\mc{D}}
+\newcommand{\dmsp}{\mc{D} }
+\newcommand{\pdm}{\mc{M}}
+\newcommand{\pdmsp}{\mc{M} }
+
+\newcommand{\Luk}{\mbox{{\L}ukasiewicz}}
+\newcommand{\Jask}{\mbox{J\'{a}skowski}}
+
+\newcommand{\Luksp}{\mbox{{\L}ukasiewics} }
+\newcommand{\Jasksp}{\mbox{J\'{a}skowski} }
+
+
+
+\newcommand{\ass}[2]{\text{$\mbf{assume}\;#1\,.\,#2$}}
+\newcommand{\assp}[2]{\text{$\mbf{assume}\;#1\,.\,#2$} }
+
+\newcommand{\assin}[2]{\text{$\mbf{assume}\,\;#1\,\;\mbf{in}\;#2$}}
+\newcommand{\assinsp}[2]{\text{$\mbf{assume}\;#1\,\mbf{in}\;#2$} }
+
+\newcommand{\supab}[2]{\text{$\mbf{suppose-absurd}\,\;#1\,\;\mbf{in}\;#2$}}
+\newcommand{\supabsp}[2]{\text{$\mbf{suppose-absurd}\;#1\,\mbf{in}\;#2$} }
+
+\newcommand{\abst}[2]{\text{$\lambda\;#1\,.\,#2$}}
+\newcommand{\abstsp}[2]{\text{$\lambda\;#1\,.\,#2$} }
+
+\newcommand{\type}{\text{$\tau$}}
+\newcommand{\typesp}{\text{$\tau$} }
+
+\newcommand{\xt}{\text{$x_{\tau}$}}
+\newcommand{\xtsp}{\text{$x_{\tau}$} }
+
+\newcommand{\xs}{\text{$x_{\sigma}$}}
+\newcommand{\xsp}{\text{$x_{\sigma}$} }
+
+\newcommand{\modus}[2]{\text{$\mbf{mp}(#1,#2)$}}
+\newcommand{\modusp}[2]{\text{$\mbf{mp}(#1,#2)$} }
+
+\newcommand{\app}[2]{\text{$\mbf{app}(#1,#2)$}}
+\newcommand{\appsp}[2]{\text{$\mbf{app}(#1,#2)$} }
+
+
+\newcommand{\both}[2]{\text{$\mbf{both}(#1,#2)$}}
+\newcommand{\bothsp}[2]{\text{$\mbf{both}(#1,#2)$} }
+
+
+\newcommand{\pair}[2]{\text{$\mbf{pair}(#1,#2)$}}
+\newcommand{\pairsp}[2]{\text{$\mbf{pair}(#1,#2)$} }
+
+\newcommand{\leftand}[1]{\text{$\mbf{left}(#1)$}}
+\newcommand{\leftandsp}[1]{\text{$\mbf{left}(#1)$} }
+
+\newcommand{\first}[1]{\text{$\mbf{first}(#1)$}}
+\newcommand{\firstsp}[1]{\text{$\mbf{first}(#1)$} }
+
+\newcommand{\second}[1]{\text{$\mbf{second}(#1)$}}
+\newcommand{\secondsp}[1]{\text{$\mbf{second}(#1)$} }
+
+\newcommand{\rightand}[1]{\text{$\mbf{right}(#1)$}}
+\newcommand{\rightandsp}[1]{\text{$\mbf{right}(#1)$} }
+
+\newcommand{\fv}[1]{\text{$\tem{FV}(#1)$}}
+\newcommand{\fvsp}[1]{\text{$\tem{FV}(#1)$} }
+
+\newcommand{\ch}{\text{Curry-Howard}}
+\newcommand{\chsp}{\text{Curry-Howard} }
+
+\newcommand{\genproof}{\text{$\mathfrak{D}$}}
+
+\newcommand{\genproofsp}{\text{$\mathfrak{D}$} }
+
+
+%% Alphabetic equivalence for first-order CND proofs: 
+\newcommand{\paleq}{\text{$\equiv_{\epsilon}$}}
+\newcommand{\paleqsp}{\text{$\equiv_{\epsilon}$} }
+\newcommand{\paleqls}{\text{$\:\equiv_{\epsilon}\,$}}
+
+\newcommand{\eigenrename}[1]{\text{$\temls{EigenRename}(#1)$}}
+\newcommand{\eigenrenamensp}{\tem{EigenRename}}
+\newcommand{\eigenrenamesp}{\temv{EigenRename} }
+
+\newcommand{\evar}[1]{\text{\rm $\text{\em EV\/}(#1)$}}
+\newcommand{\evarsp}{\text{\rm\text{\em EV\/}} }
+
+
+\newcommand{\formdom}[1]{\text{$\temls{FDom}(#1)$}}
+\newcommand{\formdomsp}{\temv{FDom} }
+\newcommand{\formdomnsp}{\tem{FDom}}
+
+\newcommand{\formlabel}[1]{\text{$\temls{FLabel}(#1)$}}
+\newcommand{\formlabelsp}{\temv{FLabel} }
+\newcommand{\formlabelnsp}{\tem{FLabel}}
+
+
+
+\newcommand{\proofdom}[1]{\text{$\temls{DDom}(#1)$}}
+\newcommand{\proofdomsp}{\temv{DDom} }
+
+\newcommand{\prooflabel}[1]{\text{$\temls{DLabel}(#1)$}}
+\newcommand{\prooflabelsp}{\temv{DLabel} }
+\newcommand{\prooflabelnsp}{\tem{DLabel}}
+
+
+\newcommand{\appd}[2]{\text{$#1\,#2$}}
+\newcommand{\apppd}[2]{\text{$#1\;#2$}}
+
+\newcommand{\deductionset}[1]{\text{$\mbf{Ded}(#1)$}}
+
+\newcommand{\formalappf}[2]{\text{${#1}^{\sharp}(#2)$}}
+\newcommand{\formalappfnsp}[1]{\text{${#1}^{\sharp}$}}
+\newcommand{\formalappd}[2]{\text{${#1}^{\star}(#2)$}}
+\newcommand{\formalappdnsp}[1]{\text{${#1}^{\star}$}}
+
+\newcommand{\Phisp}{\text{$\Phi$ }}
+
+
+\newcommand{\apprule}[2]{\text{$#1\; #2$}}
+
+\newcommand{\rulemp}{\mbf{modus-ponens}}
+\newcommand{\rulempsp}{\mbf{modus-ponens} }
+\newcommand{\ruleclaim}{\mbf{claim}}
+\newcommand{\ruleclaimsp}{\mbf{claim} }
+\newcommand{\rulemt}{\mbf{modus-tollens}}
+\newcommand{\rulemtsp}{\mbf{modus-tollens} }
+\newcommand{\ruledn}{\mbf{double-negation}}
+\newcommand{\rulednsp}{\mbf{double-negation} }
+\newcommand{\ruleland}{\mbf{left-and}}
+\newcommand{\rulelandsp}{\mbf{left-and} }
+\newcommand{\rulerand}{\mbf{right-and}}
+\newcommand{\rulerandsp}{\mbf{right-and} }
+
+\newcommand{\ruleliff}{\mbf{left-iff}}
+\newcommand{\ruleriff}{\mbf{right-iff}}
+\newcommand{\ruleequiv}{\mbf{equivalence}}
+
+\newcommand{\ruleboth}{\mbf{both}}
+\newcommand{\rulebothsp}{\mbf{both} }
+
+\newcommand{\ruleabsurd}{\mbf{absurd}}
+\newcommand{\ruleabsurdsp}{\mbf{absurd} }
+
+\newcommand{\zlevel}{\text{0-level}}
+\newcommand{\zlevelsp}{\text{0-level} }
+\newcommand{\Zlevel}{\text{0-level}}
+\newcommand{\Zlevelsp}{\text{0-level} }
+
+
+\newcommand{\typealpha}{\text{type-$\alpha$}}
+\newcommand{\typealphasp}{\text{type-$\alpha$} }
+\newcommand{\Typealpha}{\text{Type-$\alpha$}}
+\newcommand{\Typealphasp}{\text{Type-$\alpha$} }
+
+\newcommand{\typeomega}{\text{type-$\omega$}}
+\newcommand{\typeomegasp}{\text{type-$\omega$} }
+\newcommand{\Typeomega}{\text{Type-$\omega$}}
+\newcommand{\Typeomegasp}{\text{Type-$\omega$} }
+
+\newcommand{\inflevel}{\text{$\infty$-level}}
+\newcommand{\inflevelsp}{\text{$\infty$-level} }
+\newcommand{\Inflevel}{\text{$\infty$-level}}
+\newcommand{\Inflevelsp}{\text{$\infty$-level} }
+
+\newcommand{\mtype}[1]{\text{type-$#1$}}
+\newcommand{\mtypesp}[1]{\text{type-$#1$}}
+
+\newcommand{\mType}[1]{\text{Type-$#1$}}
+\newcommand{\mTypesp}[1]{\text{Type-$#1$}}
+
+\newcommand{\assume}[2]{\text{$\mbf{assume } #1 \mbf{ in } #2$}}
+\newcommand{\msupab}[2]{\text{$\mbf{suppose-absurd } #1 \mbf{ in } #2$}}
+
+\newcommand{\bpropcon}{\text{$\odot$}}
+\newcommand{\bpropconls}{\text{$\:\odot\:$}}
+\newcommand{\bpropconsp}{\text{$\odot$} }
+
+
+
+\newcommand{\lm}{\text{$\lambda\hspace*{0.01in}\phi$}}
+\newcommand{\lmsp}{\text{$\lambda\hspace*{0.01in}\phi$} }
+\newcommand{\lmc}{\text{$\lambda\hspace*{0.01in}\phi$-calculus}}
+\newcommand{\lmcsp}{\text{$\lambda\hspace*{0.01in}\phi$-calculus} }
+
+\newcommand{\Phr}{\rm \text{\em Phr}}
+\newcommand{\Phrsp}{\rm \text{\em Phr\/} }
+\newcommand{\Exp}{\rm \text{\em Exp}}
+\newcommand{\Expsp}{\rm \text{\em Exp\/} }
+\newcommand{\Ded}{\rm \text{\em Ded}}
+\newcommand{\Dedsp}{\rm \text{\em Ded\/} }
+\newcommand{\Ide}{\rm \text{\em Ide}}
+\newcommand{\Idesp}{\rm \text{\em Ide\/} }
+
+\newcommand{\mab}[2]{\text{$\phi\,#1\,.\,#2$}}
+\newcommand{\mabop}{\text{$\phi$}}
+\newcommand{\mabopsp}{\text{$\phi$} }
+\newcommand{\lab}[2]{\text{$\lambda\,#1\,.\,#2$}}
+
+\newcommand{\dapp}[2]{\text{$\mbf{dapp}(#1,#2)$}}
+\newcommand{\dappthunk}[1]{\text{$\mbf{dapp}(#1)$}}
+\newcommand{\eapp}[2]{\text{$\mbf{app}(#1,#2)$}}
+\newcommand{\eappthunk}[1]{\text{$\mbf{app}(#1)$}}
+
+
+\newcommand{\dcase}[3]{\text{$\mbf{dcase}(#1,#2,#3)$}}
+\newcommand{\ecase}[3]{\text{$\mbf{case}(#1,#2,#3)$}}
+
+\newcommand{\prop}{\tem{Prop}}
+\newcommand{\propsp}{\tem{Prop} }
+
+\newcommand{\fexp}{\tem{FExp}}
+\newcommand{\fexpsp}{\tem{FExp} }
+\newcommand{\mexp}{\tem{MExp}}
+\newcommand{\mexpsp}{\tem{MExp} }
+
+
+\newcommand{\values}{\mc{V}}
+\newcommand{\valuesp}{\mc{V} }
+
+\newcommand{\conv}{\text{$\doteq$}}
+\newcommand{\convls}{\text{$\:\doteq\:$}}
+\newcommand{\convsp}{\text{$\doteq$} }
+
+\newcommand{\semeq}{\text{$\approx$}}
+\newcommand{\semeqls}{\text{$\:\approx\:$}}
+\newcommand{\semeqsp}{\text{$\approx$} }
+
+
+\newcommand{\valeq}{\text{$\equiv$}}
+\newcommand{\valeqls}{\text{$\:\equiv\:$}}
+\newcommand{\valeqsp}{\text{$\equiv$} }
+
+\newcommand{\domega}{\text{$\Omega_{\mbf{D}}$}}
+\newcommand{\domegasp}{\text{$\Omega_{\mbf{D}}$} }
+
+\newcommand{\eomega}{\text{$\Omega_{\mbf{E}}$}}
+\newcommand{\eomegasp}{\text{$\Omega_{\mbf{E}}$} }
+
+\newcommand{\mvec}[1]{\text{$\overrightarrow{#1}$}}
+\newcommand{\mvecsp}[1]{\text{$\overrightarrow{#1}$} }
+
+\newcommand{\red}{\text{$\rightarrowtail$}}
+\newcommand{\redls}{\text{$\:\rightarrowtail\:$}}
+\newcommand{\redsp}{\text{$\rightarrowtail$} }
+
+\newcommand{\lmcon}[1]{\text{$\mathsf{#1}$}}
+
+\newcommand{\tred}{\text{$\rightarrowtail^*$}}
+\newcommand{\tredls}{\text{$\:\rightarrowtail^*\:$}}
+\newcommand{\tredsp}{\text{$\rightarrowtail^*$} }
+
+\newcommand{\convg}[2]{\text{$#1\hspace*{-0.04in}\downarrow_{#2}$}}
+\newcommand{\divg}[2]{\text{$#1\hspace*{-0.04in}\uparrow_{#2}$}}
+
+\newcommand{\sconvg}[1]{\text{$#1\hspace*{-0.04in}\downarrow$}}
+\newcommand{\sdivg}[1]{\text{$#1\hspace*{-0.04in}\uparrow$}}
+
+\newcommand{\cclaim}{\lmcon{claim}}
+\newcommand{\cclaimsp}{\lmcon{claim} }
+
+\newcommand{\cmp}{\lmcon{mp}}
+\newcommand{\cmpsp}{\lmcon{mp} }
+
+\newcommand{\ctrue}{\lmcon{true}}
+\newcommand{\ctruesp}{\lmcon{true} }
+
+
+\newcommand{\cfalse}{\lmcon{false}}
+\newcommand{\cfalsesp}{\lmcon{false} }
+
+\newcommand{\cmt}{\lmcon{mt}}
+\newcommand{\cmtsp}{\lmcon{mt} }
+
+\newcommand{\ctrueaxiom}{\lmcon{T\text{-}axiom}}
+\newcommand{\ctrueaxiomsp}{\lmcon{T\text{-}axiom} }
+\newcommand{\cfalseaxiom}{\lmcon{F\text{-}axiom}}
+\newcommand{\cfalseaxiomsp}{\lmcon{F\text{-}axiom} }
+
+\newcommand{\cdn}{\lmcon{dn}}
+\newcommand{\cdnsp}{\lmcon{dn} }
+\newcommand{\ccd}{\lmcon{cd}}
+\newcommand{\cboth}{\lmcon{both}}
+\newcommand{\cleither}{\lmcon{left\text{-}either}}
+\newcommand{\creither}{\lmcon{right\text{-}either}}
+\newcommand{\cequiv}{\lmcon{equiv}}
+\newcommand{\cliff}{\lmcon{left\text{-}iff}}
+\newcommand{\criff}{\lmcon{right\text{-}iff}}
+\newcommand{\cabsurd}{\lmcon{absurd}}
+\newcommand{\cland}{\lmcon{left\text{-}and}}
+\newcommand{\crand}{\lmcon{right\text{-}and}}
+
+
+%\newcommand{\map}[1]{\text{$\lfloor #1\rfloor$}}
+%\newcommand{\mapsp}[1]{\text{$\lfloor #1\rfloor$} }
+
+\newcommand{\map}[1]{\text{$\mlb #1\mrb$}}
+\newcommand{\mapsp}[1]{\text{$\mlb #1\mrb$} }
+
+
+\newcommand{\exm}{\mbf{!}}
+\newcommand{\exmsp}{\mbf{!} }
+\newcommand{\exmls}{\mbf{!}\hspace*{0.01in}}
+
+\newcommand{\noeval}{\text{$\tem{Eval}_{\text{\scriptsize\em N}}$}}
+
+\newcommand{\aoeval}{\text{$\tem{Eval}_{\text{\scriptsize\em A}}$}}
+
+\newcommand{\ceval}{\text{$\tem{Eval}_{\text{\scriptsize\em C}}$}}
+
+
+\newcommand{\lmnot}{\lmcon{not}}
+\newcommand{\lmnotsp}{\lmcon{not} }
+
+
+
+
+\newcommand{\lmand}{\lmcon{and}}
+\newcommand{\lmandsp}{\lmcon{and} }
+
+\newcommand{\lmor}{\lmcon{or}}
+\newcommand{\lmorsp}{\lmcon{or} }
+
+\newcommand{\lmif}{\lmcon{if}}
+\newcommand{\lmifsp}{\lmcon{if} }
+
+\newcommand{\lmiff}{\lmcon{iff}}
+\newcommand{\lmiffsp}{\lmcon{iff} }
+
+\newcommand{\lmcond}{\mbf{cond}}
+\newcommand{\lmcondsp}{\mbf{cond} }
+
+\newcommand{\lmdcond}{\mbf{dcond}}
+\newcommand{\lmdcondsp}{\mbf{dcond} }
+
+
+\newcommand{\suapp}[2]{\text{$(#1\msp #2)$}}
+\newcommand{\sbapp}[3]{\text{$(#1\msp #2\msp #3)$}}
+\newcommand{\stapp}[4]{\text{$(#1\msp #2\msp #3\msp #4)$}}
+
+\newcommand{\npsuapp}[2]{\text{$#1\msp #2$}}
+\newcommand{\npsbapp}[3]{\text{$#1\msp #2\msp #3$}}
+\newcommand{\npstapp}[4]{\text{$#1\msp #2\msp #3\msp #4$}}
+
+\newcommand{\lmeq}{\lmcon{=}}
+\newcommand{\lmeqsp}{\lmcon{=} }
+
+
+
+
+
+
+
+\newcommand{\clp}{\lmcon{(}}
+\newcommand{\clpsp}{\lmcon{(} }
+\newcommand{\crp}{\lmcon{)}}
+\newcommand{\crpsp}{\lmcon{)} }
+
+\newcommand{\npumapp}[2]{\text{$\exmls #1 \msp #2$}}
+\newcommand{\npbmapp}[3]{\text{$\exmls #1 \msp #2 \msp #3$}}
+\newcommand{\nptmapp}[4]{\text{$\exmls #1 \msp #2 \msp #3 \msp #4$}}
+
+\newcommand{\mthunkapp}[1]{\text{$(\exmls #1)$}}
+\newcommand{\npmthunkapp}[1]{\text{$\exmls #1$}}
+\newcommand{\umapp}[2]{\text{$(\exmls #1 \msp #2)$}}
+\newcommand{\bmapp}[3]{\text{$(\exmls #1 \msp #2 \msp #3)$}}
+\newcommand{\tmapp}[4]{\text{$(\exmls #1 \msp #2 \msp #3 \msp #4)$}}
+
+
+\newcommand{\checke}{\text{$\lmcon{if}_E$}}
+\newcommand{\checkesp}{\text{$\lmcon{if}_E$} }
+
+\newcommand{\checkd}{\text{$\lmcon{if}_D$}}
+\newcommand{\checkdsp}{\text{$\lmcon{if}_D$} }
+
+\newcommand{\pdes}{\mc{T}}
+\newcommand{\pdesp}{\mc{T} }
+
+\newcommand{\booland}{\lmcon{bool\mdash and}}
+\newcommand{\boolandsp}{\lmcon{bool\mdash and} }
+
+\newcommand{\boolor}{\lmcon{bool\mdash or}}
+\newcommand{\boolorsp}{\lmcon{bool\mdash or} }
+
+\newcommand{\boolnot}{\lmcon{bool\mdash not}}
+\newcommand{\boolnotsp}{\lmcon{bool\mdash not} }
+
+\newcommand{\sequent}[2]{\text{$\langle #1,#2\rangle$}}
+
+\newcommand{\lmzero}{\lmcon{0}}
+\newcommand{\lmzerosp}{\lmcon{0} }
+
+%qqq
+%%\newcommand{\lmcon}[1]{\text{$\mathsf{#1}$}}
+%\newcommand{\lmsucc}[1]{\text{$\mathsf{s(#1)}$}}
+
+\newcommand{\lmsucc}[1]{\lmcon{s(}#1\lmcon{)}}
+\newcommand{\lmfact}[1]{\lmcon{fact(}#1\lmcon{)}}
+
+\newcommand{\lmplus}[2]{\lmcon{(}#1\mssp\lmcon{+}\mssp#2\lmcon{)}}
+
+\newcommand{\nplmplus}[2]{#1\mssp\lmcon{+}\mssp#2}
+
+\newcommand{\nplmtimes}[2]{#1\mssp\lmcon{*}\mssp#2}
+
+\newcommand{\lmtimes}[2]{\lmcon{(}#1\mssp\lmcon{*}\mssp#2\lmcon{)}}
+
+
+\newcommand{\plusri}{\lmcon{plus\mdash 1}}
+\newcommand{\plusrii}{\lmcon{plus\mdash 2}}
+
+
+\newcommand{\scong}{\lmcon{s\mdash cong}}
+\newcommand{\scongsp}{\lmcon{s\mdash cong} }
+\newcommand{\factcong}{\lmcon{fact\mdash cong}}
+\newcommand{\factcongsp}{\lmcon{fact\mdash cong} }
+\newcommand{\pluscong}{\lmcon{+\mdash cong}}
+\newcommand{\pluscongsp}{\lmcon{+\mdash cong} }
+\newcommand{\timescong}{\lmcon{*\mdash cong}}
+\newcommand{\timescongsp}{\lmcon{*\mdash cong} }
+
+
+\newcommand{\plusrisp}{\lmcon{plus\mdash 1} }
+\newcommand{\plusriisp}{\lmcon{plus\mdash 2} }
+
+\newcommand{\timesri}{\lmcon{times\mdash 1}}
+\newcommand{\timesrii}{\lmcon{times\mdash 2}}
+
+\newcommand{\factri}{\lmcon{fact\mdash 1}}
+\newcommand{\factrii}{\lmcon{fact\mdash 2}}
+\newcommand{\factriisp}{\lmcon{fact\mdash 2} }
+
+
+\newcommand{\vmap}[2]{\text{$#1\mlb #2\mrb$}}
+\newcommand{\vmapsp}[2]{\text{$#1\mlb #2\mrb$} }
+
+\newcommand{\tarsk}{\text{$\succcurlyeq$}}
+\newcommand{\tarskls}{\text{$\:\succcurlyeq\:$}}
+\newcommand{\tarsksp}{\text{$\succcurlyeq$} }
+
+\newcommand{\zeroeven}{\lmcon{zero\mdash axiom}}
+\newcommand{\zeroaxiom}{\lmcon{zero\mdash axiom}}
+\newcommand{\zeroaxiomsp}{\lmcon{zero\mdash axiom} }
+\newcommand{\mkeven}{\lmcon{make\mdash even}}
+\newcommand{\mkevensp}{\lmcon{make\mdash even} }
+\newcommand{\mkodd}{\lmcon{make\mdash odd}}
+\newcommand{\mkoddsp}{\lmcon{make\mdash odd} }
+\newcommand{\podd}{\lmcon{Odd}}
+\newcommand{\peven}{\lmcon{Even}}
+\newcommand{\mo}{\lmcon{mo}}
+\newcommand{\me}{\lmcon{me}}
+\newcommand{\za}{\lmcon{za}}
+
+\newcommand{\teq}{\text{$\approx$}}
+\newcommand{\teqsp}{\text{$\approx$} }
+\newcommand{\teqls}{\text{$\:\approx\:$}}
+
+\newcommand{\uniflm}{\tem{Unif}}
+\newcommand{\uniflmsp}{\temv{Unif} }
+
+\newcommand{\unifcalc}{\mc{U}}
+\newcommand{\unifcalcsp}{\mc{U} }
+
+\newcommand{\unif}{\text{$\vdash_{\text{\em\tiny U}}\:$}}
+\newcommand{\unifnsp}{\text{$\vdash_{\text{\em\tiny U}}$}}
+\newcommand{\unifsp}{\text{$\vdash_{\text{\em\tiny U}}$} }
+
+\newcommand{\munif}{\text{$\vdash_{\tiny \unifcalc}\:$}}
+\newcommand{\munifnsp}{\text{$\vdash_{\tiny \unifcalc}$}}
+\newcommand{\munifsp}{\text{$\vdash_{\tiny \unifcalc}$} }
+
+
+\newcommand{\lmndz}{\text{\lm--\cndz}}
+\newcommand{\lmndzsp}{\text{\lm--\cndz} }
+
+\newcommand{\lmhilz}{\text{\lm--$H_0$}}
+\newcommand{\lmhilzsp}{\text{\lm--$H_0$} }
+
+
+\newcommand{\lmndo}{\text{\lm--\cndo}}
+\newcommand{\lmndosp}{\text{\lm--\cndo} }
+
+\newcommand{\lmdmo}{\text{$\tem{dm}_1$}}
+\newcommand{\lmdmosp}{\text{$\tem{dm}_1$} }
+\newcommand{\lmdmop}{\text{${\tem{dm}_1}'$}}
+\newcommand{\lmdmopsp}{\text{${\tem{dm}_1}'$} }
+
+\newcommand{\lmdmt}{\text{$\tem{dm}_2$}}
+\newcommand{\lmdmtsp}{\text{$\tem{dm}_2$} }
+\newcommand{\lmdmtp}{\text{${\tem{dm}_2}'$}}
+\newcommand{\lmdmtpsp}{\text{${\tem{dm}_2}'$} }
+
+
+\newcommand{\prem}{\tem{premise}}
+\newcommand{\premsp}{\temv{premise} }
+
+\newcommand{\pold}{\text{$P_{\tem{old}}$}}
+\newcommand{\poldsp}{\text{$P_{\tem{old}}$} }
+
+\newcommand{\pnew}{\text{$P_{\tem{new}}$}}
+\newcommand{\pnewsp}{\text{$P_{\tem{new}}$} }
+
+
+%% cterm, cform, and cquant declarations for nd1-old.tex
+%\newcommand{\cterm}[1]{\text{$\temls{term}(#1)$}}
+%\newcommand{\cform}[1]{\text{$\temls{form}(#1)$}}
+%\newcommand{\cquant}[1]{\text{$\temls{quant}(#1)$}}
+
+\newcommand{\cterm}[1]{\text{$#1$}}
+\newcommand{\cform}[1]{\text{$#1$}}
+\newcommand{\cquant}[1]{\text{$#1$}}
+
+%%========================================================
+
+\newcommand{\cmneg}{\text{$\boldsymbol{\neg}$}}
+\newcommand{\cmnegsp}{\text{$\boldsymbol{\neg}$ }}
+\newcommand{\cmnegnsp}{\text{$\boldsymbol{\neg}$}}
+\newcommand{\cmand}{\text{$\:\boldsymbol{\wedge} \:$}}
+\newcommand{\cmandsp}{\text{$\boldsymbol{\wedge}$ }}
+\newcommand{\cmor}{\text{$\:\boldsymbol{\vee} \:$}}
+\newcommand{\cmorsp}{\text{$\boldsymbol{\vee}$ }}
+\newcommand{\cmif}{\text{$\:\boldsymbol{\Rightarrow}\,$}}
+\newcommand{\cmifsp}{\text{$\:\boldsymbol{\Rightarrow}\,$ }}
+\newcommand{\cmiff}{\text{$\:\boldsymbol{\Leftrightarrow} \,$}}
+\newcommand{\cmiffsp}{\text{$\boldsymbol{\Leftrightarrow}$ }}
+\newcommand{\cmandnsp}{\text{$\boldsymbol{\wedge}$}}
+\newcommand{\cmornsp}{\text{$\boldsymbol{\vee}$}}
+\newcommand{\cmifnsp}{\text{$\boldsymbol{\Rightarrow}$}}
+\newcommand{\cmiffnsp}{\text{$\boldsymbol{\Leftrightarrow}$}}
+
+\newcommand{\cforall}{\text{$\boldsymbol{\forall}$}}
+\newcommand{\cforallsp}{\text{$\boldsymbol{\forall}$} }
+\newcommand{\cexists}{\text{$\boldsymbol{\exists}$}}
+\newcommand{\cexistsp}{\text{$\boldsymbol{\exists}$} }
+
+\newcommand{\cforallLst}{\text{$\boldsymbol{\forall}^*$}}
+\newcommand{\cforallLstsp}{\text{$\boldsymbol{\forall}^*$} }
+\newcommand{\cexistsLst}{\text{$\boldsymbol{\exists}^*$}}
+\newcommand{\cexistsLstsp}{\text{$\boldsymbol{\exists}^*$} }
+
+
+
+\newcommand{\freshv}{\lmcon{fresh\text{-}var}}
+\newcommand{\freshvsp}{\lmcon{fresh\text{-}var}\msp}
+
+\newcommand{\cuspec}{\lmcon{uspec}}
+\newcommand{\cuspecsp}{\lmcon{uspec} }
+
+\newcommand{\cegen}{\lmcon{egen}}
+\newcommand{\cegensp}{\lmcon{egen} }
+
+\newcommand{\cqsaxiom}{\lmcon{qs\text{-}axiom}}
+\newcommand{\cqsaxiomsp}{\lmcon{qs\text{-}axiom} }
+
+\newcommand{\necrule}{\mbf{nec:}}
+\newcommand{\necrulesp}{\mbf{nec:} }
+\newcommand{\rulek}{\mbf{K}}
+\newcommand{\ruleksp}{\mbf{K} }
+
+\newcommand{\rulet}{\mbf{T}}
+\newcommand{\ruletsp}{\mbf{T} }
+
+\newcommand{\ruled}{\mbf{D}}
+\newcommand{\ruledsp}{\mbf{D} }
+
+\newcommand{\rulesfour}{\text{$\mbf{S}_4$}}
+\newcommand{\rulesfoursp}{\text{$\mbf{S}_4$} }
+\newcommand{\rulesfive}{\text{$\mbf{S}_5$}}
+\newcommand{\rulesfivesp}{\text{$\mbf{S}_5$} }
+
+\newcommand{\systemsfour}{\text{$\mc{S}_4$}}
+\newcommand{\systemsfoursp}{\text{$\mc{S}_4$} }
+\newcommand{\systemsfive}{\text{$\mc{S}_5$}}
+\newcommand{\systemsfivesp}{\text{$\mc{S}_5$} }
+\newcommand{\systemk}{\mc{K}}
+\newcommand{\systemksp}{\mc{K} }
+\newcommand{\systemd}{\mc{D}}
+\newcommand{\systemdsp}{\mc{D} }
+\newcommand{\systemt}{\mc{T}}
+\newcommand{\systemtsp}{\mc{T} }
+\newcommand{\necop}{\text{$\Box$}}
+\newcommand{\necopsp}{\text{$\Box$} }
+\newcommand{\posop}{\text{$\Diamond$}}
+\newcommand{\posopsp}{\text{$\Diamond$} }
+\newcommand{\nec}[1]{\text{$\necop #1$}}
+\newcommand{\pos}[1]{\text{$\posop #1$}}
+
+\newcommand{\kframe}[1]{\mc{#1}}
+\newcommand{\kframesp}[1]{\mc{#1} }
+
+\newcommand{\kprovesls}{\text{$\:\vdash_{\text{\scriptsize \systemk}}\:$}}
+\newcommand{\kproves}{\text{$\vdash_{\text{\scriptsize \systemk}}$}}
+\newcommand{\kprovesp}{\text{$\vdash_{\text{\scriptsize \systemk}}$} }
+\newcommand{\nkprovesls}{\text{$\:\not{\hspace*{-0.007in}\vdash_{\scriptsize \systemk}}\:$}}
+
+\newcommand{\posintro}{\text{\posop\mbf{-intro}}}
+\newcommand{\posintrosp}{\text{\posop\mbf{-intro}} }
+\newcommand{\poselim}{\text{\posop\mbf{-elim}}}
+\newcommand{\poselimsp}{\text{\posop\mbf{-elim}} }
+
+\newcommand{\propappfun}{\mc{F}}
+\newcommand{\propappfunsp}{\mc{F} }
+
+\newcommand{\lmirel}{\text{$\equiv$}}
+\newcommand{\lmirells}{\text{$\:\equiv\:$}}
+\newcommand{\lmirelsp}{\text{$\equiv$} }
+
+\newcommand{\canonassign}{\text{$\rho_{\mc{S}}$}}
+\newcommand{\canonassignsp}{\text{$\rho_{\mc{S}}$} }
+
+\newcommand{\extendsls}{\text{$\:\succeq\:$}}
+\newcommand{\properlyextendsls}{\text{$\:\succ\:$}}
+\newcommand{\modalextends}{\text{$\succeq$}}
+\newcommand{\modalextendsp}{\text{$\succeq$} }
+\newcommand{\modalproperlyextends}{\text{$\succ$}}
+\newcommand{\modalproperlyextendsp}{\text{$\succ$} }
+
+\newcommand{\nextendsls}{\text{$\:\not\succeq\:$}}
+\newcommand{\nproperlyextendsls}{\text{$\:\not\succ\:$}}
+
+
+
+\newcommand{\ttlam}{\ttm{\lambda}}
+\newcommand{\ttsub}[2]{\(#1\sb#2\)}
+\newcommand{\esb}[1]{\ttsub{e}{#1}}
+
+\newcommand{\ttp}{\ttm{\Pi}}
+\newcommand{\piof}[1]{\ttm{\Pi}\ttm{#1}}
+
+\newcommand{\nequal}{\text{$\approx$}}
+\newcommand{\nequalsp}{\text{$\approx$} }
+\newcommand{\nequals}{\text{$\:\approx\:$}}
+\newcommand{\notnequal}{\text{$\not\approx$}}
+\newcommand{\notnequals}{\text{$\:\not\approx\,$}}
+
+
+\newcommand{\neclog}{\mc{TL}}
+\newcommand{\neclogsp}{\mc{TL} }
+
+%% Utility transformation:
+\newcommand{\utran}[1]{\text{$\mathfrak{U}\,(#1)$}}
+
+\newcommand{\utransp}{\text{$\mathfrak{U}$} }
+
+\newcommand{\utrannsp}{\text{$\mathfrak{U}$}}
+
+%% Parsimony transformation:
+
+\newcommand{\ptran}[1]{\text{$\mathfrak{P}(#1)$}}
+
+\newcommand{\ptransp}{\text{$\mathfrak{P}$} }
+
+\newcommand{\ptrannsp}{\text{$\mathfrak{P}$}}
+
+
+%% Remove Claims transformation:
+
+\newcommand{\rctran}[1]{\text{$\mathfrak{C}(#1)$}}
+
+\newcommand{\rctransp}{\text{$\mathfrak{C}$} }
+
+\newcommand{\rctrannsp}{\text{$\mathfrak{C}$}}
+
+%% Right-association transformation:
+
+\newcommand{\rasstran}[1]{\text{$\mathfrak{RL}(#1)$}}
+
+\newcommand{\rasstransp}{\text{$\mathfrak{RL}$} }
+
+\newcommand{\rasstrannsp}{\text{$\mathfrak{RL}$}}
+
+%% Hoisting transformation:
+
+\newcommand{\htran}[1]{\text{$\temls{Hoist}(#1)$}}
+
+\newcommand{\htransp}{\text{$\temls{Hoist}$} }
+
+\newcommand{\htrannsp}{\text{$\temls{Hoist}$}}
+
+%% Final Scope-Maximization transformation:
+
+\newcommand{\mstran}[1]{\text{$\mathfrak{MS}(#1)$}}
+
+\newcommand{\mstransp}{\text{$\mathfrak{MS}$} }
+
+\newcommand{\mstrannsp}{\text{$\mathfrak{MS}$}}
+
+%% A1 transformation:
+
+\newcommand{\atran}[1]{\text{$\mathfrak{A}_1(#1)$}}
+\newcommand{\atransp}{\text{$\mathfrak{A}_1$} }
+\newcommand{\atrannsp}{\text{$\mathfrak{A}_1$}}
+
+
+\newcommand{\aatran}[1]{\text{$\mathfrak{A}_2(#1)$}}
+\newcommand{\aatransp}{\text{$\mathfrak{A}_2$} }
+\newcommand{\aatrannsp}{\text{$\mathfrak{A}_2$}}
+
+\newcommand{\aaatran}[1]{\text{$\mathfrak{A}_3$}}
+\newcommand{\aaatransp}{\text{$\mathfrak{A}_3$} }
+\newcommand{\aaatrannsp}{\text{$\mathfrak{A}_3$}}
+
+\newcommand{\normalize}[1]{\temls{normalize}(#1)}
+
+\newcommand{\normalizesp}{\text{\em normalize\/} }
+
+\newcommand{\normalizensp}{\text{\em normalize}}
+
+
+\newcommand{\restructure}[1]{\temls{restructure}(#1)}
+
+\newcommand{\restructuresp}{\text{\em restructure\/} }
+
+\newcommand{\restructurensp}{\text{\em restructure}}
+
+
+\newcommand{\contract}[1]{\temls{contract}(#1)}
+
+\newcommand{\contractsp}{\text{\em contract\/} }
+
+\newcommand{\contractnsp}{\mbox{\em contract}}
+
+\newcommand{\marr}[1]{\text{$\underrightarrow{\vspace*{0.048in}\:#1\:}$}}
+
+\newcommand{\etour}{\temls{detour?}}
+\newcommand{\etoursp}{\temv{detour?} }
+\newcommand{\etournsp}{\tem{detour?}}
+
+
+\newcommand{\rr}[1]{\text{$\tem{RR}(#1)$}}
+
+\newcommand{\rl}[1]{\text{$\tem{RL}(#1)$}}
+
+\newcommand{\even}[1]{\mbox{$\temv{Even}(#1)$}}
+\newcommand{\odd}[1]{\mbox{$\temv{Odd}(#1)$}}
+\newcommand{\parity}{\mbox{\mc{P}\hspace*{-0.03in}\mc{AR}}}
+\newcommand{\paritysp}{\mbox{\mc{P}\hspace*{-0.03in}\mc{AR}} }
+\newcommand{\meanfun}{\mc{M}}
+\newcommand{\meanfunsp}{\mc{M} }
+%\newcommand{\mean}[1]{\mbox{$\mc{M}[#1]$}}
+\newcommand{\mean}[1]{\mbox{$\denot{\mc{M}}{#1}$}}
+%\newcommand{\meantwo}[2]{\mbox{$\mc{M}[#1]\:#2$}}
+\newcommand{\meantwo}[2]{\mbox{$\denot{\mc{M}}{#1}\:#2$}}
+%\newcommand{\mcond}[3]{\mbox{$#1\,$?$\,\rarrls #2,\,#3$}} 
+\newcommand{\deddom}{\mbf{Ded}}
+\newcommand{\deddomsp}{\mbf{Ded} }
+\newcommand{\abspace}{\mbf{AB}}
+\newcommand{\abspacesp}{\mbf{AB} }
+\newcommand{\propdom}{\mbf{Prop}}
+\newcommand{\propdomsp}{\mbf{Prop }}
+\newcommand{\evrule}{\mbf{even-next}}
+\newcommand{\evrulesp}{\mbf{even-next} }
+\newcommand{\zeroevrule}{\mbf{zero-even}}
+\newcommand{\zeroevrulesp}{\mbf{zero-even} }
+\newcommand{\zeroevrulename}{\tem{ZeroEven}}
+\newcommand{\zeroevrulenamesp}{\tem{ZeroEven} }
+\newcommand{\odrule}{\mbf{odd-next}}
+\newcommand{\odrulesp}{\mbf{odd-next} }
+\newcommand{\evrulename}{\temv{EvenNext}}
+\newcommand{\evrulenamesp}{\temv{EvenNext} }
+\newcommand{\odrulename}{\temv{OddNext}}
+\newcommand{\odrulenamesp}{\temv{OddNext} }
+\newcommand{\comprulename}{\temv{Comp}}
+\newcommand{\comprulenamesp}{\temv{Comp} }
+\newcommand{\claimrulename}{\temv{Claim}}
+\newcommand{\claimrulenamesp}{\temv{Claim} }
+
+\newcommand{\cndzprovesls}{\mbox{$\:\vdash_{\mbox{\scriptsize \cndz}}\:$}}
+\newcommand{\cndzproves}{\mbox{$\vdash_{\mbox{\scriptsize \cndz}}$}}
+\newcommand{\cndzprovesp}{\mbox{$\vdash_{\mbox{\scriptsize \cndz}}$} }
+\newcommand{\ncndzprovesls}
+{\mbox{$\:\not{\hspace*{-0.007in}\vdash_{\scriptsize \cndz}}\:$}}
+
+
+\newcommand{\truerulename}{\temv{True}}
+\newcommand{\truerulenamesp}{\mbox{\em True\/} }
+\newcommand{\falserulename}{\temv{False}}
+\newcommand{\falserulenamesp}{\mbox{\em False\/} }
+
+\newcommand{\assumerulename}{\temv{Assume}}
+\newcommand{\assumerulenamesp}{\temv{Assume} }
+
+
+
+\newcommand{\pab}{\mbox{$\phi$}}
+\newcommand{\pabsp}{\mbox{$\phi$} }
+
+\newcommand{\buildcert}{\smtt{generate-certificate}}
+\newcommand{\buildcertsp}{\smtt{generate-certificate} }
+
+\newcommand{\buildcerttext}{\text{generate-certificate}}
+\newcommand{\buildcerttextsp}{\text{generate-certificate} }
+
+

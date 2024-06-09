@@ -1,0 +1,2865 @@
+
+\chapter{Induction: Proof by Induction}
+
+\section{Proof by Induction}
+
+In the last chapter we proved that \smtt{Zero} is a neutral left element for addition. 
+It is also a neutral element for addition on the right:
+\begin{tcAthena}
+define plus-n-Z := (forall n . n + 0 = n)
+\end{tcAthena}
+However, proving this requires induction.
+
+In Athena, this can be proved automatically with the built-in method \smtt{induction*}:
+\begin{tcAthena}
+> (!induction* plus-n-Z)
+
+Theorem: (forall ?n:Nat
+           (= (plus-nat ?n:Nat Zero)
+              ?n:Nat))
+\end{tcAthena}
+But here is a {\em declarative\/} proof of it (make sure to retract \smtt{plus-n-Z} first):
+\begin{tcAthena}
+by-induction plus-n-Z {  
+  Zero => (!chain [(Zero + Zero) = Zero   [plus-nat-def]])
+| (Succ k) => let {ih := (k + 0 = k)} 
+                   # ih is our inductive hypothesis; it's already in the a.b. 
+                (!chain [((Succ k) + 0) 
+                       = (Succ (k + 0))   [plus-nat-def]
+                       = (Succ k)         [ih]])
+}
+\end{tcAthena}
+This proof could be shortened, e.g., we could omit the explicit justifications:
+\begin{tcAthena}
+by-induction plus-n-Z {  
+  Zero     => (!chain [(Zero + Zero) = Zero])
+| (Succ k) => (!chain [((Succ k) + 0) = (Succ (k + 0)) = (Succ k)])
+}
+\end{tcAthena}
+Here is the corresponding proof in Idris:
+\begin{idris}
+plus_n_Z : (n : Nat) -> n = n + 0
+plus_n_Z Z = Refl
+plus_n_Z (S k) =
+  let inductiveHypothesis = plus_n_Z k in
+    rewrite inductiveHypothesis in Refl
+\end{idris}
+Note that this is a purely {\em procedural\/} proof script, not a declarative proof. It is not at all
+clear how the rewriting is done---what the rewriting steps are or how they are justified. 
+\begin{tcAthena}
+conclude minus-diag := (forall n . n - n = Zero)
+  by-induction minus-diag {
+    Zero => (!chain [(Zero - Zero) = Zero          [minus-nat-def]])
+  | (Succ k) => let {ih := (k - k = Zero)}
+                  (!chain [((Succ k) - (Succ k))
+                         = (k - k)                 [minus-nat-def]
+                         = Zero                    [ih]])
+  }
+\end{tcAthena}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 1.0.1, p. 28)}}}]
+Prove: \smtt{define mult-0-r := (forall n . n * Zero = Zero)}.
+\end{exercise}
+\begin{solution}
+We need a few lemmas first, whose proofs are left as exercises:
+\begin{tcAthena}
+define plus-n-Sm := (forall n m . Succ (n + m) = n + Succ m)
+
+define plus-comm := (commutative +)
+
+define plus-assoc := (associative +)
+\end{tcAthena}
+Using the above results, \smtt{mult-0-r} can be proved as follows:
+\begin{tcAthena}
+
+\end{tcAthena}
+\end{solution}
+\clearpage
+\begin{exercise}
+%\vspace*{-0.1in}
+Prove the following (informally, in English): \mtt{(forall n . even n <==> \url{~}$\ls$even Succ n)}. 
+\end{exercise}
+
+\begin{solution}[print=true]
+We use structural induction. When \mtt{n} is \mtt{Zero}, we need to show \mtt{(\url{~}$\ls$even Succ Zero)}, which follows
+directly from the definition of \mtt{even}. 
+
+For the inductive case, assume that \mtt{n} is of the form \mtt{(Succ k)}, so that our inductive hypothesis becomes
+\begin{equation}
+\mtt{(even k <==> \url{~}$\ls$even Succ k)}
+\label{Eq:IndHyp}
+\end{equation}
+We now need to derive the following conditional:
+\begin{equation}
+\mtt{(even Succ k <==> \url{~}$\ls$even Succ Succ k)}. 
+\label{Eq:Goal1}
+\end{equation}
+
+In the left-to-right direction, assume \mtt{(even Succ k)}. Then, from the inductive hypothesis~(\ref{Eq:IndHyp})
+we infer 
+\begin{equation}
+\mtt{(\tneg even k)}.
+\label{Eq:Aux1}
+\end{equation}
+But, by the definition of \mtt{even}, we have 
+\begin{equation}
+\mtt{(even Succ Succ k <==> even k)},
+\label{Eq:EvenDef}
+\end{equation}
+thus~(\ref{Eq:Aux1}) becomes the desired conclusion \mtt{(\tneg even Succ Succ k)}.
+
+For the right-to-left direction of the goal~(\ref{Eq:Goal1}), assume \mtt{(\tneg even Succ Succ k)}. 
+By using~(\ref{Eq:EvenDef}) again (the definition of \mtt{even}), this assumption yields 
+\mtt{(\tneg even k)}, and applying the inductive hypothesis~(\ref{Eq:IndHyp}) to 
+\mtt{(\tneg even k)} yields the desired conclusion \mtt{(even Succ k)}. 
+\end{solution}
+
+\begin{exercise}[subtitle={Foo Bar}]
+%\vspace*{-0.1in}
+Prove the same result in Athena: \mtt{(forall n . even n <==> \url{~}$\ls$even Succ n)}. 
+\end{exercise}
+\begin{solution}[print=true]
+\begin{tcAthena}
+  by-induction evenb_S {
+    Zero => (!chain [(even Zero) 
+                <==> (~ even Succ Zero)                   [even-def]])
+  | (Succ k) => let {ih := (even k <==> ~ even Succ k)}
+                  (!chain [(even Succ k)
+                      <==> (~ even k)                     [ih]
+                      <==> (~ even Succ Succ k)           [even-def]])
+  }
+\end{tcAthena}
+%Foo bar. 
+\end{solution}
+
+
+\end{document}
+
+\section{Defining Functions with (Conditional) Equations}
+
+Let's say we have used \kwd{declare} to introduce
+a new function symbol $f$. The next step 
+is usually to define $f$. To (partially) 
+{\em define\/}  $f$ is to introduce a number of axioms that specify a 
+unique output value for $f$ for  any (resp. some) 
+input values.
+
+The difference between partial vs. full function definitions
+can be illustrated with the following example: Write a (polymorphic)
+binary function \mtt{at} that takes a list $l$ of items (of any sort) and a natural
+number $n$ and produces the \nth{n} item of $l$ (counting from zero, as usual, so
+\mtt{(5::6::nil at 0)} should give 5 and \mtt{(5::6::nil at 1)} should return 6).
+This specification does not say anything about what should happen if the index $n$
+lies outside of the range of indices of $l$, \egnsp, it doesn't say what should be
+the result of \mtt{(5::6::nil at 23)}. So the following partial definition is acceptable:
+\begin{tcAthena}
+declare at: (T) [(List T) N] -> T [[(alist->list int->nat) int->nat]]
+
+define [n m h t t'] := [?n:N ?m:N ?h:'T ?t:(List 'T) ?t':(List 'T)]
+
+assert* at-def := [(h::_ at 0 = h)
+                   (_::t at S n = t at n)]
+
+>(eval ['a 'b] at 0)
+
+Term: 'a
+
+>(eval ['a 'b] at 1)
+
+Term: 'b
+
+>(eval ['a 'b] at 7)
+
+Unable to reduce the term:
+ 
+(at (:: 'a
+        (:: 'b
+            nil))
+    (S (S (S (S (S (S (S zero))))))))
+ 
+to a normal form.
+
+Unit: ()
+\end{tcAthena}
+
+A full definition, by contrast, would specify a value for any possible pair of inputs. This could be done, for example, with options,
+so that \mtt{(5::6::nil at 0)} returns \mtt{(SOME 5)} whereas \mtt{(5::6::nil at 7)} returns \mtt{NONE}:
+\begin{tcAthena}
+declare at': (T) [(List T) N] -> (Option T) [[(alist->list int->nat) int->nat]]
+overload @ at'
+
+assert* at'-def := [([] @ _ = NONE)
+                    (h::_ @ 0 = SOME h)
+                    (_::t @ S n = t @ n)]
+
+> (eval ['a 'b] @ 0)
+
+Term: (SOME 'a)
+
+> (eval ['a 'b] @ 1)
+
+Term: (SOME 'b)
+
+> (eval ['a 'b] @ 2)
+
+Term: NONE
+\end{tcAthena}
+
+So far the only way we have seen to define a function is to assert a number of equational axioms that
+specify the value of the function for all (or some) combinations of inputs (depending on whether
+the definition is intended to be complete). The axioms may be conditional. For instance, here is one
+possible definition of \mtt{min}, a binary function that returns the smallest of two given natural numbers:
+\begin{tcAthena}
+declare min: [N N] -> N [[int->nat int->nat]]
+define [< <=] := [N.< N.<=]
+define [n m k] := [N.n N.m N.k]
+transform-output eval [nat->int]
+
+assert* min-def := 
+   [(k <= n ==> k min n = k)
+    (n < k  ==> k min n = n)]
+
+> (eval 3 min 5)
+
+Term: 3
+
+> (eval 5 min 2)
+
+Term: 2
+\end{tcAthena}
+In this approach every element of the list of defining axioms is a (possibly conditional) equation, and the order
+in which the axioms are given is immaterial. This works well for a wide class of use cases, but even with such
+a simple example as \mtt{min} we can already see its limitations. It is much more natural to define \mtt{min} with
+an if-then-else expression:
+\[ \temv{min}(x,y) = \temv{if $x \leq y$ then $x$ else $y$}.\]
+Athena does have an if-then-else operator, \mtt{ite}, which can be used with the purely equational approach: 
+\begin{tcAthena}
+declare min': [N N] -> N [[int->nat int->nat]]
+
+assert* min'-def := [(n min' k = ite (n <= k) n k)]
+
+> (eval 2 min' 3)
+
+Term: 2
+\end{tcAthena}
+
+However, the shortcomings of the purely equational approach extend beyond if-then-else.
+Functional programmers, for instance, are used to writing function definitions with {\em pattern matching},
+and the {\em order\/} in which these are listed is crucial. As an example, consider the following: 
+\begin{tcAthena}
+datatype Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun
+
+define [d d1 d2] := [?d:Day ?d1:Day ?d2:Day]
+\end{tcAthena}
+and suppose we need to define a unary function \mtt{weekendDay} that takes a \mtt{Day} $d$ and returns \mtt{true} if $d$
+is \mtt{Sat} or \mtt{Sun} and false otherwise. A functional programmer using a language like SML would define this as follows:
+\begin{tcAthena}
+fun weekendDay(Sat) = true
+  | weekendDay(Sun) = true
+  | weekendDay(_) = false
+\end{tcAthena}
+where, again, the order of these defining clauses is crucial.
+In the purely equational approach we have two choices: We can either bite the bullet and give a long list of defining axioms:
+\begin{tcAthena}
+declare weekendDay: [Day] -> Boolean
+
+assert* weekendDay-def :=
+  [(weekend Sat = true)
+   (weekend Sun = true)
+   (weekend Mon = false)
+   ...
+   (weekend Fri = false)]
+\end{tcAthena}
+or else we could use \mtt{ite}: 
+\begin{tcAthena}
+assert* weekendDay-def := [(weekendDay d = ite (d = Sat | d = Sun) true false)]
+
+> (eval weekendDay Sun)
+
+Term: true
+
+> (eval weekendDay Tue)
+
+Term: false
+\end{tcAthena}
+However, what we \emph{cannot} do in the purely equational approach is emulate the functional definition given above in SML.
+
+In addition to order-sensitive pattern matching and the user of trailing wildcard patterns, 
+there other useful mechanisms for defining functions that cannot be directly emulated in the purely equational approach,
+such as pattern-based case analyses. For instance, consider a zipping function that takes two lists of elements $l_1$
+and $l_2$ of the same length and ``zips'' them together by bundling corresponding elements into pairs. Again, this allows
+for full and for partial definitions. The partial definition can be easily accommodated in the purely equational approach:
+\begin{tcAthena}
+declare zip: (S, T) [(List S) (List T)] -> (List (Pair S T))
+                           [[(alist->list id) (alist->list id)]]
+
+define [h h1 h2 t t1 t2 l l1] := [?h ?h1 ?h2 ?t ?t1 ?t2 ?l ?l1]
+
+assert* zip-def := [(nil zip nil = nil)
+                    (h1::t1 zip h2::t2 = (h1 @ h2)::(t1 zip t2))]
+
+>(eval [1 2] zip ['a 'b])
+
+Term: (:: (pair 1 'a)
+          (:: (pair 2 'b)
+              nil:(List (Pair Int Ide))))
+
+>(eval [1 2] zip ['a])
+
+Unable to reduce the term:
+ 
+(zip (:: 1
+         (:: 2
+             nil))
+     (:: 'a
+         nil))
+ 
+to a normal form.
+
+Unit: ()
+\end{tcAthena}
+
+However, suppose we wanted to give a \emph{total} definition of \mtt{zip}, \egnsp, by returning optional results:
+\begin{tcAthena}
+declare zip: (S, T) [(List S) (List T)] -> (Option (List (Pair S T)))
+                           [[(alist->list id) (alist->list id)]]
+\end{tcAthena}
+In a functional language such as SML, that could be done with a definition like this one:
+\begin{tcAthenaWithNumbers}
+fun zip([],[]) = SOME([])
+  | zip(h1::t1,h2::t2) =
+      (case zip(t1,t2) of
+         SOME(t) => SOME((h1,h2)::t)
+       | _ => NONE)
+  | zip(_,_) = NONE
+
+> zip([1,2],["a","b"])
+
+val it = SOME [(1,"a"),(2,"b")] : (int * string) list option
+\end{tcAthenaWithNumbers}
+This is not easy to replicate in a purely equational approach. The main problem is the case analysis that introduces
+intermediate existentially quantified variables.
+\begin{tcAthenaWithNumbers}
+assert* zip-def :=
+  [(nil zip nil = SOME nil)
+   (nil zip _::_ = NONE)
+   (_::_ zip nil = NONE)
+   (h1::t1 zip h2::t2 = ite (t1 zip t2 = ???) ... ...)]
+\end{tcAthenaWithNumbers}
+We could try replacing the question marks with something like \mtt{SOME l}, but that would give rise
+to an equation that could not be used as a rewrite rule, because its right-hand side would
+contain variables that do not appear on the left-hand side. Another drawback of the equational
+approach is that we had to explicitly write the clauses on lines 3 and 4, to handle inputs of the form \mtt{(nil zip \_::\_)}
+and \mtt{(\_::\_ zip nil)}, whereas the ML definition above handled both of these cases by the trailing wildcard-pattern clause
+\mtt{zip(\_,\_) = NONE}.
+
+This example is still simple enough that we could handle it with purely conditional equations:
+\begin{tcAthena}
+assert* zip-def :=
+   [(nil zip nil = SOME nil) 
+    (t1 zip t2 = SOME t ==> h1::t1 zip h2::t2 = SOME (h1 @ h2)::t)
+    (t1 zip t2 = NONE ==> h1::t1 zip h2::t2 = NONE)
+    (nil zip _::_ = NONE)
+    (_::_ zip nil = NONE)
+    (_::_ zip nil = NONE)]
+
+>(eval [1 2] zip ['a 'b])
+
+Term: (SOME (:: (pair 1 'a)
+                (:: (pair 2 'b)
+                    nil:(List (Pair Int Ide)))))
+
+>(eval [1 2] zip ['a])
+
+Term: NONE:(Option (List (Pair Int Ide)))
+\end{tcAthena}
+However, this is again less succinct than the ML definition; we again had to explicitly handle a number of clauses
+that the ML definition handled implicitly by virtue of using order-sensitive pattern matching. 
+
+The next section introduces an alternative mechanism for defining functions, the \mtt{fun-def} procedure,
+that emulates functional-programming definitions and can be more convenient and succinct than the purely
+equational approach.
+
+\section{Defining Functions with \mtt{fun-def}}
+
+The \mtt{fun-def} procedure takes as input
+a list of defining {\em clauses}, processes them, and outputs
+a number of axioms (universally quantified sentences) that 
+can then be handed off to \mtt{assert}, which will insert 
+them into the assumption base. There are several bells and
+whistles that come with \mtt{fun-def} which simplify 
+the task of definining functions. Let us revisit the natural
+numbers and use \mtt{fun-def} to define some of the usual 
+functions on them.
+\begin{tcAthena}
+load "nat-plus"
+load "fundef"
+
+declare Plus, Minus, Times: [N N] -> N [[int->nat int->nat]]
+overload (+ Plus) (- Minus) (* Times)
+define [n m k] := [?n:N ?m:N ?k:N]
+
+\end{tcAthena}
+We can now go ahead and define addition with \mtt{fun-def} as follows:
+\begin{tcAthena}
+> assert plus-def := 
+    (fun-def [(0 + n) --> n
+              (S n + m) --> (S (n + m))])
+
+The sentence 
+(forall ?n:N
+  (= (Plus zero ?n:N)
+     ?n:N))
+has been added to the assumption base.
+
+The sentence 
+(forall ?m:N
+  (forall ?n:N
+    (= (Plus (S ?n:N)
+             ?m:N)
+       (S (Plus ?n:N ?m:N)))))
+has been added to the assumption base.
+\end{tcAthena}
+
+Each defining clause in the list argument given to \mtt{fun-def}
+was of the form $$\mtt{(Plus $\cdots$) \mtt{-}\mtt{-}> $t$}$$  except of course
+that we freely used infix, overloading, input expansion, \etc, 
+in writing both of the terms flanking the symbol \mtt{-}\mtt{->}.
+For instance, we wrote \mtt{(0 + n)} as a shorthand for \mtt{(Plus zero ?n:N)}. 
+There were two such defining clauses for \mtt{Plus}. Optionally, the 
+clauses may be separated by a vertical bar, so we could have written:
+\begin{tcAthena}
+assert plus-def :=
+    (fun-def [(0 + n) --> n
+            | (S n + m) --> (S (n + m))])
+\end{tcAthena}
+For longer definitions this helps to demarcate the clauses a little more clearly. 
+%% Also, it is not necessary to use the symbol \mtt{-->};\footnote{By the way, \fmtt{-->}
+%% is simply a constant term of sort \fmtt{Boolean}, although that is not of any particular
+%% significance. It could have been declared as a constant of any other sort,
+%% or indeed we could have defined \fmtt{-->} to be, \egnsp, the unit value \fmtt{()}. 
+%% All that is needed is the ability to recognize it as a distinct value
+%% and compare it to other values for equality. By contrast, the token \fmtt{=>} 
+%% used in \fmtt{match} and \fmtt{check} clauses is a reserved keyword, as is 
+%% the token \fmtt{->} used in \fmtt{declare} directives.} we could use the equality
+%% symbol \mtt{=} if we prefer:
+%% \begin{tcAthena}
+%% assert plus-axioms := 
+%%     (fun-def [(0 + y) = y
+%%             | ((s x) + y) = (s (x + y))])
+%% \end{tcAthena}
+%% But the symbol \mtt{-->} is more visually striking and usually
+%% helps to clarify the structure of the definition. 
+
+We stress that \mtt{fun-def} is a {\em procedure}. It takes a list 
+as a single argument, tries to extract defining clauses from that 
+list, and then transforms those clauses into a properly structured
+set of universally quantified axioms that are finally passed to 
+\kwd{assert}.\footnote{And because the quantification is already
+done by \fmtt{fun-def}, there is no reason to use \fkwd{assert*}; we 
+can make do with \fkwd{assert}.} Of course the fact that \mtt{fun-def}
+is a regular procedure means that we can invoke it just like any
+other procedure: 
+\begin{tcAthena}
+define clauses := [(0 + n) --> n
+                 | (S n + m) --> (S (n + m))]
+
+> (fun-def clauses)
+
+List: [[[Plus [
+(forall ?n:N
+  (= (Plus zero ?n)
+     ?n))
+ 
+(forall ?m:N
+  (forall ?n:N
+    (= (Plus (S ?n)
+             ?m)
+       (S (Plus ?n ?m)))))
+]]] []]
+\end{tcAthena}
+The output of \mtt{fun-def} has a standard structure. It's always a pair (two-element list)
+consisting of (1) a list of defining {\em blocks}; and (2) a list of {\em bindings}. 
+Each defining block is a pair of the form \mtt{[$f$ [$p_1 \cdots p_{k_f}$]]}, where
+$f$ is a function symbol and \mtt{[$p_1 \cdots p_{k_f}$]} is a list of defining
+equations for $f$, expressed as universally quantified sentences. 
+Bindings, as we will see shortly, are associations between names 
+and some of the defining clauses. Why does \mtt{fun-def} produce an entire 
+list of ``blocks''?  In short, because in the general case \mtt{fun-def} 
+handles mutually recursive definitions. For instance:
+\begin{tcAthena}
+declare even, odd: [N] -> Boolean [[int->nat]]
+
+define even-odd-def := 
+  (fun-def [(even zero) --> true
+          | (even S n) --> (odd n)
+          | (odd zero) --> false
+          | (odd S n) --> (even n)])
+
+> even-odd-def
+
+List:
+[
+[[odd [
+(= (odd zero)
+   false)
+ 
+(forall ?n:N
+  (= (odd (S ?n))
+     (even ?n)))
+      ]
+]
+[even [
+(= (even zero)
+   true)
+ 
+(forall ?n:N
+  (= (even (S ?n))
+     (odd ?n)))
+]]
+]
+  []
+]
+\end{tcAthena}
+Of course, the fact that the output of \mtt{fun-def} is directly piped
+into \kwd{assert} means that \kwd{assert} can handle inputs of the
+corresponding form, namely, pairs consisting of defining blocks and
+bindings. This kind of input is only given to \kwd{assert} 
+by \mtt{fun-def}; users don't need to explicitly write, by hand, 
+assertions of nested lists of blocks and bindings. So \kwd{assert}
+obviously provides some native support for \mtt{fun-def}.  At any rate, 
+the precise structure of the output produced by \mtt{fun-def} is not 
+important. All that matters is that \mtt{fun-def} takes as input a 
+list of defining clauses written in an intuitive notation, processes
+them appropriately, and produces a certain kind of output that is
+natively understood and properly handled by \kwd{assert}:
+\begin{tcAthena}
+> assert even-odd-def
+
+The sentence 
+(= (odd zero)
+   false)
+has been added to the assumption base.
+
+The sentence 
+(forall ?n:N
+  (= (odd (S ?n:N))
+     (even ?n:N)))
+has been added to the assumption base.
+
+The sentence 
+(= (even zero)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(forall ?n:N
+  (= (even (S ?n:N))
+     (odd ?n:N)))
+has been added to the assumption base.
+
+>(eval even 10)
+
+Term: true
+
+>(eval even 11)
+
+Term: false
+\end{tcAthena}
+
+An individual clause may be named simply by inserting a meta-identifier 
+immediately after the right-hand side of the clause. For instance:
+\begin{tcAthena}
+> assert times-def := 
+    (fun-def [(zero * _) --> zero        'times-axiom-1
+            | (S n * m) --> (m + n * m)  'times-axiom-2])
+
+The sentence 
+(forall ?v1011:N
+  (= (Times zero ?v1011:N)
+     zero))
+has been added to the assumption base.
+
+The sentence 
+(forall ?m:N
+  (forall ?n:N
+    (= (Times (S ?n:N)
+              ?m:N)
+       (Plus ?m:N
+             (Times ?n:N ?m:N)))))
+has been added to the assumption base.
+\end{tcAthena}
+The above directive not only gave the collective name \mtt{times-def} to the
+entire list of axioms produced by \mtt{fun-def}, but also
+updated the global environment to bind the names \mtt{times-axiom-1}
+and \mtt{times-axiom-2} to the respective axioms:
+\begin{tcAthena}
+> times-axiom-1
+
+Sentence: (forall ?v1011:N
+            (= (Times zero ?v1011:N)
+               zero))
+
+> times-axiom-2
+
+Sentence: (forall ?m:N
+            (forall ?n:N
+              (= (Times (S ?n:N)
+                        ?m:N)
+                 (Plus ?m:N
+                       (Times ?n:N ?m:N)))))
+
+> times-def 
+
+List: [
+(forall ?m:N
+  (forall ?n:N
+    (= (Times (S ?n)
+              ?m)
+       (Plus ?m
+             (Times ?n ?m)))))
+ 
+(forall ?v1011:N
+  (= (Times zero ?v1011)
+     zero))
+]
+\end{tcAthena}
+We can see the association between the given names and the corresponding axioms
+if we examine the second element of the list value produced by \mtt{fun-def},
+the ``bindings'' part:
+\begin{tcAthena}
+define L := (fun-def [(zero * _) --> zero        'times-axiom-1
+                    | (S n * m) --> (m + n * m)  'times-axiom-2])
+
+> (second L)
+
+List: [['times-axiom-1 
+(forall ?v1029:N
+  (= (Times zero ?v1029)
+     zero))
+] ['times-axiom-2 
+(forall ?m:N
+  (forall ?n:N
+    (= (Times (S ?n)
+              ?m)
+       (Plus ?m
+             (Times ?n ?m)))))
+]]
+\end{tcAthena} 
+The implementation of \kwd{assert} makes sure to augment
+the top-value environment with the corresponding bindings. 
+
+It is not necessary to name every single clause. We can provide
+names to any subset of the given clauses (including none, of course). 
+For instance, the following will only name the first axiom
+in the definition of \mtt{Times}:
+\begin{tcAthena}
+assert times-def :=
+      (fun-def [(zero * _) --> zero        'times-axiom-1
+              | (S n * m) --> (m + n * m)])
+\end{tcAthena}
+Names can also be given to any (none, some, or all) individual clauses 
+in mutually recursive definitions: 
+\begin{tcAthena}
+assert even-odd-def :=  
+  (fun-def [(even zero) --> true     'even-base-case
+          | (even S n) --> (odd n)   'even-ind-case
+          | (odd zero) --> false     'odd-base-case 
+          | (odd S n) --> (even n)   'odd-ind-case])
+
+> odd-base-case 
+
+Sentence: (= (odd zero)
+             false)
+\end{tcAthena}
+
+If several clauses share the same right-hand side, it is possible to
+list all the left-hand sides together, separated by a
+vertical bar. For instance, consider the usual recursive definition of 
+the Fibonacci function. One way to define it with \mtt{fun-def} 
+is this:\footnote{Sometimes the Fibonnaci sequence is defined to 
+have 0 as its first value, but here we adopt the other definition
+to illustrate a point.}
+\begin{tcAthena}
+declare fib: [N] -> N [[int->nat]]
+
+define one := (S zero)
+
+assert fib-def :=
+  (fun-def [(fib 0)   --> one
+          | (fib one) --> one
+          | (fib S S n) --> ((fib S n) + (fib n))])
+
+transform-output eval [nat->int]
+
+> (eval fib 4)
+
+Term: 5
+\end{tcAthena}
+Using the convention just described, we could instead give
+the following (somewhat shorter) definition:
+\begin{tcAthena}
+  (fun-def [(fib 0) | (fib one) --> one
+          | (fib S S n) --> ((fib S n) + (fib n))])
+\end{tcAthena}
+A name can be given to a list of collapsed cases as usual,
+by inserting a meta-identifier immediately after the right-hand
+side. For instance, the following would give the value 
+$$\mtt{[(fib zero = S zero) (fib S zero = S zero)]}$$
+to the name \mtt{fib-base-cases}: 
+\begin{tcAthena}
+assert (fun-def [(fib 0) | (fib one) --> one 'fib-base-cases
+               | (fib S S n) --> ((fib S n) + (fib n))])
+\end{tcAthena}
+And an example of a predicate definition:
+\begin{tcAthena}
+declare less: [N N] -> Boolean [< [int->nat int->nat]]
+
+assert less-def := 
+  (fun-def [(_ < zero) --> false
+          | (zero < S _) --> true
+          | (S n < S m) --> (n < m)])
+
+
+> (eval 2 < 3)
+
+Term: true
+
+> (eval 1 < 1)
+
+Term: false
+\end{tcAthena}
+
+So far we have only seen defining clauses of the form \mtt{$s$ --> $t$},
+where both $s$ and $t$ are terms. But in general the right-hand side
+$t$ can be either a term or a {\em list\/} of the form 
+$$\mtt{[$c_1$ --> $t_1$ $\cdots$ $c_n$ --> $t_n$]}$$
+where each $c_i$ is a \mtt{Boolean} term, called a {\em guard\/}
+in this context, and $t_i$ is a regular term. We say that each 
+\mtt{$c_i$ --> $t_i$} is a {\em guard clause}. Guard clauses
+may optionally be separated by vertical bars (signifying 
+the disjunction operator).  The interpretation
+of a defining clause of the form 
+$$\mtt{$s$ --> [$c_1$ --> $t_1$ $\cdots$ $c_n$ --> $t_n$]},$$
+is that {\em if\/} $c_1$ is true then $s$ is defined to be $t_1$;
+if $c_2$ is true {\em and\/} $c_1$ is {\em not\/} true then 
+the value of $s$ is defined as $t_2$; and
+so on. Thus, a clause of this form gives rise to a number of order-sensitive 
+{\em conditional equations}. Optionally, the last guard $c_n$
+may be either an underscore or the constant \mtt{true}, in which
+case the corresponding condition becomes simply the conjunction
+of the negations of all preceding guards. 
+Here is an example that defines a minimum function on the 
+natural numbers: 
+\begin{tcAthena}
+declare min: [N N] -> N [[int->nat int->nat]]
+
+> assert min-def :=
+    (fun-def [(min n m) --> [(n < m) --> n
+                             _ --> m]])
+
+The sentence 
+(forall ?m:N
+  (forall ?n:N
+    (if (less ?n:N ?m:N)
+        (= (min ?n:N ?m:N)
+           ?n:N))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?m:N
+  (forall ?n:N
+    (if (not (less ?n:N ?m:N))
+        (= (min ?n:N ?m:N)
+           ?m:N))))
+has been added to the assumption base.
+
+> (eval 2 min 5)
+
+Term: 2
+\end{tcAthena}
+As another example, let us define a search function to look up a key in 
+a binary search tree:
+\begin{tcAthena}
+datatype NatTree := empty | (node N NatTree NatTree)
+
+expand-input node [int->nat id id]
+
+define [l r] := [?l ?r]
+
+declare in: [N NatTree] -> Boolean [[int->nat id]]
+
+> assert in-def :=
+    (fun-def [(_ in empty) --> false
+            | (k in node n l r) -->  [(k = n) --> true
+                                    | (k < n) --> (k in l)
+                                    | _ --> (k in r)]])
+
+List: [[[in [
+(forall ?v1246:N
+  (= (in ?v1246 empty)
+     false))
+ 
+(forall ?k:N
+  (forall ?l:NatTree
+    (forall ?n:N
+      (forall ?r:NatTree
+        (if (= ?k ?n)
+            (= (in ?k
+                   (node ?n ?l ?r))
+               true))))))
+ 
+(forall ?k:N
+  (forall ?l:NatTree
+    (forall ?n:N
+      (forall ?r:NatTree
+        (if (and (less ?k ?n)
+                 (not (= ?k ?n)))
+            (= (in ?k
+                   (node ?n ?l ?r))
+               (in ?k ?l)))))))
+ 
+(forall ?k:N
+  (forall ?l:NatTree
+    (forall ?n:N
+      (forall ?r:NatTree
+        (if (and (not (less ?k ?n))
+                 (not (= ?k ?n)))
+            (= (in ?k
+                   (node ?n ?l ?r))
+               (in ?k ?r)))))))
+]]] []]
+
+> (eval 5 in node 2 empty empty)
+
+Term: false
+
+> (eval 5 in node 5 empty empty)
+
+Term: true
+\end{tcAthena}
+Note that because \mtt{fun-def} generates the conditions from the guards mechanically
+and in a purely syntax-driven way (without any understanding of the underlying
+semantics), these conditions may sometimes contain redundant conjuncts. An example
+is the condition of the third equation: \mtt{(k < n \& k =/= n)}.
+The second conjunct is of course redundant in view of the first; the
+entire condition could be expressed more simply as \mtt{(k < n)}. 
+This is rarely an issue in practice, however. In those cases where it might
+complicate our proofs we can always derive the simpler formulation and use 
+it as a lemma. 
+
+\begin{comment}
+When \kwd{assert} is invoked on the output of \mtt{fun-def}, it checks
+that the defining clauses for each function symbol are {\em disjoint} 
+and {\em exhaustive}. If they are not, it emits an appropriate warning.
+
+We say that a number of defining clauses 
+$$\mtt{$L_1$ --> $R_1$ $\cdots$ $L_n$ --> $R_n$}$$
+are disjoint iff there is no ground term that matches two distinct 
+left-hand sides $L_i$ and $L_j$, $i \neq j$. Non-disjoint defining clauses
+are often (though not always) written in error, and might be redundant
+at best or inconsistent at worst. For example, consider the following 
+attempted definition of the factorial function:
+\begin{tcAthena}
+declare fact: [N] -> N [[int->nat]]
+
+> assert (fun-def [(fact zero) --> one
+                   (fact zero) --> one 
+                   (fact S ?n) --> ((S ?n) * fact ?n)])
+
+The sentence 
+(= (fact zero)
+   (S zero))
+has been added to the assumption base.
+
+The sentence 
+(= (fact zero)
+   (S zero))
+has been added to the assumption base.
+
+The sentence 
+(forall ?n:N
+  (= (fact (S ?n:N))
+     (Times (S ?n:N)
+            (fact ?n:N))))
+has been added to the assumption base.
+
+[Warning, input prompt:1:8: the equational axioms defining fact are not disjoint.
+For example, at least  two distinct axioms apply to every instance of this term:
+(fact zero).]
+
+Definition of fact is complete; the given equational axioms are exhaustive.
+\end{tcAthena}
+Here Athena detected that there are two distinct equations specifying the 
+value of \mtt{(fact zero)} and issued a corresponding warning. In this case 
+the issue is only one of redundancy, as logically speaking the clauses still
+successfully define the factorial function. But non-disjoint clauses
+could potentially indicate an inconsistency, e.g.: 
+\begin{tcAthena}
+(assert (fun-def [(fact zero) --> zero 
+                  (fact zero) --> one 
+                  (fact S ?n) --> ((S ?n) * fact ?n)])
+\end{tcAthena}
+In this case if we did not retract the axioms we would end up
+with an inconsistent assumption base that would entail \mtt{(fact zero = zero)}
+and also \mtt{(fact zero = one)}, from which, of course, we could 
+easily derive \mtt{(zero = one)}. So every warning issued by \mtt{assert/fun-def}
+should be carefully examined to ensure that the definition is proper. 
+
+The other check that is performed by the \mtt{assert/fun-def} idiom 
+is for exhaustiveness. The goal here is to ensure that the definition 
+covers all possible cases, \iensp, that an output value is specified
+for all possible inputs. This is done by analyzing the left-hand
+sides of all defining clauses for a given function symbol to ensure
+that they span the space of all possible inputs. If that is not
+found to be the case, Athena issues an appropriate warning. For instance,
+the following definition of the Fibonnaci function neglects to specify
+an output value when the input value is 1, and Athena points that out:
+\begin{tcAthena}
+declare fib: [N] -> N [[int->nat]]
+
+> assert fib-def := 
+    (fun-def [(fib zero)   = one
+            | (fib s s ?n) = ((fib s ?n) + (fib ?n))])
+
+The sentence 
+(= (fib zero)
+   (S zero))
+has been added to the assumption base.
+
+The sentence 
+(forall ?n:N
+  (= (fib (S (S ?n:N)))
+     (Plus (fib (S ?n:N))
+           (fib ?n:N))))
+has been added to the assumption base.
+
+[Warning: The current equational axioms for fib are not
+exhaustive. For example, the value of every ground instance of:
+(fib (S zero))
+is currently unspecified.]
+\end{tcAthena}
+In this case we could undo the definition (by retracting 
+\mtt{fib-def}) and try again with the proper list of defining clauses. 
+
+In the presence of conditional equations, determining
+exhaustiveness is undecidable because it could be that some of
+the guards are unsatisfiable, in which case the corresponding
+left-hand side essentially remains (at least partially) undefined. 
+When there are conditional equations Athena will try its best 
+to determine whether the given clauses are exhaustive, but it 
+will not be able to claim with certainty that the clauses are 
+exhaustive. In such cases it will usually say that the clauses 
+appear to be or ``should be'' exhaustive. 
+
+Non-exhaustive definitions never merit more than a warning, 
+as in some cases we deliberately want the definition to 
+be non-exhaustive, because we intend to {\em underspecify\/} the 
+function at hand. In such cases output values for certain inputs 
+are not specified simply because such inputs are considered ill-formed 
+or out of bounds. Division by zero is one prominent example, but
+there are many others. Consider, for instance, the ``zipping'' function
+on lists, which takes two lists of the same length $n \geq 0$, 
+$L_1 = \mtt{[$s_1 \cdots s_n$]}$ and $L_2 = \mtt{[$t_1 \cdots t_n$]}$,
+and produces the list of $n$ pairs \mtt{[[$s_1$ $t_1$] $\cdots$ [$s_n$ $t_n$]]}.
+Inputs in which the two lists have different lengths are considered
+ill-formed and we might not care to specify output values for them. 
+\begin{tcAthena}
+declare zip: (S, T) [(List-Of S) (List-Of T)] -> (List-Of (Pair-Of S T)) 
+                          [[(alist->list id) (alist->list id)]]
+
+define [:: paired-with zipped-with] := [Cons Pair zip]
+
+> assert zip-def  := 
+    (fun-def [(Nil zipped-with Nil) --> Nil
+              (?h1::?t1 zipped-with ?h2::?t2) --> 
+                 ((?h1 paired-with ?h2) :: (?t1 zipped-with ?t2))]);;
+ 
+The sentence 
+(= (zip Nil:(List-Of 'S)
+        Nil:(List-Of 'T))
+   Nil:(List-Of (Pair-Of 'S 'T)))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:'S
+  (forall ?h2:'T
+    (forall ?t1:(List-Of 'S)
+      (forall ?t2:(List-Of 'T)
+        (= (zip (Cons ?h1:'S
+                      ?t1:(List-Of 'S))
+                (Cons ?h2:'T
+                      ?t2:(List-Of 'T)))
+           (Cons (Pair ?h1:'S ?h2:'T)
+                 (zip ?t1:(List-Of 'S)
+                      ?t2:(List-Of 'T))))))))
+has been added to the assumption base.
+
+[Warning: The current equational axioms for zip are not
+exhaustive. For example, the value of every ground instance of:
+(zip (Cons ?v67:'T661 ?v68:(List-Of 'T661)) Nil:(List-Of 'T662))
+is currently unspecified.]
+\end{tcAthena}
+Observe the warning: 
+\begin{tcAthena}
+[Warning: The current equational axioms for zip are not
+exhaustive. For example, the value of every ground instance of:
+(zip (Cons ?v67:'T661 ?v68:(List-Of 'T661)) Nil:(List-Of 'T662))
+is currently unspecified.]
+\end{tcAthena}
+The system realized that, for instance, if we tried to
+zip a non-empty list with the empty list 
+we would be stuck: the equations we gave do not specify
+an output value for such a case. But we may simply choose to 
+disregard such cases if they are considered to fall outside
+of \mtt{zip}'s purview. The given axioms are sufficient 
+for evaluating all uses of \mtt{zip} within that purview, \egnsp: 
+\begin{tcAthena}
+> (eval [1 2 3] zipped-with ['a 'b 'c])
+
+Term: (Cons (Pair 1 'a)
+            (Cons (Pair 2 'b)
+                  (Cons (Pair 3 'c)
+                        Nil:(List-Of (Pair-Of Int Ide)))))
+\end{tcAthena}
+for proving theorems:
+\begin{tcAthena}
+> (!chain [([1] zipped-with ['a]) = ((Pair 1 'a) :: ([] zipped-with [])) [zip-def]
+                                  = ((Pair 1 'a) :: Nil)                 [zip-def]])
+
+Theorem: (= (zip (Cons 1
+                       Nil:(List-Of Int))
+                 (Cons 'a
+                       Nil:(List-Of Ide)))
+            (Cons (Pair 1 'a)
+                  Nil:(List-Of (Pair-Of Int Ide))))
+\end{tcAthena}
+invoking external ATPs:
+\begin{tcAthena}
+define left := ([1 2 3] zipped-with ['a 'b 'c])
+
+define right := ((Pair 1 'a) :: (Pair 2 'b) :: (Pair 3 'c) :: Nil)
+
+> (!derive (left = right) [zip-def])
+
+Theorem: (= (zip (Cons 1
+                       (Cons 2
+                             (Cons 3
+                                   Nil:(List-Of Int))))
+                 (Cons 'a
+                       (Cons 'b
+                             (Cons 'c
+                                   Nil:(List-Of Ide)))))
+            (Cons (Pair 1 'a)
+                  (Cons (Pair 2 'b)
+                        (Cons (Pair 3 'c)
+                              Nil:(List-Of (Pair-Of Int Ide))))))
+\end{tcAthena}
+and so on.
+
+\end{comment}
+
+
+\section{ML-style Function Definitions}
+
+We can \mtt{fun-def} to define functions in the more conventional style used in functional programming
+by turning on the flag \mtt{mlstyle-fundef}:
+\begin{tcAthena}
+set-flag mlstyle-fundef "on" 
+\end{tcAthena}
+Here's how we could use 
+\begin{tcAthena}
+declare zip: (S, T) [(List S) (List T)] -> (Option (List (Pair S T)))
+                        [[(alist->list id) (alist->list id)]]
+
+define [h h1 h2 t t1 t2 l l1 l2] := [?h ?h1 ?h2 ?t ?t1 ?t2 ?l ?l1 ?l2]
+
+>assert zip-def := 
+   (fun-def [(nil zip nil) --> (SOME nil)
+             (zip h1::t1 h2::t2) --> 
+                [case-of (zip t1 t2) 
+                   (SOME l) --> (SOME (h1 @ h2)::l)
+	         | NONE --> NONE]
+            (_ zip _) --> NONE])
+
+The sentence 
+(= (zip nil:(List 'S)
+        nil:(List 'T))
+   (SOME nil:(List (Pair 'S 'T))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?l:(List (Pair 'S 'T))
+  (forall ?h1:'S
+    (forall ?h2:'T
+      (forall ?t1:(List 'S)
+        (forall ?t2:(List 'T)
+          (if (= (zip ?t1:(List 'S)
+                      ?t2:(List 'T))
+                 (SOME ?l:(List (Pair 'S 'T))))
+              (= (zip (:: ?h1:'S
+                          ?t1:(List 'S))
+                      (:: ?h2:'T
+                          ?t2:(List 'T)))
+                 (SOME (:: (pair ?h1:'S ?h2:'T)
+                           ?l:(List (Pair 'S 'T)))))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:'S
+  (forall ?h2:'T
+    (forall ?t1:(List 'S)
+      (forall ?t2:(List 'T)
+        (if (= (zip ?t1:(List 'S)
+                    ?t2:(List 'T))
+               NONE:(Option (List (Pair 'S 'T))))
+            (= (zip (:: ?h1:'S
+                        ?t1:(List 'S))
+                    (:: ?h2:'T
+                        ?t2:(List 'T)))
+               NONE:(Option (List (Pair 'S 'T)))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v733:(List 'S)
+  (forall ?v734:(List 'T)
+    (= (zip ?v733:(List 'S)
+            ?v734:(List 'T))
+       NONE:(Option (List (Pair 'S 'T))))))
+has been added to the assumption base.
+
+> (eval [1 2] zip ['a 'b])
+
+\end{tcAthena}
+
+
+If we did want to specify \mtt{zip} totally, one option would be 
+to make it produce {\em optional\/} results, using the \mtt{SOME}
+and \mtt{NONE} constructors of the \mtt{Option} datatype. When
+the lists are of equal length, we output \mtt{(SOME $L$)}, where
+$L$ is the regular zipped result. When the input lists are not 
+of equal length, we output \mtt{NONE}: 
+\begin{tcAthena}
+declare zip: (S, T) [(List-Of S) (List-Of T)] -> (Option (List-Of (Pair-Of S T)))
+                          [[(alist->list id) (alist->list id)]]
+
+define [:: paired-with zipped-with] := [Cons Pair zip]
+
+> assert zip-def  := 
+    (fun-def [(Nil zipped-with Nil) --> (SOME Nil)
+            | (?h1::?t1 zipped-with ?h2::?t2) -->
+                  [(?t1 zipped-with ?t2 = SOME ?L) --> (SOME (?h1 paired-with ?h2)::?L)
+                 | _ --> NONE]
+            | (Nil zipped-with _::_) --> NONE
+            | (_::_ zipped-with Nil) --> NONE])
+       
+The sentence 
+(= (zip Nil:(List-Of 'S)
+        Nil:(List-Of 'T))
+   (SOME Nil:(List-Of (Pair-Of 'S 'T))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?L:(List-Of (Pair-Of 'S 'T))
+  (forall ?h1:'S
+    (forall ?h2:'T
+      (forall ?t1:(List-Of 'S)
+        (forall ?t2:(List-Of 'T)
+          (if (= (zip ?t1:(List-Of 'S)
+                      ?t2:(List-Of 'T))
+                 (SOME ?L:(List-Of (Pair-Of 'S 'T))))
+              (= (zip (Cons ?h1:'S
+                            ?t1:(List-Of 'S))
+                      (Cons ?h2:'T
+                            ?t2:(List-Of 'T)))
+                 (SOME (Cons (Pair ?h1:'S ?h2:'T)
+                             ?L:(List-Of (Pair-Of 'S 'T)))))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:'S
+  (forall ?h2:'T
+    (forall ?t1:(List-Of 'S)
+      (forall ?t2:(List-Of 'T)
+        (if (= (zip ?t1:(List-Of 'S)
+                    ?t2:(List-Of 'T))
+               NONE:(Option (List-Of (Pair-Of 'S 'T))))
+            (= (zip (Cons ?h1:'S
+                          ?t1:(List-Of 'S))
+                    (Cons ?h2:'T
+                          ?t2:(List-Of 'T)))
+               NONE:(Option (List-Of (Pair-Of 'S 'T)))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v53:'S
+  (forall ?v54:(List-Of 'S)
+    (= (zip Nil:(List-Of 'T)
+            (Cons ?v53:'S
+                  ?v54:(List-Of 'S)))
+       NONE:(Option (List-Of (Pair-Of 'T 'S))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v55:'S
+  (forall ?v56:(List-Of 'S)
+    (= (zip (Cons ?v55:'S
+                  ?v56:(List-Of 'S))
+            Nil:(List-Of 'T))
+       NONE:(Option (List-Of (Pair-Of 'S 'T))))))
+has been added to the assumption base.
+
+Definition of zip is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+We now have, \egnsp:
+\begin{tcAthena}
+> (eval [1 2] zipped-with ['a])
+
+Term: NONE:(Option (List-Of (Pair-Of Int Ide)))
+
+> (eval [1 2] zipped-with ['a 'b])
+
+Term: (SOME (Cons (Pair 1 'a)
+                  (Cons (Pair 2 'b)
+                        Nil:(List-Of (Pair-Of Int Ide)))))
+\end{tcAthena}
+
+Let us examine the axioms that Athena produced for the guard clauses:
+\begin{tcAthena}
+(?h1::?t1 zipped-with ?h2::?t2) -->
+    [(?t1 zipped-with ?t2 = SOME ?L) --> (SOME (?h1 paired-with ?h2)::?L)
+    | _ --> NONE]
+\end{tcAthena}
+Note here that the variable \mtt{?L} in the first guard does {\em not\/}
+appear in the left-hand side being defined, namely, in the term
+\mtt{(?h1::?t1 zipped-with ?h2::?t2)}. In fact, it is essentially an existentially
+quantified variable. The first of these two clauses should be intuitively read as follows:
+\begin{quote}
+For all $h_1$, $t_1$, $h_2$, and $t_2$, {\em if there is a list\/} $L$
+such that the result of zipping $t_1$ with $t_2$ yields \mtt{(SOME $L$)}, 
+then the result of zipping \mtt{$h_1$::$t_1$} with \mtt{$h_2$::$t_2$} 
+is \mtt{(SOME (Pair $h_1$ $h_2$)::$L$)}, where $L$ is that 
+list.
+\end{quote}
+Note that this sentence cannot be directly translated
+into Athena's logic, because it requires definite descriptions (a ``the''
+operator). However, by using selectors, we can formulate it equivalently 
+as follows:
+\begin{equation}
+\begin{minipage}{5in}
+\begin{tcAthena}
+(forall ?h1 ?h2 ?t1 ?t2 . 
+    (exists ?L . ?t1 zipped-with ?t2 = SOME ?L) ==> 
+        ?h1::?t1 zipped-with ?h2::?t2 = SOME option-val ?t1 zipped-with ?t2)
+\end{tcAthena}
+\end{minipage}
+\label{Eq:ExQuantZipVersion}
+\end{equation}
+But of course if {\em there is\/} such a list $L$ then it must be unique,
+since it is the result of a function, and that is why it is legitimate
+to turn the existential quantifier into a universal one, as in the
+corresponding axiom produced by \mtt{fun-def}:\footnote{In fact, (\ref{Eq:ExQuantZipVersion})
+and (\ref{Eq:ExQuantZipVersion2}) are logically equivalent---proving that is a good exercise!}
+\begin{equation}
+\begin{minipage}{5in}
+\begin{tcAthena}
+(forall ?L ?h1 ?h2 ?t1 ?t2 . 
+  ?t1 zipped-with ?t2 = SOME ?L ==> 
+     ?h1::?t1 zipped-with ?h2::?t2 = SOME (?h1 paired-with ?h2)::?L)
+\end{tcAthena}
+\end{minipage}
+\label{Eq:ExQuantZipVersion2}
+\end{equation}
+The second clause, \mtt{| \underscoresp --> NONE}, is more interesting. 
+Recall that when translating a guard  we need to negate all preceding
+guards. In this case, the previous guard was essentially an existentially
+quantified sentence, so here we must say that {\em if there is no list\/} \mtt{?L}  
+such that \mtt{(?t1 zipped-with ?t2 = SOME ?L)}, {\em then\/} the value of
+$$\mtt{(?h1::?t1 zipped-with ?h2::?t2)}$$ is \mtt{NONE}. 
+So why does \mtt{fun-def} not produce this sentence as the corresponding
+axiom for this clause? Because, by the datatype axioms for \mtt{Option},
+we know that if there is no list \mtt{?L} such 
+that $$\mtt{?t1 zipped-with ?t2 = SOME ?L}$$ {\em then\/} we must have
+\mtt{?t1 zipped-with ?t2 = NONE}, which is exactly the condition of the
+produced axiom:
+\begin{tcAthena}
+(forall ?h1 ?h2 ?t1 ?t2 . 
+   ?t1 zipped-with ?t2 = NONE ==> ?h1::?t1 zipped-with ?h2::?t2 = NONE)
+\end{tcAthena}
+That is, the axiom that would use direct negation of the preceding guard:
+\begin{tcAthena}
+(forall ?h1 ?h2 ?t1 ?t2 . 
+   (~ exists ?L . ?t1 zipped-with ?t2 = SOME ?L) ==> 
+      ?h1::?t1 zipped-with ?h2::?t2 = NONE)   
+\end{tcAthena}
+is in fact logically equivalent to the much simpler axiom:
+\begin{tcAthena}
+(forall ?h1 ?h2 ?t1 ?t2 . 
+   ?t1 zipped-with ?t2 = NONE ==> ?h1::?t1 zipped-with ?h2::?t2 = NONE)
+\end{tcAthena}
+and it is this latter version that is produced by \mtt{fun-def}. 
+
+Apart from transforming negative guards into positive ones on the basis
+of structural datatype axioms, the implementation of \mtt{fun-def}
+performs a few other simplifying transformations. For instance, a guard
+of the form \mtt{(?x = S ?y \& ?x =/= zero)} will be rewritten into
+\mtt{(?x = S ?y)}, since the second conjunct, \mtt{?x =/= zero},
+is redundant in view of the first. Another simplification that is
+automatically applied arises in the context of conditional equations
+of the form 
+$$\mtt{$x$ = (c $\cdots$) \& $\cdots$ ==> (f $\cdots x \cdots$) = $\cdots$}$$
+where $c$ is some datatype constructor and \mtt{f} is the function symbol
+being defined. Here Athena will remove the guard 
+\mtt{$x$ = (c $\cdots$)} from the antecedent of the conditional equation, 
+and will instead replace every occurrence of $x$ inside the left-hand side
+\mtt{(f $\cdots x \cdots$)} by \mtt{(c $\cdots$)}, thereby replacing the
+above conditional equation by the following:
+$$\mtt{$\cdots$ ==> (f $\cdots \mtt{(c $\cdots$)} \cdots$) = $\cdots$}$$
+As a simple example, consider the following:
+\begin{tcAthena}
+datatype Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun
+
+declare weekend: [Day] -> Boolean
+
+assert weekend-day-def :=
+  (fun-def [(weekend ?x) = 
+              [(?x = Sat) --> true
+             | (?x = Sun) --> true
+             | _ --> false]])
+
+The sentence 
+(= (weekend Sat)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (weekend Sun)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(forall ?x:Day
+  (if (and (not (= ?x:Day Sat))
+           (not (= ?x:Day Sun)))
+      (= (weekend ?x:Day)
+         false)))
+has been added to the assumption base.
+
+Definition of weekend is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+A completely straightforward implementation of \mtt{fun-def}
+would produce the following three axioms corresponding to the
+three clauses above: 
+\begin{tcAthena}
+(forall ?x . ?x = Sat ==> weekend ?x = true)
+
+(forall ?x . ?x = Sun & ?x =/= Sat ==> weekend ?x = true)
+
+(forall ?x . ?x =/= Sun & ?x =/= Sat ==> weekend ?x = false)
+\end{tcAthena}
+Instead, as we can see from the output, \mtt{fun-def} produced: 
+\begin{tcAthena}
+(weekend Sat = true)
+
+(weekend Sun = true)
+
+(forall ?x . ?x =/= Sat & ?x =/= Sun ==> weekend ?x = false)
+\end{tcAthena}
+The first two equations have been considerably simplified: they are
+no longer conditional, and they no longer contain any variables,
+which means that there is no need for a universal quantifier. 
+
+The simplifications are generally helpful, but users must 
+pay careful attention to the output equations produced by \mtt{fun-def}
+to ensure that they correspond to their intentions. Subsequent
+proofs involving the function symbol at hand will have to be
+based on these equations. It is possible to turn off the simplifications
+by issuing the directive \mtt{(set-flag simplify-fun-defs "off")}. 
+(Putting \mtt{"on"} instead of \mtt{"off"} will turn them back on.)
+Turning off the simplifications can result in more predictable---if 
+bulkier---output equations. The simplifications are 
+activated by default. 
+As we will see shortly, this particular definition could have
+been given more succinctly as follows:
+\begin{tcAthena}
+(fun-def [(weekend Sat) --> true
+        | (weekend Sun) --> true
+        | _ --> false])
+\end{tcAthena}
+
+
+\section{Wildcard clauses and ML-style function definitions}
+
+Consider again the option-based definition of \mtt{zip}:
+\begin{tcAthena}
+  (fun-def [(Nil zipped-with Nil) --> (SOME Nil)
+          | (?h1::?t1 zipped-with ?h2::?t2) -->
+                [(?t1 zipped-with ?t2 = SOME ?L) --> (SOME (?h1 paired-with ?h2)::?L)
+               | _ --> NONE]
+          | (Nil zipped-with _::_) --> NONE
+          | (_::_ zipped-with Nil) --> NONE])
+\end{tcAthena}
+This looks very much like the sort of definition we would write in a functional
+language like SML or Haskell, with a couple of notable exceptions. 
+%The first exception is mostly cosmetic, whereas the other is more fundamental. 
+
+The first exception revolves around the introduction of the variable \mtt{?L} in the 
+guard of the first internal clause, \mtt{(?t1 zipped-with ?t2 = SOME ?L)}.
+In a functional language this would be handled with additional pattern matching,
+\egnsp, using an internal \mtt{case} expression one would write:
+\begin{tcAthena}
+zip(h1::t1,h2::t2) = (case zip(t1,t2) of
+                        SOME(L) => SOME((h1,h2)::L)
+                      | _ => NONE)
+\end{tcAthena}
+where we have written
+\begin{tcAthena}
+| (zip ?h1::?t1 ?h2::?t2) = 
+       [((zip ?t1 ?t2) = SOME ?L) --> (SOME (Pair ?h1 ?h2)::?L)
+      | _ --> NONE]
+\end{tcAthena}
+As far as logic is concerned, this is largely a cosmetic difference. 
+{\em Computationally}, of course, there are significant
+differences. For instance, in the \mtt{case} expression we only evaluate 
+the discriminant \mtt{zip(t1,t2)} {\em once}, and we can then efficiently
+match its value against any number of patterns: 
+\begin{tcAthena}
+(case zip(t1,t2) of
+   ... => ...
+ | ... => ... 
+ |  ...
+)
+\end{tcAthena}
+By contrast, in the Athena version, if we had more patterns we would need to repeat 
+the ``recursive call'' \mtt{(zip ?t1 ?t2)} in every new guard-result pair:
+\begin{tcAthena}
+(?h1::?t1 zipped-with ?h2::?t2) -->
+     [(?t1 zipped-with ?t2 = ...) --> ...
+    | (?t1 zipped-with ?t2 = ...) --> ...
+    |  ...]
+\end{tcAthena}
+There are actually two distinct issues here. One is purely a matter of convenience: 
+typing the definition would become more onerous in such cases because we would have to 
+keep repeating the same expression in longhand form. This issue can be simply addressed 
+owing to the fact that \mtt{fun-def} is a regular procedure and therefore
+any Athena expression can be given as its argument, including expressions containing
+subexpressions that name intermediate results and then let us refer to them 
+subsequently by the given names.
+So we could, for instance, write:
+\begin{tcAthena}
+(?h1::?t1 zipped-with ?h2::?t2) -->
+    let {tail-result := (?t1 zipped-with ?t2)
+      [(tail-result = ...) --> ...
+     | (tail-result = ...) --> ...
+     |  ...]
+\end{tcAthena}
+The second issue is a computational concern. A naive interpreter 
+that was to execute this definition for evaluation purposes would
+waste resources by repeatedly evaluating the same expression. 
+This need not be a concern, however. Since there are no side effects 
+in first-order logic, our interpreter is free to perform optimizations
+like common-subexpression elimination that can make it every bit 
+as efficient as the SML version above. Again, for all {\em logical\/} 
+purposes the two approaches are equivalent. 
+
+The second notable exception revolves around the last two clauses
+of our definition:
+\begin{tcAthena}
+     | (Nil zipped-with _::_) --> NONE
+     | (_::_ zipped-with Nil) --> NONE 
+\end{tcAthena}
+If we were to give this definition in a functional programming 
+language, these two last clauses would typically be collapsed, 
+since they both yield the same result. For instance, in SML we would write:
+\begin{tcAthena}
+fun zip([],[]) = SOME([])
+  | zip(h1::t1,h2::t2) = (case zip(t1,t2) of
+                             SOME(L) => SOME((h1,h2)::L)
+                           | _ => NONE)
+  | _ => NONE
+\end{tcAthena}
+Here the last clause, on line 5, does the job of the two equivalent Athena clauses:
+\begin{tcAthena}
+     | (Nil zipped-with _::_) --> NONE
+     | (_::_ zipped-with Nil) --> NONE 
+\end{tcAthena}
+With some important caveats to be discussed shortly, we can emulate
+this in Athena: we can have a wildcard pattern \underscoresp appear 
+as the left-hand side of the last clause in a \mtt{fun-def} list. 
+That is, we could, in fact, express the definition as follows: 
+\begin{tcAthena}  
+> assert zip-def  := 
+    (fun-def [(Nil zipped-with Nil) --> (SOME Nil)
+            | (?h1::?t1 zipped-with ?h2::?t2) -->
+                  [(?t1 zipped-with ?t2 = SOME ?L) --> (SOME (?h1 paired-with ?h2)::?L)
+                 | _ --> NONE]
+            | _ --> NONE])
+
+The sentence 
+(= (zip Nil:(List-Of 'S)
+        Nil:(List-Of 'T))
+   (SOME Nil:(List-Of (Pair-Of 'S 'T))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?L:(List-Of (Pair-Of 'S 'T))
+  (forall ?h1:'S
+    (forall ?h2:'T
+      (forall ?t1:(List-Of 'S)
+        (forall ?t2:(List-Of 'T)
+          (if (and (= (zip ?t1:(List-Of 'S)
+                           ?t2:(List-Of 'T))
+                      (SOME ?L:(List-Of (Pair-Of 'S 'T)))))
+              (= (zip (Cons ?h1:'S
+                            ?t1:(List-Of 'S))
+                      (Cons ?h2:'T
+                            ?t2:(List-Of 'T)))
+                 (SOME (Cons (Pair ?h1:'S ?h2:'T)
+                             ?L:(List-Of (Pair-Of 'S 'T)))))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:'S
+  (forall ?h2:'T
+    (forall ?t1:(List-Of 'S)
+      (forall ?t2:(List-Of 'T)
+        (if (and (= (zip ?t1:(List-Of 'S)
+                         ?t2:(List-Of 'T))
+                    NONE:(Option (List-Of (Pair-Of 'S 'T)))))
+            (= (zip (Cons ?h1:'S
+                          ?t1:(List-Of 'S))
+                    (Cons ?h2:'T
+                          ?t2:(List-Of 'T)))
+               NONE:(Option (List-Of (Pair-Of 'S 'T)))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v67:'S
+  (forall ?v68:(List-Of 'S)
+    (= (zip (Cons ?v67:'S
+                  ?v68:(List-Of 'S))
+            Nil:(List-Of 'T))
+       NONE:(Option (List-Of (Pair-Of 'S 'T))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v78:'S
+  (forall ?v79:(List-Of 'S)
+    (= (zip Nil:(List-Of 'T)
+            (Cons ?v78:'S
+                  ?v79:(List-Of 'S)))
+       NONE:(Option (List-Of (Pair-Of 'T 'S))))))
+has been added to the assumption base.
+
+Definition of zip is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+When we inspect the output axioms
+we see that the last wildcard clause \mtt{| \underscoresp --> NONE}
+resulted in {\em two\/} distinct axioms, namely: 
+\begin{tcAthena}
+(forall ?h ?t . Nil zipped-with ?h::?t = NONE)
+
+(forall ?h ?t . ?h::?t zipped-with Nil = NONE)
+\end{tcAthena}
+These are, in fact, the two axioms that we had manually supplied in our initial
+definition, when we had omitted the trailing wildcard clause: 
+\begin{tcAthena}
+            | (Nil zipped-with _::_) --> NONE
+            | (_::_ zipped-with Nil) --> NONE])
+\end{tcAthena}
+The new definition, by using the wildcard clause at the end, 
+automatically generated these two cases for us. 
+
+
+Basically, a wildcard clause \mtt{\underscoresp --> $t$} at the end
+of a \mtt{fun-def} list of clauses means this: 
+If the input does not match any of the preceding left-hand sides, 
+then the result is $t$.  This is of course familiar to functional
+programmers, but there is a crucial difference here. In functional programming languages, 
+wildcard clauses like \mtt{zip(\underscore) = NONE} are only interpreted
+operationally. We just execute the code; if we ever come across a wildcard clause
+we simply evaluate the corresponding right-hand side. By contrast, 
+this operational interpretation is a secondary concern in Athena, of interest
+mostly to interpreters like \mtt{eval}; the primary 
+concern is {\em declarative}. We need to {\em state}, in first-order logic, 
+what outputs the function produces for the corresponding inputs. This, in
+turn, means that we need to explicitly describe the inputs corresponding to
+such a wildcard clause, as the inputs that don't fall under any of the
+previously listed left-hand sides. 
+
+There are two basic ways to do that. One way is {\em implicit}, and
+in a sense, negagive: We can describe the class of inputs that correspond 
+to a wildcard clause \mtt{\underscoresp --> $t$} by describing the input variables as 
+{\em not\/} falling under any of the preceding cases. The other way
+is {\em explicit}, and in some sense positive: Instead of describing the
+input variables as not falling under any previous left-hand sides, 
+we automatically generate a number of {\em new\/} left-hand sides $l_1,\ldots,l_m$, 
+all of them distinct from every previous left-hand side, and explicitly 
+introduce  $m$ equations $l_i = t$, $i = 1,\ldots, m$, properly quantified. 
+This is sound, as long as the new left-hand sides are disjoint from
+the previous left-hand sides and from one another; and, more importantly,
+as long as they collectively exhaust the space of 
+all remaining inputs. In the case of the \mtt{zip} definition, the
+two approaches of axiomatizing the wildcard clause would work as follows: 
+\begin{description}
+\item[Implicit approach:] An implicit axiom would say that 
+\mtt{(zip ?l1 ?l2 = NONE)} {\em if\/} the pair of \mtt{?l1} and \mtt{?l2} 
+matches neither the pair of \mtt{Nil} and \mtt{Nil}, nor
+the pair of \mtt{?h1::?t1} and \mtt{?h2::?t2}. Such a negative axiom
+might have fairly complicated propositional structure. 
+\item[Explicit approach:] The explicit approach would simply produce
+the two axioms
+\mtt{(zip Nil \underscore::\underscoresp = NONE)} and 
+\mtt{(zip \underscore::\underscoresp Nil = NONE)}, because 
+it would realize that \mtt{(zip Nil \underscore::\underscore)} and
+\mtt{(zip \underscore::\underscoresp Nil)} are all and only the two
+cases that were not covered by previous clauses.
+\end{description}
+
+Athena's default approach to wildcard clauses is the explicit one: it generates 
+all possible  remaining inputs by considering the preceding clauses and inferring what 
+inputs have not yet been covered, and then describing these in a maximally succinct way, with
+as few---and therefore as general---patterns as possible. 
+In this case, for instance, when Athena encountered the final wildcard clause, 
+it determined that the preceding clauses had not yet covered exactly 
+those inputs that correspond to the two synthesized patterns, namely 
+\mtt{(Nil zipped-with \underscore::\underscore)} and
+\mtt{(\underscore::\underscore zipped-with Nil)}. So it generated
+two equations stating that the value of \mtt{zip} for such
+inputs is the right-hand side of the wildcard clause, \mtt{NONE}. 
+
+This is sensible in this case (and in many others), but 
+occasionally the explicit generation of such clauses can be overwhelming. 
+As an example, consider again the \mtt{Day} datatype:
+\begin{tcAthena}
+datatype Day := Mon | Tue | Wed | Thu | Fri | Sat | Sun
+\end{tcAthena}
+Suppose we want to write a function that determines whether
+any two days are consequtive: 
+\begin{tcAthena}
+declare conseq: [Day Day] -> Boolean
+
+> assert conseq-def :=
+    (fun-def [(Mon conseq Tue) --> true
+            | (Tue conseq Wed) --> true
+            | (Wed conseq Thu) --> true
+            | (Thu conseq Fri) --> true
+            | (Fri conseq Sat) --> true
+            | (Sat conseq Sun) --> true
+            | (Sun conseq Mon) --> true
+            | _ --> false])
+
+The sentence 
+(= (conseq Mon Tue)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Tue Wed)
+   true)
+has been added to the assumption base.
+ 
+...
+
+The sentence 
+(= (conseq Sun Mon)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Thu Tue)
+   false)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Wed Sat)
+   false)
+has been added to the assumption base.
+
+...
+
+The sentence 
+(= (conseq Mon Sat)
+   false)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Mon Sun)
+   false)
+has been added to the assumption base.
+
+Definition of conseq is complete; the given equational axioms are exhaustive.
+\end{tcAthena}
+We see that a whole lot of axioms have been added to the assumption base!
+How many, exactly?
+\begin{tcAthena}
+> (length conseq-def)
+
+Term: 49
+\end{tcAthena}
+49, of course, is $7^2$. Even though we only specified 
+the output value of \mtt{conseq} for 7 explicitly described
+cases, the wildcard clause generated the remaining 42 possible
+inputs and asserted that the value of \mtt{conseq} for them 
+is \mtt{false}. In fact, those 42 patterns, \mtt{(conseq Sun Tue)},
+\mtt{(conseq Sun Wed)}, $\ldots$, \mtt{(conseq Mon Sun)}, 
+are the smallest possible collection of (positive) patterns 
+that cover all and only the cases that don't fall under any
+of the left-hand sides before the wildcard clause, so
+Athena dutifully generated all of them and specified the
+corresponding output value for each. 
+
+The implicit approach, by contrast, while equivalent, would
+only generate {\em one\/} axiom for the wildcard clause, 
+a negative axiom with a condition stating that the input
+variables do not fall under any of the preceding clauses. 
+We can opt for the implicit approach 
+by setting the flag \mtt{explicit-wildcard-patterns} to 
+\mtt{"0"}. (The default value is \mtt{"1"}, although we will
+see soon that a value of \mtt{"2"} is also possible.)
+Here are the axioms that we get under the implicit approach: 
+\begin{tcAthena}
+set-flag explicit-wildcard-patterns "0" 
+
+> assert conseq-def :=
+    (fun-def [(Mon conseq Tue) --> true
+            | (Tue conseq Wed) --> true
+            | (Wed conseq Thu) --> true
+            | (Thu conseq Fri) --> true
+            | (Fri conseq Sat) --> true
+            | (Sat conseq Sun) --> true
+            | (Sun conseq Mon) --> true
+            | _ --> false]);;
+
+The sentence 
+(= (conseq Mon Tue)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Tue Wed)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Wed Thu)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Thu Fri)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Fri Sat)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Sat Sun)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(= (conseq Sun Mon)
+   true)
+has been added to the assumption base.
+
+The sentence 
+(forall ?v67:Day
+  (forall ?v68:Day
+    (if (and (or (not (= ?v68:Day Tue))
+                 (not (= ?v67:Day Mon)))
+             (or (not (= ?v68:Day Wed))
+                 (not (= ?v67:Day Tue)))
+             (or (not (= ?v68:Day Thu))
+                 (not (= ?v67:Day Wed)))
+             (or (not (= ?v68:Day Fri))
+                 (not (= ?v67:Day Thu)))
+             (or (not (= ?v68:Day Sat))
+                 (not (= ?v67:Day Fri)))
+             (or (not (= ?v68:Day Sun))
+                 (not (= ?v67:Day Sat)))
+             (or (not (= ?v68:Day Mon))
+                 (not (= ?v67:Day Sun))))
+        (= (conseq ?v67:Day ?v68:Day)
+           false))))
+has been added to the assumption base.
+
+Definition of conseq is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+Under the implicit approach we see that only 8 axioms were added to the
+assumption base, and specifically only 1 axiom for the wildcard clause. 
+The propositional structure of that axiom's antecedent is not obvious, 
+but the antecedent is in fact equivalent to the following 
+somewhat clearer---but rather larger---condition:
+\begin{tcAthena}
+          (or (and (= ?v67 Mon)
+                   (or (= ?v68 Wed)
+                       (= ?v68 Thu)
+                       (= ?v68 Fri)
+                       (= ?v68 Sat)
+                       (= ?v68 Sun)
+                       (= ?v68 Mon)))
+              (and (= ?v67 Tue)
+                   (or (= ?v68 Thu)
+                       (= ?v68 Fri)
+                       (= ?v68 Sat)
+                       (= ?v68 Sun)
+                       (= ?v68 Mon)
+                       (= ?v68 Tue)))
+              (and (= ?v67 Wed)
+                   (or (= ?v68 Fri)
+                       (= ?v68 Sat)
+                       (= ?v68 Sun)
+                       (= ?v68 Mon)
+                       (= ?v68 Tue)
+                       (= ?v68 Wed)))
+              (and (= ?v67 Thu)
+                   (or (= ?v68 Sat)
+                       (= ?v68 Sun)
+                       (= ?v68 Mon)
+                       (= ?v68 Tue)
+                       (= ?v68 Wed)
+                       (= ?v68 Thu)))
+              (and (= ?v67 Fri)
+                   (or (= ?v68 Sun)
+                       (= ?v68 Mon)
+                       (= ?v68 Tue)
+                       (= ?v68 Wed)
+                       (= ?v68 Thu)
+                       (= ?v68 Fri)))
+              (and (= ?v67 Sat)
+                   (or (= ?v68 Mon)
+                       (= ?v68 Tue)
+                       (= ?v68 Wed)
+                       (= ?v68 Thu)
+                       (= ?v68 Fri)
+                       (= ?v68 Sat)))
+              (and (= ?v67 Sun)
+                   (or (= ?v68 Tue)
+                       (= ?v68 Wed)
+                       (= ?v68 Thu)
+                       (= ?v68 Fri)
+                       (= ?v68 Sat)
+                       (= ?v68 Sun))))
+\end{tcAthena}
+
+
+We give one last example illustrating and contrasting the two approaches. 
+Consider a datatype encoding the lambda calculus, where every abstraction
+takes multiple parameters (and is likewise applied to 
+multiple values): 
+\begin{tcAthena}
+datatype Exp := (var Ide) | (lam (List-Of Ide) Exp) | (app Exp (List-Of Exp))
+
+define :: := Cons
+
+define (ide->var x) := 
+  check { (meta-id? x) => (var x) 
+        | else => x }
+
+expand-input lam [(alist->list id) ide->var]
+expand-input app [ide->var (alist->list ide->var)]
+
+define applied-to := app 
+
+define abs := (lam ['x] 'x)
+
+> (abs applied-to ['y])
+
+Term: (app (lam (Cons 'x
+                      Nil:(List-Of Ide))
+                (var 'x))
+           (Cons (var 'y)
+                 Nil:(List-Of Exp)))
+\end{tcAthena}
+Now suppose we want to define a binary function \mtt{f} that takes two 
+expressions and returns \mtt{true} if at least one of them is an 
+application with a unary list of arguments
+(\iensp, essentially one argument), and \mtt{false} otherwise. 
+That is, we more or less want \mtt{f} to act as a recognizer for pairs of
+applications at least one of which is unary. 
+The definition is fairly straightforward:
+\begin{tcAthena}
+declare f: [Exp Exp] -> Boolean
+
+assert f-def :=
+  (fun-def [(f (_ applied-to [_]) _) --> true
+          | (f _ (_ applied-to [_])) --> true
+          | _ --> false])
+\end{tcAthena}
+The question is what axioms are generated by the last
+wildcard clause. Under the default (explicit) approach, 
+the wildcard clause generates 16 axioms. Here is part
+of the output of the foregoing \kwd{assert}:
+\begin{tcAthena}
+The sentence 
+(forall ?v57:Exp
+  (forall ?v58:Exp
+    (forall ?v59:Exp
+      (= (f (app ?v57:Exp
+                 (Cons ?v58:Exp
+                       Nil:(List-Of Exp)))
+            ?v59:Exp)
+         true))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v60:Exp
+  (forall ?v61:Exp
+    (forall ?v62:Exp
+      (= (f ?v60:Exp
+            (app ?v61:Exp
+                 (Cons ?v62:Exp
+                       Nil:(List-Of Exp))))
+         true))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v78:Exp
+  (forall ?v90:Ide
+    (= (f (var ?v90:Ide)
+          (app ?v78:Exp
+               Nil:(List-Of Exp)))
+       false)))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v103:Exp
+  (forall ?v115:Ide
+    (= (f (app ?v103:Exp
+               Nil:(List-Of Exp))
+          (var ?v115:Ide))
+       false)))
+has been added to the assumption base.
+
+...
+
+The sentence 
+(forall ?v633:Ide
+  (forall ?v639:(List-Of Ide)
+    (forall ?v640:Exp
+      (= (f (var ?v633:Ide)
+            (lam ?v639:(List-Of Ide)
+                 ?v640:Exp))
+         false))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v684:Ide
+  (forall ?v692:Exp
+    (forall ?v732:Exp
+      (forall ?v734:Exp
+        (forall ?v735:(List-Of Exp)
+          (= (f (var ?v684:Ide)
+                (app ?v692:Exp
+                     (Cons ?v732:Exp
+                           (Cons ?v734:Exp
+                                 ?v735:(List-Of Exp)))))
+             false))))))
+has been added to the assumption base.
+
+[Warning, input prompt:2:3: the equational axioms defining f are not disjoint.
+For example, at least  two distinct axioms apply to every instance of this term:
+(f (app ?v57:Exp (Cons ?v58:Exp Nil:(List-Of Exp))) 
+   (app ?v61:Exp (Cons ?v62:Exp Nil:(List-Of Exp)))).]
+
+Definition of f is complete; the given equational axioms are exhaustive.
+\end{tcAthena}
+The warning is innocuous in this case. It is due to the first two clauses,
+which overlap when both inputs happen to be unary applications.
+But since we get the same result in both cases (\mtt{true}), 
+there is no cause for concern. The interesting part of the output
+are the 16 axioms that were automatically synthesized from the
+wildcard clause. If we examine these axioms carefully we see that 
+they correspond exactly to the following cases: 
+\begin{tcAthena}
+          | (f (_ applied-to []) (var _)) --> false 
+          | (f (_ applied-to []) (lam _ _)) --> false
+          | (f (_ applied-to []) (_ applied-to [])) --> false
+          | (f (_ applied-to []) (_ applied-to _::_::_)) --> false
+          | (f (_ applied-to _::_::_) (var _)) --> false
+          | (f (_ applied-to _::_::_) (lam _ _)) --> false
+          | (f (_ applied-to _::_::_) (_ applied-to [])) --> false
+          | (f (_ applied-to _::_::_) (_ applied-to _::_::_)) --> false
+          | (f (lam _ _) (var _)) --> false
+          | (f (lam _ _) (lam _ _)) --> false
+          | (f (lam _ _) (_ applied-to [])) --> false
+          | (f (lam _ _) (_ applied-to _::_::_)) --> false
+          | (f (var _) (var _)) --> false
+          | (f (var _) (lam _ _)) --> false
+          | (f (var _) (_ applied-to [])) --> false
+          | (f (var _) (_ applied-to _::_::_)) --> false
+\end{tcAthena}
+These are precisely all and only the cases that were not
+covered by the first two defining clauses: 
+\begin{tcAthena}
+            (f (_ applied-to [_]) _) --> true
+          | (f _ (_ applied-to [_])) --> true
+\end{tcAthena}
+If we think about all the ways in which we could construct two
+expressions that do not fall either of these two patterns, we see
+that we could either have a non-application on both sides 
+side (lines 9, 10, 13, and 14 in the above listing); 
+or we might have a non-unary application on one side 
+and a non-application on the other (lines 1, 2, 5, 6, 11, 
+12, 15, and 16); or we might have non-unary applications
+on both sides (3, 4, 7, and 8). Note that this is the 
+smallest set of patterns
+characterizing the inputs that do not fall under either of  
+the fist two  defining clauses. 
+
+As before, under the implicit approach we get only one negative
+axiom: 
+\begin{tcAthena}
+set-flag explicit-wildcard-patterns "0" 
+
+> assert f-def :=
+    (fun-def [(f (_ applied-to [_]) _) --> true
+            | (f _ (_ applied-to [_])) --> true
+            | _ --> false])
+
+The sentence 
+(forall ?v57:Exp
+  (forall ?v58:Exp
+    (forall ?v59:Exp
+      (= (f (app ?v57:Exp
+                 (Cons ?v58:Exp
+                       Nil:(List-Of Exp)))
+            ?v59:Exp)
+         true))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v60:Exp
+  (forall ?v61:Exp
+    (forall ?v62:Exp
+      (= (f ?v60:Exp
+            (app ?v61:Exp
+                 (Cons ?v62:Exp
+                       Nil:(List-Of Exp))))
+         true))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?v64:Exp
+  (forall ?v65:Exp
+    (if (forall ?v70:Exp
+          (forall ?v69:Exp
+            (forall ?v68:Exp
+              (forall ?v67:Exp
+                (and (not (= ?v64:Exp
+                             (app ?v69:Exp
+                                  (Cons ?v70:Exp
+                                        Nil:(List-Of Exp)))))
+                     (not (= ?v65:Exp
+                             (app ?v67:Exp
+                                  (Cons ?v68:Exp
+                                        Nil:(List-Of Exp))))))))))
+        (= (f ?v64:Exp ?v65:Exp)
+           false))))
+has been added to the assumption base.
+
+[Warning, input prompt:2:3: the equational axioms defining f are not disjoint.
+For example, at least two distinct axioms apply to every instance of this term:
+(f (app ?v57:Exp (Cons ?v58:Exp Nil:(List-Of Exp))) 
+   (app ?v61:Exp (Cons ?v62:Exp Nil:(List-Of Exp)))).]
+
+Definition of f is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+The negative axiom here states explicitly that 
+\mtt{(f ?v64 ?v65)} is \mtt{false} whenever the first 
+input (\mtt{?v64} in the above axiom) is not of the form \mtt{(app \underscoresp [\underscore])}
+{\em and\/} the second input (\mtt{?v65}) is not of that form either.
+Observe that ``not being of the form \mtt{(app \underscoresp [])}'' is 
+expressed here by a local quantification: there are no \mtt{?v69} and \mtt{?v70}
+such that \mtt{(?v64 = app ?v69 [?v70])}, or, equivalently,
+{\em for all\/} \mtt{?v69} and \mtt{?v70}, \mtt{?v64} is different from 
+\mtt{(app ?v69 [?v70])}. And likewise for \mtt{?v65}. 
+
+
+In view of the datatype axioms for \mtt{Exp} and \mtt{List-Of}, 
+the single negative axiom
+is in fact equivalent to the conjunction of the 16 automatically generated
+axioms listed above. It has the advantage of being more compact,\footnote{At 
+least by itself; in order to actually entail the 16 axioms it needs to be conjoined
+with the datatype axioms for \fmtt{Exp} and \fmtt{List-Of}, which are
+numerous.} but its logical structure makes it more challenging 
+to manipulate in proofs. By contrast, the explicitly generated axioms 
+are simple identities that are more directly amenable to chaining, 
+automated theorem proving, \etcsp 
+
+It is not necessary to choose one approach over the other. We can
+instruct Athena to generate and assert the respective axioms under
+both approaches. This is logically redundant but might be 
+convenient in practice. We could then view the explicitly generated 
+axioms as helpful lemmas that are automatically derived from the 
+single negative axiom. We can choose that alternative 
+by issuing the following directive: 
+\begin{tcAthena}
+set-flag explicit-wildcard-patterns "2" 
+\end{tcAthena}
+Note, however, that the implicit negative axiom can be
+particularly complicated and might thwart automated theorem
+proving if it is not removed from the set of premises supplied
+to the prover. For example, consider the negative axiom 
+generated from the above definition of \mtt{zip}: 
+\begin{tcAthena}
+(forall ?v54:(List-Of 'S)
+  (forall ?v55:(List-Of 'T)
+    (if (forall ?v63:(List-Of 'T)
+          (forall ?v62:(List-Of 'S)
+            (forall ?v61:'T
+              (forall ?v60:'S
+                (forall ?v59:(List-Of 'T)
+                  (forall ?v58:(List-Of 'S)
+                    (forall ?v57:'T
+                      (forall ?v56:'S
+                        (and (or (not (= ?v55:(List-Of 'T)
+                                         Nil:(List-Of 'T)))
+                                 (not (= ?v54:(List-Of 'S)
+                                         Nil:(List-Of 'S))))
+                             (or (not (= ?v55:(List-Of 'T)
+                                         (Cons ?v61:'T
+                                               ?v63:(List-Of 'T))))
+                                 (not (= ?v54:(List-Of 'S)
+                                         (Cons ?v60:'S
+                                               ?v62:(List-Of 'S)))))
+                             (or (not (= ?v55:(List-Of 'T)
+                                         (Cons ?v57:'T
+                                               ?v59:(List-Of 'T))))
+                                 (not (= ?v54:(List-Of 'S)
+                                         (Cons ?v56:'S
+                                               ?v58:(List-Of 'S))))))))))))))
+        (= (zip ?v54:(List-Of 'S)
+                ?v55:(List-Of 'T))
+           NONE:(Option (List-Of (Pair-Of 'S 'T)))))))
+\end{tcAthena}
+In this case the two direct axioms are obviously much clearer and simpler: 
+\begin{tcAthena}
+| ([] zipped-with _::_) --> NONE
+| (_::_ zipped-with []) --> NONE
+\end{tcAthena}
+and there is nothing to be gained by adding the negative axiom to the
+assumption base.
+
+
+
+We have already discussed a number of differences between 
+pattern-driven function definitions in programming languages
+versus \mtt{fun-def}, such as the need for a declarative 
+treatment of wildcard clauses. Another significant difference is 
+that in functional programming languages 
+{\em the order in which defining clauses are listed is 
+important}. When we have a list of such clauses, the interpretation 
+of the second clause rests on the assumption that the inputs 
+did not match the pattern of the first clause, and so on. 
+By contrast, when we use \mtt{fun-def}, order matters only 
+inside internal guard clauses, not in the overall list of 
+clauses that comprise the input to \mtt{fun-def}. 
+
+Usually this is not an issue, because defining clauses tend
+to have disjoint patterns. For instance, a typical definition
+for a unary list-processing function in SML is of this form:
+\begin{tcAthena}
+fun len([]) = 0
+  | len(x::more) = 1 + len(more);
+\end{tcAthena}
+Here the two pattens \mtt{[]} and \mtt{x::more} are disjoint,
+so order is immaterial. We could swap the clauses without
+affecting the meaning of the program:
+\begin{tcAthena}
+fun len(x::more) = 1 + len(more)
+  | len([]) = 0;
+\end{tcAthena}
+Occasionally, however, two (or more) defining clauses might have
+overlapping patterns, meaning that there may be inputs that match 
+both patterns, and order becomes important for such cases, at least 
+in theory. In practice, by and large order is still unimportant 
+for declarative (though not necessarily for computational) purposes, 
+because typically the same output value 
+would be produced by the right-hand side of either of the 
+operlapping clauses (for those inputs that fall in the intersection 
+of the patterns). A typical example occurs in the definition
+of a merging algorithm:
+\begin{tcAthena}
+fun merge([],L) = L
+  | merge(L,[]) = L
+  | merge(h1::t1,h2::t2) = ... 
+\end{tcAthena}
+Here the first two patterns overlap, as the input \mtt{([],[])} 
+matches both of them. But the overlap is innocuous because both
+clauses result in the same output, the empty list \mtt{[]} in
+this case, so the clauses could still be swapped without affecting
+the identity of the underlying function. 
+
+But even though referentially the overlapping clauses might 
+have the same effect, computationally there could be significant
+differences, so we would like to be able to emulate this style 
+of definition in Athena. This is done by turning on the flag
+\mtt{mlstyle-fundef}:
+\begin{tcAthena}
+set-flag mlstyle-fundef "on"
+\end{tcAthena}
+When this flag is on, Athena will augment the translation of
+each defining clause in the list argument of \mtt{fun-def} 
+with a condition stating that the inputs do not match any of the 
+preceding clause patterns. Typically this is done by generating
+appropriate inequalities. For instance, in the case of merge:
+\begin{tcAthena}
+declare merge: [(List-Of Real) (List-Of Real)] -> (List-Of Real) 
+                   [[(alist->list id) (alist->list id)]]
+
+define [:: merged-with] := [Cons merge]
+
+set-flag mlstyle-fundef "on"
+
+> assert merge-def :=
+    (fun-def [([] merged-with ?L) = ?L
+              (?L merged-with []) = ?L
+              (?h1::?t1 merged-with ?h2::?t2) = 
+                  [(?h1:Real < ?h2) --> (?h1::(?t1 merged-with ?h2::?t2))
+                 | _ --> (?h2::(?h1::?t1 merged-with ?t2))]])
+
+
+The sentence 
+(forall ?L:(List-Of Real)
+  (= (merge Nil:(List-Of Real)
+            ?L:(List-Of Real))
+     ?L:(List-Of Real)))
+has been added to the assumption base.
+
+The sentence 
+(forall ?L:(List-Of Real)
+  (if (not (= ?L:(List-Of Real)
+              Nil:(List-Of Real)))
+      (= (merge ?L:(List-Of Real)
+                Nil:(List-Of Real))
+         ?L:(List-Of Real))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:Real
+  (forall ?h2:Real
+    (forall ?t1:(List-Of Real)
+      (forall ?t2:(List-Of Real)
+        (if (< ?h1:Real ?h2:Real)
+            (= (merge (Cons ?h1:Real
+                            ?t1:(List-Of Real))
+                      (Cons ?h2:Real
+                            ?t2:(List-Of Real)))
+               (Cons ?h1:Real
+                     (merge ?t1:(List-Of Real)
+                            (Cons ?h2:Real
+                                  ?t2:(List-Of Real))))))))))
+has been added to the assumption base.
+
+The sentence 
+(forall ?h1:Real
+  (forall ?h2:Real
+    (forall ?t1:(List-Of Real)
+      (forall ?t2:(List-Of Real)
+        (if (not (< ?h1:Real ?h2:Real))
+            (= (merge (Cons ?h1:Real
+                            ?t1:(List-Of Real))
+                      (Cons ?h2:Real
+                            ?t2:(List-Of Real)))
+               (Cons ?h2:Real
+                     (merge (Cons ?h1:Real
+                                  ?t1:(List-Of Real))
+                            ?t2:(List-Of Real)))))))))
+has been added to the assumption base.
+
+Definition of merge is complete; the given equational axioms should be exhaustive.
+\end{tcAthena}
+What is noteworthy here is the second axiom, corresponding to the second
+clause: 
+\begin{tcAthena}
+(forall ?L . ?L =/= Nil ==> ?L merged-with Nil = ?L)
+\end{tcAthena}
+The condition \mtt{?L =/= Nil} ensures that the first argument \mtt{?L} did
+not match the first pattern, $$\mtt{(Nil merged-with \underscore)}. $$
+
+In addition, when this flag is on, such structural inequalities are automatically
+generated and inserted into the assumption base for all patterns of an inductive
+proof. That is, when we get to a pattern \mtt{$\pi_i$ => $D_i$} of a \mtt{by-induction}
+proof, we not only generate appropriate inductive hypotheses, but we might\footnote{Only
+if necessary.} also  generate structural inequalities involving the pattern 
+variables of $\pi_i$, which in effect state that none of the previous patterns matched. 
+These inequalities tend to go hand-in-hand with the corresponding inequalities
+that were generated by \mtt{fun-def}, and since these are automatically added
+to the assumption base, they tend to be automatically handled by methods like
+\mtt{chain} without any extra effort from the user. Examples of such inductive
+proofs will be given later (in particular, see chapter~\ref{X}). 
+
+\end{document}
+
+
+The main ingredients of proofs are \emph{terms} and \emph{sentences}, so this is where we begin. 
+A term is a syntactic object (essentially a tree, as we will see soon) that represents an element 
+of some \emph{sort}. The simplest sorts are \emph{domains}, which are introduced as follows:
+\begin{tcAthena}[mathescape]
+>domain Person 
+
+New $\mbox{\tt domain}$ Person introduced.
+\end{tcAthena}
+There are a few built-in sorts, such as \mtt{Int}, \mtt{Real}, and \mtt{Ide}.
+Some sorts, called \emph{datatypes}, have a special inductive structure. 
+The built-in sort \mtt{Boolean} is a very simple example of a datatype.
+We'll discuss datatypes in another tutorial. 
+
+Once a sort has been introduced, we can build terms of that sort. The simplest kind of term is a \emph{variable}, an identifier
+starting with a question mark and possibly followed by a sort declaration:
+\begin{tcAthena}[upquote=true]
+>?x:Person
+
+Term: ?x:Person
+
+>?Foo_Bar:Person 
+
+Term: ?Foo_Bar:Person 
+\end{tcAthena}
+%% The built-in unary procedure \mtt{var?} checks whether a term is a variable:
+%% \begin{tcAthena}[upquote=true]
+%% >(var? ?x:Person)
+
+%% Term: true
+
+%% >(var? var?)
+
+%% Term: false
+%% \end{tcAthena}
+Variables that are not explicitly decorated with sorts are \emph{polymorphic}; their sorts are automatically inferred by the surrounding context:
+\begin{tcAthena}[upquote=true]
+>?x
+
+Term: ?x:'T26184
+
+>(= ?x ?y)
+
+Term: (= ?x:'T26192 ?y:'T26192)
+
+>(= ?x:Person ?y)
+
+Term: (= ?x:Person ?y:Person)
+\end{tcAthena}
+A sort like {\ttfamily 'T26184} is a {\em sort variable\/} that represents an arbitrary sort. 
+
+More complex terms are built with {\em function symbols}, or {\em symbols\/} for short. A function symbol is introduced with a {\em signature declaration}:
+\begin{tcAthena}[upquote=true]
+declare father, mother: [Person] -> Person      # Two unary function symbols
+
+declare sibling-of: [Person Person] -> Boolean  # A binary relation symbol
+
+declare joe, mary: Person                       # Two constant symbols
+\end{tcAthena}
+A function symbol whose range (co-domain) is \mtt{Boolean} is called a \emph{relation} or {\em predicate symbol}.
+Every constant function symbol is a term. Moreover, if $f$ is a symbol with a signature \mtt{[$S_1 \cdots S_n$] -> $S$} and if $t_i$ is a term of sort $S_i$,
+then \mtt{($f$ $t_1 \cdots t_n$)} is a term of sort $S$. These terms are called {\em applications}, since we are ``applying'' the symbol $f$
+to the terms $t_1 \cdots t_n$, which are viewed as the arguments supplied to $f$. Here is an example of applying \mtt{sibling-of} to \mtt{joe} and \mtt{mary} to make a more complex term: 
+\begin{tcAthena}[upquote=true]
+>(sibling-of joe mary)
+
+Term: (sibling-of joe mary)
+\end{tcAthena}
+
+If the signature of $f$ is \mtt{[$S_1 \cdots S_n$] -> $S$}, we say that $f$ has \emph{arity} $n$; this is the number 
+of terms that $f$ expects as arguments. Symbols of arity zero (like \mtt{joe} and \mtt{mary}) are \emph{constants}.
+If $f$ is binary ($n = 2$), we can apply it using infix notation.
+Also, successive applications of unary symbols do not need intermediate parentheses. Finally, relation symbols typically
+bind less tightly (have smaller precedence) than other function symbols. 
+\begin{tcAthena}[upquote=true]
+>(joe sibling-of mary)
+
+Term: (sibling-of joe mary)
+
+>(father mother joe)
+
+Term: (father (mother joe))
+
+>(father joe sibling-of mother ?x)
+
+Term: (sibling-of (father joe)
+                  (mother ?x:Person))
+\end{tcAthena}
+Note that terms are always output in prefix, as s-expressions, even if they were written in infix. 
+
+Terms can be viewed as trees. Variables and constants are leaves, whereas a term of the form \mtt{($f$ $t_1 \cdots t_n$)} for $n > 0$ can be understood
+as a tree with the symbol $f$ at the root and with the trees corresponding to $t_1,\ldots,t_n$ as the subtrees of $f$, from left to right. For example,
+the term \[\mtt{(sibling-of (father joe) (mother ?x:Person))}\] can be understood as the following tree:
+\begin{center}
+\scalebox{0.8}{
+\begin{forest}
+for tree={%drop shadow, 
+          every node={circle,draw,thick, draw=red!50!black},
+          edge={very thick}}
+[\mtt{sibling-of}
+   [\mtt{father}
+     [\mtt{joe}]]
+   [\mtt{mother}
+     [\mtt{?x:Person}]]
+]
+\end{forest}}
+\end{center}
+The primitive procedures \mtt{root} and \mtt{children} take a term $t$ and return the root node of $t$ and the subtrees of that root,
+respectively: 
+\begin{tcAthena}[upquote=true]
+define t := (father joe sibling-of mother ?x)
+
+>(root t)
+
+Symbol: sibling-of
+
+>(children t)
+
+List: [
+(father joe)
+ 
+(mother ?x)
+]
+\end{tcAthena}
+We'll have more to say about procedures and lists soon. 
+
+Some symbols are predefined. These include \mtt{true} and \mtt{false} (constants of sort \mtt{Boolean}), numerals like \mtt{3} and \mtt{(- 875)} (constants of sort \mtt{Int}),
+floats        like \mtt{3.14} (constants of sort \mtt{Real}), so-called \emph{meta-identifiers} like {\ttfamily 'foo} (constants of sort \mtt{Ide}), function symbols for numeric operations like \mtt{+}, \mtt{-}, \mtt{*}, and so on,
+and also for numeric comparisons (\mtt{<}, \mtt{>}, \mtt{<=}, \mtt{>=}). 
+\begin{tcAthena}[upquote=true]
+>(?x + 4)
+
+Term: (+ ?x:Int 4)
+
+>(?a + 2 * 3.14)
+
+Term: (+ ?a:Real
+         (* 2 3.14))
+\end{tcAthena}
+A binary equality symbol is also built-in; this is a \emph{polymorphic} function symbol. 
+\begin{tcAthena}[upquote=true]
+>(?x = joe)
+
+Term: (= ?x:Person joe)
+\end{tcAthena}
+Polymorphic function symbols can be introduced by prefixing the signature with one or more {\em sort variables\/} listed within parentheses and separated by commas: 
+
+\begin{tcAthena}[upquote=true]
+>declare P: (T) [T T] -> Boolean
+
+New symbol P declared.
+
+>(joe P mary)
+
+Term: (P joe mary)
+
+>(2 P 3)
+
+Term: (P 2 3)
+\end{tcAthena}
+
+\subsection{Sentences} 
+
+Every proof derives a unique \emph{sentence}. An atomic sentence (or ``atom'') is a term of sort \mtt{Boolean}, while a complex sentence is a negation (formed with the sentential constructor \mtt{not}), 
+or a conjunction (formed with \mtt{and}), or a disjunction (formed with \mtt{or}), or a conditional or biconditional (formed with \mtt{if} and \mtt{iff}, respectively). 
+The constructors \mtt{and}, \mtt{or}, \mtt{if}, and \mtt{iff} can be used in infix or prefix style:
+\begin{tcAthena}[upquote=true]
+>(?x:Int > 3) # an atomic sentence (a term of sort Boolean)
+
+Term: (+ ?x:Int 4)
+
+>(and (joe sibling-of mary) (?x > 4)) # a conjunction, written in prefix style
+
+Sentence: (and (sibling-of joe mary)
+               (> ?x:Int 4))
+
+
+>(joe sibling-of mary or ?x > 4)      # a disjunction, in infix notation
+
+Sentence: (or (sibling-of joe mary)
+              (> ?x:Int 4))
+
+>(if (?x > 4) (?x > 3))               # a conditional, in prefix notation
+
+Sentence: (if (> ?x:Int 4)
+              (> ?x:Int 3))
+
+>(?x > 0 iff (- ?x) < 0)              # a biconditional, in infix notation
+
+Sentence: (iff (> ?x:Int 0)
+               (< (- ?x:Int)
+                  0))
+\end{tcAthena}
+Also, the tilde \mtilde\msp can be used interchangeably with \mtt{not}, \mtt{\&} with \mtt{and}, \mtt{|} with \mtt{or}, \mtt{==>} with \mtt{if}, and \mtt{<==>} with \mtt{iff}:
+\begin{tcAthena}[upquote=true]
+>(2 > 3 & ~ joe = mary)
+
+Sentence: (and (> 2 3)
+               (not (= joe mary)))
+
+>(?x < ?y | ?x = ?y | ?x > ?y)
+
+Sentence: (or (< ?x:Real ?y:Real)
+              (or (= ?x:Real ?y:Real)
+                  (> ?x:Real ?y:Real)))
+
+>(?x < ?y <==> ?y > ?x)
+
+Sentence: (iff (< ?x:Real ?y:Real)
+               (> ?y:Real ?x:Real))
+\end{tcAthena}
+The predefined procedure \mtt{=/=} can be used a short-hand to build negated equalities:
+\begin{tcAthena}[upquote=true]
+>(joe =/= mary ==> mary =/= joe)
+
+Sentence: (if (not (= joe mary))
+              (not (= mary joe)))
+\end{tcAthena}
+
+The sentences we have seen so far are called {\em zero-order\/} sentences, or propositional-logic sentences. First-order logic involves the use of the universal and existential {\em quantifiers}, 
+which in Athena are named \mtt{forall} and \mtt{exists}:
+\begin{tcAthena}[upquote=true]
+>(forall ?x ?y (iff (sibling-of ?x ?y) 
+                    (sibling-of ?y ?x)))
+
+Sentence: (forall ?x:Person
+            (forall ?y:Person
+              (iff (sibling-of ?x:Person ?y:Person)
+                   (sibling-of ?y:Person ?x:Person))))
+
+>(forall ?x (exists ?y (< ?x ?y)))
+
+Sentence: (forall ?x:Real
+            (exists ?y:Real
+              (< ?x:Real ?y:Real)))
+\end{tcAthena}
+Quantified sentences can be written in more conventional notation as follows:
+\begin{tcAthena}[upquote=true]
+>(forall ?x ?y . ?x sibling-of ?y <==> ?y sibling-of ?x)
+
+Sentence: (forall ?x:Person
+            (forall ?y:Person
+              (iff (sibling-of ?x:Person ?y:Person)
+                   (sibling-of ?y:Person ?x:Person))))
+\end{tcAthena}
+To avoid having to type too many question marks, we can simply define some names to denote variables: 
+\begin{tcAthena}[upquote=true]
+define [x y z] := [?x ?y ?z]
+\end{tcAthena}
+We can then write: 
+\begin{tcAthena}[upquote=true]
+>(forall x y . x sibling-of y <==> y sibling-of x)
+
+Sentence: (forall ?x:Person
+            (forall ?y:Person
+              (iff (sibling-of ?x:Person ?y:Person)
+                   (sibling-of ?y:Person ?x:Person))))
+
+>(forall x . exists y . x < y)
+
+Sentence: (forall ?x:Real
+            (exists ?y:Real
+              (< ?x:Real ?y:Real)))
+
+>(forall x y z . x = y & y = z ==> x = z)
+
+Sentence: (forall ?x:'T10987
+            (forall ?y:'T10987
+              (forall ?z:'T10987
+                (if (and (= ?x:'T10987 ?y:'T10987)
+                         (= ?y:'T10987 ?z:'T10987))
+                    (= ?x:'T10987 ?z:'T10987)))))
+\end{tcAthena}
+
+
+
+\section{Computing with Athena}
+Athena can be used as a general-purpose programming language. {\em Procedures\/} can be written  to perform arbitrary computation with terms, which are the fundamental data type of the language,
+but also with values of other types, such as lists, functional dictionaries and hash tables. Procedures can be recursive, they can perform conditional branching, pattern matching on 
+terms, sentences, lists, and values of other types, and so on. Generally speaking, a procedure $f$ that takes $n$ arguments is applied in prefix style: \mtt{($f$ $e_1 \cdots e_n$)}, where each $e_i$
+is an arbitrary Athena phrase. However, just as was the case with function symbols, binary procedures can be used in infix style, and successive applications of unary procedures need not
+be separated by parentheses. The associativity and precedence level of any procedure can be set by the user. The rest of this tutorial gives a whirlwind tour of some of Athena's 
+computation facilities. There's quite a bit more that cannot be covered here, such as backtracking (via \mkwd{try}), loops (\mkwd{while}), cells, substitutions, dictionaries, and more;
+refer to XX for more details.
+
+\subsection{Input and Output}
+Output can be written to stdout using the predefined procedure \mtt{print}, which takes an arbitrary number of  arguments (of arbitrary types), prints them out, 
+and returns the {\em unit value}:\footnote{The unit value, \fmtt{()}, is a unique expression and value in Athena that is typically returned as the result 
+of evaluating expressions with side effects, such as \fmkwd{cell} assignments, \fmkwd{while} loops, and I/O operations.}
+\begin{tcAthena}[upquote=true]
+>(print "\nHello world!\n")
+
+Hello world!
+
+Unit: ()
+\end{tcAthena}
+
+A string can be written to a text file with the procedure \mtt{write-file}, whose first argument is a file path (represented as a string) and whose second argument
+is the string to be written, while the unary procedure \mtt{read-file} returns a string representing the contents of a text file: 
+\begin{tcAthena}[upquote=true]
+>(write-file "foo.txt" "Foo bar")
+
+Unit: ()
+
+>(print (read-file "foo.txt"))
+Foo bar
+Unit: ()
+\end{tcAthena}
+Note that \mtt{write-file} writes in the given file in append mode. If you'd like to clobber the file's existing contents (if any)  
+before writing to it, you can write your own procedure for it as follows:
+\begin{tcAthena}[upquote=true]
+>define (overwrite file str) := 
+   let {_ := (delete-file file)}
+     (write-file file str)
+
+Procedure overwrite defined.
+\end{tcAthena}
+We'll talk more about user-defined procedures soon. Finally, the nullary procedure \mtt{read} receives as input from the user a single character at a time:
+\begin{tcAthena}[upquote=true]
+>(read) # Press the letter 'a'
+
+Character: `a
+\end{tcAthena}
+
+\subsection{Lists}
+Lists are a fundamental data type in Athena. A list is written simply by enclosing its elements inside square brackets, separated by white space:
+\begin{tcAthena}[upquote=true]
+define L := [1 2 3 4 5]
+
+List L defined.
+\end{tcAthena}
+Primitive procedures for manipulating lists include \mtt{length} (self-explanatory); \mtt{head} (gives the first element of a list); 
+\mtt{tail} (gives the tail of a list); \mtt{rev} (returns the reverse of the input list); \mtt{join}, which takes an arbitrary
+number of lists as arguments and concatenates them; and \mtt{add}, which takes an element $h$ and a list $t$ and returns the list
+obtained by adding $h$ to the front of $t$: 
+\begin{tcAthena}[upquote=true]
+>(length L)
+
+Term: 5
+
+>(head L)
+
+Term: 1
+
+>(tail L)
+
+List: [2 3 4 5]
+
+>(rev L)
+
+List: [5 4 3 2 1]
+
+>(join ['a 'b] L ['c 'd])
+
+List: ['a 'b 1 2 3 4 5 'c 'd]
+
+>(add 1 (add 2 []))
+
+List: [1 2]
+\end{tcAthena}
+We can work with lists using pattern matching:
+\begin{tcAthena}
+>match L {
+   (list-of h t) => (print "First element: " h "and the tail: " t "\n")
+ }
+
+First element: 1 and the tail: [2 3 4 5] 
+
+Unit: ()
+\end{tcAthena}
+Here's how we might write our own list reversal procedure using pattern matching: 
+\begin{tcAthena}
+define reverse := 
+  lambda (lst)
+    match lst  {
+      [] => []
+    | (list-of h t) => (join (reverse t) [h])
+    }
+
+>(reverse [1 2 3])
+
+List: [3 2 1]
+\end{tcAthena}
+Instead of using \mkwd{lambda}, procedures can be defined in more conventional notation as follows:
+\begin{tcAthena}
+define (reverse lst) := 
+  match lst  {
+    [] => []
+  | (list-of h t) => (join (reverse t) [h])
+  }
+\end{tcAthena}
+While this implementation works, its runtime complexity is quadratic in the size of the input list. We can 
+attain linear-time performance by using an internal helper procedure, defined with \mkwd{letrec}, since it is recursive: 
+\begin{tcAthena}
+define (reverse lst) := 
+  letrec {loop := lambda (lst accum) 
+                    match lst {
+                      [] => accum
+                    | (list-of h t) => (loop t (add h accum))
+                    }}
+    (loop lst [])
+
+>(reverse [1 2 3])
+
+List: [3 2 1]
+\end{tcAthena}
+Athena strings are just lists of characters, so any procedure that operates on lists can be just as well applied to strings:
+\begin{tcAthena}
+>(tail "foo bar")
+
+List: [`o `o `\blank `b `a `r]
+
+>(println (rev "foo bar"))
+
+rab oof
+
+Unit: ()
+\end{tcAthena}
+
+\subsection{Computing with Terms and Sentences}
+
+A number of primitive procedures for computing with terms are built-in, such as numeric computation primitives: \mtt{plus}, \mtt{minus}, \mtt{times}, 
+\mtt{div}, \mtt{mod}, \mtt{less?}, \mtt{leq?}, \mtt{greater?}, \mtt{geq?}, and so on.
+(As we saw, the identifiers \mtt{+}, \mtt{-}, \mtt{*}, \mtt{/}, and \mtt{\%} are used as function symbols, not as procedures for numeric computation.)
+\begin{tcAthena}[upquote=true]
+>define (factorial n) := 
+   check {
+     (n less? 2) => 1
+   | else => (n times (factorial (n minus 1)))
+   }
+
+Procedure factorial defined.
+
+>(factorial 5)
+
+Term: 120
+\end{tcAthena}
+We can use \mkwd{let} expressions to name results of intermediate computations:
+\begin{tcAthena}
+>let {p := (true & false);
+      q := (false & true)}
+  (p <==> q)
+
+Sentence: (iff (and true false)
+               (and false true))
+\end{tcAthena}
+
+\subsection{Pattern Matching on Terms and Sentences}
+We can perform pattern matching on terms and sentences along the following lines: 
+\begin{tcAthena}[upquote=true]
+define (verbalize t) := 
+  match t {
+    (father t') => (join "the father of " (verbalize t'))
+  | (mother t') => (join "the mother of " (verbalize t'))
+  | (t1 sibling-of t2) => (join (verbalize t1) " is a sibling of " (verbalize t2))
+  | _ => (val->string t) # handle all remaining cases
+  }
+
+define t := (father joe sibling-of mother mary)
+
+>(print "\n" (verbalize t) "\n")
+
+the father of joe is a sibling of the mother of mary
+
+Unit: ()
+\end{tcAthena}
+We can likewise use pattern matching on sentences. For instance, the following procedure carries out one step of the core transformation 
+that is needed to convert a sentence to CNF (conjunctive normal form): 
+\begin{tcAthena}[upquote=true]
+define (cnf-once p) :=
+  match p {
+    (~ (~ q)) => q
+  | (~ (p1 & p2)) => (~ p1 | ~ p2)
+  | (~ (p1 | p2)) => (~ p1 & ~ p2)
+  | (~ (p1 | p2)) => (~ p1 & ~ p2)
+  | (~ true) => false
+  | (~ false) => true 
+  | (p1 | (p2 & p3)) => ((p1 | p2) & (p1 | p3))
+  | ((p1 & p2) | p3) => ((p1 | p3) & (p2 | p3))
+  | _ => p
+  }
+
+>(cnf-once ~ (true | false))
+
+Sentence: (and (not true)
+               (not false))
+\end{tcAthena}
+Quantified sentences can also be matched. 
+
+Pattern matching can be used at the top level to define multiple values simultaneously, and inside \mkwd{let} expressions as well:
+\begin{tcAthena}
+>define [a b] := [1 2]
+
+Term b defined.
+
+Term a defined.
+
+>let {[a b] := [1 2]} (a plus b)
+
+Term: 3
+\end{tcAthena}
+Athena has a very rich pattern language and these examples barely scratch the surface; 
+refer to XX for more details and examples. 
+
+\subsection{Precedence, Associativity, Input Expansion and Output Transformation}
+Every unary and binary function symbol has a certain \emph{precedence}, which can be obtained by applying the procedure \mtt{get-precedence} to the symbol.
+Binary symbols also have a certain associativity, which can be left or right: 
+\begin{tcAthena}[upquote=true]
+>(get-precedence +)
+
+Term: 200
+
+>(println (get-assoc *))
+
+default (right)
+
+Unit: ()
+\end{tcAthena}
+
+When we introduce a function symbol, we can optionally include some additional information at the end of the declaration, inside square brackets:
+\begin{tcAthena}[upquote=true]
+declare f: [Int Int] -> Int [130 left-assoc]
+\end{tcAthena}
+The above says that \mtt{f} has a precedence of 130 and is left-associative.  
+We can also (optionally) specify {\em input expanders\/} inside the square brackets. This is a list
+of $n$ unary procedures $g_1 \cdots g_n$, themselves enclosed within square brackets, where $n$ is the arity of the symbol being declared. 
+Then every time the symbol is applied to $n$ values $v_1 \cdots v_n$, each $v_i$ will first be run through $g_i$. For example:
+\begin{tcAthena}[upquote=true]
+define (word->numeral n) := 
+  match n {
+    "one" => 1 | "two" => 2 | "three" => 3 | "four" => 4 | _ => n 
+  }
+
+declare h: [Int Boolean] -> Int [120 [word->numeral id]]
+
+>(h "three" false)
+
+Term: (h 3 false)
+\end{tcAthena}
+In Athena, \mtt{id} is the (predefined) identity procedure, \mbox{\tt \mkwd{lambda} (x) x}. So here we apply \mtt{word->numeral} to the first argument of \mtt{h}, while leaving the second argument alone. 
+
+Input expansion is a very useful notational device that allows us to change the way we write certain terms in entirely arbitrary ways. 
+Likewise, we can transform the output produced by a certain user-defined procedure. For instance, if a procedure outputs natural numbers in Peano notation, 
+we can make it convert these into conventional numeral notation. Here we simply convert \mtt{false} to \mtt{0} and \mtt{true} to \mtt{1}:
+\begin{tcAthena}[upquote=true]
+define (bool->number b) := 
+  match b {
+    false => 0
+  | true => 1
+  | _ => b
+  }
+
+define (even? x) := (x mod 2 equals? 0)
+
+>(even? 500)
+
+Term: true
+
+>transform-output even? [bool->number]
+
+OK.
+
+>(even? 500)
+
+Term: 1
+\end{tcAthena}
+Note that \mtt{equals?} is a predefined binary procedure that accepts two values and returns \mtt{true} if the values are identical 
+and \mtt{false} otherwise. 

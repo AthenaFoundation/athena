@@ -1,0 +1,59 @@
+#===================================================================================================
+#					SF CHAPTER 3
+#===================================================================================================
+
+load "ch2"
+
+extend-module Nat {
+
+define plus-n-Z := (forall n . n + 0 = n)
+
+by-induction plus-n-Z {  
+  Zero => (!chain [(Zero + Zero) = Zero   [plus-nat-def]])
+| (Succ k) => let {ih := (k + 0 = k)}
+                (!chain [((Succ k) + 0) 
+                       = (Succ (k + 0))   [plus-nat-def]
+                       = (Succ k)         [ih]])
+}
+
+conclude plus-Z-n := (forall n . 0 + n = n)
+  pick-any n:Nat
+     (!chain [(0 + n) = n [plus-nat-def]])
+
+
+
+conclude minus-diag := (forall n . n - n = Zero)
+  by-induction minus-diag {
+    Zero => (!chain [(Zero - Zero) = Zero          [minus-nat-def]])
+  | (Succ k) => let {ih := (k - k = Zero)}
+                  (!chain [((Succ k) - (Succ k))
+                         = (k - k)                 [minus-nat-def]
+                         = Zero                    [ih]])
+  }
+
+
+declare double: [Nat] -> Nat [[int->Nat]]
+
+assert* double-def := [(double Zero = Zero)
+                       (double Succ k = Succ Succ double k)]
+
+(eval double 4)
+
+define plus-comm := (forall n m . n + m = m + n)
+
+(!force plus-comm)      
+
+conclude double-plus := (forall n . double n = n + n)
+  by-induction double-plus {
+    Zero => (!chain [(double Zero)
+                   = Zero                       [double-def]
+                   = (Zero + Zero)              [plus-nat-def]])
+  | (Succ k) => (!chain [(double Succ k) 
+                       = (Succ Succ double k)   [double-def]
+                       = (Succ Succ (k + k))    [(double k = k + k)] # This is the inductive hypothesis 
+                       = (Succ ((Succ k) + k))  [plus-nat-def]
+                       = (Succ (k + Succ k))    [plus-comm]
+                       = ((Succ k) + (Succ k))  [plus-nat-def]])
+  }
+
+} # Ends module Nat { ... 

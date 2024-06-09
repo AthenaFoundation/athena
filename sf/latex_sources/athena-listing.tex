@@ -1,0 +1,417 @@
+%\usepackage{listings}  % already loaded by MIT-Press macros.
+\usepackage{listings-fix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+%\newcommand{\textapprox}{\raisebox{-0.35ex}{\large\texttildelow}}
+
+\newcommand{\textapprox}{\raisebox{-0.10ex}{\fontsize{11.5}{13.8}{\selectfont \texttildelow}}}
+
+% The following produces a HUGE ~, so going back to previous version above
+%\newcommand{\textapprox}{\raisebox{-0.05ex}{\fontsize{20.7}{22.7}{\selectfont \texttildelow}}}
+
+% OLD: \definecolor{backgroundColor}{HTML}{FDF5E6}
+\definecolor{backgroundColor}{HTML}{FDF5E6}
+\definecolor{kwdColor}{HTML}{0071BC}
+%\definecolor{kwdColor}{HTML}{ED1B23}
+%\definecolor{kwdColor}{HTML}{000080}
+\definecolor{Sienna}{HTML}{A0522D}
+\definecolor{Maroon}{HTML}{800000}
+\newcommand{\mkwd}[1]{\mtt{\color{kwdColor}{{\bfseries #1}}}}
+\newcommand{\smkwd}[1]{\smtt{\color{kwdColor}{{\bfseries #1}}}}
+\newcommand{\fmkwd}[1]{\fmtt{\color{kwdColor}{{\bfseries #1}}}}
+%Sienna: 
+%\definecolor{theoremColor}{HTML}{A0522D}
+
+%Maroon:
+%\definecolor{theoremColor}{HTML}{800000}
+
+%Purple:
+\definecolor{theoremColor}{HTML}{800080}
+
+\lstdefinelanguage{Athena}
+ % {alsoletter={-*'!~<=>},
+ {alsoletter={-*'~%,=>,:=,!,(,),\|,
+  %_,!\[,
+    %\{,\}
+    },
+   morekeywords={dlet,,method,primitive-method, lambda,domain,domains,with-witness,for,datatype-cases,on,%\!,| , 
+     by, BY, for, OP, apply-method,%:=,{]},
+generalize-over,datatypes,clear-assumption-base,assume,from,=>,suppose-absurd,let,begin,end,by-cases,set-flag,%=>,\{,\},
+letrec,cell,ref,dseq,seq,set!,set,vector-set!,vector-set,vector-sub,make-vector,pick-any,pick-witness,pick-witnesses,by,assume-let,match,dmatch,conclude,%_,
+retract,suppose-absurd-let,assert,assert*,define,try,dtry,dcheck,check,else,while,split, where, set-precedence,expand-input,transform-output,define-sort, 
+left-assoc,right-assoc,list-of,bind,as,val-of,some-list,some-term,some-sentence,some-sent,some-symbol,some-method,
+some-quant,some-sent-con,some-prop-con,some-atom,some-proc,some-var,some-cell,some-vector,some-sub,some-char,
+define-symbol,module,open,extend-module,private,quit,
+overload,secure-file,load-file,load,declare,datatype,structure,by-induction,datatype-cases},
+% otherkeywords={@,[,],!,(,)},
+ otherkeywords={%!,|,
+               %[,],(,),
+               %\{,\},_
+                },
+keywordstyle=\color{kwdColor}\bfseries,
+%commentstyle={\rm},
+%commentstyle=\itshape\color{purple!40!black},
+commentstyle=\itshape\color{green!40!black}\itshape,
+stringstyle=\ttfamily,
+morecomment=[l]{\#},
+morestring=[b]",
+}
+
+%% \colorbox{gray}{\parbox{\textwidth}{\textcolor{white}{text goes here}}}
+
+%\definecolor{easyBlue}{rgb}{.85,.95,1}
+\definecolor{cinereous}{rgb}{0.6, 0.51, 0.48}
+\definecolor{amber}{rgb}{1.0, 0.75, 0.0}
+\definecolor{almond}{rgb}{0.94, 0.87, 0.8}
+\definecolor{amethyst}{rgb}{0.6, 0.4, 0.8}
+\definecolor{arylideyellow}{rgb}{0.91, 0.84, 0.42}
+\definecolor{ballblue}{rgb}{0.13, 0.67, 0.8}
+
+%new, better:
+%\newcommand{\customsize}{\fontsize{9.5}{11.4}}
+%\newcommand{\customsize}{\fontsize{9.65}{11.5}}
+%\newcommand{\customsize}{\fontsize{9.7}{11.6}}
+
+
+%% ORIG: \newcommand{\customsize}{\fontsize{9.75}{11.7}}
+\newcommand{\customsize}{\fontsize{9.7}{11.6}}
+
+\renewcommand{\small}{\customsize}
+
+\newcommand{\smcomment}[1]{\mbox{\small\itshape\color{green!40!black} #1}}
+\newcommand{\fmcomment}[1]{\mbox{\footnotesize\itshape\color{green!40!black} #1}}
+
+%% URL web page webpage for colors: http://latexcolor.com/
+%Bisque:
+%\definecolor{backgroundColor}{HTML}{FFE4C4}
+
+%OldLace:
+
+
+\colorlet{backgroundColor}{red!50!yellow!4.5!white}
+
+
+%\colorlet{backgroundColor}{blue!5!white}
+
+%\definecolor{backgroundColor}{colback=red!50!yellow!5!white}
+
+%\DeclareFontShape{OT1}{cmtt}{bx}{n}{<5><6><7><8><9><10><10.95><12><14.4><17.28><20.74><24.88>cmttb10}{}
+
+\definecolor{brightmaroon}{rgb}{0.76, 0.13, 0.28}
+\definecolor{amber}{rgb}{1.0, 0.49, 0.0}
+\definecolor{alizarin}{rgb}{0.82, 0.1, 0.26}
+\definecolor{cadmiumred}{rgb}{0.89, 0.0, 0.13}
+
+
+\newcommand{\bangforce}[1]{{!{\bf\color{alizarin}force}}}  % Ignore the argument
+\newcommand{\forcenoarg}{{\bf\color{alizarin}force}}
+\newcommand{\fforcenoarg}{{\footnotesize\bf\color{alizarin}force}}
+\newcommand{\forcenoargsp}{{{\bf\color{alizarin}force}} }
+\newcommand{\sforcenoargtwo}{{\small\bf\color{alizarin}force2}}
+\newcommand{\sforcenoargtwosp}{{{\small\bf\color{alizarin}force2}} }
+\newcommand{\sforce}{{{\small{\bf\color{alizarin}\footnotesize force}} }}
+\newcommand{\sforcesp}{{{\small{\bf\color{alizarin}\footnotesize force}} } }
+\newcommand{\newsforcesp}{{{\small{\bf\color{alizarin}\footnotesize force}}} }
+\newcommand{\sforcetwo}{{{\small{\bf\color{alizarin}\footnotesize force2}} }}
+\newcommand{\sforcetwosp}{{{\small{\bf\color{alizarin}\footnotesize force2}} } }
+\newcommand{\scforce}{{{\small{\bf\color{alizarin}\scriptsize force}} }}
+\newcommand{\smallforce}{{{\small{\bf\color{alizarin}\small force}}}}
+\newcommand{\smallforcesp}{{{\small{\bf\color{alizarin}\small force}}} }
+\newcommand{\textize}[2]{\texttt{#1}}
+\newcommand{\pairop}[1]{\symbol{64}} % Ignore the argument
+\newcommand{\betternot}[1]{$\sim$} % Ignore the argument
+%\newcommand{\ignore}[1]{}
+%\newcommand{\betterimp}[1]{$\Longrightarrow$} % Ignore the argument
+%\newcommand{\betterequiv}[1]{$\Longleftrightarrow$} % Ignore the argument
+\lstset{language=Athena,
+% literate=
+%   {~}{$\textapprox$}{1},    % outputs a more visible tilde   % now done in listings-fix.sty instead
+%  {^}{{\symbol{64}}}{1},    % outputs @, used after atmod.sed has replaced @ with ^
+backgroundcolor=\color{backgroundColor},showstringspaces=false,
+%backgroundcolor=\color{white},showstringspaces=false,
+%basicstyle=\small\ttfamily,numbers=left,identifierstyle=\tt,
+%basicstyle=\footnotesize\ttfamily,numbers=left,identifierstyle=\tt,
+basicstyle=\footnotesize\ttfamily,numbers=left,identifierstyle=\ttfamily,
+emph={[1]Theorem,\bf},emphstyle={[1]\color{Maroon}\bfseries},
+emph={[2]not,if,iff,and,or,forall,exists,exists-unique},emphstyle={[2]\tt},
+%emph={[3]},
+%emphstyle={[3]\sf},
+emph={[4]force},emphstyle={[4]\bfseries\color{alizarin}},
+emph={[5]!force},emphstyle={[5]\bangforce},
+emph={[9]DOMAIN},emphstyle={[9]\textize{domain}},
+emph={[10]FOR},emphstyle={[10]\textize{for}},
+emph={[12]SET},emphstyle={[12]\textize{set}},
+emph={[13]AS},emphstyle={[13]\textize{as}},
+emph={[14]FROM},emphstyle={[14]\textize{from}},
+emph={[15]ON},emphstyle={[15]\textize{on}},
+emph={[16]OUT},emphstyle={[16]\hspace{-9pt}\textize{ }},
+emph={[17]DATATYPES},emphstyle={[17]\textize{datatypes}},
+emph={[18]MATCH},emphstyle={[18]\textize{match}},
+%escapeinside={(*^}{^*)},
+%emph={[6]~},emphstyle={[6]\betternot},
+%emph={[7]==>},emphstyle={[7]\betterimp},
+%emph={[8]<==>},emphstyle={[8]\betterequiv},
+% emph={[3]%% Symbols are set in their own font:
+% % Introduction:
+% inv,*,zero,S,Plus,+,is-looking-at,married,Jack,Anne,George,~,rational,/=,/,-,Zzero,
+% % Intro to Athena:
+% true,false,zero,succ,pair,null,node,empty-list,tlist,
+% % Proving Equalities:
+% one,two,,Times,Power,**,zero',S',unnatural,nil,append,Append,Reverse,Length,
+% Quotient,square,
+% % Sentential Logic:
+% % First Order Logic:
+% % Proving Ordering Properties:
+% pred,Less,Max,Less-equal,returns,<,<=,Nat<,Nat<=,
+% % Proving Algorithm Correctness:
+% half,Even,Odd,fast-power,
+% % More Arithmetic and Algorithm Properties:
+% Div,Mod,divides,euclid,is-common-divisor,
+% % Proofs at an Abstract Level:
+% Negate,<0>,<1>,Inv,apply,identity,compose,
+% surjective,injective,bijective,as-fun,as-perm,p-compose,p-identity,p-inverse,
+% R,<,<=,E
+% },
+%moredelim=*[is][\ttfamily]{@}{@},
+numberstyle=\tiny,stepnumber=1,numbersep=8pt}
+
+% For Athena code in frame with colored background, no numbers
+\lstnewenvironment{Athena}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+% Another name for Athena (NN = no numbers): 
+
+\lstnewenvironment{AthenaNN}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaWN}[1][]
+{\lstset{numbers=left,#1}}
+{}
+
+% Like Athena, but contents are not included in output of athena-filter.py
+\lstnewenvironment{AthenaNoTest}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+\lstnewenvironment{tcAthenaNoTest}[1][]
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaNoTestWN}[1][]
+{\lstset{numbers=left,#1}}
+{}
+
+\lstnewenvironment{ath}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+\definecolor{foocolor}{HTML}{006795}
+\definecolor{idriscolor}{HTML}{0000FF}
+\definecolor{bcolor}{gray}{0.95}
+%\definecolor{bcolor}{HTML}{DA9D76}
+\lstnewenvironment{tcAthena}[1][]
+{\lstset{backgroundcolor=\color{bcolor},%xleftmargin=0.7cm,frame=tlbr, framesep=0.2cm, framerule=1pt,
+         keywordstyle=\color{foocolor}\bfseries,numbers=none,#1}}
+{}
+
+\lstnewenvironment{idris}[1][]
+{\lstset{backgroundcolor=\color{bcolor},%xleftmargin=0.7cm,frame=tlbr, framesep=0.2cm, framerule=1pt,
+         morekeywords={rewrite, Refl},
+         keywordstyle=\color{idriscolor},numbers=none,#1}}
+{}
+
+\lstnewenvironment{tcAthenaWithNumbers}[1][]
+{\lstset{backgroundcolor=\color{bcolor},%xleftmargin=0.7cm,frame=tlbr, framesep=0.2cm, framerule=1pt,
+         language=haskell,                                                                       
+         keywordstyle=\color{foocolor}\bfseries,numbers=left,#1}}
+{}
+
+\lstnewenvironment{ltcAthena}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+
+
+
+\lstnewenvironment{tcAthenaNN}[1][]
+{\lstset{numbers=none,#1}}
+{}
+
+\lstnewenvironment{tcAthenaWN}[1][]
+{\lstset{numbers=left,#1}}
+{}
+
+\lstnewenvironment{ltcAthenaWN}[1][]
+{\lstset{numbers=left,#1}}
+{}
+
+\lstnewenvironment{tcAthenaWithMath}[1][]
+{\lstset{mathescape=true,numbers=none,#1}}
+{}
+
+\lstnewenvironment{ltcAthenaWithMath}[1][]
+{\lstset{mathescape=true,numbers=none,#1}}
+{}
+
+\lstnewenvironment{tcAthenaWithMathWN}[1][]
+{\lstset{mathescape=true,#1}}
+{}
+
+\lstnewenvironment{ltcAthenaWithMathWN}[1][]
+{\lstset{mathescape=true,#1}}
+{}
+
+
+\lstnewenvironment{ScriptSizeAthenaNN}[1][]
+{\lstset{basicstyle=\footnotesize\ttfamily,numbers=left,identifierstyle=\tt,frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% For Athena code and output (or just output) in frame with white background color:
+\lstnewenvironment{AthenaIO}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{frameround=ffff,frame=trBL,numbers=none,#1}}
+{}
+
+% As above, with numbers:
+\lstnewenvironment{AthenaIOWN}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{frameround=ffff,frame=trBL,#1}}
+{}
+
+% Prevent 'for' (that can occur in error messages) appearing as a keyword
+\lstnewenvironment{AthenaIOttfor}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},emph={[2]for},emphstyle={[2]\tt},#1}}
+{\lstset{frameround=ffff,frame=trBL,numbers=none,emph={[2]for},emphstyle={[2]\tt},#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaIOttforWN}[1][]
+%{\lstset{frameround=ffff,frame=trBL,backgroundcolor=\color{white},emph={[2]for},emphstyle={[2]\tt},#1}}
+{\lstset{frameround=ffff,frame=trBL,emph={[2]for},emphstyle={[2]\tt},#1}}
+{}
+
+% For Athena code unframed with white background color:
+\lstnewenvironment{AthenaPlain}[1][]
+%{\lstset{basicstyle=\small\ttfamily,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{backgroundcolor=\color{white},numbers=none,#1}}
+{}
+
+\lstnewenvironment{tcAthenaPlain}[1][]
+%{\lstset{basicstyle=\small\ttfamily,backgroundcolor=\color{white},numbers=none,#1}}
+{\lstset{basicstyle=\small\ttfamily,backgroundcolor=\color{white},numbers=none,#1}}
+{}
+
+% For Athena code unframed with white background color, and math allowed:
+\lstnewenvironment{AthenaMath}[1][]
+{\lstset{backgroundcolor=\color{white},numbers=none,
+basicstyle=\small\ttfamily,
+mathescape=true,#1}}
+{}
+
+
+\lstnewenvironment{tcAthenaMath}[1][]
+{\lstset{backgroundcolor=\color{white},numbers=none,
+basicstyle=\small\ttfamily,
+mathescape=true,#1}}
+{}
+
+\lstnewenvironment{AthenaWithMath}[1][]
+{\lstset{mathescape=true,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaWithMathWN}[1][]
+{basicstyle=\small\ttfamily,
+\lstset{mathescape=true,#1}}
+{}
+
+
+% Same as AthenaWithMath
+\lstnewenvironment{AthenaWithMathNN}[1][]
+{\lstset{mathescape=true,numbers=none,#1}}
+{}
+
+% For Athena code unframed with white background color, and math allowed
+% in footnotesize font (same as in Athena and AthenaIO)
+\lstnewenvironment{AthenaMathSmall}[1][]
+{\lstset{backgroundcolor=\color{white},numbers=none,
+mathescape=true,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaMathSmallWN}[1][]
+{\lstset{backgroundcolor=\color{white},
+mathescape=true,#1}}
+{}
+
+
+% Athena math with color and framing: 
+
+\lstnewenvironment{AthenaMathColor}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,numbers=none,#1}}
+{}
+
+% As above, with numbers
+\lstnewenvironment{AthenaMathColorWN}[1][]
+{\lstset{frameround=ffff,frame=trBL,mathescape=true,#1}}
+{}
+
+% For inline Athena code:
+%% qqq restore: 
+%\newcommand{\code}[1]{\mtt{#1}}
+%% Removed the \small on August 21: \newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily,mathescape=true]@#1@}
+%\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily,mathescape=true]@#1@}
+%% D: Restored the \small on August 27: \newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily,mathescape=true]@#1@}
+\newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily,mathescape=true]@#1@}
+
+%\newcommand{\code}[1]{\lstinline[mathescape=true]@#1@}
+
+%\newcommand{\code}[1]{\lstinline[basicstyle=\ttfamily]{@#1@}}
+\newcommand{\rcode}[1]{\lstinline[basicstyle=\footnotesize\ttfamily]{#1}}
+\newcommand{\fcode}[1]{\footnotesize{\lstinline[basicstyle=\footnotesize\ttfamily]{#1}}}
+\newcommand{\sccode}[1]{\scriptsize{\lstinline[basicstyle=\scriptsize\ttfamily]{#1}}}
+
+\newcommand{\fkwd}[1]{\footnotesize{\color{kwdColor}\bf{\ttfamily #1}}}
+\newcommand{\sckwd}[1]{\scriptsize{\color{kwdColor}\bf{\ttfamily #1}}}
+\newcommand{\kwd}[1]{\mbox{\small{\color{kwdColor}\bf{\ttfamily #1}}}}
+\newcommand{\skwd}[1]{\mbox{\small{\color{kwdColor}\bf{\ttfamily #1}}}}
+%% Removed the \small from skwd on August 21, 2016: 
+%\newcommand{\skwd}[1]{\mbox{{\color{kwdColor}\bf{\ttfamily #1}}}}
+% D: Restored the \small in skwd and kwd on August 27, 2016.
+
+%\newcommand{\smallkwd}[1]{\mbox{\small{\color{kwdColor}\bf{\ttfamily #1}}}}
+\newcommand{\smallkwd}[1]{\mbox{{\color{kwdColor}\bf{\ttfamily #1}}}}
+
+
+%\newcommand{\scode}[1]{\smtt{#1}}
+%\newcommand{\scode}[1]{{\small{\lstinline[basicstyle=\ttfamily]{@#1@}}}}
+% define scode same as code: (an experiment)
+%\newcommand{\scode}[1]{\mtt{#1}}
+\newcommand{\scode}[1]{\code{#1}}
+
+%% qqq restore: 
+%\newcommand{\scode}[1]{{\small{\lstinline[basicstyle=\ttfamily,mathescape=true]@#1@}}}
+
+% For inline Athena code, enclosed between @'s, with math allowed:
+%% qqq restore: 
+
+\lstMakeShortInline[basicstyle=\small\ttfamily,mathescape=true]@
+
+% For Athena code inside a math environment
+\newcommand{\mboxcode}[1]{\mbox{\code{#1}}}
+\newcommand{\smboxcode}[1]{\mbox{\scode{#1}}}
+\newcommand{\fmboxcode}[1]{\mbox{\fcode{#1}}}
+
+% For Athena code with no frame and black background, for use with prosper slides package:
+\lstnewenvironment{AthenaNF}[1][]
+{\lstset{basicstyle=\tiny\ttfamily,backgroundcolor=\color{black},numbers=none,#1}}
+{}
+
+
+\newtcbox{\corepspec}{colback=red!5!white,colframe=red!75!black,top=1pt,bottom=0.4pt,left=1pt,right=1pt}
+
+\newcommand{\pspec}[1]{\mbox{\corepspec{#1}}}

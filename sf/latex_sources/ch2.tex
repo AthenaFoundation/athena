@@ -1,0 +1,864 @@
+\chapter{Basics} 
+
+
+\section{Introduction}
+
+This chapter develops the same material that is presented in the corresponding chapter (``Basics'', Chapter 2) of the SF book,
+but in Athena. This includes solutions for most of the exercises in the SF book. In addition, it introduces new material
+that is not present in the SF book. 
+
+\section{Enumerated Types}
+
+Here is how we introduce a data type to represent the days of the week: 
+
+\begin{tcAthena}
+datatype Day := Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday 
+\end{tcAthena}
+This is an inductively generated type that is also a free algebra. Its defining axioms can be seen
+and inserted into the assumption base as follows:
+\begin{tcAthena}
+assert (datatype-axioms "Day")
+\end{tcAthena}
+Let's introduce some handy variables for this sort. We'll also load the files \mtt{prolog-solver} and \smtt{nat-plus}, since we'll
+use that functionality: 
+\begin{tcAthena}
+load "nat-plus"
+load "prolog-solver"
+define [d d' d1 d2 d3] := [?d:Day ?d':Day ?d1:Day ?d2:Day ?d3:Day]
+\end{tcAthena}
+The following defines the \smtt{nextWeekday} function introduced in Section 2.1 of SF: 
+\begin{tcAthena}
+declare nextWeekday: [Day] -> Day 
+
+assert* nextWeekday-def := 
+   [(nextWeekday Monday    = Tuesday)
+    (nextWeekday Tuesday   = Wednesday)
+    (nextWeekday Wednesday = Thursday)
+    (nextWeekday Thursday  = Friday)
+    (nextWeekday Friday    = Monday)
+    (nextWeekday Saturday  = Monday)
+    (nextWeekday Sunday    = Monday)]
+\end{tcAthena}
+Let's now \smtt{eval} a few terms to make sure the definition works properly:
+\begin{tcAthena}
+> (eval nextWeekday Monday)
+
+Term: Tuesday
+
+> (eval nextWeekday nextWeekday Tuesday)
+
+Term: Thursday 
+\end{tcAthena}
+Using a relational approach (based on logic programming), we can evaluate/solve backwards as well, e.g., 
+we can answer the following question: which day is the predecessor of the predecessor of Wednesday? 
+\begin{tcAthena}
+> (Prolog.auto-solve nextWeekday nextWeekday ?d = Wednesday)
+
+List: [true {?d:Day --> Monday}]
+\end{tcAthena}
+
+Here is our first proof---showing deductively that the twice-next weekday after Monday is Wednesday:
+\begin{tcAthena}
+> conclude (nextWeekday nextWeekday Monday = Wednesday) 
+    (!chain [(nextWeekday nextWeekday Monday) 
+           = (nextWeekday Tuesday)                 [nextWeekday-def]
+           = Wednesday                             [nextWeekday-def]])
+
+Theorem: (= (nextWeekday (nextWeekday Monday))
+            Wednesday)
+\end{tcAthena}
+There are many different ways in which this trivial result could be proved, some of which are stylistic variants of the above
+proof and others are more substantially different. In terms of style, the \smkwd{conclude} annotation is optional and could have
+been ommitted: 
+\begin{tcAthena}
+(!chain [(nextWeekday nextWeekday Monday) 
+       = (nextWeekday Tuesday)                 [nextWeekday-def]
+       = Wednesday                             [nextWeekday-def]])
+\end{tcAthena}
+Also, the two equational steps could have been collapsed into one, since Athena will attempt arbitrarily long rewriting chains: 
+\begin{tcAthena}
+(!chain [(nextWeekday nextWeekday Monday) = Wednesday [nextWeekday-def]])
+\end{tcAthena}
+Of course, this trivial result could also be easily proved via external ATPs: 
+\begin{tcAthena}
+(!prove (nextWeekday nextWeekday Monday = Wednesday) (ab))
+\end{tcAthena}
+Let's introduce a more generic \smtt{next}-day function that produces the following day of any given day, week or weekend: 
+\begin{tcAthena}
+declare next: [Day] -> Day 
+
+assert* next-def := [(next Monday    = Tuesday)
+                     (next Tuesday   = Wednesday)
+                     (next Wednesday = Thursday)
+                     (next Thursday  = Friday)
+                     (next Friday    = Saturday)
+                     (next Saturday  = Sunday)
+                     (next Sunday    = Monday)]
+
+> (eval next next next Friday)
+
+Term: Monday
+\end{tcAthena}
+
+
+Let's now introduce an {\em addition\/} operation on days, so that, for example, adding 1 to $\smtt{Monday}$ gives \smtt{Tuesday}, adding 2 to \smtt{Friday}
+gives \smtt{Sunday}, and so on: 
+\begin{tcAthena}
+declare day-add: [Day N] -> Day [+ [id int->nat]]
+
+# We've overloaded the + symbol and also made it accept integer numerals 
+# in the second argument position. We define this function axiomatically as follows: 
+
+assert* day-add-def := [(d + 0 = d)
+                        (d + S n = next (d + n))]
+
+> (eval Monday + 4)
+
+Term: Friday
+
+> (Prolog.auto-solve ?d + 3 = Sunday)
+
+List: [true {?d:Day --> Thursday}]
+\end{tcAthena}
+Now here is a conjecture: Day addition is periodic with a period of 6: 
+\begin{tcAthena}
+define conjecture := (forall d . d + 6 = d) 
+\end{tcAthena}
+We can {\em test\/} this conjecture automatically using model-checking, up to a bound of let's say 100: 
+\begin{tcAthena}
+> (falsify conjecture 100)
+
+List: ['success |{?d:Day := Monday}|]
+\end{tcAthena}
+So \smtt{Monday} is a counterexample to the conjecture. How come? 
+\begin{tcAthena}
+> (eval Monday + 6)
+
+Term: Sunday
+\end{tcAthena}
+Of course, the correct period is 7, not 6: 
+\begin{tcAthena}
+define conjecture := (forall d . d + 7 = d) 
+
+# Now we're no longer able to falsify it: 
+
+> (falsify conjecture 100)
+
+Term: 'failure
+\end{tcAthena}
+Can we \temv{prove} this conjecture deductively? Yes, in a number of different ways.
+For example:
+%% \begin{comment}
+%% [[[[[[[[[[[[[[[[[[[[[
+%% For instance, we can prove it completely automatically using ATPs:
+%% \begin{tcAthena}
+%% > (!prove conjecture (ab))
+
+%% \end{tcAthena}
+%% But we can also prove it manually. We'll first remove it from the a.b. (since the ATP has already proven it):
+%% ]]]]]]]]]]]]]]]]]]]]]
+%% \end{comment} 
+\begin{tcAthena}
+define premises := [day-add-def N.Plus.Plus-def nextWeekday-def]
+
+datatype-cases conjecture {
+  Monday    => (!chain [(Monday + 7)    = Monday     [premises]])
+| Tuesday   => (!chain [(Tuesday + 7)   = Tuesday    [premises]])
+| Wednesday => (!chain [(Wednesday + 7) = Wednesday  [premises]])
+| Thursday  => (!chain [(Thursday + 7)  = Thursday   [premises]])
+| Friday    => (!chain [(Friday + 7)    = Friday     [premises]])
+| Saturday  => (!chain [(Saturday + 7)  = Saturday   [premises]])
+| Sunday    => (!chain [(Sunday + 7)    = Sunday     [premises]])
+}
+\end{tcAthena}
+However, this required us to think carefully about the exact set of assumptions that are needed for the result. 
+Alternatively, we can let Athena figure those out on its own. And to cut down our typing, we define a procedure
+that builds the desired statement for any given day automatically:
+\begin{tcAthena}
+retract conjecture
+
+define (periodic d) := (d + 7 = d)
+
+> datatype-cases conjecture {
+  Monday    => (!chain [(Monday + 7)    = Monday])
+| Tuesday   => (!chain [(Tuesday + 7)   = Tuesday])
+| Wednesday => (!chain [(Wednesday + 7) = Wednesday])
+| Thursday  => (!chain [(Thursday + 7)  = Thursday])
+| Friday    => (!chain [(Friday + 7)    = Friday ])
+| Saturday  => (!chain [(Saturday + 7)  = Saturday])
+| Sunday    => (!chain [(Sunday + 7)    = Sunday])
+}
+
+Theorem: (forall ?d:Day
+           (= (day-add ?d:Day
+                       (S (S (S (S (S (S (S zero))))))))
+              ?d:Day))
+\end{tcAthena}
+That is cleaner, but it still contains a lot of repetition. 
+Let's write one single \smkwd{datatype-cases} method for \smtt{Day} to rule them all.
+This will be a binary method that takes any goal $g$ of the form 
+\[(\forall\: \typedec{d}\smtt{Day} \qdot \temv{body})\]
+and an input method $M$ that takes any particular day $\raisedprime{d}$ (constructor of \smtt{Day}) and derives 
+the conclusion obtained from \temv{body} by replacing every free occurrence of $d$ by $\raisedprime{d}$: 
+\begin{tcAthena}
+define (auto-dt-for-Day goal M) := 
+  datatype-cases goal {
+    Monday =>    (!M Monday)
+  | Tuesday =>   (!M Tuesday)
+  | Wednesday => (!M Wednesday)
+  | Thursday =>  (!M Thursday)
+  | Friday =>    (!M Friday)
+  | Saturday =>  (!M Saturday)
+  | Sunday =>    (!M Sunday)
+  }
+\end{tcAthena}
+Using this generic method, we can now express the above proof in one single line: 
+\begin{tcAthena}
+retract conjecture
+
+> (!auto-dt-for-Day conjecture (method (x) (!chain [(x + 7) = x])))
+
+Theorem: (forall ?d:Day
+           (= (day-add ?d:Day
+                       (S (S (S (S (S (S (S zero))))))))
+              ?d:Day))
+\end{tcAthena}
+
+\begin{exercise}
+Give a constructive definition of a {\em precedence\/} relation on \smtt{Day}, call it \smtt{prec}, 
+which holds between two days $d_1$ and $d_2$ iff $d_1$ comes ``before'' $d_2$. 
+Thus, for example, Monday should precede every day other than itself, but Thursday should not precede, say Tuesday.\footnote{More 
+precisely: If you were to assign an integer code $\temv{code}(d)$ between 1 and 7 to any day $d$ by mapping Monday to 1, 
+Tuesday to 2, and so on, then $d_1$ should precede $d_2$ iff $\temv{code}(d_1) < \temv{code}(d_2)$.}
+Your definition should not use any auxiliary symbols other than those already defined above, and it should
+pass all of the following tests: 
+\begin{tcAthena}
+(eval Monday prec Tuesday)    # true
+(eval Monday prec Wednesday)  # true
+(eval Monday prec Thursday)   # true 
+(eval Monday prec Sunday)     # true
+(eval Monday prec Monday)     # false 
+(eval Saturday prec Sunday)   # true 
+(eval Saturday prec Monday)   # false 
+(eval Saturday prec Friday)   # false 
+\end{tcAthena}
+(\temv{Hint}: Use the function \smtt{next}.)
+\end{exercise}
+\begin{solution}[print=false]
+\begin{tcAthena}
+declare prec: [Day Day] -> Boolean
+
+assert* prec-def := [(d1 prec d2 <==> 
+                     d1 =/= Sunday & (d2 = next d1 | (next d1) prec d2))]
+\end{tcAthena}
+Note that the first conjunct, \smtt{(d1 =/= Sunday)}, is crucial. 
+\end{solution}
+
+\section{Booleans}
+Athena already has 
+Booleans are already built into Athena (the datatype \smtt{Boolean}), but let's go through the exercise 
+of building them from scratch:
+\begin{tcAthena}
+datatype Bool := T | F
+
+assert (datatype-axioms "Bool")
+
+define [b b' b1 b2 b3] := [?b ?b' ?b1 ?b2 ?b3]
+\end{tcAthena}
+We can now introduce the three main logical operations: negation, conjunction, and disjunction:
+\begin{tcAthena}
+declare notb: [Bool] -> Bool [--]
+
+declare andb: [Bool Bool] -> Bool [/\]
+declare orb:  [Bool Bool] -> Bool [\/]
+\end{tcAthena}
+We overload \smtt{--} for negation, \smtt{/}\smtt{\symbol{92}} for conjunction, and \smtt{\symbol{92}/} for disjunction. We start by defining negation:
+\begin{tcAthena}
+assert* notb-def := [(-- T = F) 
+                     (-- F = T)]                                         
+
+> (eval -- T)
+
+Term: F
+
+> (eval -- -- F)
+
+Term: F
+\end{tcAthena}
+Let's prove that negation is involutive: \smtt{(forall b . -- -- b = b)}. We can do this with a simple structural analysis:
+\begin{tcAthena}
+conclude notb-involutive := (forall b . -- -- b = b)
+  datatype-cases notb-involutive {
+    T => (!chain [(-- -- T) = (-- F) [notb-def]
+                            = T      [notb-def]])
+  | F => (!chain [(-- -- F) = (-- T) [notb-def]
+                            = F      [notb-def]])
+  }
+\end{tcAthena}
+If we are so inclined, we can collapse both two-step chains into single-step chains:
+\begin{tcAthena}
+retract notb-involutive 
+
+conclude notb-involutive := (forall b . -- -- b = b)
+  datatype-cases notb-involutive {
+    T => (!chain [(-- -- T) = T [notb-def]])
+  | F => (!chain [(-- -- F) = F [notb-def]])
+  }
+\end{tcAthena}
+We proceed with conjunction and disjunction:   
+\begin{tcAthena}
+assert* andb-def := [(T /\ b = b)
+                     (F /\ _ = F)]
+
+assert* orb-def := [(T \/ _ = T)
+                    (F \/ b = b)]
+
+> (eval T /\ T /\ F /\ T)
+
+Term: F
+
+> (eval F \/ F \/ T \/ F)
+
+Term: T
+
+> (eval F \/ F \/ F \/ F)
+
+Term: F
+\end{tcAthena}
+Let's prove some simple consequences, \egnsp, that \smtt{T} is also a right identity: 
+\begin{tcAthena}
+conclude andb-lemma-1 := (forall b . b /\ T = b)
+  datatype-cases andb-lemma-1 {
+    T => (!chain [(T /\ T) = T [andb-def]])
+  | F => (!chain [(F /\ T) = F [andb-def]])
+  }
+
+conclude andb-lemma-2 := (forall b . b /\ F = F)
+  datatype-cases andb-lemma-2 {
+    T => (!chain [(T /\ F) = F [andb-def]])
+  | F => (!chain [(F /\ F) = F [andb-def]])
+  }
+\end{tcAthena}
+We go on to prove that conjunction is commutative (this is 
+\begin{tcAthena}
+conclude conjunction-comm := (forall b1 b2 . b1 /\ b2 = b2 /\ b1)
+  datatype-cases conjunction-comm {
+    T => pick-any b2: Bool 
+           (!chain [(T /\ b2)
+                  = b2         [andb-def]
+                  = (b2 /\ T)  [andb-lemma-1]])
+  | F => pick-any b2: Bool 
+           (!chain [(F /\ b2)
+                  = F          [andb-def]
+                  = (b2 /\ F)  [andb-lemma-2]])  
+  }
+\end{tcAthena}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 3.0.1)}}}]
+Define the binary  function \smtt{nandb} as specified in SF, p. 14. 
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+declare nandb: [Bool Bool] -> Bool
+
+assert* nandnb-def := [(b1 nandb b2 = -- b1 /\ b2)]
+
+> [(eval T nandb F) (eval F nandb T) (eval F nandb F) (eval T nandb T)]
+
+List: [T T T F]
+\end{tcAthena}
+\end{solution}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 3.0.2)}}}]
+Define the ternary  function \smtt{andb3} so that it returns \smtt{T} iff all three inputs are \smtt{T}.
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+declare andb3: [Bool Bool Bool] -> Bool
+
+assert* andb3-def := [((andb3 T T T) = T)
+                      ((andb3 F _ _) = F)
+                      ((andb3 _ F _) = F)
+                      ((andb3 _ _ F) = F)]
+
+> (eval andb3 T F T)
+
+Term: F
+
+> (eval andb3 T T T)
+
+Term: T
+\end{tcAthena}
+\end{solution}
+
+\section{Function Types}
+
+Since Athena is based on first-order logic, it does not have function types. 
+
+\section{Modules}
+
+Athena has a simple module system, described in Chapter 7 of FPMICS. 
+
+\section{Numbers}
+
+This section of the SF books call for building up natural numbers for scratch. 
+Since we have already imported natural numbers from the Athena library (by loading smtt{nat-plus.ath}),
+we will put all of our new work into a module named \smtt{Nat} to avoid any conflicts. We start
+by defining natural numbers as a free algebra (a \smkwd{datatype}), asserting the relevant axioms,
+and defining some variables along with some handy conversions to and from nonnegative integers: 
+\begin{tcAthena}
+module Nat {
+
+datatype Nat := Zero | (Succ Nat)
+assert (datatype-axioms "Nat")
+
+define [n m k n1 n2 m1 m2 k1 k2] := [?n:Nat ?m:Nat ?n1:Nat ?n2:Nat 
+                                     ?m1:Nat ?m2:Nat ?k:Nat ?k1:Nat ?k2:Nat]
+
+# Some convenient notational transformations from and to integer numerals:
+
+define (int->Nat n) :=
+  check {
+    (integer-numeral? n) => check {
+                              (n less? 1) => Zero
+                            | else => (Succ (int->Nat (n minus 1)))
+                            }
+  | else => n
+  }
+
+define (Nat->Int n) :=
+  match n {
+    Zero => 0
+ | (Succ k) => (plus 1 (Nat->Int k))
+ | _ => n
+}  
+
+transform-output eval [Nat->Int]
+\end{tcAthena}
+We also introduced an output transformation for \smtt{eval} so that it prints out natural number 
+using integer numerals. 
+
+
+We introduce a predecessor function \smtt{pred} in the way it is defined in the SF book, as a total
+function, so that the predecessor of \smtt{Zero} is taken to be \smtt{Zero}. We overload \smtt{--}
+to be an alias for \smtt{pred}: 
+\begin{tcAthena}
+declare pred: [Nat] -> Nat [[int->Nat]]
+overload -- pred 
+
+assert* pred-def := [(-- Zero = Zero)
+                     (-- Succ n = n)]
+
+> (eval -- 4)
+
+Term: 3
+ 
+> (eval -- -- 4)
+
+Term: 2
+\end{tcAthena}
+Here's the \smtt{minusTwo} function defined in SF on p. 16:
+\begin{tcAthena}
+declare minusTwo: [Nat] -> Nat [[int->Nat]]
+
+assert* minusTwo-def := [(minusTwo Zero = Zero)
+                         (minusTwo Succ Zero = Zero)
+                         (minusTwo Succ Succ n = n)]
+
+> (eval minusTwo 5)
+
+Term: 3
+\end{tcAthena}
+And the recursive definition of even parity:
+\begin{tcAthena}
+declare even, odd: [Nat] -> Boolean [[int->Nat]]
+
+assert* even-def := [(even 0)
+                     (~ even 1)
+                     (even Succ Succ n <==> even n)]
+
+> (eval even 5)
+
+Term: false
+
+> (eval even 100)
+
+Term: true
+\end{tcAthena}
+The definition of \smtt{odd} is simpler:
+\begin{tcAthena}
+assert* odd-def := [(odd n <==> ~ even n)]
+
+> (eval odd 101)
+
+Term: true
+\end{tcAthena}
+At this point the SF text goes to introduce binary addition, multiplication, and subtraction on 
+the natural numbers:
+\begin{tcAthena}
+declare plus-nat:  [Nat Nat] -> Nat [+ [int->Nat int->Nat]]
+declare mult-nat:  [Nat Nat] -> Nat [* [int->Nat int->Nat]]
+declare minus-nat: [Nat Nat] -> Nat [- [int->Nat int->Nat]]
+
+assert* plus-nat-def := [(0 + m = m)
+                         ((Succ n) + m  = Succ (n + m))]
+
+assert* mult-nat-def := [(_ * Zero = Zero)
+                         (n * Succ m = n + (n * m))]
+
+assert* minus-nat-def := [(Zero - _ = Zero)
+                          (n - Zero = n)
+                          ((Succ n) - (Succ m) = n - m)]
+
+> (eval 2 + 3)
+
+Term: 5
+
+> (Prolog.auto-solve 2 + ?What = int->Nat 5)
+
+List: [true {?What:Nat --> (Succ (Succ (Succ Zero)))}]
+
+> (eval 7 - 4)
+
+Term: 3
+
+> (Prolog.auto-solve 5 - ?What = int->Nat 2)
+
+List: [true {?What:Nat --> (Succ (Succ (Succ Zero)))}]
+
+> (eval 3 * 5)
+
+Term: 15
+
+> (Prolog.auto-solve 3 * ?What = int->Nat 15)
+
+List: [true {?What:Nat --> (Succ (Succ (Succ (Succ (Succ Zero)))))}]
+\end{tcAthena}
+Note that division is automatically performed by constraint solving through logic programming.
+
+And here is their factorial definition in Athena:
+\begin{tcAthena}
+declare fact: [Nat] -> Nat [[int->Nat]]
+
+assert* fact-def := [(fact Zero = Succ Zero)
+                     (fact Succ n = (Succ n) * fact n)]
+
+> (eval fact 5)
+
+Term: 120
+\end{tcAthena}
+
+Note that it is not necessary to define equality explicitly on the natural numbers as is done in Idris. 
+For the same of the example we give the definition here, but then explain why it is not necessary: 
+\begin{tcAthena}
+declare eq: [Nat Nat] -> Boolean [[int->Nat int->Nat]]
+
+assert* eq-def := [(0 eq 0)
+                   (~ 0 eq Succ _)
+                   (~ Succ _ eq 0)
+                   (Succ n eq Succ m <==> m eq n)]
+
+> (eval 5 eq 5)
+
+Term: true 
+
+> (eval 5 eq 4)
+
+Term: false
+\end{tcAthena}
+The reason why this is not necessary is because Athena has a built-in definition of equality for
+every free algebra defined in it, which is essentially syntactic identity: 
+\begin{tcAthena}
+> (eval Succ Succ Zero = Succ Succ Zero)
+
+Term: true
+
+> (eval Succ Succ Zero = Succ Zero)
+
+Term: false
+\end{tcAthena}
+
+We continue with the definition of \smtt{lte}. We overload the symbol \smtt{<=} to serve as an alias for \smtt{lte}:
+\begin{tcAthena}
+declare lte: [Nat Nat] -> Boolean [<= [int->Nat int->Nat]]
+
+assert* lte-def := [(0 <= _)
+                    (~ Succ _ <= 0)
+                    (Succ n <= Succ m <==> n <= m)]
+
+> (eval 2 <= 3)
+
+Term: true
+      
+> (eval 3 <= 2)
+      
+Term: false
+
+> (eval 3 <= 3)
+
+Term: true
+\end{tcAthena}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 6.0.2, pp. 19-20)}}}]
+Define a function \smtt{blt} on the natural numbers that implements the less-than relation. 
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+declare blt: [Nat Nat] -> Boolean [< [int->Nat int->Nat]]
+
+assert* blt-def := [(n < m <==> n <= m & n =/= m)]
+
+> (eval 3 < 4)
+
+Term: true
+
+> (eval 3 < 2)
+
+Term: false
+\end{tcAthena}
+Note that we could have also defined \smtt{blt} as follows: \smtt{(n < m <==> n <= m \& \tildels m <= n)}.
+\end{solution}
+Foo bar. 
+
+\section{Proofs by Simplification}
+
+Finally, some proofs:
+\begin{tcAthena}
+define left-zero := (forall n . 0 + n = n)
+
+# We can actually prove this automatically: 
+
+> (!prove left-zero (ab))
+
+Theorem: (forall ?n:Nat
+           (= (plus-nat Zero ?n:Nat)
+              ?n:Nat))
+\end{tcAthena}
+If we were to do it manually, however:
+\begin{tcAthena}
+> conclude left-zero
+    pick-any n:Nat 
+      (!chain [(0 + n) = n [plus-nat-def]])
+
+Theorem: (forall ?n:Nat
+           (= (plus-nat Zero ?n:Nat)
+              ?n:Nat))
+\end{tcAthena}
+
+
+\section{Proof by Rewriting}
+We consider the following theorem: 
+\begin{tcAthena}
+define plus-id-example := (forall n m . n = m ==> n + n = m + m)
+
+pick-any n:Nat m:Nat
+  assume n-is-m := (n = m)
+     (!chain-> [(n = m) 
+            ==> (n + n = m + n)  [fcong]
+            ==> (n + n = m + m)  [n-is-m]])
+\end{tcAthena}
+The method \smtt{fcong} (for ``function congruence'') is built into Athena.\footnote{See p. 122 of FPMICS.}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 8.0.1, p. 21)}}}]
+Prove: \smtt{(forall n m k . n = m ==> m = k ==> n + m = m + k)}. 
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+conclude (forall n m k . n = m ==> m = k ==> n + m = m + k)
+  pick-any n:Nat m:Nat k:Nat
+    assume (n = m)
+      assume (m = k)
+       # (t = t) always holds by reflexivity, so it can be the first step 
+       # of a strict chain: 
+        (!chain-> [(n + n = n + n)  
+               ==> (n + m = n + m)  [(n = m)]
+               ==> (n + m = m + m)  [(n = m)]
+               ==> (n + m = m + k)  [(m = k)]])
+\end{tcAthena}
+\end{solution}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 8.0.2, p. 22)}}}]
+Prove: \smtt{(forall n m . m = Succ n ==> m * (1 + n) = m * m)}. 
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+conclude (forall n m . m = Succ n ==> m * (1 + n) = m * m) 
+  pick-any n:Nat m:Nat
+    assume hyp := (m = Succ n)
+      (!chain [(m * (1 + n)) 
+             = (m * (Succ (0 + n))) [plus-nat-def]
+             = (m * (Succ n))       [plus-nat-def]
+             = (m * m)              [hyp]])
+\end{tcAthena}
+\end{solution}
+Foo bar. 
+
+\section{Proof by Case Analysis}
+Consider the following statement: 
+\begin{tcAthena}
+define plus-1-is-not-zero := (forall n . n + 1 =/= Zero)
+\end{tcAthena}
+In Athena this can be proved automatically. This time we use Vampire with a time limit of 100 seconds:
+\begin{tcAthena}
+> (!vpf plus-1-is-not-zero (ab) 100)
+
+Theorem: (forall ?n:Nat
+           (not (= (plus-nat ?n:Nat
+                             (Succ Zero))
+                   Zero)))
+\end{tcAthena}
+But suppose we wanted to do it manually, and at a fairly low level of detail.
+Let's first write a general method that takes a premise of the form 
+\smtt{(t = Succ \_)} and derives the conclusion \smtt{(t =/= Zero)}: 
+\begin{tcAthena}
+define (not-zero premise) := 
+  match premise {
+    (t = (rhs as (Succ _))) => 
+      (!chain-> [true ==> (Zero =/= rhs)   [(datatype-axioms "Nat")]
+                      ==> (Zero =/= t)     [premise]
+                      ==> (t =/= Zero)])
+  }
+\end{tcAthena}
+With this method under our belt, we can prove \smtt{plus-1-is-not-zero} 
+by a simple structural analysis of the universally quantified variable: 
+\begin{tcAthena}
+datatype-cases plus-1-is-not-zero {
+  Zero => (!chain-> [true 
+                 ==> (Zero + Succ Zero = Succ Zero)          [plus-nat-def]
+                 ==> (Zero + Succ Zero =/= Zero)             [not-zero]])
+| (Succ k) => 
+    (!chain-> [true 
+           ==> ((Succ k) + Succ Zero = Succ (k + Succ Zero)) [plus-nat-def]
+           ==> ((Succ k) + Succ Zero =/= Zero)               [not-zero]])
+}
+\end{tcAthena}
+This concludes this section (recall that we proved that negation is involutive and conjunction
+is commutative earlier). 
+
+\section{Structural Recursion (Optional)}
+
+Unlike Idris, in Athena there is no requirement that all function definitions must terminate. 
+
+\section{More Exercises}
+
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 11.0.1, p. 25)}}}]
+Supposing you have a function from the Booleans to the Booleans:
+\begin{tcAthena}
+declare f: [Bool] -> Bool
+\end{tcAthena}
+prove the following conjecture:
+\begin{tcAthena}
+define conjecture := (forall b . f b = b ==> f f b = b)
+\end{tcAthena}
+\end{exercise}
+\begin{solution}
+This is trivial to prove automatically, but let's do it manually: 
+\begin{tcAthena}
+conclude conjecture 
+  pick-any b:Bool
+    assume hyp := (f b = b)
+      (!chain [(f f b) 
+             = (f b)    [hyp]
+             = b        [hyp]])
+\end{tcAthena}
+\end{solution}
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 11.0.2, p. 25)}}}]
+Prove the following: \smtt{(forall b1 b2 . b1 /\ b2 = b1 \/ b2 ==> b1 = b2)}. 
+\end{exercise}
+\begin{solution}
+This is also trivial to prove automatically, but let's try to do it the hard way. 
+We start with a couple of lemmas:
+\begin{tcAthena}
+conclude bool-struc-lemma-1 := (forall b . b = T <==> b =/= F)
+   datatype-cases bool-struc-lemma-1 {
+     T => (!equiv assume (T = T) (!claim (T =/= F))
+                  assume (T =/= F) (!reflex T))
+   | F => (!equiv
+            assume hyp := (F = T)
+              (!chain-> [hyp
+                    ==> (T = F) 
+                    ==> (T = F & T =/= F) [augment]
+                    ==> false             [prop-taut]
+                    ==> (F =/= F)         [(method (_ q) (!from-false q))]])
+            assume hyp := (F =/= F)
+              (!from-complements (F = T) (!reflex F) hyp))
+   }
+
+conclude bool-struc-lemma-2 := (forall b . b = F <==> b =/= T)
+  pick-any b:Bool
+    (!chain [(b = F) <==> (b =/= T) [bool-struc-lemma-1]])
+
+conclude bool-struc-lemma := 
+           (forall b1 b2 . b1 =/= b2 ==> b1 = T & b2 = F | b1 = F & b2 = T)
+  pick-any b1:Bool b2:Bool
+     assume hyp := (b1 =/= b2)
+       (!cases (!chain<- [(b1 = T | b1 = F) <== true [(datatype-axioms "Bool")]])
+         assume case1 := (b1 = T)
+           (!chain-> [case1
+                 ==> (T =/= b2)                           [hyp]
+                 ==> (b2 =/= T)  
+                 ==> (b2 = F)                             [bool-struc-lemma-2]
+                 ==> (b1 = T & b2 = F)                    [augment]
+                 ==> (b1 = T & b2 = F | b1 = F & b2 = T)  [alternate]])
+         assume case2 := (b1 = F)
+           (!chain-> [case2 
+                 ==> (F =/= b2)                           [hyp]
+                 ==> (b2 =/= F)  
+                 ==> (b2 = T)                             [bool-struc-lemma-1]
+                 ==> (b1 = F & b2 = T)                    [augment]
+                 ==> (b1 = T & b2 = F | b1 = F & b2 = T)  [alternate]]))
+\end{tcAthena}
+\end{solution}
+\begin{exercise}
+Here is the phrasing of the exercise from SF: 
+\begin{quote}
+Consider a different, more efficient representation of natural numbers using a binary rather than unary system. That is,
+instead of saying that each natural number is either zero or the successor of a
+natural number, we can say that each binary number is either
+\bit
+\item zero,
+\item twice a binary number, or
+\item one more than twice a binary number.
+\eit 
+\begin{alphaEnum}
+\item First, write an inductive definition of the type \smtt{Bin} corresponding to this
+description of binary numbers.
+\item Next, write an increment function incr for binary numbers, and a function
+\smtt{bin\_to\_nat} to convert binary numbers to unary numbers.
+\item Write five unit tests \smtt{test\_bin\_incr\_1}, \smtt{test\_bin\_incr\_2}, etc. for your increment and binary-to-unary functions. Notice that incrementing a binary
+number and then converting it to unary should yield the same result as
+first converting it to unary and then incrementing.
+\end{alphaEnum}
+\end{quote}
+Do all of the above in Athena. 
+\end{exercise}
+\begin{solution}
+\begin{tcAthena}
+datatype Bin := Z | (Twice Bin) | (Twice+1 Bin)
+assert (datatype-axioms "Bin")
+
+define [n m] := [?n:Bin ?m:Bin]
+
+declare inc: [Bin] -> Bin
+
+assert* inc-def := [(inc Z = Twice+1 Z)     
+                    (inc Twice n = Twice+1 n)  
+                    (inc Twice+1 n = Twice inc n)]
+
+declare bin->nat: [Bin] -> Nat.Nat 
+
+assert* bin->nat-def := [(bin->nat Z = Nat.Zero)
+                         (bin->nat Twice n = 2 Nat.* bin->nat n)
+                         (bin->nat Twice+1 n = 1 Nat.+ 2 Nat.* bin->nat n)]
+
+define one := (Twice+1 Z)                     
+
+# This should give 5. Read it from right to 
+# left: inc(twice(twice(one))) = 1 + 2 * (2 * 1)
+
+(eval bin->nat inc Twice Twice one)
+
+declare nat->bin: [Nat.Nat] -> Bin [[int->nat]]
+
+assert* nat->bin-def := [(nat->bin Nat.Zero = Z)
+                         (nat->bin Nat.Succ x = inc nat->bin x)]
+
+(eval nat->bin Nat.Succ Nat.Succ Nat.Succ Nat.Succ Nat.Zero)
+\end{tcAthena}
+\end{solution}
+

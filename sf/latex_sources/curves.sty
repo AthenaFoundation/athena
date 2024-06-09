@@ -1,0 +1,520 @@
+% curves.sty version 1.41 for LaTeX 2.09, SLiTeX, and LaTeX2e.
+% I.L. Maclaine-cross, The University of New South Wales.
+% Internet: ian@ilm.mech.unsw.edu.au
+\typeout{Document Style Option `curves' <22 August 1995>}
+% Draws curves in LaTeX picture environment using parabolas between points
+%   with continuous slope at points. Equivalent to technical pens with
+%   compasses and French curves.
+% A Command Summary is at the end of this file.
+%
+% curvesls.sty is a faster equivalent requiring less memory which uses
+% straight line drawing \specials like emTeX's.
+
+% Make `;' appear like a letter so control sequences can use it and they 
+% will not be accidently used by other macro packages.
+\catcode`\;=11 
+
+\newcount\;sc % number of symbols on Bezier segment
+\newcount\;scp
+\newcount\;t
+\newcount\;cc % coordinate count
+\newcount\;cnd % actual point count to next dot
+\newcount\;mcnd % maximum point count to next dot
+\newcount\;np
+\newcount\;overhang
+\newcount\;pns
+\newcount\;psc % maximum dot spacing on line in sp.
+\newcount\;pbs
+\newcount\;rc
+\newcount\;rtc
+\newcount\;tc
+\let\;tca=\@tempcnta
+\let\;tcb=\@tempcntb
+
+\newdimen\csdiameter
+\newdimen\curvelength
+\newdimen\overhang \overhang\z@
+\newdimen\;dx
+\newdimen\;ddx
+\newdimen\;dy
+\newdimen\;ddy
+\newdimen\;pl \;pl\z@
+\newdimen\;ucd
+\newdimen\;y
+\let\;td=\@tempdima
+\let\;ytd=\@tempdimb
+
+\newsavebox{\;csbox}
+\newsavebox{\;pt}
+
+\newif\ifcurvewarn \curvewarntrue % Warn about curve problems
+\newif\if;ccn  % coordinate number correct
+\newif\if;pt   % plot points if true
+\newif\if;csym % curve symbol defined
+\newif\if;scnt % symbol or pattern count <>0
+
+\newhelp\;strline{curve straight from}
+\newhelp\m;ssingcoord{curve needs more points, add them.}
+\newhelp\;negdash{curvedashes needs the same sign for all arguments.}
+\newhelp\;oddcoord{curve requires two co-ordinates for each point,
+  count them.}
+
+\newcommand\arc{\@ifnextchar[\;arc{\;arc[0]}}
+\newcommand\;arc{}
+\def\;arc[#1](#2,#3)#4{\;setpoint{#1}\scaleput(#2,#3){\;ddx-#3\unitlength
+  \;ddy#2\unitlength \;firstpoint \;td#4\p@ \;drwarc}}
+
+
+% Redefines version in LaTeX 2e of 1 June 1994.
+\def\bezier#1)#2(#3)#4({\@bezier#1)(#3)(}
+\def\@bezier#1(#2,#3)(#4,#5)(#6,#7){\;dx#4\unitlength \;ddx-\;dx
+  \advance\;dx-#2\unitlength \advance\;ddx#6\unitlength \;dy#5\unitlength
+  \;ddy-\;dy \advance\;dy-#3\unitlength \advance\;ddy#7\unitlength
+  \;setpoint{#1}\scaleput(#2,#3){\;firstpoint \;bezier}}
+
+\newcommand\bigcircle{\@ifnextchar[\;bgcrcl{\;bgcrcl[0]}}
+\newcommand\;bgcrcl{}
+\def\;bgcrcl[#1]#2{\;setpoint{#1}\;dx\unitlength \global\divide\unitlength\tw@
+  \scaleput(#2,0){\;ddx\z@ \;ddy#2\unitlength \global\unitlength\;dx \;td360\p@
+    \;drwarc}}
+
+\newcommand\closecurve{\@ifnextchar[\;closecurve{\;closecurve[0]}}
+\newcommand\;closecurve{}
+\def\;closecurve[#1](#2){\;coordn\closecurve\thr@@{#2}{#1}%
+  \if;ccn\scaleput(\;xb,\;yb){\edef\;ci{\;xa,\;ya,#2,\;xb,\;yb,\;xc,\;yc}%
+    \advance\;cc\thr@@ \;tagcurve\;ci}\fi}
+
+\newcommand\curve{\@ifnextchar[\;curve{\;curve[0]}}
+\newcommand\;curve{}
+\def\;curve[#1](#2){\;coordn\curve\tw@{#2}{#1}%
+  \if;ccn \scaleput(\;xa,\;ya){\;firstpoint
+    \ifnum\;cc=\tw@ \;slbezd \;slbez
+    \else \;scbezd\;dx\;ddx\;xa\;xb\;xc \;scbezd\;dy\;ddy\;ya\;yb\;yc
+      \;bezier \;tagcurve{#2}\ifnum\;cc>6\;endcurve\fi \fi}\fi}
+\newcommand\;scbezd[5]{\;slcd#2#3#5\divide#24\;slcd#1#3#4\advance#1-#2}
+\newcommand\;xa{} \newcommand\;xb{} \newcommand\;xc{}
+\newcommand\;ya{} \newcommand\;yb{} \newcommand\;yc{}
+\newcommand\;ci{}
+
+\newcommand\curvesymbol[1]{\def\;curvesymbol{#1}\ch;ckcs
+  \global\setbox\;csbox\hbox{#1}\csdiameter\wd\;csbox}
+\newcommand\;curvesymbol{} \def\;curvesymbol{}
+
+\newcommand\curvedashes{\@ifnextchar[\;crvdshs{\;crvdshs[\unitlength]}}
+\newcommand\;crvdshs{}
+\def\;crvdshs[#1]#2{\;ucd#1\def\;icurvedashes{#2}\;ccnfalse \;pl\z@
+  \@for \;ci:=#2\do{\ifdim\;ci\;ucd<\z@ \;ccntrue \@latexerr{\string
+      \curvedashes\space sign bad at \;ci}{\the\;negdash ^^J\@eha}%
+    \else \advance\;pl\;ci\;ucd \fi}\if;ccn\;pl\z@\fi}
+\newcommand\;icurvedashes{}
+
+\newcommand\diskpitchstretch{\@ne}
+
+\newcommand\tagcurve{\@ifnextchar[\;tgcrv{\;tgcrv[0]}}
+\newcommand\;tgcrv{}
+\def\;tgcrv[#1](#2){\;coordn\tagcurve\thr@@{#2}{#1}\if;ccn
+  \scaleput(\;xb,\;yb){\;firstpoint \;tagcurve{#2}}\fi}
+
+\newcommand\scaleput{}
+\long\def\scaleput(#1,#2)#3{\@killglue \;td#2\unitlength
+  \raise\yscale\;td \hbox to \z@{\kern\xscaley\;td \;td#1\unitlength
+  \kern\xscale\;td \raise\yscalex\;td \hbox{#3}\hss}\ignorespaces}
+\newcommand\xscale{\@ne}
+\newcommand\xscaley{0}
+\newcommand\yscale{\@ne}
+\newcommand\yscalex{0}
+
+% Plot first point if any.
+\newcommand\;firstpoint{\ifdim\;pl=\z@\;point\fi}
+
+% Calculates segment count, sine, cosine and differences then plots segments.
+\newcommand\;drwarc{\;cc\;td \;np\;td \;td23\p@ \divide\;cc\;td
+  \;abs\;cc \advance\;cc\@ne \;pns\p@ \divide\;pns\tw@
+  \divide\;np\;cc \;rc\;np \divide\;rc\;pns \;abs\;rc
+  \advance\;rc\@ne \divide\;np\;rc \multiply\;np\;pns \divide\;np14668 %
+  \multiply\;np\;rc \divide\;np\@cclvi \;scp\p@ \multiply\;scp\@cclvi
+  \;t\;pns \;csi\;csi\;csi\;csi \;rxy\;ddx\;ddy \divide\;rc\p@
+  \advance\;rc\@ne \;rtc\;rc \advance\;rc\;rc \;ndd\;ddx \;ndd\;ddy
+  \;csi \;rxy\;ddx\;ddy \divide\;rc\;pns \advance\;rc\@ne
+  \@whilenum\;cc>\z@ \do{\advance\;cc\m@ne \;dx\;ddx \;dy\;ddy
+    \divide\;ddx\;rc \divide\;ddy\;rc \;td\;ddx \;ddx\;t\;td
+    \advance\;ddx-\;np\;ddy \;ddy\;t\;ddy \advance\;ddy\;np\;td
+    \divide\;ddx\;pns \divide\;ddy\;pns \;ddx\;rc\;ddx \;ddy\;rc\;ddy
+    {\;bezier \global\;ytd\;y \global\;tca\;overhang}\;y\;ytd \;overhang\;tca}}
+\newcommand\;ndd[1]{\divide#1\;rc \multiply#1\;np \divide#1\;t #1\;rtc#1}
+% Cosine and sine half angle iteration.
+\newcommand\;csi{\;tcb\;np \multiply\;np\;t \divide\;np\;pns \;t\;tcb
+  \multiply\;t\;t \divide\;t-\;scp \advance\;t\;pns \divide\;scp4 }
+
+% Count the number of co-ordinate specified and warns if incorrect.
+\newcommand\;coordn[4]{\;setpoint{#4}\ifx#1\closecurve\;cc\tw@\else\;cc\z@\fi
+  \@for\;ci:=#3\do{\advance\;cc\@ne
+    \ifcase\;cc \or \;d;f\;xa \or \;d;f\;ya \or \;d;f\;xb
+      \or \;d;f\;yb \or \;d;f\;xc \or \;d;f\;yc \fi
+    \ifx#1\closecurve\ifodd\;cc \;d;f\;xa \else \;d;f\;ya \fi\fi}%
+  \;ccnfalse \ifx#1\closecurve \advance\;cc-\tw@ \fi
+  \ifodd\;cc \@latexerr{\string #1\space points odd}{\the\;oddcoord ^^J\@eha}%
+  \else \divide\;cc\tw@
+    \ifnum#2>\;cc \@latexerr{\string #1 needs \the#2 points}%
+      {\the\m;ssingcoord ^^J\@eha}%
+    \else \;ccntrue \fi\fi}
+
+% Sets symbol, character or disk depending on how line is to be plotted.
+% Corrects overhang to be positive or zero but no greater than \;pl.
+\newcommand\;setpoint[1]{\curvelength\z@ \def\;po;nt{\raise\;y\copy\;pt}\ch;ckcs
+  \ifnum#1=\z@\;scntfalse\else\;scnttrue\fi  \;sc#1\relax \;abs\;sc \;psc\;sc
+  \ifdim\;pl>\z@ \;overhang\overhang
+    \ifnum\;overhang=\z@\else \;np\;overhang \divide\;np\;pl \multiply\;np\;pl
+      \ifnum\;overhang<\z@ \advance\;overhang\;pl
+      \else \ifnum\;overhang=\;np\advance\;overhang\;pl\fi
+      \fi \advance\;overhang-\;np
+    \fi \if;csym \if;scnt\;setdisk\else\;setsymbol\;td\p@\fi \else \;setdisk \fi
+    \s;tpitch
+  \else\ifnum#1>\z@ \s;tcirc{\hss\vrule\@height\@wholewidth\@width\@wholewidth}%
+  \else\ifnum#1<\z@ \if;csym\;setsymbol\else\set;pt{}\fi
+  \else \;setdisk \s;tpitch \fi\fi\fi
+  \edef\;point{\;po;nt}\;y\dp\;pt \advance\;y-\ht\;pt \divide\;y\tw@}
+\newcommand\;setsymbol{\s;tcirc{\hss\unhcopy\;csbox}\edef\;po;nt{\;po;nt
+  \s;tcirc{\hss\noexpand\noexpand\noexpand\;curvesymbol}%
+  \global\setbox\;csbox\copy\;pt}}
+\newcommand\s;tpitch{\;td\diskpitchstretch\;td \;psc\;td}
+\newcommand\;po;nt{} \newcommand\;point{}
+
+% Sets LaTeX disk character and calculates maximum spacing or selects period.
+\newcommand\;setdisk{\ifdim\@halfwidth>.85\p@
+    \s;tcirc{\@circ{\@wholewidth}{112}}\;td\@wholewidth
+    \divide\;td 8\advance\;td.6\p@ \ifdim\;td>\thr@@\p@\;td\thr@@\p@\fi
+  \else \;setperiod \fi}%
+
+% OFSS, SLiTeX or NFSS version for period selected at load time.
+% NFSS fix requested by Peter Vanroose and
+% Michel Goossens who also supplied a workable patch.
+\@ifundefined{selectfont}{\@ifundefined{fourteenrm}{%
+\newcommand\;setperiod{\ifdim\@halfwidth>.6\p@ \let\;ci\svtnrm \;td.7\p@
+  \else\ifdim\@wholewidth>.85\p@ \let\;ci\twlrm \;td.48\p@
+  \else \ifdim\@wholewidth>.6\p@ \let\;ci\egtrm \else \let\;ci\fivrm \fi
+    \;td.34\p@ \fi\fi \s;tcirc{\;ci\hss.}}%
+    }{%
+\newcommand\;setperiod{\;td.7\p@ \s;tcirc{\fourteenrm\hss.}}%
+   }}{%
+\newcommand\;setperiod{%
+  \ifdim\@halfwidth>.6\p@ \;tcb17\;td.7\p@
+  \else\ifdim\@wholewidth>.85\p@ \;tcb12\;td.48\p@
+  \else \ifdim\@wholewidth>.6\p@ \;tcb8\else \;tcb5\fi \;td.34\p@ \fi\fi
+  \s;tcirc{\rm \fontseries m\fontshape n\fontsize{\the\;tcb}\p@
+    \selectfont \hss.}}%
+     }
+
+% Check if curvesymbol exists and set switch.
+\newcommand\ch;ckcs{\ifx\;curvesymbol\@empty\;csymfalse\else\;csymtrue\fi}
+
+% Makes zero width box \;pt of point
+\newcommand\s;tcirc[1]{\set;pt to\z@{#1\hss}}
+
+% Set global box \;pt
+\newcommand\set;pt{\global\setbox\;pt\hbox}
+
+% Plots last segment of curve from coordinates already read.
+\newcommand\;endcurve{\;ecbezd\;dx\;ddx\;xa\;xb\;xc
+  \;ecbezd\;dy\;ddy\;ya\;yb\;yc \;bezier}
+\newcommand\;ecbezd[5]{\;slcd#1#3#5\divide#14 #2-#1\advance#2#5\unitlength
+  \advance#2-#4\unitlength}
+
+% Reads coordinates of four points before going to difference calculation.
+\newcommand\;tagcurve[1]{\ifnum\;cc=\thr@@ \;endcurve \else \;cc\z@
+  \@for\;ci:=#1\do{\advance\;cc\@ne \ifnum\;cc>6 %
+    \ifodd\;cc \;slcd\;dx\;xa\;xc \let\;xa\;xb \let\;xb\;xc \;d;f\;xc
+    \else \t;gcrv \fi \fi}\fi}
+
+% Calculates differences over whole segment from four points.
+\newcommand\t;gcrv{\;slcd\;dy\;ya\;yc \let\;ya\;yb \let\;yb\;yc \;d;f\;yc
+  \;rxy\;dx\;dy \divide\;dx\;rtc \divide\;dy\;rtc
+  \;ddx-\;ya\;dx \advance\;ddx\;xa\;dy \;ddy\;ddx
+  \advance\;ddx\;yb\;dx \advance\;ddx-\;xb\;dy
+  \advance\;ddy\;yc\;dx \advance\;ddy-\;xc\;dy
+  \;slbezd \;td\;ddy \divide\;td\@m
+  \ifdim\;td=\z@ \ifcurvewarn
+    \@warning{\the\;strline \;xa,\;ya\space to \;xb,\;yb}\fi \;slbez
+  \else \;td\unitlength \;rtc\;td \advance\;rtc\;rtc
+    \divide\;rtc\p@ \advance\;rtc\@ne \divide\;td\;rtc
+    \;t\;ddx \;scp\;t \;abs\;t
+    \advance\;t\;t \divide\;t\p@ \advance\;t\@ne \divide\;scp\;t
+    \multiply\;td\;scp \divide\;td\;ddy \multiply\;td\;rtc \multiply\;td\;t
+    \;ddx\;xc\;td \advance\;ddx-\;xa\;td \advance\;dx-\;ddx
+    \;ddy\;yc\;td \advance\;ddy-\;ya\;td \advance\;dy-\;ddy \;bezier \fi}
+
+% Avoid repeating {\;ci}
+\newcommand\;d;f[1]{\edef#1{\;ci}}
+
+\newcommand\;slbezd{\;slcd\;dx\;xa\;xb \;slcd\;dy\;ya\;yb}
+
+% Calculates difference between two coordinates.
+\newcommand\;slcd[3]{#1#3\unitlength \advance#1-#2\unitlength}
+
+% Calculates differences for bezier straight line.
+\newcommand\;slbez{\divide\;dx\tw@ \;ddx\;dx \divide\;dy\tw@ \;ddy\;dy \;bezier}
+
+% Scales segment differences, then calculates segment pattern and disk count,
+% and initial disk differences; selects line or dashes.
+\newcommand\;bezier{\;scale\;dx\;dy \;scp\;rc \;np\;rc \;scale\;ddx\;ddy
+  \ifnum\;rc>\;np\;np\;rc\fi \advance\;np\;np
+  \advance\;scp\;rc \;bezc\;dx\;ddx \;bezc\;dy\;ddy  \;rxy\;ddx\;ddy
+  \divide\;rc\p@ \advance\;rc\thr@@
+  \;tc\;rc \;sroot\;sroot\;sroot \;tca\;rc \;rxy\;dx\;dy
+  \advance\;rc\;scp \divide\;rc\thr@@ \global\advance\curvelength\;rc sp%
+  \divide\;np\;psc \ifnum\;np<\@ne\;np\@ne\fi \;t\;np 
+  \if;scnt\ifdim\;pl=\z@ \;t\;sc
+    \else\;np
+      \if;csym \;rc \divide\;np\;sc \advance\;np-\csdiameter
+        \;td\;pl \divide\;td\tw@ \advance\;np\;td \divide\;np\;pl
+        \ifnum\;np<\@ne\;np\@ne\fi \multiply\;np\;sc
+      \else \;sc \fi \advance\;t\;np \divide\;t\;np \multiply\;t\;np
+  \fi \fi 
+  \ifnum\;t>\;tca \;mcnd\;t \divide\;mcnd\;tca \else \;mcnd\@ne \;tca\;t \fi
+  \;tc\;t \advance\;tc\;tc \;rtc\;tc
+  \;tcb\;tca \advance\;tcb\@ne \multiply\;tcb\;mcnd \advance\;rtc-\;tcb
+  \multiply\;rtc\;tca \;tcb\;t \multiply\;tcb\;tcb \divide\;tcb\;mcnd 
+  \;bezd\;dx\;ddx \;bezd\;dy\;ddy \edef\;tplot{\;po;nts}\;cnd\;mcnd 
+  \ifdim\;pl>\z@ \;dashes \else \;points \fi}
+\newcommand\;scale[2]{\;td\xscale#1\advance\;td\xscaley#2%
+  #2\yscale#2\advance#2\yscalex#1#1\;td \;rxy#1#2}
+\newcommand\;bezc[2]{\advance#1#1\advance#2#2\;td#2\advance#2-#1\advance#1\;td}
+\newcommand\;bezd[2]{\divide#2\;tcb \;td#2\multiply\;td\;rtc \advance#1-\;td
+  \divide#1\;tc}
+
+% Calculates length of vector \;rc from coordinates #1,#2
+\newcommand\;rxy[2]{\;tc#1\;abs\;tc \;tcb#2\;abs\;tcb 
+  \;rc\;tc \advance\;rc\;tcb 
+  \ifnum\;rc>\z@ \;rtc\;rc \advance\;rtc\;rtc \divide\;rtc\p@ 
+    \ifnum\;rtc>\z@ \advance\;rtc\@ne \divide\;tc\;rtc
+      \divide\;tcb\;rtc \divide\;rc\;rtc
+    \else \;rtc\@ne \fi \multiply\;tc\;tc \multiply\;tcb\;tcb
+    \advance\;tc\;tcb \;sroot \multiply\;rc\;rtc \fi}
+  
+% Replaces argument by magnitude
+\newcommand\;abs[1]{\ifnum#1<\z@ #1-#1\fi}
+
+% Iteration of square root calculation by Newton's method.
+\newcommand\;sroot{\;rroot\;rroot\;rroot}
+\newcommand\;rroot{\;tcb\;tc \divide\;tcb\;rc \advance\;rc\;tcb \divide\;rc\tw@}
+
+% Variable uses in \;dashes, \;scdashes, \;nscdashes, \;pdashes and \;dash.
+% counts
+% \;scp = distance between points.
+% \;rc = length of Bezier segment.
+% \;rtc = total points in Bezier segment.
+% \;np = number of whole patterns in Bezier segment or scratch.
+% \;overhang = of dash pattern past symbol or end of segment.
+% \;pbs = total points between symbols
+% \;pns = points to next symbol or dot.
+% \;tc = number of points to blank for curve symbol.
+% \;tcb = number of points along pattern.
+% dimens
+% \;pl = length of dash pattern.
+% \;ucd = dash pattern unit length.
+
+% Initializes dash plot for segment and selects symbol count alternative.
+\newcommand\;dashes{\let\;ticd\;icurvedashes \let\;tucd\;ucd \divide\;rc\;t
+  \;rtc\;t \;tc\;rc \advance\;tc\csdiameter \divide\;tc\;rc 
+  \divide\;tc\tw@ \;t\;tc \multiply\;tc\tw@ \;ptfalse 
+  \;pbs\;rc \divide\;pbs\tw@ \advance\;overhang\;pbs \divide\;overhang-\;rc
+  \if;scnt \;scdashes \else \;nscdashes \fi \multiply\;overhang\;rc}
+
+% Plots dash pattern when a nonzero symbol count is specified.
+\newcommand\;scdashes{\;pbs\;rtc \divide\;pbs\;sc \;ccss \;scp
+  \if;csym \;pl \multiply\;scp\;np \divide\;scp\;sc \advance\;pbs-\;tc
+  \else \;pbs \multiply\;scp\;rc \fi \;np\;overhang \;overhang\z@
+  \divide\;scp\;pbs \;tcb\z@ \;pns\;t \;dash \;overhang\;np
+  \if;csym\else \advance\;overhang-\;tcb \advance\;rtc-\;tcb
+    \advance\;pbs-\;tc \fi
+  \;pns\;pbs \advance\;pns-\;np \if;csym\else\advance\;pns\;tcb\fi
+  \@whilenum\;rtc>\z@\do{\;pdashes \;ptfalse \;t\;tc \;pns\;t \;dash
+    \;pns\;pbs \;overhang\if;csym\;np\else-\;overhang\fi
+    \advance\;pns-\;overhang}\;overhang-\if;csym\;np\else\;overhang 
+      \;ptfalse \;t\;tc \;tcb\;overhang
+      \divide\;t\tw@ \;rtc\;t \;pns\;t \;dash \fi}
+
+% Plots symbols at natural pattern length but shrinks pattern to fit between.
+\newcommand\;nscdashes{\advance\;pbs\;pl \divide\;pbs\;rc
+  \if;csym \;bpdashes \fi \;ccss \;pns\;t
+  \;dash \advance\;pbs-\;tc \;scp\;pl \divide\;scp\;pbs \;pns\;pbs
+  \@whilenum\;rtc>\z@\do{\;pdashes \;ptfalse \;t\;tc \;pns\;t \;dash
+    \;pns\;pbs}\if;csym \else \divide\;tc\tw@ \advance\;overhang\;tc \fi}
+
+% If large symbol spaces, blank curve.
+\newcommand\;ccss{\ifnum\;pbs>\;tc\else \;bpdashes \fi}
+
+% A blank or symbol plotting dash pattern
+\newcommand\;bpdashes{\let\;tucd\;pl \let\;ticd\;ricd \;tc\z@ \;t\z@}
+\newcommand\;ricd{1,0}
+
+% Reads dash pattern plotting dashes and spaces up to next symbol space.
+\newcommand\;pdashes{\ifnum\;pns>\z@ \;td\z@ \;tcb\z@ \;ptfalse
+    \@for\;ci:=\;ticd \do{\advance\;td\;ci\;tucd \;t\;scp \divide\;t\tw@
+      \advance\;t\;td \divide\;t\;scp  \advance\;t-\;tcb \;dash
+      \if;pt\;ptfalse\else\;pttrue\fi}%
+  \let\n;xt\;pdashes \else \let\n;xt\relax \fi \n;xt}
+
+% Checks if dash or space occurs before or after curve, calculates fractions.
+\newcommand\;dash{\ifnum\;t=\z@ \if;csym\ifnum\;rtc>\z@\if;pt\;point\fi\fi\fi
+  \else \advance\;tcb\;t \advance\;pns-\;t
+    \ifnum\;overhang<\z@ \advance\;overhang\;t
+      \ifnum\;overhang<\z@ \;t\z@ \else \;t\;overhang \;overhang\;tcb \fi
+    \else \;overhang\;tcb \fi
+    \ifnum\;pns<\z@ \advance\;overhang\;pns \advance\;tcb\;pns
+      \advance\;t\;pns \;pns\z@ \fi \advance\;rtc-\;t
+    \ifnum\;rtc<\z@ \advance\;overhang\;rtc \advance\;t\;rtc\fi
+    \ifnum\;t>\z@ \if;pt\;point\;points\else\let\n;xt\;space\;space\fi \fi\fi}
+                                         
+% Makes \;tplot then plots a single dash.
+\newcommand\;points{\let\n;xt\;sdash \;sdash}
+\newcommand\;sdash{\let\n;;t\;tplot \ifnum\;t<\;cnd \let\n;xt\relax
+    \advance\;cnd-\;t \;tca\;t \;tplot
+  \else \advance\;t-\;cnd \;tca\;cnd \;tplot 
+    \advance\;dx\;ddx \advance\;dy\;ddy \;cnd\;mcnd 
+  \fi \n;xt}
+
+% A fast single macro for drawing straight lines.
+\newcommand\;tplot{}
+\newcommand\;po;nts{\noexpand\ifnum\;tca>\z@ 
+  \advance\;y\;dy \kern\;dx \;po;nt \advance\;tca\m@ne
+  \noexpand\else \let\noexpand\n;;t\relax \noexpand\fi \noexpand\n;;t}
+
+% Plots a single space at high speed.
+\newcommand\;space{\ifnum\;t<\;cnd \let\n;xt\relax
+    \advance\;cnd-\;t \advance\;y\;t\;dy \kern\;t\;dx
+  \else \advance\;t-\;cnd \advance\;y\;cnd\;dy \kern\;cnd\;dx 
+    \advance\;dx\;ddx \advance\;dy\;ddy \;cnd\;mcnd 
+  \fi \n;xt}
+
+% Make `;' a punctuation mark again.
+ \catcode`\;=12 
+
+\endinput
+
+MODIFICATION HISTORY
+--------------------
+1.0  26 June 1991
+1.1  8 Jan 1992  large \diskpitchstretch and maximum integer=2^30 - 1.
+1.11 6 April 1993 Correct \@setdisk defined for SLiTeX.
+1.12 20 April 1993 Scaling improved in \t@gcrv to allow large \curves.
+1.13 23 April 1993 Calculation of differences corrected in \@bezier.
+1.14 29 April 1993 Alignment of spaces improved in \@nscdashes, \overhang
+     normalized.
+1.15 1 May 1993 Rounding  errors in \nscdashes and \pdashes improved.
+1.16 8 May 1993 Increased speed and dots corrected.
+1.2  23 May 1993 Variable curve symbol introduced.
+1.21 8 June 1993 \unitlength corrected in \bigcircle.
+1.22 15 June 1993 \csb@x saves curve symbol, pattern selection rounded.
+1.23 18 June 1993 test for bad point order tightened. 1st network release.
+      2421 words of TeX main memory.
+1.30 9 July 1993 2nd network release.
+     Bugs Fixed:
+       Blank curve if \csdiameter too large;
+       Thicknesses of thin curves set correct for 300dpi fonts;
+       Made compatible with NFSS of Mittelbach and Sch\"opf;
+       Transfer of \@y and \@overhang from inner loop of \@drwarc;
+       Missing \pt@false in \@ncsdashes and \@pdashes;
+       Check for zero \@np in \@bezier.
+     Improvements (?):
+       New internal macros to save tokens;
+       Uses LaTeX error messages and warnings;
+       Checks \curvedashes signs;
+       Potential conflicts with other macros reduced with new \@y, \@tc;
+       Warns more readily and replaces possible inflexions with straight line;
+       Some internal variable names rationalized.
+     2410 words of TeX main memory with NFSS, 2400 with OFSS.
+1.31 10 July 1993 \shape changed to \fontshape etc. for NFSS.
+1.32 14 June 1994 3rd network release tested with LaTeX 2e of February 1994.
+1.33 28 June 1994 4th network release tested with LaTeX 2e of 1 June 1994.
+      Redefines \bezier  from June LaTeX 2e.
+      \@bezier renamed to \@Vbezier to avoid conflict with June LaTeX 2e.
+1.40 20 August 1995 .
+     Bug Fixed: All curves use straight segments to reduce rounding error.
+     Improvements:
+       \curvewarnfalse stops warning of straight line use between points;
+       ; catcoded to character to protect internal names;
+       New internal macros save tokens and increase speed;
+     1799 nett extra words of TeX main memory (LaTeX 2e 1995/6/1 pl1).
+1.41 22 August 1995 5th network release tested with LaTeX 2e of 1 June 1995
+     \edef\;tplot moved to speed dash plotting.
+ 
+CURVES SUMMARY
+--------------
+The commands following are for the picture environment in the LaTeX manual.
+
+Arguments of Commands:
+<blank length> decimal number of <unit len> blank. Not negative.
+<character or symbol> is anything which a \put or \multiput may plot.
+<coordinates> are decimal numbers giving alternate x and y coordinates of
+  the curve as multiples of \unitlength, comma separated.
+<[,dash...]> optional continuation of alternating dash and blank numbers
+  of unit lengths, comma separated.  Not negative. Decimals allowed.
+<diameter> is a decimal number giving the diameter in \unitlengths.
+<symbol count> is the number of symbols or patterns to be plotted, default 0.
+<unit len> unit length dimension e.g., 2.5mm, 10pt, used in measuring
+  blanks and dashes. Not negative. Default value is \unitlength.
+
+Lengths used by Commands:
+\csdiameter is the size of the space left for a symbol and can be
+  increased or set with \settowidth{\csdiameter}{<character or symbol>}.
+\curvelength is the total length of the curve calculated before drawing
+  by using Simpson's rule once between each pair of coordinate points.
+\overhang length of as drawn dash pattern overlapping start of dashes.
+
+Control Commands:
+\curvewarntrue warns every time a straight line is used between points 
+  to avoid possible worse errors (default). 
+\curvewarnfalse use the straight line without warning.
+ 
+Parameter Setting Commands:
+\curvesymbol{<character or symbol>} sets symbol and \csdiameter.
+\curvedashes[<unit len>]{<blank length><[,dash...]>} Drawing commands before a
+  \curvedashes or after one with an empty or zero length pattern will draw:
+  if <symbol count> is zero or missing, a continuous curve;
+  else if <symbol count> is positive, <symbol count>-1 squares of line
+    thickness size between and additional squares at coordinates or bezier
+    end points;
+  else if no <character or symbol> exists, nothing;
+  else, -<symbol count>-1 characters or symbols between coordinates and
+    additional ones at coordinates or bezier end points.
+After a \curvedashes command defining a pattern whose length exceeds
+  zero, commands draw:
+  if <symbol count> is zero or missing then at a spacing equal to the
+    specified pattern length,
+    if no <character or symbol> exists, a dash pattern reduced in length
+      by \csdiameter to fit between symbol spaces of \csdiameter,
+    else if \overhang is not 0pt, a <character or symbol> at all positions,
+    else a <character or symbol> with the first position blank;
+  else, \csdiameter wide symbol spaces, one at and |<symbol count>|-1 between
+    coordinate points with dash pattern lengths,
+    if no <character or symbol> exists, exact but broken by the spaces,
+    else, adjusted to give a whole number of patterns between spaces.
+\diskpitchstretch is initially 1 but \renewcommand can change it to a higher
+  value like 5 to save memory in drafts of complex documents or a lower local
+  value like 0.5 to smooth curve digitization.
+\linethickness{<len>} sets line or dash thicknesses to <len> from 0.5pt up to
+  15pt (0.17mm to 5mm). \thicklines and \thinlines also set the thickness.
+\xscale, \xscaley, \yscale and \yscalex are scale factors initially set to
+  1, 0, 1 and 0 respectively which \renewcommand or \def can reset.
+
+Curve Drawing Commands:
+Curves drawn consist of parabolic arcs between coordinate points with
+tangents at each point parallel to the straight line through adjacent points.
+\arc[<symbol count>](X1,Y1){<angle>} draws a circular arc centred on current
+  position, starting from (X1,Y1) and proceeding counterclockwise for
+  <angle> degrees.
+\bezier{<symbol count>}(X1,Y1)(X2,Y2)(X3,Y3) draws a curve through the points
+  (X1,Y1) and (X3,Y3) tangent to the straight lines joining them to (X2,Y2).
+  Faster and more powerful replacement for bezier.sty version.
+\bigcircle[<symbol count>]{<diameter>} draws a circle of diameter equal to
+  <diameter> times \unitlength.
+\closecurve[<symbol count>](<coordinates>) draws a closed curve with continuous
+  tangents at all points. At least 6 coordinates required.
+\curve[<symbol count>](<coordinates>) draws a curve through the specified
+  <coordinates>. For 4 coordinates this is a straight line.
+\scaleput(X1,Y1){<picture object>} places a picture object in a position
+  scaled by \xscale, \xscaley, \yscale and \yscalex for axonometric projection
+  or rotations.
+\tagcurve[<symbol count>](<coordinates>) draws a curve without its first and
+  last segments but if only 6 coordinates draws the last segment only.

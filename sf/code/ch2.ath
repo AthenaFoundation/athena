@@ -1,0 +1,633 @@
+#===================================================================================================
+#					SF CHAPTER 2
+#===================================================================================================
+
+load "nat-plus"
+load "prolog-solver"
+
+define [n n' n1 n2 n3] := [?n:N ?n':N ?n1:N ?n2:N ?n3:N]
+
+datatype Day := Monday | Tuesday | Wednesday | Thursday | Friday | Saturday | Sunday 
+
+assert (datatype-axioms "Day")
+
+define [d d' d1 d2 d3] := [?d ?d' ?d1 ?d2 ?d3]
+
+declare nextWeekday: [Day] -> Day 
+
+assert* nextWeekday-def := 
+   [(nextWeekday Monday = Tuesday)
+    (nextWeekday Tuesday = Wednesday)
+    (nextWeekday Wednesday = Thursday)
+    (nextWeekday Thursday = Friday)
+    (nextWeekday Friday = Monday)
+    (nextWeekday Saturday = Monday)
+    (nextWeekday Sunday = Monday)]
+
+
+(eval nextWeekday Friday)
+
+(eval nextWeekday nextWeekday Monday)
+
+# But using a relational logic-programming approach, we can evaluate/solve backwards as well, e.g., 
+# which days is predecessor of the predecessor of Wednesdaynesday?
+
+(Prolog.auto-solve nextWeekday nextWeekday ?d = Wednesday)
+
+# The above should return {?d:Day --> Monday}
+
+# The first equational proof:
+
+conclude (nextWeekday nextWeekday Monday = Wednesday) 
+  (!chain [(nextWeekday nextWeekday Monday) = (nextWeekday Tuesday)  [nextWeekday-def]
+                                            = Wednesday                [nextWeekday-def]])
+
+# But we could also do this in one single step - Athena will automatically chain rewrite steps:          
+
+(!chain [(nextWeekday nextWeekday Monday) = Wednesday  [nextWeekday-def]])
+
+# A more generic (circular) day successor function: 
+
+declare next: [Day] -> Day 
+
+assert* next-def := [(next Monday    = Tuesday)
+                     (next Tuesday   = Wednesday)
+		     (next Wednesday = Thursday)
+                     (next Thursday  = Friday)
+                     (next Friday    = Saturday)
+                     (next Saturday  = Sunday)
+                     (next Sunday    = Monday)]
+
+(eval next next next Friday)
+
+declare prec: [Day Day] -> Boolean
+
+assert* prec-def := [(d1 prec d2 <==> d1 =/= Sunday & (d2 = next d1 | next d1 prec d2))]
+
+(eval Monday prec Tuesday)
+(eval Monday prec Wednesday)
+(eval Monday prec Thursday)
+(eval Monday prec Sunday)
+(eval Monday prec Monday)
+(eval Saturday prec Sunday)
+(eval Saturday prec Monday)
+(eval Saturday prec Friday)
+
+# The following generalizes the above operation, by introducing a function that adds a number to a day. 
+# We overload + as another name for this function, while also introducing input expanders so that we can write,
+# for example, (Monday + 2), to indicate the addition of 2 days to Mondayday: 
+
+declare day-add: [Day N] -> Day [+ [id int->nat]]
+
+# We now define this function axiomatically as follows: 
+
+assert* day-add-def := [(d + 0 = d)
+                        (d + S n = next (d + n))]
+
+(eval Monday + 3)
+
+# This should give {?d:Day --> Thursday}: 
+
+(Prolog.auto-solve ?d + 3 = Sunday)
+
+# Consider now a conjecture: 
+
+define conjecture := (forall d . d + 6 = d) 
+
+# Let's try to falsify it with a scope of 100:
+
+(falsify conjecture 100) 
+
+# It gives a counterexample: ?d:Day := Monday. How come? Because Monday + 6 = Sunday:
+
+(eval Monday + 6)
+
+# Let's correct the conjecture:
+
+define conjecture := (forall d . d + 7 = d) 
+
+# Now we're no longer able to falsify it: 
+
+(falsify conjecture 100) 
+
+# Can we prove it? Yes, in many different ways. One is to try to prove it completely automatically, by deriving it from the entire a.b.: 
+
+#(!prove conjecture (ab))
+
+# But we can also prove it manually. (We'll remove it from the a.b. first, since we've already proven it.)
+
+retract conjecture 
+
+datatype-cases conjecture {
+  Monday => (!chain [(Monday + 7) = Monday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Tuesday => (!chain [(Tuesday + 7) = Tuesday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Wednesday => (!chain [(Wednesday + 7) = Wednesday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Thursday => (!chain [(Thursday + 7) = Thursday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Friday => (!chain [(Friday + 7) = Friday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Saturday => (!chain [(Saturday + 7) = Saturday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+| Sunday => (!chain [(Sunday + 7) = Sunday [day-add-def N.Plus.Plus-def nextWeekday-def]])
+}
+
+# Do we really need to spell out all the necessary definitions/assumptions and so on? 
+# Well, we can try to let Athena figure them out: 
+
+retract conjecture
+
+datatype-cases conjecture {
+  Monday => (!chain [(Monday + 7) = Monday])
+| Tuesday => (!chain [(Tuesday + 7) = Tuesday])
+| Wednesday => (!chain [(Wednesday + 7) = Wednesday])
+| Thursday => (!chain [(Thursday + 7) = Thursday])
+| Friday => (!chain [(Friday + 7) = Friday])
+| Saturday => (!chain [(Saturday + 7) = Saturday])
+| Sunday => (!chain [(Sunday + 7) = Sunday])
+}
+
+# That's cleaner, but still a lot of repetition. Let's write one single datatype-cases method for Weekday to rule them all.
+# This is a method that takes any goal g of the form (forall d:Day . body) and an input method M that takes any particular
+# day d' (constructor of Day) and derives the conclusion obtained from body by replacing every free occurrence of d by d': 
+
+define (auto-dt-for-Day goal M) := 
+  datatype-cases goal {
+    Monday => (!M Monday)
+  | Tuesday => (!M Tuesday)
+  | Wednesday => (!M Wednesday)
+  | Thursday => (!M Thursday)
+  | Friday => (!M Friday)
+  | Saturday => (!M Saturday)
+  | Sunday => (!M Sunday)
+  }
+
+# We can now express the previous proof as follows:
+
+retract conjecture
+
+(!auto-dt-for-Day conjecture (method (x) (!chain [(x + 7) = x])))
+
+# Bonus: Prove true periodicity, namely (forall n d . d + n * 7 = d) 
+
+#******************** Section 3 - Booleans
+#
+# Athena already has Booleans built-in, but let's go through the exercise of building them from scratch 
+# as they do in SF. 
+# 
+
+datatype Bool := T | F
+
+assert (datatype-axioms "Bool")
+
+define [b b' b1 b2 b3] := [?b ?b' ?b1 ?b2 ?b3]
+
+# Let's introduce the usual logical operators as notb, andb, and orb, along with symbolic shortcuts for them: --, /\, and \/:
+
+declare notb: [Bool] -> Bool [--]
+declare andb: [Bool Bool] -> Bool [/\]
+declare orb: [Bool Bool] -> Bool [\/]
+
+assert* notb-def := [(-- T = F) 
+                     (-- F = T)]                                         
+
+(eval -- T)
+
+(eval -- -- F)
+
+# Let's prove that (forall b . -- -- b = b). This is a simple structural analysis of b: 
+
+conclude notb-involutive := (forall b . -- -- b = b)
+  datatype-cases notb-involutive {
+    T => (!chain [(-- -- T) = (-- F) [notb-def]
+                            = T      [notb-def]])
+  | F => (!chain [(-- -- F) = (-- T) [notb-def]
+                            = F      [notb-def]])
+  }
+
+# We could collapse both steps into one: 
+
+retract notb-involutive
+
+datatype-cases notb-involutive {
+  T => (!chain [(-- -- T) = T [notb-def]])
+| F => (!chain [(-- -- F) = F [notb-def]])
+}
+
+# Let's define logical conjunction and disjunction:   
+
+assert* andb-def := [(T /\ b = b)
+                     (F /\ _ = F)]
+
+(eval T /\ T /\ F /\ T)
+
+# Let's derive some simple consequences, e.g. T is also a right identity: 
+
+conclude andb-lemma-1 := (forall b . b /\ T = b)
+  datatype-cases andb-lemma-1 {
+    T => (!chain [(T /\ T) = T [andb-def]])
+  | F => (!chain [(F /\ T) = F [andb-def]])
+  }
+
+conclude andb-lemma-2 := (forall b . b /\ F = F)
+  datatype-cases andb-lemma-2 {
+    T => (!chain [(T /\ F) = F [andb-def]])
+  | F => (!chain [(F /\ F) = F [andb-def]])
+  }
+
+assert* orb-def := [(T \/ b = T)
+                    (F \/ b = b)]
+
+(eval F \/ F \/ T \/ F)
+
+(eval F \/ F \/ F \/ F)
+
+# Let's prove that conjunction is commutative:
+
+conclude conjunction-comm := (forall b1 b2 . b1 /\ b2 = b2 /\ b1)
+  datatype-cases conjunction-comm {
+    T => pick-any b2: Bool 
+           (!chain [(T /\ b2)
+                  = b2         [andb-def]
+                  = (b2 /\ T)  [andb-lemma-1]])
+  | F => pick-any b2: Bool 
+           (!chain [(F /\ b2)
+                  = F          [andb-def]
+                  = (b2 /\ F)  [andb-lemma-2]])  
+  }
+
+# Exercise 3.0.1:
+
+declare nandb: [Bool Bool] -> Bool
+
+assert* nandnb-def := [(b1 nandb b2 = -- b1 /\ b2)]
+
+(eval T nandb F)
+(eval T nandb T)
+
+# Exercise 3.0.2:
+
+declare andb3: [Bool Bool Bool] -> Bool
+
+assert* andb3-def := [((andb3 T T T) = T)
+                      ((andb3 F _ _) = F)
+                      ((andb3 _ F _) = F)
+                      ((andb3 _ _ F) = F)]
+
+(eval andb3 T F T)
+
+(eval andb3 T T T)
+
+module Nat {
+
+       datatype Nat := Zero | (Succ Nat)
+       assert (datatype-axioms "Nat")
+
+       define [n m n1 n2 m1 m2 k k1 k2] := [?n:Nat ?m:Nat ?n1:Nat ?n2:Nat ?m1:Nat ?m2:Nat ?k:Nat ?k1:Nat ?k2:Nat]
+
+       # Let's introduce some convenient notational transformations from and to integer numerals:
+
+       define (int->Nat n) :=
+         check {
+           (integer-numeral? n) => check {
+                                     (n less? 1) => Zero
+                                   | else => (Succ (int->Nat (n minus 1)))
+                                   }
+         | else => n
+         }
+
+       define (Nat->Int n) :=
+         match n {
+           Zero => 0
+         | (Succ k) => (plus 1 (Nat->Int k))
+         | _ => n
+         } 
+
+       transform-output eval [Nat->Int]
+
+       declare pred: [Nat] -> Nat [[int->Nat]]
+       overload -- pred 
+
+       assert* pred-def := [(-- Zero = Zero)
+                            (-- Succ k = k)]
+
+       # This should give 3:
+       (eval -- 4) 
+
+       declare even, odd: [Nat] -> Boolean [[int->Nat]]
+
+       assert* even-def := [(even Zero)
+                             (~ even Succ Zero)
+                             (even Succ Succ k <==> even k)]
+
+       (eval even 8)			     	    	 
+
+       (eval even 7)
+
+       assert* odd-def := [(odd n <==> ~ even n)]
+
+       (eval odd 91)
+
+       # Exercise 1.0.3:
+
+      define evenb_S := (forall n . even n <==> ~ even Succ n) 
+
+       by-induction evenb_S {
+         Zero => (!chain [(even 0) 
+                     <==> (~ even Succ Zero)    [even-def]])
+
+       | (Succ k) => let {ih := (even k <==> ~ even Succ k)}
+                       (!chain [(even Succ k)
+                           <==> (~ even k)           [ih]
+                           <==> (~ even Succ Succ k) [even-def]])
+       }
+
+       #   (!equiv assume hyp := (even Succ n)
+
+       declare plus-nat: [Nat Nat] -> Nat [+ [int->Nat int->Nat]]
+
+
+       assert* plus-nat-def := [(0 + m = m)
+                                ((Succ k) + m  = Succ (k + m))]
+
+
+       (eval 2 + 3)
+
+       # The following should give {?THREE:Nat --> (Succ (Succ (Succ Zero)))}: 
+
+       (Prolog.auto-solve 2 + ?THREE = int->Nat 5)
+ 
+       declare mult-nat: [Nat Nat] -> Nat [* [int->Nat int->Nat]]
+
+       assert* mult-nat-def := [(Zero * _ = Zero)
+                                ((Succ n) * m = m + (n * m))]
+
+				
+       (eval 2 * 3)			
+
+
+       declare minus-nat: [Nat Nat] -> Nat [- [int->Nat int->Nat]]
+
+       assert* minus-nat-def := [(Zero - _ = Zero)
+                                 (m - Zero = m)
+                                 ((Succ n) - (Succ m) = n - m)]
+
+      (eval 5 - 3)				 
+
+      define minus-commutative := (forall n m . n - m = m - n)
+
+      # This should give the counterexample {?m:Nat := (Succ Zero), ?n:Nat := Zero} 
+      (falsify minus-commutative 100)
+       
+       declare nat-exp: [Nat Nat] -> Nat [** [int->Nat int->Nat]]
+
+       assert* nat-exp-def := [(_ ** Zero = Succ Zero)
+                               (n ** Succ k = n * (n ** k))]
+
+      # 2 raised to the third should give 8: 
+ 			      
+      (eval 2 ** 3)
+
+      declare fact: [Nat] -> Nat [[int->Nat]]
+
+      assert* fact-def := [(fact Zero = Succ Zero)
+                           (fact Succ n = (Succ n) * fact n)]
+
+      # This should give 120: 
+			   
+      (eval fact 5)
+
+      declare eq: [Nat Nat] -> Boolean [== [int->Nat int->Nat]]
+
+      assert* eq-def := [(0 == 0)
+                         (~ 0 == Succ _)
+                         (~ Succ _ == 0)
+                         (Succ n == Succ m <==> n == m)]
+
+     (eval 3 == 4)			 
+
+     (eval 3 == 3)
+
+      declare lte: [Nat Nat] -> Boolean [<= [int->Nat int->Nat]]
+
+      assert* lte-def := [(Zero <= _)
+                          (~ Succ _ <= Zero)
+                          (Succ n <= Succ m <==> n <= m)]
+
+      (eval 2 <= 3)
+      (eval 3 <= 2)
+      (eval 3 <= 3)
+
+      # Exercise 6.0.2:
+
+      declare blt: [Nat Nat] -> Boolean [< [int->Nat int->Nat]]
+
+      assert* blt-def := [(n < m <==> n <= m & n =/= m)]
+
+      # Note that we could have also defined blt as follows: (n < m <==> n <= m & ~ m <= n)
+
+      (eval 3 < 4)
+
+      (eval 3 < 2)
+
+      # Finally, some proofs:
+
+      define left-zero := (forall n . 0 + n = n)
+
+      # We can prove this automatically: 
+
+      (!prove left-zero (ab))
+
+      # But if we were to do it manually:
+
+      conclude left-zero
+        pick-any n:Nat 
+          (!chain [(0 + n) = n [plus-nat-def]])
+	
+      define plus-id-example := (forall n m . n = m ==> n + n = m + m)
+ 
+      pick-any n:Nat m:Nat
+        assume n-is-m := (n = m)
+          (!chain-> [(n = m) 
+                 ==> (n + n = m + n) [fcong]
+                 ==> (n + n = m + m) [n-is-m]])
+
+      # Exercise 8.0.1: 
+
+      conclude (forall n m k . n = m ==> m = k ==> n + m = m + k)
+         pick-any n:Nat m:Nat k:Nat
+            assume (n = m)
+              assume (m = k)
+                (!chain-> [(n + n = n + n)  # This always holds by reflexivity, so it can be the first step of a strict chain. 
+                       ==> (n + m = n + m)  [(n = m)]
+                       ==> (n + m = m + m)  [(n = m)]
+                       ==> (n + m = m + k)  [(m = k)]])
+
+     conclude (forall n m . (0 + n) * m = n * (0 + m))
+       pick-any n:Nat m:Nat
+          (!chain [((0 + n) * m)
+                 = (n * m)         [plus-nat-def]
+                 = (n * (0 + m))   [plus-nat-def]])
+
+      # Exercise 8.0.2:
+      define goal := (forall n m . m = Succ n ==> m * (1 + n) = m * m)
+      # Can we find a counterexample?
+      (falsify goal 50)
+      
+      # Let's prove it:
+
+      conclude goal
+        pick-any n:Nat m:Nat
+          assume hyp := (m = Succ n)
+            (!chain [(m * (1 + n)) 
+                   = (m * (Succ (0 + n))) [plus-nat-def]
+                   = (m * (Succ n))       [plus-nat-def]
+                   = (m * m)              [hyp]])
+
+
+      define plus-1-is-not-zero := (forall n . n + 1 =/= Zero)
+
+      # In Athena this can be proved automatically. This time we use Vampire with a time limit of 100 seconds:
+      
+      
+      (!vpf plus-1-is-not-zero (ab) 100)
+
+      # But suppose we wanted to do it manually, and at a pretty low level of detail: 
+
+      retract plus-1-is-not-zero
+
+      # Let's first write a general method that takes a premise of the form (t = Succ _) and derives the conclusion t =/= Zero: 
+
+      define (not-zero premise) := 
+        match premise {
+         (t = (rhs as (Succ _))) => (!chain-> [true ==> (Zero =/= rhs) [(datatype-axioms "Nat")]
+                                                    ==> (Zero =/= t)   [premise]
+                                                    ==> (t =/= Zero)])
+        }
+
+      # With this methods as a tool under our belt, we can prove plus-1-is-not-zero by a simple structural analysis of the
+      # universally quantified variable: 
+
+      datatype-cases plus-1-is-not-zero {
+        Zero => (!chain-> [true 
+                       ==> (Zero + Succ Zero = Succ Zero) [plus-nat-def]
+                       ==> (Zero + Succ Zero =/= Zero)    [not-zero]])
+      | (Succ k) => (!chain-> [true 
+                          ==> ((Succ k) + Succ Zero = Succ (k + Succ Zero)) [plus-nat-def]
+                          ==> ((Succ k) + Succ Zero =/= Zero)               [not-zero]])
+      }
+
+
+} # Close module Nat 
+
+# Additional Exercises
+
+# Exercise 11.0.1
+
+declare f: [Bool] -> Bool
+
+define conjecture := (forall b . f b = b ==> f f b = b)
+
+# This is trivial to prove automatically, but let's do it manually: 
+
+conclude conjecture 
+  pick-any b:Bool
+     assume hyp := (f b = b)
+       (!chain [(f f b) 
+              = (f b)   [hyp]
+              = b       [hyp]])
+
+
+# Exercise 11.0.2
+
+conclude bool-struc-lemma-1 := (forall b . b = T <==> b =/= F)
+   datatype-cases bool-struc-lemma-1 {
+     T => (!equiv assume (T = T) (!claim (T =/= F))
+                  assume (T =/= F) (!reflex T))
+   | F => (!equiv
+            assume hyp := (F = T)
+              (!chain-> [hyp
+                    ==> (T = F) 
+                    ==> (T = F & T =/= F) [augment]
+                    ==> false             [prop-taut]
+                    ==> (F =/= F)         [(method (_ q) (!from-false q))]])
+           assume hyp := (F =/= F)
+              (!from-complements (F = T) (!reflex F) hyp))
+   }
+
+conclude bool-struc-lemma-2 := (forall b . b = F <==> b =/= T)
+  pick-any b:Bool
+    (!chain [(b = F) <==> (b =/= T) [bool-struc-lemma-1]])
+
+conclude bool-struc-lemma := (forall b1 b2 . b1 =/= b2 ==> b1 = T & b2 = F | b1 = F & b2 = T)
+  pick-any b1:Bool b2:Bool
+     assume hyp := (b1 =/= b2)
+       (!cases (!chain<- [(b1 = T | b1 = F) <== true [(datatype-axioms "Bool")]])
+         assume case1 := (b1 = T)
+           (!chain-> [case1 ==> (T =/= b2)                           [hyp]
+                            ==> (b2 =/= T)  
+                            ==> (b2 = F)                             [bool-struc-lemma-2]
+                            ==> (b1 = T & b2 = F)                    [augment]
+                            ==> (b1 = T & b2 = F | b1 = F & b2 = T)  [alternate]])
+         assume case2 := (b1 = F)
+           (!chain-> [case2 ==> (F =/= b2)                           [hyp]
+                            ==> (b2 =/= F)  
+                            ==> (b2 = T)                             [bool-struc-lemma-1]
+                            ==> (b1 = F & b2 = T)                    [augment]
+                            ==> (b1 = T & b2 = F | b1 = F & b2 = T)  [alternate]]))
+
+define conjecture := (forall b1 b2 . b1 /\ b2 = b1 \/ b2 ==> b1 = b2)
+
+# This is also trivial to prove automatically via (!prove conjecture (ab)), but let's do it manually.
+# We'll prove the contrapositive, namely, if b1 =/= b2 then b1 /\ b2 =/= b1 \/ b2: 
+
+conclude conjecture
+  pick-any b1:Bool b2:Bool
+    (!contra-pos 
+      conclude (b1 =/= b2 ==> b1 /\ b2 =/= b1 \/ b2)
+        assume hyp := (b1 =/= b2)
+          (!cases (!chain<- [(b1 = T & b2 = F | b1 = F & b2 = T) <== hyp [bool-struc-lemma]])
+            assume case1 := (b1 = T & b2 = F)
+              let {b1/\b2 := (!chain [(b1 /\ b2) = (T /\ F)  [case1]
+                                                 = F         [andb-def]]);
+                   b1\/b2 := (!chain [(b1 \/ b2) = (T \/ F)  [case1]
+                                                 = T         [orb-def]])}
+                (!chain-> [true ==> (T =/= F)                [(datatype-axioms "Bool")]
+                                ==> (F =/= T) 
+                                ==> (b1 /\ b2 =/= b1 \/ b2)  [b1/\b2 b1\/b2]])
+            assume case2 := (b1 = F & b2 = T)
+              let {b1/\b2 := (!chain [(b1 /\ b2) = (F /\ T)  [case2]
+                                                 = F         [andb-def]]);
+                   b1\/b2 := (!chain [(b1 \/ b2) = (F \/ T)  [case2]
+                                                 = T         [orb-def]])}
+                (!chain-> [true ==> (T =/= F)                [(datatype-axioms "Bool")]
+                                ==> (F =/= T) 
+                                ==> (b1 /\ b2 =/= b1 \/ b2)  [b1/\b2 b1\/b2]])))
+
+# Exercise 11.0.3
+
+datatype Bin := Z | (Twice Bin) | (Twice+1 Bin)
+assert (datatype-axioms "Bin")
+define [n m] := [?n:Bin ?m:Bin]
+
+declare inc: [Bin] -> Bin
+
+assert* inc-def := [(inc Z = Twice+1 Z)     
+                    (inc Twice n = Twice+1 n)  
+                    (inc Twice+1 n = Twice inc n)]
+
+declare bin->nat: [Bin] -> Nat.Nat 
+
+assert* bin->nat-def := [(bin->nat Z = Nat.Zero)
+                         (bin->nat Twice n = 2 Nat.* bin->nat n)
+                         (bin->nat Twice+1 n = 1 Nat.+ 2 Nat.* bin->nat n)]
+
+define one := (Twice+1 Z)                     
+
+# This should give 5. Read it from right to left: inc(twice(twice(one))) = 1 + 2 * (2 * 1)
+
+(eval bin->nat inc Twice Twice one)
+
+declare nat->bin: [Nat.Nat] -> Bin [[int->nat]]
+
+assert* nat->bin-def := [(nat->bin Nat.Zero = Z)
+                         (nat->bin Nat.Succ x = inc nat->bin x)]
+
+(eval nat->bin Nat.Succ Nat.Succ Nat.Succ Nat.Succ Nat.Zero)
+

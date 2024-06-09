@@ -1,0 +1,251 @@
+\documentclass[11pt]{report}
+\usepackage[utf8]{inputenc}
+\usepackage{changepage}
+%\usepackage[printsolution=true]{exercises}
+\usepackage[table]{xcolor}
+\usepackage[skins,most,hooks,xparse,breakable]{tcolorbox}
+\usepackage{xsim}
+% Define a new template for exercises
+\DeclareExerciseEnvironmentTemplate{boxed exercise}{
+  \tcolorbox[
+    colback=blue!5, % Background color of the box
+    colframe=blue!75!black, % Frame color
+    rounded corners, % Option for square corners; use 'rounded corners' for round
+    breakable, % Allows box to split over pages
+    left=1mm, % Inner left margin of the box
+    right=1mm, % Inner right margin of the box
+    top=1mm, % Inner top margin of the box
+    bottom=1mm % Inner bottom margin of the box
+  ]
+  \subsection*{%
+    \XSIMmixedcase{\GetExerciseName}~\GetExerciseProperty{counter}%
+    \IfExercisePropertySetT{subtitle}{: \GetExerciseProperty{subtitle}}%
+  }
+  \vspace{-2mm}
+}{
+  \endtcolorbox
+}
+
+% Define a new template for solutions
+\DeclareExerciseEnvironmentTemplate{boxed solution}{
+  \tcolorbox[
+    colback=red!5, % Light red background
+    colframe=red!75!black, % Dark red frame
+    rounded corners,
+    breakable,
+    left=1mm,
+    right=1mm,
+    top=1mm,
+    bottom=1mm,
+    parbox=false, % Important: This setting lets LaTeX treat the contents as normal text regarding paragraphs
+    before upper={\parindent=15pt} % Restores normal paragraph indentation
+  ]
+  \subsubsection*{Solution}
+  \vspace{-2mm}
+}{
+  \nobreak\hfill%\ensuremath{\blacksquare}
+  \endtcolorbox
+}
+
+\DeclareExerciseEnvironmentTemplate{custom}{
+  \subsection*{%
+    \XSIMmixedcase{\GetExerciseName}~\GetExerciseProperty{counter}%
+    \IfExercisePropertySetT{subtitle}{: \GetExerciseProperty{subtitle}}%
+  }
+  % Adjust space directly after the header and before content
+  \vspace{-1.5mm} % Adjust this value as needed
+}{
+  \par\vspace{-4mm} % Space after the exercise
+}
+
+% Define a new template for solutions
+\DeclareExerciseEnvironmentTemplate{custom solution}{
+  \subsubsection*{Solution}
+  \vspace{-1.5mm} % Reduce space after the header for solutions
+}{
+  \nobreak\hfill\ensuremath{\blacksquare}% Adds a black square at the end
+%  \par\vspace{-0.1mm}
+  \par\smallskip
+}
+
+\xsimsetup{
+  exercise/template=boxed exercise,
+  solution/template=boxed solution,
+  solution/print=true
+}
+%\usepackage{exsheets}
+%\SetupExSheets{solution/print=true}
+%\usepackage[papersize={10cm, 15cm}]{geometry}
+%\usepackage{minted}
+% Default fixed font does not support bold face
+\DeclareFixedFont{\ttb}{T1}{txtt}{bx}{n}{9} % for bold
+\DeclareFixedFont{\ttm}{T1}{txtt}{m}{n}{9}  % for normal
+
+
+\usepackage{textcomp,upquote}
+
+\usepackage{mdframed}
+\usepackage{natbib}
+%\usepackage{biblatex}
+\newcommand{\stylePath}{c:/texmf/tex/latex/tools}
+\newcommand{\papersPath}{c:/papers}
+
+%\usepackage{physics}
+\usepackage{comment}
+\usepackage[linguistics]{forest}
+%\useforestlibrary{edges}
+\usepackage{bigfoot}
+\usepackage{pgfplots,pgfplotstable}
+\usepackage{neuralnetwork}
+\pgfplotsset{compat = newest}
+\usepackage{times}
+\usepackage{helvet}
+\usepackage{courier}
+\usepackage{setspace}
+\usepackage{amsmath}
+\usepackage{cleveref}
+\usepackage{caption}
+\usepackage{bigfoot}
+\usepackage{latexsym}
+\usepackage{amssymb}
+\usepackage{wrapfig}
+\usepackage{url}
+\usepackage{lipsum}
+%\usepackage{hyperref} 
+\usepackage[amsmath,hyperref,thmmarks]{ntheorem}
+%\usepackage{harvard}
+%\usepackage{xcolor}
+\usepackage{alltt}
+\usepackage[bottom]{footmisc}
+\usepackage{fancyheadings} 
+\usepackage{supertabular}              
+\usepackage{fancybox}             
+\usepackage{float}
+\usepackage{afterpage}
+\usepackage{longtable}
+\usepackage{graphicx,scalerel}
+\usepackage{relsize}
+\usepackage{curves}
+%\usepackage{epsf}
+\usepackage{epsfig}
+\usepackage{lingmacros}
+\usepackage{tree-dvips}
+\usepackage{amsfonts}
+\usepackage{diagbox}
+\usepackage{booktabs}
+\usepackage{mathtools}
+\usepackage{thmtools}
+\usepackage{footnote}
+\usepackage{etoolbox}
+
+%% \usepackage{fontspec}
+%% \usepackage[most]{tcolorbox}
+%% \usepackage{xparse}
+%% \newcounter{testexample}
+%%==============================================================================================
+%% Stuff here for example environments:
+\usepackage{xcolor}
+\input{athena-listing}
+\usepackage{chngcntr}
+\usepackage{blindtext}
+\usepackage[T1]{fontenc}
+\definecolor{greentitle}{RGB}{61,170,61}
+\definecolor{greentitleback}{RGB}{216,233,213}
+%%==============================================================================================
+
+
+\setlength{\voffset}{-0.3in}
+\setlength{\hoffset}{-0.3in}
+\setlength{\topmargin}{10pt}
+\setlength{\headsep}{5pt}
+\setlength{\headheight}{5pt}
+\setlength{\marginparwidth}{20pt}
+\setlength{\textwidth}{480pt}    
+\setlength{\oddsidemargin}{5pt} 
+\setlength{\textheight}{650pt}
+\setlength{\headsep}{10pt}
+
+
+%% \setlength{\textwidth}{440pt}    
+%% \setlength{\oddsidemargin}{15pt} 
+%% \setlength{\textheight}{570pt}
+%% \setlength{\topmargin}{15pt}
+%% \setlength{\headsep}{20pt}
+
+
+
+%\input{setup}
+\setcounter{chapter}{+1}
+
+%\setcounter{section}{+1}
+
+\setcounter{subsection}{+1}
+
+\setcounter{subsubsection}{+1}
+
+\setcounter{tocdepth}{4}
+
+
+
+\usepackage{expl3}
+\usepackage{xparse}
+
+
+%% \usepackage{tikz,lmodern}
+%% \usetikzlibrary{shapes,arrows,positioning}
+%% \usetikzlibrary{arrows.meta, fpu}
+%% \usetikzlibrary{shadows}
+%% \usepackage{tzplot}
+%% \tikzset{>=latex} % for LaTeX arrow head
+%% \tikzstyle{xline}=[myblue,very thick]
+
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator*{\argmax}{argmax}
+
+
+\definecolor{deepblue}{rgb}{0,0,0.5}
+\definecolor{deepred}{rgb}{0.6,0,0}
+\definecolor{deepgreen}{rgb}{0,0.5,0}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+%    keywordstyle=\color{red},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+%\allowdisplaybreaks
+
+
+%%==============================================================================================
+%% More stuff for example environment
+
+\begin{document}
+
+\input{all}
+
+%\input{defs}
+
+
