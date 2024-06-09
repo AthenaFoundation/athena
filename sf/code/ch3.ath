@@ -32,16 +32,77 @@ conclude minus-diag := (forall n . n - n = Zero)
   }
 
 
+# Exercise 1.0.1: Prove mult-0-r and a few other results. 
+
+conclude mult-0-r := (forall n . n * Zero = Zero)
+  by-induction mult-0-r {
+    Zero     => (!chain [(Zero * Zero) = Zero    [mult-nat-def]])
+  | (Succ k) => let {ih := (k * Zero = Zero)}
+                  (!chain [((Succ k) * Zero)
+                         = (Zero + (k * Zero))   [mult-nat-def]
+                         = (k * Zero)            [plus-nat-def]
+                         = Zero                  [ih]])
+  }
+
+conclude plus-n-Sm := (forall n m . Succ (n + m) = n + Succ m)
+  by-induction plus-n-Sm {
+    (n as Zero) => pick-any m:Nat
+                     (!chain [(Succ (Zero + m)) 
+                            = (Succ m)            [plus-nat-def]
+                            = (Zero + Succ m)     [plus-nat-def]
+                            = (n + Succ m)        [(n = Zero)]])
+  | (n as (Succ k)) => 
+      let {ih := (forall m . Succ (k + m) = k + Succ m)}
+        pick-any m:Nat
+          (!chain [(Succ ((Succ k) + m))
+                 = (Succ (Succ (k + m)))          [plus-nat-def] 
+                 = (Succ (k + Succ m))            [ih]
+                 = ((Succ k) + (Succ m))          [plus-nat-def]])
+  }
+
+
+conclude plus-comm := (forall n m . n + m = m + n)
+  by-induction plus-comm {
+    Zero => pick-any m:Nat
+              (!chain [(Zero + m)
+                     = m                       [plus-nat-def]
+                     = (m + Zero)              [plus-n-Z]])
+  | (Succ k) => let {ih := (forall m . k + m = m + k)}
+                  pick-any m:Nat               
+                    (!chain [((Succ k) + m)    
+                           = (Succ (k + m))    [plus-nat-def]
+                           = (Succ (m + k))    [ih]
+                           = (m + Succ k)      [plus-n-Sm]])
+  }
+ 
+
+conclude plus-assoc := (forall n m k . n + (m + k) = (n + m) + k)
+  by-induction plus-assoc {
+    Zero => pick-any m:Nat k:Nat
+             (!chain [(Zero + (m + k)) 
+                    = (m + k)            [plus-nat-def]
+                    = ((Zero + m) + k)   [plus-nat-def]])
+  | (n as (Succ n')) => 
+      let {ih := (forall m k . n' + (m + k) = (n' + m) + k)}
+        pick-any m:Nat k:Nat
+          (!chain [((Succ n') + (m + k))
+                  = (Succ (n' + (m + k)))   [plus-nat-def]
+                  = (Succ ((n' + m) + k))   [ih]
+                  = ((Succ (n' + m)) + k)   [plus-nat-def]
+                  = (((Succ n') + m) + k)   [plus-nat-def]])
+  }
+
+# -- end of exercise 1.0.1 
+
+
+# Exercise 1.0.2:
+
 declare double: [Nat] -> Nat [[int->Nat]]
 
 assert* double-def := [(double Zero = Zero)
                        (double Succ k = Succ Succ double k)]
 
 (eval double 4)
-
-define plus-comm := (forall n m . n + m = m + n)
-
-(!force plus-comm)      
 
 conclude double-plus := (forall n . double n = n + n)
   by-induction double-plus {
@@ -55,5 +116,18 @@ conclude double-plus := (forall n . double n = n + n)
                        = (Succ (k + Succ k))    [plus-comm]
                        = ((Succ k) + (Succ k))  [plus-nat-def]])
   }
+
+
+conclude evenb_S := (forall n . even n <==> ~ even Succ n) 
+  by-induction evenb_S {
+    Zero => (!chain [(even 0) 
+                <==> (~ even Succ Zero)        [even-def]])
+  | (Succ k) => let {ih := (even k <==> ~ even Succ k)}
+                  (!chain [(even Succ k)
+                     <==> (~ even k)           [ih]
+                     <==> (~ even Succ Succ k) [even-def]])
+  }
+
+
 
 } # Ends module Nat { ... 

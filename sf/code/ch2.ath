@@ -342,10 +342,8 @@ module Nat {
 
        declare plus-nat: [Nat Nat] -> Nat [+ [int->Nat int->Nat]]
 
-
        assert* plus-nat-def := [(0 + m = m)
                                 ((Succ k) + m  = Succ (k + m))]
-
 
        (eval 2 + 3)
 
