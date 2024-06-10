@@ -1,0 +1,10 @@
+% This is a tiny modification of the way the standard listings package
+% works: Hyphens that occur in identifiers in code listings will be
+% typeset as hyphens, rather than as math mode minus signs.
+% 
+% Load this file with \usepackage{listings-fix}
+% after \usepackage{listings}
+
+\lst@CCPutMacro
+    \lst@ProcessOther {"2D}{\lst@ttfamily{-{}}{-{}}}
+    \@empty\z@\@empty

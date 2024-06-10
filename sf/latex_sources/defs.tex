@@ -1,0 +1,321 @@
+\newcommand\T{\rule{0pt}{2.6ex}}       % Top strut
+\newcommand\B{\rule[-1.2ex]{0pt}{0pt}} % Bottom strut
+
+\newcommand{\rectNodes}[1]{\mbox{$\temv{Rect}(#1)$}}
+\newcommand{\rectNodesfs}[1]{\mbox{$\fs{\temv{Rect}(#1)}$}}
+
+\newcommand{\underscore}{\symbol{95}}
+\newcommand{\underscoresp}{\symbol{95} }
+\newcommand{\multinomial}{\mbox{\rm\temv{Multinomial}}}
+\newcommand{\multinomialsp}{\mbox{\rm\temv{Multinomial}} }
+\newcommand{\categorical}{\mbox{\rm\temv{Categorical}}}
+\newcommand{\categoricalsp}{\mbox{\rm\temv{Categorical}} }
+\newcommand{\binomial}{\mbox{\rm\temv{Binomial}}}
+\newcommand{\binomialsp}{\mbox{\rm\temv{Binomial}} }
+\newcommand{\bernoulli}{\temv{Bernoulli}}
+\newcommand{\bernoullisp}{\temv{Bernoulli} }
+\newcommand{\indist}{\mbox{$\,\sim\:$}}
+\newcommand{\kb}[2]{\mbox{$#1,#2$}}
+\newcommand{\state}{\mbox{$\sigma$}}
+\newcommand{\statesp}{\mbox{\state} }
+% The four components of a configuration are: machines, stack, probability, and index. 
+\newcommand{\config}[4]{\mbox{$\langle #1,#2,#3,#4\rangle$}}
+\newcommand{\join}[2]{\mbox{$#1 \odot #2$}}
+\newcommand{\branch}[2]{\mbox{$#1 \odot #2$}}
+\newcommand{\branchalt}[2]{\mbox{$#1\: \widehat{\odot} \: #2$}}
+\newcommand{\rewrites}{\mbox{$\mif$}}
+\newcommand{\rewritesls}{\mbox{$\,\mif\,$}}
+\renewcommand{\env}{\mbox{$\rho$}}
+\renewcommand{\envsp}{\mbox{$\rho$} }
+\newcommand{\mtiny}[1]{\mbox{\tiny #1}}
+\newcommand{\cormatrix}[1]{\mbox{$\boldsymbol\rho(#1)$}}
+\newcommand{\samplecormatrix}[2]{\mbox{$\boldsymbol\rho_{#1}(#2)$}}
+\newcommand{\covmatrix}[1]{\mbox{$\mathbf{Cov}(#1)$}}
+
+\newcommand{\fvec}[1]{\mbox{\footnotesize$\mathbf{#1}$}}
+\newcommand{\scvec}[1]{\mbox{\scriptsize$\mathbf{#1}$}}
+
+\renewcommand{\vec}[1]{\mbox{$\mathbf{#1}$}}
+\newcommand{\vecsym}[1]{\mbox{$\boldsymbol{#1}$}}
+\newcommand{\vecsp}[1]{\mbox{$\mathbf{#1}$} }
+
+\newcommand{\fvecsym}[1]{\mbox{$\footnotesize\boldsymbol{#1}$}}
+
+\newcommand{\reals}{\mbox{$\mathbb{R}$}}
+\newcommand{\realsp}{\mbox{$\mathbb{R}$} }
+\newcommand{\rats}{\mbox{$\mathbb{Q}$}}
+\newcommand{\ratsp}{\mbox{$\mathbb{Q}$} }
+\newcommand{\fsreals}{\mbox{\scalebox{0.8}{$\mathbb{R}$}}}
+\newcommand{\fsrealsp}{\mbox{\scalebox{0.8}{$\mathbb{R}$}} }
+\newcommand{\fs}[1]{\mbox{\scalebox{0.7}{$#1$}}}
+\newcommand{\fsprecise}[2]{\mbox{\scalebox{#2}{$#1$}}}
+\newcommand{\fsss}{\fsprecise{\ss}{0.75}}
+\newcommand{\fsssn}{\mbox{$\fsss^{\ts n}$}}
+
+\newcommand{\sfs}[1]{\mbox{\scalebox{0.65}{$#1$}}}
+
+
+\newcommand{\integers}{\mbox{\mathbb{Z}}}
+\newcommand{\integerssp}{\mbox{\mathbb{Z}} }
+\newcommand{\posints}{\mbox{$\mathbb{Z}^+$}}
+\newcommand{\posintsUpToK}[1]{\mbox{$\mathbb{Z}_{#1}$}}
+\newcommand{\fsposints}{\mbox{\scalebox{0.8}{$\mathbb{Z}^+$}}}
+
+ 
+\makeatletter
+\newcommand*{\bigcdot}{}% Check if undefined
+\DeclareRobustCommand*{\bigcdot}{%
+  \mathbin{\mathpalette\bigcdot@{}}%
+}
+\newcommand*{\bigcdot@scalefactor}{.5}
+\newcommand*{\bigcdot@widthfactor}{1.15}
+\newcommand*{\bigcdot@}[2]{%
+  % #1: math style
+  % #2: unused
+  \sbox0{$#1\vcenter{}$}% math axis
+  \sbox2{$#1\cdot\m@th$}%
+  \hbox to \bigcdot@widthfactor\wd2{%
+    \hfil
+    \raise\ht0\hbox{%
+      \scalebox{\bigcdot@scalefactor}{%
+        \lower\ht0\hbox{$#1\bullet\m@th$}%
+      }%
+    }%
+    \hfil
+  }%
+}
+\makeatother
+
+%% Dot product: 
+\newcommand{\dotp}[2]{\mbox{$#1 \bigcdot #2$}}
+\newcommand{\fdotp}[2]{\mbox{\footnotesize $#1 \bigcdot #2$}}
+\newcommand{\scdotp}[2]{\mbox{\scriptsize $\scriptsize#1 \bigcdot #2$}}
+
+%\newcommand{\transpose}[1]{\mbox{$#1^\intercal$}}
+\newcommand{\transpose}[1]{\mbox{$#1^\top$}}
+\newcommand{\transposesp}[1]{\mbox{$#1^\intercal$} }
+\newcommand{\ls}{\mbox{$\,$}}
+
+\newcommand{\mpart}[2]{\mbox{$\frac{\partial{#1}}{\partial{#2}}$}}
+\newcommand{\cpart}[2]{\mbox{$\cfrac{\partial{#1}}{\partial{#2}}$}}
+
+\newcommand{\fwbmodel}{\mbox{$f_{\fvec{w},b}$}}
+\newcommand{\fwbmodelsp}{\mbox{$f_{\fvec{w},b}$} }
+
+\newcommand{\gradient}[1]{\mbox{$\nabla\,#1$}}
+
+
+\newcommand{\softmax}{\temv{softmax}}
+\newcommand{\softmaxsp}{\temv{softmax} }
+
+
+\newcommand{\image}[1]{\mbox{$I_{\fs{#1}}$}}
+\newcommand{\ent}[1]{\mbox{$H(#1)$}}
+
+%\newcommand{\icont}[1]{\mbox{$\temv{IC}_{\fs{#1}}$}}
+\newcommand{\icont}{\mbox{\rm \temv{IC}}}
+\newcommand{\icontsp}{\mbox{\rm \temv{IC}} }
+
+\newcommand{\imagep}[1]{\mbox{${\whs{I}}_{\hspace*{-0.01in}\fs{#1}}$}}
+\newcommand{\imagex}{\mbox{$I_{\fs{X}}$}}
+\newcommand{\imagexi}{\mbox{$I_{\fs{X}_i}$}}
+\newcommand{\imagexone}{\mbox{$I_{\fs{X_1}}$}}
+\newcommand{\imagexn}{\mbox{$I_{\fs{X_n}}$}}
+\newcommand{\imagexsp}{\mbox{$I_{\fs{X}}$} }
+\newcommand{\imagey}{\mbox{$I_{\fs{Y}}$}}
+\newcommand{\imageysp}{\mbox{$I_{\fs{Y}}$} }
+\newcommand{\imagez}{\mbox{$I_{\fs{\vec{Z}}}$}}
+\newcommand{\imagexvec}{\mbox{$I_{\fs{\vec{X}}}$}}
+\newcommand{\imagexvecsp}{\mbox{$I_{\fs{\vec{X}}}$} }
+\newcommand{\fsimagez}{\mbox{$\fsimage{\mathbf{Z}}$}}
+
+\newcommand{\fsimagep}[1]{\mbox{\footnotesize${\whs{I}}_{\hspace*{-0.01in}\fs{#1}}$}}
+\newcommand{\fsimage}[1]{\mbox{\footnotesize$\footnotesize I_{#1}$}}
+\newcommand{\fsimagex}{\mbox{$\fsimage{X}$}}
+\newcommand{\fsimagexsp}{\mbox{$\fsimage{X}$} }
+\newcommand{\fsimagey}{\mbox{$\fsimage{Y}$}}
+\newcommand{\fsimageysp}{\mbox{$\fsimage{Y}$} }
+\newcommand{\myfrown}{\raisebox{.3em}{\smash{\scalebox{.8}{$\smallfrown$}}}}
+\newcommand{\myfrownsp}{\mbox{{\raisebox{.3em}{\smash{\scalebox{.8}{$\smallfrown$}}}}} }
+\newcommand{\frownls}{\raisebox{.3em}{\smash{\scalebox{.8}{$\,\smallfrown\,$}}}}
+
+\newcommand{\typedec}[1]{#1\hspace*{-0.03in}:\hspace*{-0.01in}}
+\newcommand{\typedectight}[1]{#1\hspace*{-0.042in}:\hspace*{-0.033in}}
+
+\newcommand{\geqls}{\mbox{$\,\geq\,$}}
+\newcommand{\leqls}{\mbox{$\,\leq\,$}}
+\newcommand{\leqsp}{\mbox{$\;\:\leq\;\:$}}
+\newcommand{\geqsp}{\mbox{$\;\,\geq\;\,$}}
+\newcommand{\mvdots}{\mbox{$\vdots$}}
+\newcommand{\feqls}{\mbox{$\footnotesize\,=\,$}}
+\newcommand{\eqls}{\mbox{$\footnotesize\,=\,$}}
+
+\newcommand{\cboxit}[1]{\colorbox{red!50}{#1}}
+
+\newcommand{\septs}{\mbox{$\fs{\tts\sep\tts}$}}
+\newcommand{\sepss}{\mbox{$\, |\,$}}
+
+\newcommand{\note}[1]{{\bf #1}}
+
+\newcommand{\raisedsuperscript}[2]{\mbox{$#1^{\raisebox{0.13em}{\mbox{\footnotesize\ts$#2$}}}$}}
+\newcommand{\raisedsuperscriptnots}[2]{\mbox{$#1^{\raisebox{0.13em}{\mbox{\footnotesize$#2$}}}$}}
+\renewcommand{\exp}[1]{\mbox{\rm $E[#1]$}}
+\newcommand{\bigexp}[1]{\mbox{$E\biggl[#1\biggr]$}}
+\newcommand{\condexp}[2]{\mbox{$E[#1\,|\,#2]$}}
+\renewcommand{\succ}[2]{\mbox{$\temv{Succ}^{#1}_{#2}$}}
+\newcommand{\succone}[1]{\mbox{$\temv{Succ}_{#1}$}}
+\renewcommand{\bigexp}[1]{\mbox{$E\left[#1\right]$}}
+\newcommand{\bigvariance}[1]{\mbox{$\temv{Var}\left(#1\right)$}}
+\renewcommand{\ss}{\mbox{$\Omega$}}
+\newcommand{\sssp}{\mbox{\ss} }
+\newcommand{\ssn}{\mbox{$\ss^{\ts n}$}}
+
+\newcommand{\ssnsp}{\mbox{$\ss^{\ts n}$} }
+\newcommand{\variance}[1]{\mbox{\rm $\temv{Var}(#1)$}}
+\newcommand{\variancetight}[1]{\mbox{$\temv{Var}(\hspace*{-0.01in}#1\hspace*{-0.01in})$}}
+\newcommand{\cov}[2]{\mbox{\rm $\temv{Cov}(#1,#2)$}}
+\newcommand{\covlargebrackets}[2]{\mbox{$\temv{Cov}\left(#1,#2\right)$}}
+\newcommand{\corr}[2]{\mbox{$\rho(#1,#2)$}}
+\newcommand{\events}{\mbox{$\mc{F}$}}
+\newcommand{\eventsp}{\mbox{$\mc{F}$} }
+\newcommand{\eventssp}{\mbox{$\mc{F}$} }
+\newcommand{\probspace}{\mbox{$\mc{P}$}}
+\newcommand{\probspacesp}{\mbox{$\mc{P}$} }
+\newcommand{\floor}[1]{\mbox{$\lfloor #1\rfloor$}}
+\newcommand{\pdfx}{\mbox{$f_{\fs{X}}$}}
+\newcommand{\pdfxsp}{\mbox{$f_{\fs{X}}$} }
+\newcommand{\pmf}[1]{\mbox{$p_{\fs{#1}}$}}
+\newcommand{\pmfx}{\mbox{$p_{\fs{X}}$}}
+\newcommand{\pmfxsp}{\mbox{$p_{\fs{X}}$} }
+\newcommand{\pmfxfs}{\mbox{$\fs{p_{\fs{X}}}$}}
+\newcommand{\pmfz}{\mbox{$p_{\fs{\vec{Z}}}$}}
+\newcommand{\pmfzsp}{\mbox{$p_{\fs{\vec{Z}}}$} }
+\newcommand{\qmfx}{\mbox{$q_{\fs{X}}$}}
+\newcommand{\qmfxsp}{\mbox{$q_{\fs{X}}$} }
+\newcommand{\qmfz}{\mbox{$q_{\fs{\vec{Z}}}$}}
+\newcommand{\qmfzsp}{\mbox{$q_{\fs{\vec{Z}}}$} }
+\newcommand{\pmfy}{\mbox{$p_{\fs{Y}}$}}
+\newcommand{\pmfysp}{\mbox{$p_{\fs{Y}}$} }
+\newcommand{\pmfxy}{\mbox{\rm $p_{\fs{X},\fs{Y}}$}}
+\newcommand{\pmfxysp}{\mbox{\rm $p_{\fs{X},\fs{Y}}$} }
+\newcommand{\kl}[2]{\mbox{\rm $\temv{KL}(#1,#2)$}}
+\newcommand{\klsp}{\mbox{\rm $\temv{KL}$} }
+\newcommand{\perone}[1]{\mbox{\rm $\temv{Per}(#1)$}}
+\newcommand{\per}[2]{\mbox{\rm $\temv{Per}(#1,#2)$}}
+\newcommand{\persp}{\mbox{\rm $\temv{Per}$} }
+\newcommand{\pernsp}{\mbox{\rm $\temv{Per}$}}
+\newcommand{\ce}[2]{\mbox{\rm $\temv{CE}(#1,#2)$}}
+\newcommand{\cesp}{\mbox{\rm $\temv{CE}$} }
+\newcommand{\klnsp}{\mbox{\rm $\temv{KL}$}}
+\newcommand{\censp}{\mbox{\rm $\temv{CE}$}}
+\renewcommand{\pm}{\mbox{$\mathbb{P}$}}
+
+\newcommand{\empdist}[2]{\mbox{$\widetilde{#1}_{\fs{#2}}$}}
+
+\newcommand{\pmsp}{\mbox{$\mathbb{P}$} }
+\newcommand{\pmq}{\mbox{$\mathbb{Q}$}}
+\newcommand{\pmqfs}{\mbox{$\fs{\mathbb{Q}}$}}
+\newcommand{\pmqsp}{\mbox{$\mathbb{Q}$} }
+\newcommand{\pmfyx}{\mbox{$p_{\fs{Y},\fs{X}}$}}
+\newcommand{\pmfyxsp}{\mbox{$p_{\fs{Y},\fs{X}}$} }
+
+\newcommand{\pmfxonethroughn}{\mbox{$p_{\fs{X_1},\ldots,\fs{X_n}}$}}
+\newcommand{\pdfy}{\mbox{$f_{\fs{Y}}$}}
+\newcommand{\pdfysp}{\mbox{$f_{\fs{Y}}$} }
+\newcommand{\cdf}[1]{\mbox{$F_{\fs{#1}}$}}
+\newcommand{\cdfx}{\mbox{$F_{\fs{X}}$}}
+\newcommand{\cdfxsp}{\mbox{$F_{\fs{X}}$} }
+\newcommand\myprime{\mkern-3.5mu \raise0.1ex\hbox{$\prime$}}
+\newcommand{\cdfxp}{\mbox{$F^{\mbox{\scalebox{0.75}{$\mkern-1.0mu{\,^{\prime}}$}}}_{\fs{X}}$}}
+%\newcommand{\cdfxplower}{\mbox{$F^{\mbox{\rsp\scalebox{0.75}{$\mkern-24.0mu{^{\prime}}$}}}_{\fs{X}}$}}
+\newcommand{\cdfxplower}{\mbox{$F^{\ts\mbox{\scalebox{0.55}{$\raise0.4ex\hbox{$\prime$}$}}}_{\fs{X}}$}}
+\newcommand{\cdfxplowersp}{\mbox{$F^{\ts\mbox{\scalebox{0.55}{$\raise0.4ex\hbox{$\prime$}$}}}_{\fs{X}}$} }
+
+%\newcommand{\cdfxp}{\mbox{$F^{\mbox{\scalebox{0.85}{$\,^\myprime$}}}_{\fs{X}}$}}
+\newcommand{\cdfxpsp}{\mbox{\cdfxp} }
+\newcommand{\cdfy}{\mbox{$F_{\fs{Y}}$}}
+\newcommand{\cdfysp}{\mbox{$F_{\fs{Y}}$} }
+
+\newcommand{\inls}{\mbox{$\,\in\,$}}
+\newcommand{\fsinls}{\mbox{\scalebox{0.7}{$\,\in\,$}}}
+\newcommand{\capls}{\mbox{$\,\cap\,$}}
+\newcommand{\cupls}{\mbox{$\,\cup\,$}}
+\newcommand{\capsp}{\mbox{$\;\cap\;$}}
+
+
+
+\newcommand{\tighteq}{\mbox{\hspace*{-0.1in}$=$\hspace*{-0.1in}}}
+\newcommand{\tightleq}{\mbox{\hspace*{-0.1in}$\leq$\hspace*{-0.1in}}}
+\newcommand{\tightless}{\mbox{\hspace*{-0.1in}$<$\hspace*{-0.1in}}}
+\newcommand{\tightmiff}{\mbox{\hspace*{-3in}\miff}}
+
+\newcommand{\tinymspace}{\mbox{\hspace*{0.018in}}}
+\newcommand{\ts}{\mbox{\hspace*{0.014in}}}
+\newcommand{\tts}{\mbox{\hspace*{0.008in}}}
+
+\newcommand{\loweredbigl}{\mbox{\raisebox{-0.07in}{\mbox{$\Biggl[$}}}}
+\newcommand{\loweredbigr}{\mbox{\raisebox{-0.07in}{\mbox{$\Biggr]$}}}}
+
+\newcommand{\loweredbiglzero}{\mbox{\raisebox{-0.07in}{\mbox{$\bigl[$}}}}
+\newcommand{\loweredbigrzero}{\mbox{\raisebox{-0.07in}{\mbox{$\bigr]$}}}}
+
+\newcommand{\raiseit}[2]{\mbox{\raisebox{#2}{\mbox{#1}}}}
+
+\newcommand{\raisedperiod}{\mbox{\raisebox{0.02in}{\mbox{\tts .}}}}
+\newcommand{\raisedcomma}{\mbox{\raisebox{0.02in}{\mbox{\tts ,}}}}
+
+\newcommand{\mlower}[1]{\mbox{\raisebox{-0.07in}{#1}}}
+
+\newcommand{\bigsum}{\mathlarger{\sum}}
+
+\newcommand{\covsym}{\temv{Cov}}
+\newcommand{\covsymsp}{\covsym }
+
+\newcommand{\corrsym}{\mbox{$\rho$}}
+
+\newcommand{\smn}{\mbox{$\ol{X}_n$}}
+\newcommand{\fssmn}{\mbox{$\fs{\ol{X}_n}$}}
+\newcommand{\smnsp}{\mbox{$\ol{X}_n$} }
+
+\newcommand{\mut}[2]{\mbox{$\mbox{\rm\temv{MI}}(#1,#2)$}}
+\newcommand{\mutsp}{\mbox{\rm\temv{MI}} }
+
+
+
+\newcommand{\fixspace}[1]{%
+  \setlength{\lineskip}{#1}%
+  \vspace{#1}%
+}
+
+\newcommand\marquis[3][1]{%
+\scalebox{#1}{$\scaleleftright{[}{\parbox{#2}{\centering #3}}{]}$}%
+}
+\newcommand{\tworaisedtocodeword}{\mbox{$2^{\raisebox{0.05in}{\scalebox{0.8}{\mbox{$-\card{C(x)}$}}}}$}}
+
+
+\newcommand{\mcard}[1]{\mbox{\raisebox{0.05in}{\scalebox{0.9}{\mbox{$-\card{C_X(#1)}$}}}}}
+\newcommand{\rscale}[1]{\mbox{\raisebox{0.05in}{\scalebox{0.9}{\mbox{$#1$}}}}}
+
+\newcommand{\imagextothek}{\mbox{$I^{\raisebox{0.025in}{\scalebox{0.9}{\mbox{$\tts k$}}}}_{\fs{X}}$}}
+\newcommand{\imagextotheksp}{\mbox{$I^{\raisebox{0.025in}{\scalebox{0.9}{\mbox{$\tts k$}}}}_{\fs{X}}$} }
+
+\newcommand{\raisedprime}[1]{\mbox{$#1^{\raisebox{0.01in}{\scalebox{0.65}{\mbox{$\ts\prime$}}}}$}}
+\newcommand{\raisedprimefs}[1]{\mbox{$#1^{\raisebox{0.01in}{\scalebox{0.5}{\mbox{$\ts\prime$}}}}$}}
+\newcommand{\raisedprimedouble}[1]{\mbox{$#1^{\raisebox{0.01in}{\scalebox{0.65}{\mbox{$\ts\prime$}}}\raisebox{0.01in}{\scalebox{0.65}{\mbox{$\ts\prime$}}}}$}}
+\newcommand{\raisedprimedoublefs}[1]{\mbox{$#1^{\raisebox{0.01in}{\scalebox{0.5}{\mbox{$\ts\prime$}}}\raisebox{0.01in}{\scalebox{0.5}{\mbox{$\ts\prime$}}}}$}}
+\newcommand{\fsmed}[1]{\mbox{\scalebox{0.67}{\mbox{$#1$}}}}
+
+
+\newcommand{\pmfxp}{\mbox{$p_{\raisedprimefs{\fs{X}}}$}}
+\newcommand{\elen}[1]{\mbox{$E_{\fs{#1}}$}}
+\newcommand{\depth}[2]{\mbox{$d_{\fs{#2}}(#1)$}}
+
+\newcommand{\tneg}{\mbox{\url{~}$\ls$}}
+
+
+
+\newcommand{\bath}{\begin{tcAthena}}
+\newcommand{\eath}{\end{tcAthena}}
+
+
+\newcommand{\tildels}{\mbox{\url{~}$\ls$}}
