@@ -20,8 +20,6 @@ conclude plus-Z-n := (forall n . 0 + n = n)
   pick-any n:Nat
      (!chain [(0 + n) = n [plus-nat-def]])
 
-
-
 conclude minus-diag := (forall n . n - n = Zero)
   by-induction minus-diag {
     Zero => (!chain [(Zero - Zero) = Zero          [minus-nat-def]])
@@ -128,6 +126,65 @@ conclude evenb_S := (forall n . even n <==> ~ even Succ n)
                      <==> (~ even Succ Succ k) [even-def]])
   }
 
+conclude plus-rearrange
+  pick-any n1:Nat n2:Nat m1:Nat m2:Nat
+    (!chain [((n1 + n2) + (m1 + m2)) 
+           = ((n2 + n1) + (m1 + m2))   [plus-comm]])
 
+# Exercise 3.0.1, p. 30
 
-} # Ends module Nat { ... 
+define plus-swap := (forall n k m . n + (m + k) = m + (n + k))
+
+conclude plus-swap 
+  pick-any n:Nat k:Nat m:Nat 
+    (!chain [(n + (m + k)) 
+           = ((n + m) + k)       [plus-assoc]
+           = ((m + n) + k)       [plus-comm]
+           = (m + (n + k))       [plus-assoc]])
+
+define mult-comm := (forall n m . n * m = m * n)
+
+define mult-succ-r := (forall n m . n * Succ m = n + (n * m))
+
+by-induction mult-succ-r {
+  Zero => pick-any m:Nat
+            conclude (Zero * Succ m = Zero + (Zero * m))
+              (!combine-equations
+                (!chain [(Zero * Succ m) = Zero [mult-nat-def]])
+                (!chain [(Zero + (Zero * m)) 
+                       = (Zero + Zero)          [mult-nat-def]
+                       = Zero                   [plus-nat-def]]))
+| (Succ n') => let {ih := (forall m . n' * Succ m = n' + (n' * m))}
+                 conclude (forall m . (Succ n') * (Succ m) = (Succ n') + ((Succ n') * m))
+                   pick-any m:Nat 
+                     (!combine-equations
+                        (!chain [((Succ n') * (Succ m))
+                               = ((Succ m) + (n' * (Succ m)))   [mult-nat-def]
+                               = ((Succ m) + (n' + (n' * m)))   [ih]
+                               = (Succ (m + (n' + (n' * m))))   [plus-nat-def]
+                               = (Succ ((m + n') + (n' * m)))   [plus-assoc]])
+                        (!chain [((Succ n') + ((Succ n') * m))  
+                               = ((Succ n') + (m + n' * m))     [mult-nat-def]   
+                               = (Succ (n' + (m + n' * m)))     [plus-nat-def]
+                               = (Succ ((n' + m) + n' * m))     [plus-assoc]
+                               = (Succ ((m + n') + n' * m))     [plus-comm]]))
+}
+
+by-induction mult-comm {
+  Zero => pick-any m:Nat
+            (!chain [(Zero * m)
+                   = Zero                     [mult-nat-def]
+                   = (m * Zero)               [mult-0-r]])
+| (Succ k) => let {ih := (forall m . k * m = m * k)}
+                conclude (forall m . (Succ k) * m = m * Succ k)
+                  pick-any m:Nat                 
+                    (!combine-equations 
+                      (!chain [((Succ k) * m)    
+                              = (m + (k * m))    [mult-nat-def]
+                              = (m + (m * k))    [ih]])
+                      (!chain [(m * Succ k)
+                             = (m + (m * k))     [mult-succ-r]]))
+}
+
+} # Ends Nat extension 
+

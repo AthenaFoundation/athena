@@ -215,3 +215,54 @@ conclude (forall n . even Succ n <==> ~ even n)
     (!chain [(even Succ n) <==> (~ even n) [evenb_S]])
 \end{tcAthena}
 \end{solution}
+
+\section{Proofs Within Proofs}
+This section in the SF book appears to be about forcing assertions, which in Athena would be done via the \smkwd{force} keyword. 
+
+In terms of composite proofs: In Coq/Idris, it seems that the main way to develop proofs is via automated rewriting and lemmas. 
+This would be equivalent in style to using ATPs (automated theorem provers) in Athena and simply decomposing a top-level goal 
+into a series of lemmas that could actually be handled by the ATPs. All of the ``proofs'' in such an approach would be 1-line 
+proofs of the following form:
+\begin{tcAthena}
+define goal := ...
+
+conclude lemma-1 := (!prove ...)
+
+conclude lemma-n := (!prove ...) 
+
+conclude goal := (!prove goal [lemma-1 ... lemma-n])
+\end{tcAthena}
+One can of course introduce additional theorem-proving tactics in Idris, though these again seem to be procedural instructions
+for how to get the built-in tactics to behave properly, not declarative proofs. 
+Consider:
+\begin{tcAthena}
+define plus-rearrange := (forall n1 n2 m1 m2 . (n1 + n2) + (m1 + m2) = (n2 + n1) + (m1 + m2))
+\end{tcAthena}
+This is really just a single application of commutativity of addition. 
+Here is the Idris proof (as appears on p. 30):
+\begin{idris}
+plus_rearrange : (n, m, p, q : Nat) ->
+                 (n + m) + (p + q) = (m + n) + (p + q)
+plus_rearrange n m p q = rewrite plus_rearrange_lemma n m in Refl
+  where
+  plus_rearrange_lemma : (n, m : Nat) -> n + m = m + n
+  plus_rearrange_lemma = plus_comm
+\end{idris}
+Here is the Athena version: 
+\begin{tcAthena}
+conclude plus-rearrange
+  pick-any n1:Nat n2:Nat m1:Nat m2:Nat
+    (!chain [((n1 + n2) + (m1 + m2)) 
+           = ((n2 + n1) + (m1 + m2))   [plus-comm]])
+\end{tcAthena}
+
+\begin{exercise}[subtitle={\mbox{\rm{\em (SF Exercise 3.0.1, p. 30)}}}]
+Prove: 
+\begin{tcAthena}
+define plus-swap := (forall n k m . n + (m + k) = m + (n + k))
+define mult-comm := (forall n m . n * m = m * n)
+\end{tcAthena}
+\begin{solution}
+\begin{tcAthena}
+\end{tcAthena}
+\end{solution}
