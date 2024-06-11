@@ -894,6 +894,15 @@ define (pairs->table L) :=
                              (!mp premise p))
                            (!from-complements false q (complement q)))))))))
 
+(define (hsyl premise-1 premise-2)
+  (dmatch [premise-1 premise-2]
+    ([(p1 ==> p2) (p2 ==> p3)]
+      (assume p1
+        (conclude p3
+          (!mp premise-2
+            (conclude p2
+            (!mp premise-1 p1))))))))
+
 (define (dsyl-1 premise-1 premise-2)
   (dmatch [premise-1 premise-2]
     ([(or p q) p'] 
