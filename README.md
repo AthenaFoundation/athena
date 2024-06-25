@@ -38,6 +38,7 @@ module Asymmetry {
 ```
 
 ## Quickstart
+Follow the setup instructions for Athena on the repo's [wiki](https://github.com/AthenaFoundation/athena/wiki). Below are some quick setup instructions if you're on a Linux machine.
 
 To start using Athena right away, simply download and unpack the latest [release](https://github.com/AthenaFoundation/athena/releases/latest). After doing so, ensure that the `ATHENA_HOME` environment variable is set to the path to the files.
 
