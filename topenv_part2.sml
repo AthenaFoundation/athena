@@ -1881,7 +1881,7 @@ fun findLine(in_stream,l) = let fun loop() =
 			             in
                                        if line = "" then false
 				       else
-				         if line = l then true else loop()
+				         if (String.isSubstring l line) then true else loop()
  				     end
 			           in 
 				      loop()
@@ -2915,7 +2915,7 @@ fun unLimVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
 
 fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) = 
   let val vi = getVampIndex()
-      val (vamp_in_fname,vamp_out_fname) = (Paths.vampireInName(vi),Paths.vampireOutName(vi))
+      val (vamp_in_fname,vamp_out_fname,vamp_error_fname) = (Paths.vampireInName(vi),Paths.vampireOutName(vi),Paths.vampireErrorName(vi))
       val ax_index = ref(0)
       val premise_array = Array.fromList(premises)
       fun getAxNum() = (Basic.inc(ax_index);"ax"^(Int.toString(!ax_index)))
@@ -2946,7 +2946,7 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       fun write(str) = TextIO.output(vamp_problem_stream,str)
       val _ = (List.app write hyps;write conc)
       val _ = TextIO.closeOut(vamp_problem_stream)
-      val cmd = Names.vampire_binary ^ " --proof tptp --show_skolemisations on --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname
+      val cmd = Names.vampire_binary ^ " --proof tptp --mode casc --show_skolemisations on --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname ^ " 2> " ^ vamp_error_fname 
       val _ = OS.Process.system(cmd)
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)

@@ -1133,7 +1133,7 @@ val spass_windows_binary = (case Paths.findFileWithPossibleSuffix("SPASS",".exe"
 
 val spass_binary = if (Paths.is_unix) then Paths.findIterated(["spass","SPASS"],"./SPASS") else spass_windows_binary
 
-val vampire_linux_binary = Paths.findIterated(["vampire","vampire_linux64","vampire_lin64"],"./vampire")
+val vampire_linux_binary = Paths.findIterated(["vampire_z3_rel_static_sledge_5980"],"./vampire_z3_rel_static_sledge_5980")
 			     
 val vampire_binary = (case Paths.findFileWithPossibleSuffix("vampire",".exe") of
                                    SOME(str) => str
