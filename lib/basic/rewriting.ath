@@ -702,12 +702,14 @@ define replace-term-in-sentence := replace-term-in-prop
              (_ (match rhs1
                   ((ite (some-term C') (some-term rhs1') (some-term rhs2')) 
                      (find-ite-match-0 t1 t2 lhs C' rhs1' rhs2'))
-                  (_ ()))))))))
+                  (_ (match rhs2
+                       ((ite (some-term C') (some-term rhs1') (some-term rhs2')) 
+                          (find-ite-match-0 t1 t2 lhs (and (complement C) C') rhs1' rhs2'))
+                       (_ ()))))))))))
 
 (define (find-ite-match t1 t2 lhs C rhs1 rhs2)
  (let (
-       #(_ (print "\nAbout to call find-ite-match on t1: " t1 ", t2: " t2 ", lhs: " lhs ", C: " C 
-       #          ", rhs1: " rhs1 ", and rhs2: " rhs2)
+       #(_ (print "\nAbout to call find-ite-match on t1 --> " t1 "\nt2 --> " t2 "\nlhs --> " lhs "\nC --> " C  "\nrhs1 --> " rhs1 "\nrhs2 --> " rhs2))
       )
   (match (find-ite-match-0 t1 t2 lhs C rhs1 rhs2)
      (() (match (find-ite-match-0 t2 t1 lhs C rhs1 rhs2)
