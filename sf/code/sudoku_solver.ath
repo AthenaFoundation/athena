@@ -1,0 +1,70 @@
+module Sudoku_Solver {
+
+declare at: [Int Int] -> Int
+
+define (all-distinct L value-range) :=
+    [(if (x = y) (and* [(z =/= y) for z over (list-remove x L)])) for [x y] over (cprod L value-range)]
+
+define (puzzle->constraints puzzle) :=
+  let {V := (list->vector (map list->vector puzzle));
+       sub := lambda (i j) (vector-sub (vector-sub V (i minus 1)) (j minus 1));
+       N := (floor sqrt length puzzle);
+       1-to-N^2 := (1 to (N times N));
+       all-cells := (cprod 1-to-N^2 1-to-N^2);
+       given-axioms := [(= (at i j) (sub i j)) for [i j] over all-cells provided (negate (var? (sub i j)))];
+       possibility-axioms := [(or [((at i j) = x) for x over 1-to-N^2]) for [i j] over all-cells]; 
+       distinct-row-axioms := (flatten [(all-distinct [(at row col) for col over 1-to-N^2] 1-to-N^2) for row over 1-to-N^2]);
+       distinct-col-axioms := (flatten [(all-distinct [(at row col) for row over 1-to-N^2] 1-to-N^2) for col over 1-to-N^2]);
+       subgrid-coords := [[((times r N) plus 1) ((times c N) plus 1)] for [r c] over (cprod (0 to (N minus 1)) (0 to (N minus 1)))];
+       subgrid := lambda (i j) [(at ((i minus 1) plus x) ((j minus 1) plus y)) for [x y] over (cprod (1 to N) (1 to N))];              
+       subgrid-axioms := (flatten [(all-distinct (subgrid i j) 1-to-N^2) for [i j] over subgrid-coords])}
+   (join possibility-axioms distinct-row-axioms distinct-col-axioms subgrid-axioms given-axioms)
+
+define (solve-puzzle p) :=
+  let {constraints := (puzzle->constraints p);
+       r := (sat-solve constraints)}
+     check {(r 'satisfiable) => [(= (at i j) x) for [(= (at i j) x) b] over (HashTable.table->list (r 'assignment))
+                                                provided ((b equals? true) && (integer-numeral? x))]
+          | else => (print "Puzzle is not solvable")}
+          
+}          
+
+# TEST:
+
+define p4 :=  [[2 1 _ _]
+               [_ _ _ _]
+               [_ 3 4 _]
+               [_ _ _ _]]
+
+(Sudoku_Solver.solve-puzzle p4)
+
+# Gives:
+#
+# [[2 1 3 4]
+#  [3 4 2 1]
+#  [1 3 4 2]
+#  [4 2 1 3]]
+
+define p9 := [[_ _ 1 _ 5 _  _ 8 _ ]
+              [5 _ _ _ 7 9 _  _  4]
+              [7 8 _ _  _  _ 6 3 _]
+              [8 9 _  5 1 3 _  _ _]
+              [2 6 _ _ _  _ 3 5 _ ]
+              [_ _  _ _  _ 4 _ 9 8]
+              [_ 7 8 1 _  _  _ _ 6]
+              [_ _  _ 7 _  _ 2 _ 3]
+              [_ _  2 4 6 5 _  _ 9]]
+
+(Sudoku_Solver.solve-puzzle p9)
+
+# gives:
+# 
+# [[4 2 1 3 5 6 9 8 7]
+#  [5 3 6 8 7 9 1 2 4]
+#  [7 8 9 2 4 1 6 3 5]
+#  [8 9 7 5 1 3 4 6 2]
+#  [2 6 4 9 8 7 3 5 1]
+#  [1 5 3 6 2 4 7 9 8]
+#  [9 7 8 1 3 2 5 4 6]
+#  [6 4 5 7 9 8 2 1 3]
+#  [3 1 2 4 6 5 8 7 9]]
