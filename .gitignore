@@ -1,6 +1,11 @@
 .cm/
-*.grm.*
-*.lex.*
+*.grm.sig
+*.grm.sml
+*.lex.sml
+*.lex
+*.sty
+*.log
+*.pdf
 *.x86-linux
 athena
 regression_results.txt

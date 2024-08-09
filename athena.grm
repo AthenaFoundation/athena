@@ -25,8 +25,8 @@ fun getPos((l,p)) = {line=l,pos=p,file=(!Paths.current_file)}
        EQUAL_SIGN | ASSERT | ASSERT_CLOSE | ASSUME | ASSUME_LET | SUPPOSE_ABSURD | SUPPOSE_ABSURD_LET | ON | PROVE | 
        DMATCH | EITHER | ABSURD | MP | DN | EQUIV | LEFT_IFF | RIGHT_IFF | BOTH  | ASGN | BY_CASES | 
        META_ID | SOME_SYMBOL | LEFT_AND | RIGHT_AND | CD | VAL_OF | VAR | FUN_ARROW | DATATYPE | DATATYPES | DEFINE_SORT | 
-       SOME_LIST | SOME_CELL | SOME_SUB | SOME_TABLE | SOME_MAP | DEFINE | POUND | STRUCTURE | STRUCTURES | DOMAIN | WHERE | 
-       DECLARE | DDECLARE | DIRECTIVE_PREFIX | EGEN | BEGIN | WHILE | CLEAR | THE | DEFINE_SYMBOL | DOMAINS | 
+       SOME_LIST | SOME_CELL | SOME_SUB | SOME_TABLE | SOME_MAP | DEFINE | POUND | STRUCTURE | STRUCTURES | DOMAIN | WHERE | PROVIDED | 
+       DECLARE | DDECLARE | DIRECTIVE_PREFIX | EGEN | BEGIN | WHILE | CLEAR | THE | DEFINE_SYMBOL | DOMAINS | OVER  | 
        EGEN_UNIQUE  | LEIBNIZ | EQ_REFLEX  | SOME_QUANT | USPEC | FETCH  | RETRACT | DEFINE_FUN | ADD_DEMON | ADD_DEMONS | 
        SOME_PROP_CON | UNEQUAL_TERMS | INDUCTION | STRUCTURE_CASES | LIST | CELL | RULE  | GEN_OVER | WITH_PREDICATE | WITH_KEYS | 
        WITH_WITNESS | MAKE_CELL | REF  | USE_TERM_PARSER | USE_PROP_PARSER | END | SPECIALIZE | SET_FLAG | 
@@ -611,6 +611,10 @@ expression: any_id (let val id_pos = getPos(any_idleft)
           | LPAREN phrase phrases RPAREN (A.appExp({proc=phrase,args=phrases,alt_exp=ref(NONE),pos=getPos LPARENleft}))
                                                    
           | LEFT_BRACKET phrases RIGHT_BRACKET (A.listExp({members=phrases,pos=getPos LEFT_BRACKETleft}))
+
+          | LEFT_BRACKET expression FOR pattern OVER expression RIGHT_BRACKET (A.desugarListComprehension(expression1,pattern,expression2,NONE))
+
+          | LEFT_BRACKET expression FOR pattern OVER expression PROVIDED expression RIGHT_BRACKET (A.desugarListComprehension(expression1,pattern,expression2,SOME(expression3)))
 
           |  MAP_BEGIN map_bindings MAP_END  (A.makeMapExp(map_bindings,getPos(MAP_BEGINleft)))
 

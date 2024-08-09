@@ -3015,6 +3015,35 @@ fun log10PrimUFun(v,env,_) =
                                               end) 
   | _ => primError(wrongArgKind(N.log10Fun_name,1,termLCType,v)))
 
+fun floorPrimUFun(v,env,_) = 
+ (case coerceValIntoTerm(v) of
+    SOME(t) => (case AthTerm.getNumVal(t) of 
+                   SOME(A.real_num(a,_),neg) => let val r = getSignedReal(a,neg)
+                                                    val res = floor(r)
+                                                in
+						   termVal(AthTerm.makeNumTerm(A.int_num(res,ref "")))
+                                                end
+                | SOME(A.int_num(a,_),neg) => let val i = getSignedInt(a,neg)
+                                              in
+                                                termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))
+                                              end)
+  | _ => primError(wrongArgKind(N.floorFun_name,1,termLCType,v)))
+
+fun ceilPrimUFun(v,env,_) = 
+ (case coerceValIntoTerm(v) of
+    SOME(t) => (case AthTerm.getNumVal(t) of 
+                   SOME(A.real_num(a,_),neg) => let val r = getSignedReal(a,neg)
+                                                    val res = ceil(r)
+                                                in
+						   termVal(AthTerm.makeNumTerm(A.int_num(res,ref "")))
+                                                end
+                | SOME(A.int_num(a,_),neg) => let val i = getSignedInt(a,neg)
+                                              in
+                                                termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))
+                                              end)
+  | _ => primError(wrongArgKind(N.ceilFun_name,1,termLCType,v)))
+
+
 fun lnPrimUFun(v,env,_) = 
  (case coerceValIntoTerm(v) of
     SOME(t) => (case AthTerm.getNumVal(t) of 
