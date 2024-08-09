@@ -727,6 +727,12 @@ val egenUniquePrimMethod_symbol = Symbol.symbol egenUniquePrimMethod_name
 val eqReflexPrimMethod_name = "reflex"
 val eqReflexPrimMethod_symbol = Symbol.symbol eqReflexPrimMethod_name
 
+val floorFun_name = "floor"
+val floorFun_symbol = Symbol.symbol floorFun_name
+
+val ceilFun_name = "ceil"
+val ceilFun_symbol = Symbol.symbol ceilFun_name
+
 val eqTranPrimMethod_name = "tran"
 val eqTranPrimMethod_symbol = Symbol.symbol eqTranPrimMethod_name
 

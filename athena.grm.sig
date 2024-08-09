@@ -46,6 +46,7 @@ val SOME_QUANT:  'a * 'a -> (svalue,'a) token
 val EQ_REFLEX:  'a * 'a -> (svalue,'a) token
 val LEIBNIZ:  'a * 'a -> (svalue,'a) token
 val EGEN_UNIQUE:  'a * 'a -> (svalue,'a) token
+val OVER:  'a * 'a -> (svalue,'a) token
 val DOMAINS:  'a * 'a -> (svalue,'a) token
 val DEFINE_SYMBOL:  'a * 'a -> (svalue,'a) token
 val THE:  'a * 'a -> (svalue,'a) token
@@ -56,6 +57,7 @@ val EGEN:  'a * 'a -> (svalue,'a) token
 val DIRECTIVE_PREFIX:  'a * 'a -> (svalue,'a) token
 val DDECLARE:  'a * 'a -> (svalue,'a) token
 val DECLARE:  'a * 'a -> (svalue,'a) token
+val PROVIDED:  'a * 'a -> (svalue,'a) token
 val WHERE:  'a * 'a -> (svalue,'a) token
 val DOMAIN:  'a * 'a -> (svalue,'a) token
 val STRUCTURES:  'a * 'a -> (svalue,'a) token

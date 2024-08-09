@@ -510,6 +510,7 @@ fun makeIdExpSimple(str,pos) =
         idExp({msym=msym(s),mods=[],sym=s,no_mods=true,pos=pos})
     end
 
+
 fun makeIdExpSimple'(sym,pos) = 
     let val s = sym
     in
@@ -2519,6 +2520,48 @@ fun splitApps(p) = applyPhraseFunRecursively(psplitAppExps,p)
 
 fun desugarPhrase(p) = applyExpFunRecursively(desugarSingleLets,(applyExpFunRecursively(desugarNestedLets,
 applyExpFunRecursively(desugarLetrecs,applyExpFunRecursively(desugarNestedTrys,p)))))
+
+fun desugarListComprehension(e1,pat,e2,guard_opt) = 
+   let val fresh_sym = Symbol.freshSymbol(SOME "v")
+       val fresh_id = idExp({msym=msym(fresh_sym),mods=[],sym=fresh_sym,no_mods=true,pos=posOfPat(pat)})
+       val match_exp = let val discriminant_phrase = exp(fresh_id)
+                           val match_clause = {pat=pat,
+					       exp=e1}
+                       in
+                         matchExp({discriminant=discriminant_phrase, 
+				   clauses=[match_clause],
+				   pos = posOfExp(e1)})
+                       end
+       val lambda_exp =  functionExp({params=[someParam({name=fresh_sym,pos=posOfPat(pat),sort_as_sym_term=NONE,op_tag=NONE,sort_as_fterm=NONE,sort_as_exp=NONE})],
+				      body=match_exp,
+				      pos=posOfExp(e1)})
+       val map_sym = S.symbol("map")
+       val map_select_sym = S.symbol("map-select-2")
+       fun guardMatchExp(g) = let val discriminant_phrase = exp(fresh_id)
+				  val match_clause = {pat=pat,
+						      exp=g}
+			      in
+				  matchExp({discriminant=discriminant_phrase, 
+					    clauses=[match_clause],
+					    pos = posOfExp(e1)})
+			      end
+       fun guardLambdaExp(g) =  functionExp({params=[someParam({name=fresh_sym,pos=posOfPat(pat),sort_as_sym_term=NONE,op_tag=NONE,sort_as_fterm=NONE,sort_as_exp=NONE})],
+					    body=guardMatchExp(g),
+					    pos=posOfExp(e1)})
+
+    in 
+      (case guard_opt of 
+          NONE => appExp({proc=exp(idExp({msym=msym(map_sym),mods=[],sym=map_sym,no_mods=true,pos=posOfExp(e1)})),
+			  args=[exp(lambda_exp),exp(e2)], 
+			  pos=posOfExp(e1),
+			  alt_exp=ref(NONE)})
+        | SOME(g) => appExp({proc=exp(idExp({msym=msym(map_select_sym),mods=[],sym=map_select_sym,no_mods=true,pos=posOfExp(e1)})),
+			     args=[exp(lambda_exp),
+				   exp(e2),
+				   exp(guardLambdaExp(g))],
+			     pos=posOfExp(e1),
+			     alt_exp=ref(NONE)}))
+    end				   
 
 fun symTermAppToExp(t) = 
       let fun printSymTermVar(sym) = (Names.sort_variable_prefix)^(Symbol.name sym)

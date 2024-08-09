@@ -3717,6 +3717,8 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.plusFun_symbol,SV.primBFunVal(plusPrimBFun,default_bfv_pa_for_procs N.plusFun_name)),
                          (N.sqrtFun_symbol,SV.primUFunVal(sqrtPrimUFun,default_ufv_pa_for_procs N.sqrtFun_name)),
                          (N.log10Fun_symbol,SV.primUFunVal(log10PrimUFun,default_ufv_pa_for_procs N.log10Fun_name)),
+                         (N.floorFun_symbol,SV.primUFunVal(floorPrimUFun,default_ufv_pa_for_procs N.floorFun_name)),
+                         (N.ceilFun_symbol,SV.primUFunVal(ceilPrimUFun,default_ufv_pa_for_procs N.ceilFun_name)),
                          (N.lnFun_symbol,SV.primUFunVal(lnPrimUFun,default_ufv_pa_for_procs N.lnFun_name)),
                          (Symbol.symbol "prim-plus",SV.primBFunVal(PrimPlusFun,{name="prim-plus",prec=ref(Options.defaultPrec(2)),assoc=ref(NONE)})),
                          (N.lessFun_symbol,primBFunVal(lessPrimBFun,default_bfv_pa_for_procs N.lessFun_name)),
