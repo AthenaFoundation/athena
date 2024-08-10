@@ -1926,14 +1926,15 @@ fun addFSymDefInfoAndCompile(p,
         | SOME({fsym=f,right_syms=right_syms,left_syms=left_syms,guard_syms=guard_syms',defining_props=defining_props,...}) => 
             if MS.modSymEq(f,Names.mequal_logical_symbol) orelse Data.isFreeStructureConstructor(f) then NONE
             else 
-                let val _ = debugPrint("\nThis is a defining equation. Here is the asserted sentence:\n"^(pprint(0,p))^
+                let val _ = debugPrint("\nThis is a defining equation, for symbol: " ^ (MS.name f)
+				       ^ "\nHere is the asserted sentence:\n"^(pprint(0,p))^
                                        "\nand here are its defining props:\n"^(Basic.printListStr(defining_props,(fn p => pprint(0,p)),"\n"))^
                                        "\nand here are the right_syms: "^(Basic.printListStr(right_syms,MS.name,",")))
 		    val left_syms = Basic.removeEq(f,left_syms,MS.modSymEq)
 		    val mod_names = map Symbol.name mod_path
 		    val mod_path_string_with_dots = Basic.printListStr(mod_names,fn x => x,".")
 		    val _ = debugPrint("\nProper mod path: " ^ mod_path_string_with_dots ^ "\n")
-	            val already_defined = ref(false)
+	            val already_defined = ref(false)                   					    
                     val abort = 
                           (case MS.find(Prop.fsym_def_table,f) of
                               SOME({eval_proc_name=ep_name,guard_syms=gsyms,occurring_syms=osyms,needed_by=nb,obsolete_axioms=obs_axioms,

@@ -889,6 +889,11 @@ fun init(file_name_option) =
          val _ = auxLoadFiles(top_files, [],Semantics.top_val_env,Semantics.top_val_env,top_loaded_files_ht)
              handle e => (print("\nEvaluation error encountered during the loading of the initial files:\n");
                           handleException(e))
+         val _ = List.app (fn i => let val cmd = "(define-tuple-datatype " ^ i ^ ")"
+                                   in
+                                      processString(cmd,mod_path,env,eval_env)
+                                   end)
+                          ["2", "3", "4", "5"]
 (** Making private the names of all Athena functions that are by default called by SML code: **)         
          val _ = SM.makePrivateLst(["diff*", "evaluate","compile-symbols", "compile-symbols-simple", "compile-symbols-simple-with-default",
 	                            "auto-induction-definition",
