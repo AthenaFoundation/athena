@@ -5002,3 +5002,13 @@ define (make-datatype datatype-name constructor-letter N) :=
        cmd := (join "datatype " datatype-name " := " (separate constructors " | "))}
            (process-input-from-string cmd)
     			    
+define (define-tuple-datatype n) :=
+  let {n-str := (val->string n);
+       sort-params := (separate (map lambda (i) (join "S" (val->string i))
+                                     (1 to n))
+                                " ");                                      
+       selectors := (separate (map lambda (i) (join n-str "-tuple-" (val->string i) ":S" (val->string i))
+                                   (1 to n))
+                              " ");                                    
+       cmd := (join "datatype (" n-str "-Tuple " sort-params ") := (" n-str "-tuple " selectors ")")}
+    (process-input-from-string cmd)    
