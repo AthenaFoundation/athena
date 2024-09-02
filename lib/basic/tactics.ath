@@ -1,0 +1,70 @@
+module Tactics {
+
+# A record (or frame) on the goal stack has the following form:
+# |{
+#   'goal           := <a sentence>,
+#   'id             := <a unique identifier>,
+#   'assumptions    := <a list of assumptions>,
+#   'eigenvariables := <a list of eigenvariables>,
+#   'witnesses      := <a list of eigenvariables>,
+#   'partial-proof  := <a partial proof>, 
+#   'tactic-history := <a list of tactics applied so far> 
+# }|    
+
+
+private define goal-stack := (cell [])
+
+private define goal-id-counter := (cell 0)
+
+private define fresh-goal-id := lambda () (join "g-" (val->string (inc goal-id-counter)))
+
+private define set-goal := lambda (g) (set! goal-stack [g])
+
+# Apply a given tactic to the topmost goal:
+
+define (backward-tactic goal-stack) :=
+   match goal-stack {
+     (list-of goal-record rest) =>
+         match (goal-record 'goal) {
+           (and (some-list conjuncts)) => 
+             let {make-new-goal-record := lambda (subgoal)
+                                           |{
+                                           'goal := p1,
+                                           'id := (fresh-goal-id),
+                                           'assumptions := (goal-record 'assumptions),
+                                           'eigenvariables := (goal-record 'eigenvariables),
+                                           'witnesses := (goal-record 'witnesses),
+                                           'partial-proof := (goal-record 'partial-proof),
+                                           'tactic-history := (add 'backward (goal-record 'tactic-history))
+                                           }|;
+                  new-goal-records := (map make-new-goal-record conjuncts)}
+               (join new-goal-records rest)
+         | (if (some-sentence p) (some-sentence q)) =>
+             let {goal-record' := |{
+                                    'goal := q,
+                                    'id := (fresh-goal-id),
+                                    'assumptions := (add p (goal-record 'assumptions)),
+                                    'eigenvariables := (goal-record 'eigenvariables),
+                                    'witnesses := (goal-record 'witnesses),
+                                    'partial-proof := (goal-record 'partial-proof),
+                                    'tactic-history := (add 'backward (goal-record 'tactic-history))
+                                  }|}
+               (add goal-record' rest)
+         }
+   | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
+   }
+
+ 
+define tactic-dictionary :=
+  |{
+    'backward := backward-tactic
+  }|
+  
+define (apply-tactic tactic-description) := 
+  let {tactic := (tactic-dictionary tactic-description)}
+    (tactic (ref goal-stack))
+   
+} # close module Tactics 
+
+EOF
+load "lib/basic/tactics"
