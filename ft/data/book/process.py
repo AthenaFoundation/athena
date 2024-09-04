@@ -118,15 +118,16 @@ def getSingleFidContent(single_fid_text):
     return {'fid_name': fid_name, 'fid_type': fid_type, 'fid_value': fid_value}
 
 def getFidBlockInfo(fid_content):
-    R = []
+    F = {}
     i = 0
     while (fid_content.find("fidName: ",i)) >= 0: 
         i = fid_content.find("fidName: ",i)
         next = fid_content.find("fidName: ",i + 1 + len('fidName: '))
         single_fid_text = fid_content[i:] if next < 0 else fid_content[i:next].strip()
-        R.append(getSingleFidContent(single_fid_text))
+        r = getSingleFidContent(single_fid_text)
+        F[r['fid_name']] = {'fid_type': r['fid_type'], 'fid_value': r['fid_value']}
         i = next 
-    return R
+    return F
 
 def getRange(text): 
     line_index_1 = findNthOccurrence(text,':',2)
@@ -165,8 +166,8 @@ def analyzeBlock(block):
      'end_pos':     <the ending position>,
      'conclusion':  <the conclusion of the proof, pretty-formatted>,
      'subproofs':   <a list of all the subdeductions, each represented as a dictionary with at least one field: 'subproof_text'>
-     'free-ids':    <a list of free identifier records, each of the form {'fid_name': ..., 'fid_type': ..., 'fid_value': ...}> 
-     'fun-syms':    <a dictionary mapping function symbols that appear in the proof to their signatures>,
+     'free-ids':    <a dictionary mapping each free-identifier name in the proof to a dictionary of the form {'fid_type': ..., 'fid_value': ...}> 
+     'fun-syms':    <a dictionary mapping each function-symbol name that appears in the proof to its signature>,
      'structures':  <a list of all the relevant structure definitions. Each structure contains its file, start and end pos, and the text of the definition>,
      'domains':     <a list of all non-structure domains that appear in the signatures of 'fun-syms'
     ''' 
@@ -204,7 +205,7 @@ def analyzeBlock(block):
     fid_start_pos = text.find(fid_pat)
     fid_end_pos = text.find("}}}",fid_start_pos+len(fid_pat))
     fid_content = text[fid_start_pos+len(fid_pat):fid_end_pos].strip()
-    fid_list = getFidBlockInfo(fid_content)
+    fid_dict = getFidBlockInfo(fid_content)
     #**** Subproofs: 
     subproof_pat = "All subdeductions:\n{{{"
     subproofs_start = text.find(subproof_pat)
