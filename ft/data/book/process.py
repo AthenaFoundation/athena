@@ -156,6 +156,24 @@ def getSubproofs(subproof_content,source_file,all_source_file_lines):
         R.append({'subproof_text': subproof_text, 'file': source_file, 'starting_pos': {'line': subproof_starting_pos[0], 'col': subproof_starting_pos[1]}, 'ending_pos': {'line': subproof_ending_pos[0], 'col': subproof_ending_pos[1]}})
     return R 
 
+def processFsymChunk(chunk,D,file_name,all_source_file_lines):
+    toks = [t.strip() for t in chunk.split(" || ")]
+    assert (len(toks) == 3)
+    sym_name = getSymbolName(toks[0])
+    sym_type = getSymbolType(toks[1])
+    sym_signature = getSignate
+    if sym_type == 'constructor':
+        getStructureDefs(toks[2])
+    else:
+        
+    
+def processFsymContent(fsym_content,file_name,all_source_file_lines):
+    chunks = [chunk.strip() for chunk in fsym_content.split("||\n")]
+    D = {}
+    for chunk in chunks:    
+        processFsymChunk(chunk,D,file_name,all_source_file_lines)
+    return D
+
 def analyzeBlock(block):
     '''
     This function takes a proof block and extracts the proof and the proof's metadata from it. The input block is just a list of lines,
@@ -182,7 +200,7 @@ def analyzeBlock(block):
     diff = column_start_pos - line_start_pos - 1 
     line_number = header_line[line_start_pos:line_start_pos+diff]
     col_number = header_line[column_start_pos:].strip()
-    proof_starting_position = {'line': int(line_number)-1, 'pos': int(col_number)-1}
+    proof_starting_position = {'line': int(line_number)-1, 'col': int(col_number)-1}
     second_line = block[2]
     i = findNthOccurrence(second_line,':',3)
     proof_end_line = int(second_line[1+findNthOccurrence(second_line,':',2):i])-1
@@ -193,7 +211,7 @@ def analyzeBlock(block):
     last_eol_pos = proof_text.rstrip().rfind('\n')
     last_eol_pos = 0 if last_eol_pos < 0 else last_eol_pos
     last_chunk = proof_text[1+last_eol_pos:].rstrip()
-    proof_ending_position = {'line': proof_starting_position['line']+lines_in_proof_text-1,'pos': len(last_chunk)-1}
+    proof_ending_position = {'line': proof_starting_position['line']+lines_in_proof_text-1,'col': len(last_chunk)-1}
     # So far: proof_text, file_name,proof_starting_position, proof_ending_position 
     conclusion_pat = 'Conclusion:\n{{{'
     conclusion_pos = text.find(conclusion_pat)
@@ -212,8 +230,12 @@ def analyzeBlock(block):
     subproofs_end = text.find('}}}',subproofs_start+len(subproof_pat))
     subproof_content = text[subproofs_start+len(subproof_pat):subproofs_end].strip()
     subproof_list = sorted(getSubproofs(subproof_content,file_name,all_source_file_lines),key=lambda subproof: len(subproof['subproof_text']))
-
-
+    #**** Function Symbols: 
+    fsym_pat = "Function symbols:\n{{{"
+    fsym_start_pos = text.find(fsym_pat)
+    fsym_end_pos = text.find('}}}',fsym_start_pos+len(fsym_pat))
+    fsym_content = text[fsym_start_pos+len(fsym_pat):fsym_end_pos].strip()
+    fsym_dict = processFsymContent(fsym_content,file_name,all_source_file_lines)
 
 def processFile(file):
     L = getTotallyLiteralLines(file) 

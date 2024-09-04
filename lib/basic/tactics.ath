@@ -22,7 +22,7 @@ private define set-goal := lambda (g) (set! goal-stack [g])
 
 # Apply a given tactic to the topmost goal:
 
-define (backward-tactic goal-stack) :=
+define (backward-tactic goal-stack tactic-name) :=
    match goal-stack {
      (list-of goal-record rest) =>
          match (goal-record 'goal) {
@@ -35,7 +35,7 @@ define (backward-tactic goal-stack) :=
                                            'eigenvariables := (goal-record 'eigenvariables),
                                            'witnesses := (goal-record 'witnesses),
                                            'partial-proof := (goal-record 'partial-proof),
-                                           'tactic-history := (add 'backward (goal-record 'tactic-history))
+                                           'tactic-history := (add 'back-and (goal-record 'tactic-history))
                                            }|;
                   new-goal-records := (map make-new-goal-record conjuncts)}
                (join new-goal-records rest)
@@ -47,9 +47,33 @@ define (backward-tactic goal-stack) :=
                                     'eigenvariables := (goal-record 'eigenvariables),
                                     'witnesses := (goal-record 'witnesses),
                                     'partial-proof := (goal-record 'partial-proof),
-                                    'tactic-history := (add 'backward (goal-record 'tactic-history))
+                                    'tactic-history := (add 'back-if (goal-record 'tactic-history))
                                   }|}
                (add goal-record' rest)
+         | (iff (some-sentence p) (some-sentence q)) =>
+             let {goal-record' := |{
+                                    'goal := (and (if p q) (if q p)),
+                                    'id := (fresh-goal-id),
+                                    'assumptions := (goal-record 'assumptions),
+                                    'eigenvariables := (goal-record 'eigenvariables),
+                                    'witnesses := (goal-record 'witnesses),
+                                    'partial-proof := (goal-record 'partial-proof),
+                                    'tactic-history := (add 'back-iff (goal-record 'tactic-history))
+                                  }|}
+               (add goal-record' rest)
+         | (or (some-sentence p) (some-sentence q)) =>
+             let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p q] | else => [q p]};
+                  goal-record'   := |{
+                                      'goal := new-goal,
+                                      'id := (fresh-goal-id),
+                                      'assumptions := (add new-assumption (goal-record 'assumptions)),
+                                      'eigenvariables := (goal-record 'eigenvariables),
+                                      'witnesses := (goal-record 'witnesses),
+                                      'partial-proof := (goal-record 'partial-proof),
+                                      'tactic-history := (add tactic-name (goal-record 'tactic-history))
+                                    }|}
+                   
+         | _ => goal-stack
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
    }
@@ -57,7 +81,11 @@ define (backward-tactic goal-stack) :=
  
 define tactic-dictionary :=
   |{
-    'backward := backward-tactic
+    'back-lor := lambda (goal-stack) (backward-tactic goal-stack 'lor),
+    'back-ror := lambda (goal-stack) (backward-tactic goal-stack 'ror),
+    'back-if  := lambda (goal-stack) (backward-tactic goal-stack 'ror),
+    'back-iff := lambda (goal-stack) (backward-tactic goal-stack 'ror),
+    'back-and := lambda (goal-stack) (backward-tactic goal-stack 'ror),                
   }|
   
 define (apply-tactic tactic-description) := 
