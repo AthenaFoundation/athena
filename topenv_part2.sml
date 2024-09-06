@@ -1584,7 +1584,12 @@ fun hashPrimUFun(v,_,_) =
               SOME(P) =>       let val res =  Word.toString(Prop.fastHash(P))
                                in MLStringToAthString(res)
                                end
-           | _ => MLStringToAthString(Word.toString(AT.fastHash(t)))))
+           | _ => MLStringToAthString(Word.toString(AT.fastHash(t))))
+       | _  => let val v_str = valToString(v)
+                   val hash = Basic.hashString(v_str)
+               in
+		   MLStringToAthString(Word.toString(hash))
+	       end)
 
 fun hashIntFun([propVal(P)],_,_) = 
       let val res =  Word.toInt(Prop.hash(P))

@@ -7,72 +7,77 @@ module Tactics {
 #   'assumptions    := <a list of assumptions>,
 #   'eigenvariables := <a list of eigenvariables>,
 #   'witnesses      := <a list of eigenvariables>,
-#   'partial-proof  := <a partial proof>, 
-#   'tactic-history := <a list of tactics applied so far> 
+#   'parent         := <uplink to the parent or to ()>
+#   'children       := <downinks to children or to ()> 
 # }|    
 
 
-private define goal-stack := (cell [])
+ define goal-stack := (cell [])
 
-private define goal-id-counter := (cell 0)
+ define goal-id-counter := (cell 0)
 
-private define fresh-goal-id := lambda () (join "g-" (val->string (inc goal-id-counter)))
+ define ht := (HashTable.table 500)
 
-private define set-goal := lambda (g) (set! goal-stack [g])
+ define root-id := (cell "g1")
+
+ define fresh-goal-id := lambda () (join "g" (val->string (inc goal-id-counter)))
+
+ define clear-state :=
+   lambda ()
+      (seq (HashTable.clear ht)
+           (set! goal-id-counter 0))
+           
+define set-goal :=
+  lambda (goal-sentence)
+    let {_    := (clear-state);
+         root := (fresh-goal-id);
+         _    := (set! root-id root)}
+     (set! goal-stack [|{'id             := root,
+                         'goal           := goal-sentence,
+                         'assumptions    := [],
+                         'eigenvariables := [],
+                         'witnesses      := [],
+                         'parent         := (cell ()),
+                         'children       := (cell [])}|])
+
+define (set-parent g1 g2) :=
+# Make g1 the parent of g2 and g2 a child of g1:
+  let {_ := (set! (g1 'children)
+                  (join (ref (g1 'children)) [g2]))}
+    (seq (set! (g2 'parent) g1))
+       
+define (set-parent* g1 goal-records) :=
+  (map-proc (lambda (g) (set-parent g1 g)) goal-records)
 
 # Apply a given tactic to the topmost goal:
+
+define (make-new goal-record new-bindings) :=
+  (Map.add goal-record (join [['parent (cell ())] ['id (fresh-goal-id)] ['children (cell [])]] new-bindings))
 
 define (backward-tactic goal-stack tactic-name) :=
    match goal-stack {
      (list-of goal-record rest) =>
          match (goal-record 'goal) {
            (and (some-list conjuncts)) => 
-             let {make-new-goal-record := lambda (subgoal)
-                                           |{
-                                           'goal := p1,
-                                           'id := (fresh-goal-id),
-                                           'assumptions := (goal-record 'assumptions),
-                                           'eigenvariables := (goal-record 'eigenvariables),
-                                           'witnesses := (goal-record 'witnesses),
-                                           'partial-proof := (goal-record 'partial-proof),
-                                           'tactic-history := (add 'back-and (goal-record 'tactic-history))
-                                           }|;
-                  new-goal-records := (map make-new-goal-record conjuncts)}
-               (join new-goal-records rest)
+             let {make-new-goal-record := lambda (conjunct) (make-new goal-record [['goal conjunct]]);
+                  new-goal-records := (map make-new-goal-record conjuncts);
+                  _                := (set-parent* goal-record new-goal-records);
+                         new-stack := (join new-goal-records rest);
+                         _         := (print "\nNEW STACK: " new-stack)}
+               new-stack
          | (if (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := |{
-                                    'goal := q,
-                                    'id := (fresh-goal-id),
-                                    'assumptions := (add p (goal-record 'assumptions)),
-                                    'eigenvariables := (goal-record 'eigenvariables),
-                                    'witnesses := (goal-record 'witnesses),
-                                    'partial-proof := (goal-record 'partial-proof),
-                                    'tactic-history := (add 'back-if (goal-record 'tactic-history))
-                                  }|}
+             let {goal-record' := (make-new goal-record [['goal q] ['assumptions  (add p (goal-record 'assumptions))]]);
+                  _            := (set-parent goal-record goal-record')}
                (add goal-record' rest)
          | (iff (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := |{
-                                    'goal := (and (if p q) (if q p)),
-                                    'id := (fresh-goal-id),
-                                    'assumptions := (goal-record 'assumptions),
-                                    'eigenvariables := (goal-record 'eigenvariables),
-                                    'witnesses := (goal-record 'witnesses),
-                                    'partial-proof := (goal-record 'partial-proof),
-                                    'tactic-history := (add 'back-iff (goal-record 'tactic-history))
-                                  }|}
+             let {goal-record' := (make-new goal-record [['goal (and (if p q) (if q p))]]);
+                  _            := (set-parent goal-record goal-record')}
                (add goal-record' rest)
          | (or (some-sentence p) (some-sentence q)) =>
              let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p q] | else => [q p]};
-                  goal-record'   := |{
-                                      'goal := new-goal,
-                                      'id := (fresh-goal-id),
-                                      'assumptions := (add new-assumption (goal-record 'assumptions)),
-                                      'eigenvariables := (goal-record 'eigenvariables),
-                                      'witnesses := (goal-record 'witnesses),
-                                      'partial-proof := (goal-record 'partial-proof),
-                                      'tactic-history := (add tactic-name (goal-record 'tactic-history))
-                                    }|}
-                   
+                  goal-record'   := (make-new goal-record [['goal new-goal] ['assumptions  (add new-assumption (goal-record 'assumptions))]]);
+                  _            := (set-parent goal-record goal-record')}
+               (add goal-record' rest)                                    
          | _ => goal-stack
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
@@ -82,16 +87,31 @@ define (backward-tactic goal-stack tactic-name) :=
 define tactic-dictionary :=
   |{
     'back-lor := lambda (goal-stack) (backward-tactic goal-stack 'lor),
-    'back-ror := lambda (goal-stack) (backward-tactic goal-stack 'ror),
-    'back-if  := lambda (goal-stack) (backward-tactic goal-stack 'ror),
-    'back-iff := lambda (goal-stack) (backward-tactic goal-stack 'ror),
-    'back-and := lambda (goal-stack) (backward-tactic goal-stack 'ror),                
+    'back-ror := lambda (goal-stack) (backward-tactic goal-stack 'back-ror),
+    'back-if  := lambda (goal-stack) (backward-tactic goal-stack 'back-if),
+    'back-iff := lambda (goal-stack) (backward-tactic goal-stack 'back-iff),
+    'back-and := lambda (goal-stack) (backward-tactic goal-stack 'back-end),                
   }|
   
-define (apply-tactic tactic-description) := 
-  let {tactic := (tactic-dictionary tactic-description)}
-    (tactic (ref goal-stack))
+define (apply-tactic tactic-name) := 
+  let {# Retrieve the tactic by name: 
+       tactic := (tactic-dictionary tactic-name);
+       # Apply the tactic to the goal-stack: 
+        new-stack      := (tactic (ref goal-stack))}
+    (set! goal-stack new-stack)
+
+define (show-goal-record g i N) :=
+  (print "\n*** Stack record #" i " out of " N ":\n--Goal: " (g 'goal) "\n--Goal id: " (g 'id)
+         "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvariables) "\n--Witnesses: " (g 'witnesses))
    
+define (show-stack) :=
+ let {counter := (cell 0);
+      N := (length (ref goal-stack))}
+   (seq (print "\n[[[[[[[[[[[[[\n")
+        (map-proc (lambda (r) (show-goal-record r (inc counter) N))
+                  (ref goal-stack))
+        (print "\n]]]]]]]]]]]]]"))
+    
 } # close module Tactics 
 
 EOF
