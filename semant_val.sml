@@ -1063,14 +1063,20 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
                  val sort_as_symterm' = SymTerm.stripTags(sort_as_tagged_symterm)
                  val sort_as_symterm = Terms.replaceSymTermConstants(sort_as_symterm',fn sym => MS.find(Data.sort_abbreviations,sym))
 		 fun printSymTermVar(sym) = (Names.sort_variable_prefix)^(S.name sym)
-		 val _ = if SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true) then ()
+                 val is_legal = 
+                       (case SymTerm.isApp(sort_as_symterm) of
+                           SOME(f,args) => if MS.name(f) = "Fun" then SymTerm.areLegal(args,Data.sortConstructorArity,fn _ => true) 
+                                           else SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true)
+                         | _ => SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true))
+		 val _ = 
+                        (if is_legal then ()
 			 else let val pos' = {line = #line(pos), file = #file(pos), 
 					      pos = #pos(pos)+(String.size(ATV.name(term_var))+2)}
 			      in
 				   Data.genEx("Invalid sort HERE: "^
 					      (SymTerm.toPrettyString(14,sort_as_symterm,printSymTermVar)),
 			   		      SOME(pos'),!Paths.current_file)
-			      end
+			      end)
 		 val sort = translateSort(sort_as_symterm,true)
 		 val v = AthTermVar.swapSorts(term_var,sort)
 		 val e' = A.termVarExp({term_var=v,pos=pos,user_sort=SOME(sort_as_tagged_symterm)})

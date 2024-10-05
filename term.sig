@@ -78,10 +78,14 @@ sig
    val transform: (fsymbol -> fsymbol) -> 'a tagged_term -> 'a tagged_term
 
    val isLegal: term * (fsymbol -> int option) * (variable -> bool) -> bool
-
    val areLegal: term list * (fsymbol -> int option) * (variable -> bool) -> bool
 
+   val isLegalFlex: term * (fsymbol -> int option) * (variable -> bool) * fsymbol -> bool
+   val areLegalFlex: term list * (fsymbol -> int option) * (variable -> bool) * fsymbol -> bool
+
    val isTaggedLegal: 'a tagged_term * (fsymbol -> int option) * (variable -> bool) -> 'a option
+
+   val isTaggedLegalFlex: 'a tagged_term * (fsymbol -> int option) * (variable -> bool) * fsymbol -> 'a option
 
    val areTaggedLegal: 'a tagged_term list * (fsymbol -> int option) * (variable -> bool) 
                        -> 'a option

@@ -1603,7 +1603,7 @@ in
                                           | res => res)
                 fun checkArgSorts([]:A.absyn_term list,arg_sort_vars) = arg_sort_vars
                   | checkArgSorts(sort::rest,arg_sort_vars) = 
-                      (case SymTerm.isTaggedLegal(sort,isLegalFSym,isLegalVar) of
+                      (case SymTerm.isTaggedLegalFlex(sort,isLegalFSym,isLegalVar,Names.fun_name_msym) of
                            NONE => let val new_vars = SymTerm.getVars(SymTerm.stripTags(sort))
 				   in
 				      checkArgSorts(rest,new_vars@arg_sort_vars)
@@ -1618,7 +1618,7 @@ in
 							  else (flag := SOME(sym);false))
 				       else isLegalVar(sym)
             in
-                   (case SymTerm.isTaggedLegal(absyn_ran_type,isLegalFSym,isLegalVar') of
+                   (case SymTerm.isTaggedLegalFlex(absyn_ran_type,isLegalFSym,isLegalVar',Names.fun_name_msym) of
 		       NONE => ()
 		     | SOME(p) => (case !flag of
 				     SOME(v) => evError("The sort variable "^(Symbol.name(v))^" appears in the "^

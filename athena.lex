@@ -38,6 +38,7 @@ fun isReserved(str,leftp:pos as (l,p)) =
             doReserved "check" = (true,Tokens.CHECK(getPos(5))) |
             doReserved "dcheck" = (true,Tokens.DCHECK(getPos(6))) |
             doReserved "the" = (true,Tokens.THE(getPos(3))) |
+            doReserved "Fun" = (true,Tokens.FUN(getPos(3))) |
             doReserved "over" = (true,Tokens.OVER(getPos(4))) |
             doReserved "for" = (true,Tokens.FOR(getPos(3))) |
             doReserved "set-precedence" = (true,Tokens.SET_PRECEDENCE(getPos(14))) | 
