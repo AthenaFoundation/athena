@@ -953,7 +953,7 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
 	       let val tagged_sort' = qualifySort(tagged_sort)
                    val sort' = SymTerm.stripTags(tagged_sort')
                    val sort = Terms.replaceSymTermConstants(sort',fn sym => MS.find(Data.sort_abbreviations,qualifyName(MS.lastName(sym),!mod_path_cell)))
-                   val cond = SymTerm.isLegal(sort,Data.sortConstructorArity,fn _ => true)
+                   val cond = SymTerm.isLegalFlex(sort,Data.sortConstructorArity,fn _ => true,Names.fun_name_msym)
 	       in
                   if cond 
 	          then let val ts = translateSort(sort,true) 
@@ -968,7 +968,7 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
                    val sort' = SymTerm.stripTags(tagged_sort')
                    val sort = Terms.replaceSymTermConstants(sort',fn sym => MS.find(Data.sort_abbreviations,sym))
 	       in
-                  if SymTerm.isLegal(sort,Data.sortConstructorArity,fn _ => true)
+                  if SymTerm.isLegalFlex(sort,Data.sortConstructorArity,fn _ => true,Names.fun_name_msym)
 	          then SOME(translateSort(sort,true)) 
                   else invalidSort(tagged_sort',pos)
                end
@@ -980,7 +980,7 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
                    val sort' = SymTerm.stripTags(tagged_sort')
                    val sort = Terms.replaceSymTermConstants(sort',fn sym => MS.find(Data.sort_abbreviations,sym))
 	       in
-                  if SymTerm.isLegal(sort,Data.sortConstructorArity,fn _ => true)
+                  if SymTerm.isLegalFlex(sort,Data.sortConstructorArity,fn _ => true,Names.fun_name_msym)
 	          then SOME(translateSortAux(sort)) 
 		  else invalidSort(tagged_sort',pos)
                end
@@ -1044,7 +1044,7 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
 					(if Basic.oneLine(is) then is' else "\n"^is^"."),
 			   		SOME(pos'),!Paths.current_file)
 				     end
-		 val _ = if SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true) then ()
+		 val _ = if SymTerm.isLegalFlex(sort_as_symterm,Data.sortConstructorArity,fn _ => true,Names.fun_name_msym) then ()
 			 else invalidSort()
 		 val sort = translateSort(sort_as_symterm,true)
 		 val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = Data.getSignature(name')
@@ -1063,17 +1063,13 @@ let val mod_path_cell:Symbol.symbol list ref = ref([])
                  val sort_as_symterm' = SymTerm.stripTags(sort_as_tagged_symterm)
                  val sort_as_symterm = Terms.replaceSymTermConstants(sort_as_symterm',fn sym => MS.find(Data.sort_abbreviations,sym))
 		 fun printSymTermVar(sym) = (Names.sort_variable_prefix)^(S.name sym)
-                 val is_legal = 
-                       (case SymTerm.isApp(sort_as_symterm) of
-                           SOME(f,args) => if MS.name(f) = "Fun" then SymTerm.areLegal(args,Data.sortConstructorArity,fn _ => true) 
-                                           else SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true)
-                         | _ => SymTerm.isLegal(sort_as_symterm,Data.sortConstructorArity,fn _ => true))
+                 val is_legal = SymTerm.isLegalFlex(sort_as_symterm,Data.sortConstructorArity,fn _ => true,Names.fun_name_msym)
 		 val _ = 
                         (if is_legal then ()
 			 else let val pos' = {line = #line(pos), file = #file(pos), 
 					      pos = #pos(pos)+(String.size(ATV.name(term_var))+2)}
 			      in
-				   Data.genEx("Invalid sort HERE: "^
+				   Data.genEx("Invalid sort: "^
 					      (SymTerm.toPrettyString(14,sort_as_symterm,printSymTermVar)),
 			   		      SOME(pos'),!Paths.current_file)
 			      end)

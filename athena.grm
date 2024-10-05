@@ -1051,6 +1051,11 @@ user_sort: QUOTE_SYMBOL ID (SymTerm.makeTaggedVar(Symbol.symbol(ID),getPos(QUOTE
                  in
                    SymTerm.makeTaggedApp(A.makeMS(ID,SOME id_pos),id_pos,one_or_more_user_sorts)
                  end)
+         | LPAREN FUN one_or_more_user_sorts RPAREN 
+		(let val id_pos = getPos(FUNleft)
+                 in 
+                   SymTerm.makeTaggedApp(A.makeMS("Fun",SOME id_pos),id_pos,one_or_more_user_sorts)
+                 end)
 
 one_or_more_user_sorts: user_sort ([user_sort])
                       | user_sort one_or_more_user_sorts (user_sort::one_or_more_user_sorts)
