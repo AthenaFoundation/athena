@@ -2010,8 +2010,7 @@ fun makeAppAndReturnSortSub(f,terms) = makeAppAndReturnSortSubCore(f,terms)
 
 fun getFunctorSignature(f,args) = 
    if  MS.modSymEq(f,Names.app_fsym_mname) then 
-         let val _ = print("\nABOUT TO GET THE SIG OF THIS SYMBOL: " ^ (MS.name f))
-             val actual_args = tl args 
+         let val actual_args = tl args 
              val (fun_sort, arg_sorts, res_sort) = D.makeFunSort(actual_args)
          in
             (fun_sort::arg_sorts,res_sort,true,false)
@@ -2087,7 +2086,7 @@ fun makeAppBinary(f,term1,term2,from_side) =  makeApp1(f,[term1,term2],from_side
 
 fun makeAppUnary(f,term,from_side) =  
 	if Util.notNumeric(f) then 
-           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = D.getSignature(f)
+           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = getFunctorSignature(f,[term])
            in
              if has_pred_based_sorts then
  	        let val arg_sort = getSort term

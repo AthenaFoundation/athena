@@ -4,12 +4,10 @@ struct
 
   structure S = Symbol;
 
+  (* whole sym is last *)
   type mod_symbol = Symbol.symbol list * Symbol.symbol * Symbol.symbol
 
   fun makeModSymbol x = x 
-
-
-
   fun name(_,_,s) = Symbol.name(s)
 
 

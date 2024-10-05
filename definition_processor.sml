@@ -997,12 +997,14 @@ let  val _ = checkDistinctSNames(struc_names,map #pos absyn_structure_list,
 					    range_type=range_sort,prec=ref(Options.lowest_fsymbol_precedence),
 					    absyn_argument_types=[range_type_as_AbSynTerm],assoc=ref(NONE),
 					    absyn_range_type=ith_absynterm_arg_type}
-			     val _ = addFSym(declared(sel_sym))
+			     val (lifted_name,lifted_sym_version) = addFSym(declared(sel_sym))
                              val _ = MS.insert(Data.selector_table,full_sel_name,{is_polymorphic=is_poly})
 			     val sel_val = Semantics.makeTermConVal(SV.regFSym(Data.declared(sel_sym)))
+                             val lifted_sel_val = Semantics.makeTermConVal(SV.regFSym(lifted_sym_version))
 			 in
 			    (Semantics.updateTopValEnv(env,sel_name,sel_val,false);
                              Semantics.updateTopValEnv(eval_env,sel_name,sel_val,false);
+			     Semantics.updateTopValEnv(env,MS.lastName(lifted_name),lifted_sel_val,false);
 			     declareSelectors(rest,more_arg_types,more_absynterm_arg_types))
 			 end
 		   val _ = declareSelectors(selectors,argument_types_as_FTerms,argument_types)
@@ -1079,7 +1081,7 @@ let  val _ = checkDistinctSNames(struc_names,map #pos absyn_structure_list,
 
               fun makeStructure(new_struc:ath_structure as {name,constructors,...}) = 
                    (List.app addConstructor constructors;
-		    List.app (fn c => D.addFSym(D.struc_con(c))) constructors;
+		    List.app (fn c => (D.addFSym(D.struc_con(c));())) constructors;
 		    List.app makeConstructorValue constructors;
 		    Data.addStructure(new_struc))
               fun makeStructures() = (List.app makeStructure new_structures)                                      
@@ -1698,10 +1700,13 @@ in
                                                     end
                                                 | _ => ())
                val _ = (setPrec(new_fsym,prec);setAssoc(new_fsym,assoc))
-               val _ = addFSym(declared(new_fsym));
+               val (lifted_name,lifted_sym_version) = addFSym(declared(new_fsym));
                val fsymTermConstructorVal = Semantics.makeTermConVal(SV.regFSym(Data.declared(new_fsym)))
+               val lifted_fsymTermConstructorVal = Semantics.makeTermConVal(SV.regFSym(lifted_sym_version))
                val _ = (Semantics.updateTopValEnv(env,fsym_name,fsymTermConstructorVal,false);
-                        Semantics.updateTopValEnv(eval_env,fsym_name,fsymTermConstructorVal,false))
+                        Semantics.updateTopValEnv(eval_env,fsym_name,fsymTermConstructorVal,false);
+			Semantics.updateTopValEnv(env,MS.lastName(lifted_name),lifted_fsymTermConstructorVal,false);
+			Semantics.updateTopValEnv(eval_env,MS.lastName(lifted_name),lifted_fsymTermConstructorVal,false))
                val _ = eval_env := forceSetVal(mod_path,fsym_name,fsymTermConstructorVal,!eval_env)
 	       val funval_after_expansion = ref(NONE)
                fun processInputExpansion() = 
@@ -3182,7 +3187,7 @@ fun processSymbolDefinition({name=sym_name,condition,pos,abbreviated}:A.absyn_sy
                                                           bits=makeWord({poly=is_poly,pred_based_sig=involves_pred_based_sorts}),
                                                           prec=ref(Options.standard_bool_symbol_precedence),
                                                           range_type=boolean_object_type})
-                                  val _ = addFSym(new_fsym)
+                                  val _ = Data.addFSym(new_fsym)
                                   val old_eval_env = !eval_env
                                   val old_env = !env
                                   val fsymTermConstructorVal = Semantics.makeTermConVal(SV.regFSym(new_fsym))

@@ -98,10 +98,17 @@ fun makeWord({poly=true,pred_based_sig=false}) = polyWord
   | makeWord({poly=false,pred_based_sig=true}) = predBasedWord
   | makeWord({poly=false,pred_based_sig=false}) = zeroWord
 
-type ath_struc_constructor = {name:MS.mod_symbol,arity:int,mother_structure:MS.mod_symbol,
-                              reflexive:bool,bits:Word8.word,selectors:MS.mod_symbol option list,
-                              argument_types:F.term list,range_type:F.term, prec:int ref,
-                              absyn_argument_types: A.absyn_term list, assoc:bool option ref,
+type ath_struc_constructor = {name:MS.mod_symbol,
+			      arity:int,
+			      mother_structure:MS.mod_symbol,
+                              reflexive:bool,
+			      bits:Word8.word,
+			      selectors:MS.mod_symbol option list,
+                              argument_types:F.term list,
+			      range_type:F.term, 
+			      prec:int ref,
+                              absyn_argument_types: A.absyn_term list, 
+			      assoc:bool option ref,
                               sym_range_type: SymTerm.term}
 
 fun reflexivePositions(c:ath_struc_constructor as
@@ -129,6 +136,47 @@ type declared_fun_sym = {name:MS.mod_symbol,obtype_params:S.symbol list, bits:Wo
                          absyn_range_type:A.absyn_term}
 
 
+fun liftMSName(name:MS.mod_symbol) = 
+      let val (mods,last) = MS.split(name)
+          val last' = S.symbol(S.name(last) ^ "^")
+      in
+          MS.makeModSymbol'(mods,last')
+      end				    
+
+fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) = 
+    F.makeApp(Names.fun_name_msym,argument_types @ [range_type])
+
+fun makeLiftedAbsynType(absyn_argument_types:A.absyn_term list, absyn_range_type: A.absyn_term) = 
+     SymTerm.makeTaggedApp(Names.fun_name_msym,
+			   SymTerm.getTopTag(absyn_range_type),
+			   absyn_argument_types @ [absyn_range_type])
+
+fun lift(dfs as {name:MS.mod_symbol,
+		 obtype_params:S.symbol list, 
+		 bits:Word8.word,
+		 argument_types:F.term list,
+		 range_type:F.term, 
+		 prec:int ref,
+		 assoc:bool option ref,
+		 absyn_argument_types: A.absyn_term list,
+		 arity: int, 
+		 absyn_range_type:A.absyn_term}:declared_fun_sym,
+	 lifted_ms_name) = 
+    let val lifted_version:declared_fun_sym = 
+	    {name = lifted_ms_name,
+	     obtype_params = obtype_params,
+	     bits = bits,
+	     argument_types = [],
+	     range_type = makeLiftedRangeType(argument_types,range_type),
+	     prec = ref(0),
+	     assoc = ref(!assoc),
+	     absyn_argument_types = [],
+	     arity = 0,
+	     absyn_range_type = makeLiftedAbsynType(absyn_argument_types,absyn_range_type)}
+     in
+	 lifted_version
+     end
+	     	   
 fun makeFunSort(proper_args) =  
    let val fresh_arg_sorts = map (fn (_) => FTerm.makeFreshVar()) proper_args
        val res_sort = FTerm.makeFreshVar()
@@ -137,40 +185,14 @@ fun makeFunSort(proper_args) =
      (fun_sort,fresh_arg_sorts,res_sort)
    end 
 
-(*********************
-
-val app1_mname 
-   let val sym = S.symbol("app1")
-   in
-     MS.makeModSymbol([],sym,sym)
-   end 
-
-val app1_fsym:declared_fun_sym = 
-    let val sort_params = [S.symbol("T"),S.symbol("S1"),S.symbol("S2")]
-        val sort_params_as_fterms = map (fn (_) => FTerm.makeFreshVar()) sort_params 
-        val arg_type_1 = FT.makeApp(app1_mname,
-    in
-       {name=app2_mname,
-	obtype_params=sort_params,
-	bits=makeWord({poly=true,pred_based_sig=false}),
-	argument_types=tl sort_params_as_fterms,
-        range_type = hd sort_params_as_fterms,
-	prec=ref(Options.defaultPrec(arity)),
-	assoc=ref(NONE),
-	arity=2,
-	absyn_argument_types=[],
-	absyn_range_type=...
-        }
-     end
-	
-**********************)
-
 type defined_fun_sym = {name:MS.mod_symbol,argument_types:F.term list,range_type:F.term,bits:Word8.word,arity:int,
                         prec:int ref,assoc:bool option ref}
 
 (*** The main datatype for Athena function symbols: ***)
 
-datatype ath_fun_sym = declared of declared_fun_sym | defined of defined_fun_sym | struc_con of ath_struc_constructor
+datatype ath_fun_sym = declared of declared_fun_sym 
+		     | defined of defined_fun_sym 
+		     | struc_con of ath_struc_constructor
 
 fun hashAthFunSym(declared({name,...})) = Basic.hashInt(MS.code(name))
   | hashAthFunSym(defined({name,...})) = Basic.hashInt(MS.code(name))
@@ -258,11 +280,32 @@ fun updateMaxSuffix(msym) =
         if count > !max_prime_suffix then max_prime_suffix := count else ()
       end
 
-fun addFSym(f as declared({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
-  | addFSym(f as defined({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
-  | addFSym(f as struc_con({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
 
+(** 
+If f: [S_1 ... S_n] -> S, then add f^:(Fun S_1 ... S_n S)
+**)
 
+fun addFSym(f as declared(dfs as {name,...})) = 
+    let val lifted_name = liftMSName(name)
+        val lifted_version = declared(lift(dfs,lifted_name))
+        val _ = 	(updateMaxSuffix(name);
+			 MS.insert(fsym_table,name,f);
+			 MS.insert(fsym_table,lifted_name,lifted_version))
+    in
+       (lifted_name,lifted_version)
+    end 
+  | addFSym(f as defined({name,...})) = 
+      let val _ = (updateMaxSuffix(name);
+		   MS.insert(fsym_table,name,f))
+      in
+	  (name,f)
+      end
+  | addFSym(f as struc_con({name,...})) = 
+    let val _ = (updateMaxSuffix(name);
+		 MS.insert(fsym_table,name,f))
+    in
+       (name,f)
+    end
 
 
 fun findStructure(sym) = MS.find(structure_table,sym)

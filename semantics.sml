@@ -2177,6 +2177,15 @@ fun summarizeCallStack(pos_stack) =
 
 fun summarizeTopCallStack() = summarizeCallStack(pos_stack)
 
+fun massage(t) = 
+  (case AT.isConstant(t) of 
+      SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
+                     in
+                       if FTerm.termEq(sort,AT.getSort(t)) then AT.makeSortedConstantAux(name,sort,is_poly)
+                       else t
+                     end
+    | _ => t)
+
 val (lp,rp,space) = ("(",")"," ")
 
           fun prefix() = "Invalid first argument given to the by-induction-on form. "^
@@ -2230,18 +2239,8 @@ let
                    end
            | termConVal(regFSym(some_fsym)) =>
                    (let val name = D.fsymName(some_fsym)
-                        val arg_val1 = evPhrase(arg1,env,ab)
+                        val arg_val1 = evPhrase(arg1,env,ab)              
                         val arg_val2 = evPhrase(arg2,env,ab)
-                        val term_arg1 =  (case coerceValIntoTerm(arg_val1) of
-                                             SOME(t) => (case AT.isConstant(t) of 
-                 			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
- 					                                  in
-						                            if FTerm.termEq(sort,AT.getSort(t)) then 
-						                               AT.makeSortedConstantAux(name,sort,is_poly)
-                                                                            else t
-                                                                          end
-                                                         | _ => t)
-                                            | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos)))
                         val term_arg2 =  (case coerceValIntoTerm(arg_val2) of
                                              SOME(t) => (case AT.isConstant(t) of 
                  			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
@@ -2252,10 +2251,33 @@ let
                                                                           end
                                                          | _ => t)
                                             | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val2),SOME(pos)))
-                        val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
-                      in
-                         termVal(term_res)
-                      end)
+
+                    in 
+                      if MS.modSymEq(name,Names.app_fsym_mname) then  
+                           (*** Binary "app" case: (app E1 E2). If E1 is either a regular function symbol f:[S] -> T or a constant of the form f':(Fun S T), 
+                                then just return (f E2).
+                            ***)
+                           (case coerceValIntoTerm(arg_val1) of
+                               SOME(t) => let val term_arg1 = massage(t)
+                                             (**** TODO: What is term_arg1 is a term constant of sort (Fun S T) that is lifted, 
+                                                         i.e., of the form f^? In that case we should just return (f term_arg2)  ****)
+					      val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
+                                          in
+                                             termVal(term_res)
+                                          end 
+                             | _ => (case coerceValIntoTermCon(arg_val1) of 
+                                         SOME(regFSym(fsym)) => 
+                                                termVal(applyUnaryTermConstructor(D.fsymName(fsym),term_arg2,pos))
+                                        | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos))))
+                      else
+                         let val term_arg1 = (case coerceValIntoTerm(arg_val1) of
+                                                SOME(t) => massage(t)
+                                              | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos)))
+                             val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
+                         in
+                           termVal(term_res)
+                         end
+                  end)
            | propConVal(con) => 
                   if A.isQuantPropCon(con) then
  	             let val pval = evPhrase(arg2,env,ab)
@@ -4119,9 +4141,10 @@ let
                       evExp(body,ref(valEnv({val_map=vm,mod_map=mod_map})),ab,premises)                   
                    end
            | termConVal(regFSym(some_fsym)) =>
-                     (let val name = D.fsymName(some_fsym)
+                     (let 
+                          val name = D.fsymName(some_fsym)
                           val arg_val1 = evPhrase(arg1,env,ab,premises)
-                          val arg_val2 = evPhrase(arg2,env,ab,premises)
+                          val arg_val2 = evPhrase(arg2,env,ab,premises)                       
                           val term_arg1 =  (case coerceValIntoTerm(arg_val1) of
                                              SOME(t) => (case AT.isConstant(t) of 
                  			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
