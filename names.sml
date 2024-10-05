@@ -107,6 +107,11 @@ val fun_name = "Fun";
 val fun_name_sym = Symbol.symbol fun_name
 val fun_name_msym = ModSymbol.makeModSymbol([],fun_name_sym,fun_name_sym)
 
+val app_fsym_name = "app"
+val app_fsym_name_sym = Symbol.symbol app_fsym_name
+val app_fsym_mname = ModSymbol.makeModSymbol([],app_fsym_name_sym,app_fsym_name_sym)
+
+
 val true_logical_name = "true"
 val true_logical_symbol = Symbol.symbol true_logical_name
 val mtrue_logical_symbol = ModSymbol.makeModSymbol([],true_logical_symbol,true_logical_symbol)

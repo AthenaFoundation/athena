@@ -120,9 +120,50 @@ type ath_structure = {name:MS.mod_symbol,arity:int,obtype_params:S.symbol list,o
                       constructors:ath_struc_constructor list,free:bool}
 
 type declared_fun_sym = {name:MS.mod_symbol,obtype_params:S.symbol list, bits:Word8.word,
-                         argument_types:F.term list,range_type:F.term, prec:int ref,assoc:bool option ref,
-                         absyn_argument_types: A.absyn_term list,arity: int, 
+                         argument_types:F.term list,
+			 range_type:F.term, 
+			 prec:int ref,
+			 assoc:bool option ref,
+                         absyn_argument_types: A.absyn_term list,
+			 arity: int, 
                          absyn_range_type:A.absyn_term}
+
+
+fun makeFunSort(proper_args) =  
+   let val fresh_arg_sorts = map (fn (_) => FTerm.makeFreshVar()) proper_args
+       val res_sort = FTerm.makeFreshVar()
+       val fun_sort = FTerm.makeApp(Names.fun_name_msym,fresh_arg_sorts@[res_sort])     
+   in
+     (fun_sort,fresh_arg_sorts,res_sort)
+   end 
+
+(*********************
+
+val app1_mname 
+   let val sym = S.symbol("app1")
+   in
+     MS.makeModSymbol([],sym,sym)
+   end 
+
+val app1_fsym:declared_fun_sym = 
+    let val sort_params = [S.symbol("T"),S.symbol("S1"),S.symbol("S2")]
+        val sort_params_as_fterms = map (fn (_) => FTerm.makeFreshVar()) sort_params 
+        val arg_type_1 = FT.makeApp(app1_mname,
+    in
+       {name=app2_mname,
+	obtype_params=sort_params,
+	bits=makeWord({poly=true,pred_based_sig=false}),
+	argument_types=tl sort_params_as_fterms,
+        range_type = hd sort_params_as_fterms,
+	prec=ref(Options.defaultPrec(arity)),
+	assoc=ref(NONE),
+	arity=2,
+	absyn_argument_types=[],
+	absyn_range_type=...
+        }
+     end
+	
+**********************)
 
 type defined_fun_sym = {name:MS.mod_symbol,argument_types:F.term list,range_type:F.term,bits:Word8.word,arity:int,
                         prec:int ref,assoc:bool option ref}
@@ -202,6 +243,10 @@ fun addConstructor(c as {name,...}:ath_struc_constructor) = MS.insert(constructo
 
 fun allFSyms() = MS.listItems(fsym_table)
 
+fun allFSymsAsStrings() = let val res:string list = (map (fn x => MS.name(fsymName(x))) 
+                                                         (MS.listItems(fsym_table)))
+                          in res end
+
 val max_prime_suffix = ref(0)
 
 fun updateMaxSuffix(msym) =  
@@ -216,6 +261,9 @@ fun updateMaxSuffix(msym) =
 fun addFSym(f as declared({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
   | addFSym(f as defined({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
   | addFSym(f as struc_con({name,...})) = (updateMaxSuffix(name);MS.insert(fsym_table,name,f))
+
+
+
 
 fun findStructure(sym) = MS.find(structure_table,sym)
 

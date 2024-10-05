@@ -2008,9 +2008,19 @@ fun makeAppAndReturnSortSub(f,terms) = makeAppAndReturnSortSubCore(f,terms)
 					failLst(["Unable to infer a sort for the term: \n"^
  			                         (fauxTermToPrettyString(0,f,terms))])
 
+fun getFunctorSignature(f,args) = 
+   if  MS.modSymEq(f,Names.app_fsym_mname) then 
+         let val _ = print("\nABOUT TO GET THE SIG OF THIS SYMBOL: " ^ (MS.name f))
+             val actual_args = tl args 
+             val (fun_sort, arg_sorts, res_sort) = D.makeFunSort(actual_args)
+         in
+            (fun_sort::arg_sorts,res_sort,true,false)
+         end 
+   else D.getSignature(f)
+
 fun makeApp1(f,terms,from_side) = 
 	if Util.notNumeric(f) then 
-           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = D.getSignature(f)
+           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = getFunctorSignature(f,terms)
            in
             if has_pred_based_sorts then
               ((makeAppNormally(f,terms,from_side,param_sorts,result_sort,is_poly,has_pred_based_sorts))
