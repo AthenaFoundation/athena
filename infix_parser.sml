@@ -275,10 +275,9 @@ fun tokenize(e,evPhrase,op_table) =
        | unparseExp(e) = translate(e) 
      and translate(e) = 
           let val e_pos = AbstractSyntax.posOfExp(e) 
-              val _ = (case e of 
-                          A.idExp(_) => ()
-                        | A.appExp(_) => ()
-                        | _ => ())
+(***
+              val _ = print("\nTokenizing this expression: "  ^ (A.unparseExp e))
+***)
           in  
             (case evPhrase(A.exp e) of
                     termConVal(regFSym(some_fsym)) => 
@@ -287,9 +286,35 @@ fun tokenize(e,evPhrase,op_table) =
                              [OP({name=D.fsymName(some_fsym),arity=D.fsymArity(some_fsym),
                                   prec=(!(D.fsymPrec some_fsym)),
                                   assoc=SOME(decodeAssoc(b)),is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})]
-                        | ref(_) => [OP({name=D.fsymName(some_fsym),arity=D.fsymArity(some_fsym),
+                        | ref(_) => [OP({name=D.fsymName(some_fsym),
+					 arity=D.fsymArity(some_fsym),
                                          prec=(!(D.fsymPrec some_fsym)),
-                                         assoc=NONE,is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
+                                         assoc=NONE,
+					 is_fsym=true,
+					 pos=e_pos,
+					 orig_exp=SOME(A.exp(e))})])
+                  | termVal(t) => 
+                        let val term_sort = AT.getSort(t)
+                            (** val _ = print("\nHere's the INFIX term: " ^ (AT.toPrettyStringDefault(0,t)))  **)
+                        in
+                           (case F.isApp(term_sort) of 
+                               SOME(fun_sort,sort_args) => 
+                                 if MS.modSymEq(fun_sort,Names.fun_name_msym) then 
+                                    [OP({name=A.makeMS("foo",NONE),
+					 arity=length(sort_args)-1,
+                                         prec=100,
+                                         assoc=NONE,
+					 is_fsym=false,
+					 pos=e_pos,
+					 orig_exp=SOME(A.exp(e))})]
+                                 else
+                                   (case AthTerm.isConstant(t) of
+                                       SOME(f) => ([OP({name=f,arity=0,prec=0,assoc=NONE,
+                                                        is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
+                                     | _ => (case AthTerm.isVarOpt(t) of
+                                                SOME(v) => [exp_tok(A.exp e)] 
+                                              | _ => [exp_tok(A.exp e)])))
+                        end
                   | closUFunVal(_,_,_,{prec,name}) =>
                        [OP({name=A.makeMS(!name,NONE),arity=1,prec=(!prec),
                             assoc=NONE,is_fsym=false,pos=A.posOfExp(e),orig_exp=SOME(A.exp(e))})]
@@ -337,14 +362,7 @@ fun tokenize(e,evPhrase,op_table) =
                   | propConVal(forallCon) =>  [QUANT(e,e_pos)]
 
                   | propConVal(existsCon) => [QUANT(e,e_pos)]
-                  | propConVal(existsUniqueCon) => [QUANT(e,e_pos)]
-                  | termVal(t) => 
-                       (case AthTerm.isConstant(t) of
-                          SOME(f) => ([OP({name=f,arity=0,prec=0,assoc=NONE,
-                                           is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
-                        | _ => (case AthTerm.isVarOpt(t) of
-                                   SOME(v) => [exp_tok(A.exp e)] 
-                                 | _ => [exp_tok(A.exp e)]))
+                  | propConVal(existsUniqueCon) => [QUANT(e,e_pos)]                 
                   | _ => [exp_tok(A.exp e)]) handle _ => [exp_tok(A.exp e)]
           end
       and unparseDed(d) = [exp_tok(A.ded d)]
@@ -538,6 +556,9 @@ fun parseExpTop(token_list,evPhrase) = #1(parseExpTop1(token_list,evPhrase))
 
 fun parse(e,evPhrase,op_table) = 
   let val toks = tokenize(e,evPhrase,op_table)
+(***
+      val _ = print("About to infix-parse this exp: " ^ (A.unparseExp e))			 
+***)
       val res = (case parseExpTop(toks,evPhrase) of 
                    ({infix_exp=e,...},_) => e)
   in

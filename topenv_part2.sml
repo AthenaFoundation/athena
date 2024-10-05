@@ -3256,7 +3256,10 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
              in
                if length(args) = 0 then e
                else 
-                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table) val _ = () in res end),"")
+                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table)
+                                 val _ = () 
+                             in res 
+                             end),"")
                              handle InfixParser.InfixParseError(msg) => (NONE,msg)
                                   | Semantics.EvalError(msg,_) => (NONE,msg)
                                   | _ => (NONE,"")) of
