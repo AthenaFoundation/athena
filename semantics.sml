@@ -2255,7 +2255,7 @@ let
                     in 
                       if MS.modSymEq(name,Names.app_fsym_mname) then  
                            (*** Binary "app" case: (app E1 E2). If E1 is either a regular function symbol f:[S] -> T or a constant of the form f':(Fun S T), 
-                                then just return (f E2).
+                                then just return (f E2). qqq 
                             ***)
                            (case coerceValIntoTerm(arg_val1) of
                                SOME(t) => let val term_arg1 = massage(t)
@@ -2320,6 +2320,30 @@ let
                             in
 		               f([arg_val_1,arg_val_2],env,ab)
                             end handle PrimError(msg) => evError(msg,SOME(pos)))
+           | termVal(hol_fun_term) => 	        
+                  (case F.isApp(AT.getSort(hol_fun_term)) of 
+                      SOME(root,sorts) => if MS.modSymEq(root,Names.fun_name_msym) andalso length(sorts) = 3 
+                                          (** TODO: A.makeIdExpSimple("app",pos) seems like a hack, indeed calling
+					            evalApp seems like a hack since I've already evaluated proc, and with this
+					            current approach I'll have to evaluate it all over again.
+                                          **)
+                                          then 
+                                             let val _ = Basic.mark("1111111111111111111")
+                                                 val app_phrase = A.exp(A.makeIdExpSimple("app",pos))								   
+					         val (app_phrase',vars,fids) = SV.preProcessPhrase(app_phrase,[])
+						 val _ = Basic.mark("222222222222222222222222222222")
+                                                 val args' = [arg1,arg2]							   
+						 val arg_vals_and_positions = map (fn p => (evPhrase(p,env,ab),A.posOfPhrase(p)))
+  										  args'
+                                                  val arg_vals_and_positions = (head_val,A.posOfPhrase(proc))::arg_vals_and_positions
+                                                  fun errorMsg(i,v) = wrongArgKindExpectationOnly(termLCType,v)
+                                                  val term_args = getTermsWithCoercion(arg_vals_and_positions,errorMsg,coerceValIntoTerm)
+						  val term_res = applyTermConstructor(Names.app_fsym_mname,2,term_args,pos)
+                                             in
+						 termVal(term_res)
+                                             end
+                                          else evalApp(proc,[arg1,arg2],pos,env,ab)
+		    | _ => evalApp(proc,[arg1,arg2],pos,env,ab))
            | _ => (evalApp(proc,[arg1,arg2],pos,env,ab)))
       end 
   | app_exp as A.UAppExp({proc,arg,pos}) => 
@@ -2836,7 +2860,11 @@ and
         | v =>  
              (case coerceValIntoTermCon(v) of
                  SOME(regFSym(some_fsym)) => 
-                    (let val (name,arity) = (D.fsymName(some_fsym),D.fsymArity(some_fsym))
+                    (let (***
+                          Here. some_fsym might be "app", so we'll need to make sure that we evaluate this properly 
+                         ***)
+                         val _ = () 
+                         val (name,arity) = (D.fsymName(some_fsym),D.fsymArity(some_fsym))
                          val arg_vals_and_positions = map (fn p => (evPhrase(p,env,ab),A.posOfPhrase(p)))
   						          args
                          fun errorMsg(i,v) = wrongArgKindExpectationOnly(termLCType,v)
