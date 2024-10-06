@@ -17,6 +17,8 @@ signature MOD_SYMBOL =sig
 
   val nameAsSymbol : mod_symbol -> Symbol.symbol 
 
+  val unlift: mod_symbol -> mod_symbol				       
+
   val makeName: Symbol.symbol list * Symbol.symbol -> string
 
   val modulePrefix: mod_symbol -> string 

@@ -2180,11 +2180,14 @@ fun summarizeTopCallStack() = summarizeCallStack(pos_stack)
 fun massage(t) = 
   (case AT.isConstant(t) of 
       SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
+                         val name_as_string = S.name(MS.lastName(name))
+                         val is_lifted_fsym = String.sub(name_as_string,String.size(name_as_string)-1) = #"^"
+                         val first_res = if is_lifted_fsym then SOME(name) else NONE
                      in
-                       if FTerm.termEq(sort,AT.getSort(t)) then AT.makeSortedConstantAux(name,sort,is_poly)
-                       else t
+                       if FTerm.termEq(sort,AT.getSort(t)) then (first_res,AT.makeSortedConstantAux(name,sort,is_poly))
+                       else (first_res,t)
                      end
-    | _ => t)
+    | _ => (NONE,t))
 
 val (lp,rp,space) = ("(",")"," ")
 
@@ -2254,14 +2257,16 @@ let
 
                     in 
                       if MS.modSymEq(name,Names.app_fsym_mname) then  
-                           (*** Binary "app" case: (app E1 E2). If E1 is either a regular function symbol f:[S] -> T or a constant of the form f':(Fun S T), 
+                           (*** Binary "app" case: (app E1 E2). If E1 is EITHER a regular function symbol f:[S] -> T OR a constant of the form f^:(Fun S T), 
                                 then just return (f E2). qqq 
                             ***)
                            (case coerceValIntoTerm(arg_val1) of
-                               SOME(t) => let val term_arg1 = massage(t)
+                               SOME(t) => let val (lifted_fsym_opt,term_arg1) = massage(t)
                                              (**** TODO: What is term_arg1 is a term constant of sort (Fun S T) that is lifted, 
                                                          i.e., of the form f^? In that case we should just return (f term_arg2)  ****)
-					      val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
+					      val term_res = (case lifted_fsym_opt of 
+                                                                 SOME(fsym) => applyUnaryTermConstructor(MS.unlift(fsym),term_arg2,pos)
+							       | _ => applyBinaryTermConstructor(name,term_arg1,term_arg2,pos))
                                           in
                                              termVal(term_res)
                                           end 
@@ -2271,7 +2276,7 @@ let
                                         | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos))))
                       else
                          let val term_arg1 = (case coerceValIntoTerm(arg_val1) of
-                                                SOME(t) => massage(t)
+                                                SOME(t) => #2(massage(t))
                                               | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos)))
                              val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
                          in
