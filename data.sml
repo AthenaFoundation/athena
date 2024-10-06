@@ -143,6 +143,8 @@ fun liftMSName(name:MS.mod_symbol) =
           MS.makeModSymbol'(mods,last')
       end				    
 
+fun isFunSort(t:F.fsymbol) = MS.modSymEq(t,Names.fun_name_msym)
+
 fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) = 
     F.makeApp(Names.fun_name_msym,argument_types @ [range_type])
 
