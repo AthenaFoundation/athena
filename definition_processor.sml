@@ -749,7 +749,7 @@ fun getAllRemainingPatterns(patterns) =
   end
 
 fun getPatternsPrimUFun(SV.listVal(tvals),env,_) = 
-               let val terms = TopEnv.getTermsNoPos(tvals,"the first argument of "^N.getPatternsFun_name)
+               let val terms = TopEnv.getTermsNoPos(tvals,"the first argument of "^N.getPatternsFun_name,NONE)
 	           val res = getAllRemainingPatterns(terms)
                in 
                    SV.listVal(map SV.termVal res)
@@ -2700,7 +2700,7 @@ fun getTerms(val_lst,pos_array,method_name) =
     getTerms(val_lst,[],2)
   end;
 
-fun getTermsNoPos(val_lst,method_name) = 
+fun getMethodTermsNoPos(val_lst,method_name) = 
   let fun msg(v) = "Argument of the wrong kind supplied to the method "^method_name^
                    "; the method requires terms as arguments, but here the argument was a "^
                    Semantics.valLCTypeAndString(v)      
@@ -2736,7 +2736,7 @@ fun makeIntroElimMethods(sym_name,arg_vars,definiens_prop,env,eval_env,is_poly) 
                                           intro_method_name^"---it requires exactly "^Int.toString(right_length)^
                                           " arguments")
                              else ()
-                     val terms = getTermsNoPos(arg_vals,intro_method_name) 
+                     val terms = getMethodTermsNoPos(arg_vals,intro_method_name) 
                      val term_vars = AthTerm.getVarsLst(terms)
                      val instantiated_definiens = Prop.replaceLst(new_arg_vars,terms,new_definiens2)
                  in
@@ -2785,7 +2785,7 @@ fun makeIntroElimMethods(sym_name,arg_vars,definiens_prop,env,eval_env,is_poly) 
                                        "the method "^elim_method_name^"---it requires exactly "^Int.toString(right_length)^
                                        " arguments")
                             else ()
-                    val terms = getTermsNoPos(arg_vals,elim_method_name) 
+                    val terms = getMethodTermsNoPos(arg_vals,elim_method_name) 
                     val relation_holds = Prop.makeAtom(AthTerm.makeApp(sym_name,terms))
                 in
                      if ABase.isMember(relation_holds,ab) then
@@ -2864,7 +2864,7 @@ fun makeFunDefMethod(fun_name,arg_vars,eq_var,definiens_prop,env,eval_env,pos,is
                                   "the method "^method_name^"---it requires exactly "^Int.toString(right_length)^
                                   " arguments")
                      else ()
-             val terms = getTermsNoPos(arg_vals,method_name) 
+             val terms = getMethodTermsNoPos(arg_vals,method_name) 
              val term_vars = AthTerm.getVarsLst(terms)
              val new_eq_var_and_arg_vars = (AthTermVar.fresh())::(AthTermVar.freshLst(arg_vars))
              val new_definiens = Prop.alphaRename(definiens_prop)

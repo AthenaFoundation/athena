@@ -1518,7 +1518,7 @@ fun makeTermFun([v,listVal(arg_vals)],_,{pos_ar,file}) =
                                              SOME(Array.sub(pos_ar,0)))
 
 fun makeTermPrimBFun(v,listVal(arg_vals),_,_) = 
-      let val term_args = getTermsNoPos(arg_vals,"the list argument of "^N.makeTermFun_name)
+      let val term_args = getTermsNoPos(arg_vals,"the list argument of "^N.makeTermFun_name,NONE)
           fun wrongArgNumber(name,giv,req) = "Wrong number of arguments ("^Int.toString(giv)^") given to "^
                                              name^" via the "^N.makeTermFun_name^" procedure---exactly "^
                                              argNumToString(req)^" required";
@@ -1566,7 +1566,7 @@ fun  transformOutputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
                        val _ = if not(arg_num = arity) then 
                                   primError(wrongArgNumber(name_string,arg_num,arity))
                                else ()                                            
-                       val arg_terms = getTermsNoPos(arg_vals,name_string)
+                       val arg_terms = getTermsNoPos(arg_vals,name_string,NONE)
                        val res = termVal(applyTermConstructorNoPos(name,arg_terms))
                    in
                       loop(converters,res)
@@ -1681,6 +1681,7 @@ fun expandInputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
       SOME(regFSym(f)) => 
         let val (arity,name,prec,assoc) = (Data.fsymArity(f),Data.fsymName(f),Data.fsymPrec(f),Data.fsymAssoc(f))
             val name_string = MS.name name 
+            val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name)
             val converters = getConverters(v2,name_string,arity)
             fun makeNew(arity,name_string,converters) = 
              (fn (arg_vals,env',ab') => 
@@ -1691,7 +1692,7 @@ fun expandInputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
                        val args_and_converters = Basic.zip(arg_vals,converters)
                        val arg_term_vals = List.map (fn (arg_val,converter) => converter(arg_val))
                                                   args_and_converters
-                       val arg_terms = getTermsNoPos(arg_term_vals,name_string)
+                       val arg_terms = getTermsNoPos(arg_term_vals,name_string,SOME(expected_arg_sorts,result_sort,is_poly))
                    in
                       termVal(applyTermConstructorNoPos(name,arg_terms))
                    end)
@@ -1821,8 +1822,9 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
             (case coerceValIntoTermCon(v2) of
                SOME(regFSym(old_fsym)) => let val old_sym = Data.fsymName(old_fsym)
                                               val old_sym_str = MS.name(old_sym)
-                                              fun appOld(name,arity,arg_vals,ab) = 
-                                                    termVal(applyTermConstructorNoPos(name,getTermsNoPos(arg_vals,old_sym_str)))
+					      val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(old_sym)
+                                              fun appOld(name,arity,arg_vals,ab) =                                                 
+                                                    termVal(applyTermConstructorNoPos(name,getTermsNoPos(arg_vals,old_sym_str,SOME(expected_arg_sorts,result_sort,is_poly))))
                                           in
                                             (appOld,Data.fsymArity(old_fsym),old_sym)
                                           end
@@ -1890,6 +1892,7 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                          end
                      | _ => evError("Overloading error: a function symbol was expected here",SOME(Array.sub(pos_ar,3)))))
      val name_old = MS.name(name_old_sym)
+     val signature_opt = ref(NONE: (FTerm.term list * FTerm.term * bool) option)
      val (applyNew,name_new:string,arity_new,prec_new,assoc_new) = 
             (case coerceValIntoTermCon(v1) of
                 SOME(regFSym(new_fsym)) => 
@@ -1897,6 +1900,11 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                                   (Data.fsymArity(new_fsym),Data.fsymName(new_fsym),
                                    Data.fsymPrec(new_fsym),Data.fsymAssoc(new_fsym))
                       val new_name:string = MS.name name_new_sym
+                      val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name_new_sym)
+                      val _ = let val _ = Options.debugPrint("\nSETTING THE SIG OPTION!\n")
+                              in
+                                 (signature_opt := SOME(expected_arg_sorts,result_sort,is_poly))
+                              end
                   in
                      ((fn (arity_new,val_args,term_args_thunk) => 
                           termVal(applyTermConstructorNoPos(name_new_sym,term_args_thunk()))),
@@ -1952,7 +1960,7 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                                       SOME(Array.sub(pos_ar,2)))))
      val new_name_sym = A.makeMS(name_new,NONE)
      fun newFun(vals,env',ab') = 
-          let val term_args_thunk = fn () => getTermsNoPos(vals,name_new)
+          let val term_args_thunk = fn () => getTermsNoPos(vals,name_new,!signature_opt)
               val msg = ref ""
            in
              if inverted then 
@@ -3880,8 +3888,8 @@ fun matchFun([v1,v2],env,_) =
                 listVal(tvals1) =>  
                  (case v2 of
                     listVal(tvals2) => 
-                       let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name)
-                           val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name)
+                       let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name,NONE)
+                           val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name,NONE)
                        in 
                           (case AthTerm.matchLst(terms1,terms2) of
                              SOME(sub) => subVal(sub)
@@ -3903,8 +3911,8 @@ fun matchFun([v1,v2],env,_) =
                     listVal(tvals1) =>  
                      (case v2 of
                         listVal(tvals2) => 
-                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name)
-                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name)
+                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name,NONE)
+                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name,NONE)
                            in 
                               (case AthTerm.matchLstRW(terms1,terms2,uvars) of
                                  SOME(sub) => subVal(sub)
@@ -3938,8 +3946,8 @@ fun unifyFun([v1,v2],env,_) =
                     listVal(tvals1) =>  
                      (case v2 of
                         listVal(tvals2) => 
-                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.unifyFun_name)
-                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.unifyFun_name)
+                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.unifyFun_name,NONE)
+                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.unifyFun_name,NONE)
                            in 
                               (case AthTerm.unifyLstRW(terms1,terms2,var_constants) of
                                  SOME(sub) => subVal(sub)

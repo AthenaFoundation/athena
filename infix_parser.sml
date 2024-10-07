@@ -22,7 +22,7 @@ fun infixParseError(msg,SOME(pos)) =
 
 datatype associativity = LEFT | RIGHT
 
-fun debugPrint(str) = if !Options.first_time then () else print(str)
+fun debugPrint(str) = if true orelse !Options.first_time then () else print(str)
 
 fun decodeAssoc(true) = LEFT
   | decodeAssoc(false) = RIGHT

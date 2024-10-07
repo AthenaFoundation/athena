@@ -157,4 +157,9 @@ val dt_for_dom_default_size = ref(5)
 
 val ground_doms = ref(true)
 
+fun debugPrint(str) = let
+                      in
+                          if (!first_time) then () else print("\n" ^ str)
+                      end
+
 end (* of structure Options *)

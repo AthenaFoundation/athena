@@ -2361,7 +2361,7 @@ fun makePolySpassPropStringFun([v],env,_) =
   | makePolySpassPropStringFun(_) = raise Basic.Never
 
 fun makePolySpassTermStringFun([v],env,_) = 
-   let val [term] = getTermsNoPos([v],"the argument of "^"make-poly-spass-term")
+   let val [term] = getTermsNoPos([v],"the argument of "^"make-poly-spass-term",NONE)
        val printer = F.makePolyVarSortPrinter()     
        val variableRenamer = Basic.varRenamer;
        val fsymRenamer = Basic.fsymRenamer;
@@ -3254,7 +3254,9 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
              let val proc' = ipPhrase(proc,op_table) 
                  val args' = map (fn p => ipPhrase(p,op_table)) args  
                  val infix_likely = headInapplicable(proc)  
+(***
                  val _ = debugPrint("\nCalling ipExp on this app: " ^ (A.unparseExp e) ^ "\nInfix_likely: " ^ (Basic.boolToString infix_likely))
+***)
              in
                if length(args) = 0 then e
                else 

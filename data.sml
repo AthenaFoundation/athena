@@ -145,6 +145,12 @@ fun liftMSName(name:MS.mod_symbol) =
 
 fun isFunSort(t:F.fsymbol) = MS.modSymEq(t,Names.fun_name_msym)
 
+fun funSortArity(t) = 
+   (case F.isApp(t) of 
+       SOME(sort,args) => if not(isFunSort(sort)) then NONE
+                          else SOME(length(args)-1)
+    |  _ => NONE)
+
 fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) = 
     F.makeApp(Names.fun_name_msym,argument_types @ [range_type])
 
