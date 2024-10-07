@@ -10,6 +10,8 @@ struct
 
 open TopEnv1
 
+fun debugPrint(str) = if !Options.first_time then () else if !(Options.call_stack_size) < 201 then () else print(str)
+
 fun isSortInstanceFun([v1,v2],(env,_),{pos_ar,file}) = 
      (case (coerceValIntoTerm(v1),coerceValIntoTerm(v2)) of 
          (SOME(t1),SOME(t2)) => (case AT.isSortInstance(t1,t2) of
@@ -3241,7 +3243,6 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
   let 
       fun evaluatePhrase(e) = evalPhrase((e,fids),eval_env,!top_assum_base)
       val no_op_val = (~1,~1)
-      fun debugPrint(str) = if !(Options.call_stack_size) < 201 then () else print(str)
       fun headInapplicable(proc) = A.inapplicable(proc) 
                                       orelse (case proc of
                                                A.exp(e as A.idExp(_)) => ((case Semantics.isApplicable(evaluatePhrase(A.exp e)) of
@@ -3253,6 +3254,7 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
              let val proc' = ipPhrase(proc,op_table) 
                  val args' = map (fn p => ipPhrase(p,op_table)) args  
                  val infix_likely = headInapplicable(proc)  
+                 val _ = debugPrint("\nCalling ipExp on this app: " ^ (A.unparseExp e) ^ "\nInfix_likely: " ^ (Basic.boolToString infix_likely))
              in
                if length(args) = 0 then e
                else 

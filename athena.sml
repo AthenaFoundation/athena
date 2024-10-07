@@ -24,7 +24,8 @@ fun runWithStarterFileAndQuit(file_name) =
    (Repl.init(file_name);
     print("\nDone...\n"))
 
-fun run() = runWithStarterFile(NONE)
+fun run() = let val _ = Options.first_time := true
+            in runWithStarterFile(NONE) end 
 
 (**
 

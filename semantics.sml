@@ -2246,16 +2246,19 @@ let
                    (let val name = D.fsymName(some_fsym)
                         val arg_val1 = evPhrase(arg1,env,ab)              
                         val arg_val2 = evPhrase(arg2,env,ab)
+			val (arg_sorts,result_sort,is_poly,_) = Data.getSignature(name)
                         val term_arg2 =  (case coerceValIntoTerm(arg_val2) of
                                              SOME(t) => (case AT.isConstant(t) of 
-                 			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
+                 			                   SOME(name) =>  let 
  					                                  in
-						                            if FTerm.termEq(sort,AT.getSort(t)) then 
-						                               AT.makeSortedConstantAux(name,sort,is_poly)
+						                            if FTerm.termEq(result_sort,AT.getSort(t)) then 
+						                               AT.makeSortedConstantAux(name,result_sort,is_poly)
                                                                             else t
                                                                           end
-                                                         | _ => t)
-                                            | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val2),SOME(pos)))
+                                                         | _ => t)                                 
+                                            | _ => (case coerceValIntoTermCon(arg_val2) of
+                                                      SOME(regFSym(fsym)) => Basic.fail("")
+						    | _ =>  evError(wrongArgKindExpectationOnly(termLCType,arg_val2),SOME(pos))))
 
                     in 
                       if MS.modSymEq(name,Names.app_fsym_mname) then  
@@ -2330,15 +2333,9 @@ let
            | termVal(hol_fun_term) => 	        
                   (case F.isApp(AT.getSort(hol_fun_term)) of 
                       SOME(root,sorts) => if MS.modSymEq(root,Names.fun_name_msym) andalso length(sorts) = 3 
-                                          (** TODO: A.makeIdExpSimple("app",pos) seems like a hack, indeed calling
-					            evalApp seems like a hack since I've already evaluated proc, and with this
-					            current approach I'll have to evaluate it all over again.
-                                          **)
                                           then 
-                                             let val _ = Basic.mark("1111111111111111111")
-                                                 val app_phrase = A.exp(A.makeIdExpSimple("app",pos))								   
-					         val (app_phrase',vars,fids) = SV.preProcessPhrase(app_phrase,[])
-						 val _ = Basic.mark("222222222222222222222222222222")
+                                             let val app_phrase = A.exp(A.makeIdExpSimple("app",pos))								   
+					         val (app_phrase',vars,fids) = SV.preProcessPhrase(app_phrase,[])						 
                                                  val args' = [arg1,arg2]							   
 						 val arg_vals_and_positions = map (fn p => (evPhrase(p,env,ab),A.posOfPhrase(p)))
   										  args'

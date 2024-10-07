@@ -81,6 +81,7 @@ sig
     val findAndSkipLine: TextIO.instream * string -> char list
     val skipWhiteSpace: char list -> char list 
     val skipAll: 'a list * ('a -> bool) -> 'a list
+    val skipAllAndReturnCount: 'a list * ('a -> bool) -> int 
     val skipUntil: 'a list * ('a -> bool) -> ('a list * 'a list)    
     val skipUntilRev: 'a list * ('a -> bool) -> ('a list * 'a list)
     val skipUntilWithExtendedPred: 'a list * ('a -> bool) * ('a list -> bool) -> ('a list * 'a list)
