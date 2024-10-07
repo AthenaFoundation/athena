@@ -1901,7 +1901,7 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                                    Data.fsymPrec(new_fsym),Data.fsymAssoc(new_fsym))
                       val new_name:string = MS.name name_new_sym
                       val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name_new_sym)
-                      val _ = let val _ = Options.debugPrint("\nSETTING THE SIG OPTION!\n")
+                      val _ = let 
                               in
                                  (signature_opt := SOME(expected_arg_sorts,result_sort,is_poly))
                               end
@@ -3985,7 +3985,7 @@ fun uSpecPrimMethod([v1,v2],(env,ab),{pos_ar,file}) =
                        SOME(v,body) =>
                           (case coerceValIntoTerm(v2) of
                               SOME(t) => uspecGivenTermToFinalRes(t,v,P,body,ab,getPosOpt(pos_ar,0))
-                            | _ => let val _ = Basic.mark("HHHHHHHHH")
+                            | _ => let
                                    in
                                      (case D.funSortArity(ATV.getSort(v)) of 
                                        SOME(K) => let val t = Semantics.liftArg(v1,K,getPosOpt(pos_ar,3))
@@ -4001,7 +4001,7 @@ fun uSpecPrimMethod([v1,v2],(env,ab),{pos_ar,file}) =
        evError(wrongArgNumber(N.uspecPrimMethod_name,length(args),2),getPosOpt(pos_ar,0))
 
 fun uSpecPrimBMethod(v1,v2,env,ab) = 
-  let val _ = Basic.mark("BBBBBBBBBBBBBBBBB")
+  let
   in
      (case coerceValIntoProp(v1) of
          SOME(P) => (case P.isUGen(P) of 

@@ -3524,7 +3524,20 @@ define chain-transformer :=
                 (else (print "\nUnable to reduce the term:\n" t "\nto a normal form.\n")))))
 
 
-## qqqq
+## qqq
+
+(define (retrieve-eval-name f)
+   (try (let ((name (get-eval-proc-name-generic f (mod-path))))
+          (evaluate name))
+        (evaluate (get-eval-proc-name f))))
+        
+(define (app` proc arg)
+  (let ((name (val->string proc)))
+    (check ((equal? [(first (rev name))] "^")
+             (let ((unlifted-sym (string->symbol (all-but-last name)))
+                   (unlifted-sym-computist (retrieve-eval-name unlifted-sym)))
+               (unlifted-sym-computist arg)))
+           (else (fail "")))))               
 
 (define 
  (eval1 t)
@@ -3543,10 +3556,13 @@ define chain-transformer :=
                                          )
                                       (evaluate name))
                                     (evaluate (get-eval-proc-name f))))
-                          # When f is app, then check the first argument: if it's lifted, then apply the de-lifted version to the rest of the args
+                          # When f is app, examine the first argument: if it's lifted, then apply the de-lifted version to the rest of the args
                           # Otherwise, if it's not lifted but a proper higher-order constant term f:(Fun ...), then try to find axioms of the form
                           # (forall ... . app f ... = RHS) and produce the appropriate instance of RHS. 
-                           (res (app-proc f' (map eval1 args))))
+                           (res (check ((equal? (val->string f') "app")
+                                           (let ((_ (print "\nEvaluating an app of app to these args: " args)))
+                                             (fail "")))
+                                       (else (app-proc f' (map eval1 args))))))
                         (check ((poly? res) (rhs (= t res))) (else res))))))
     ((not p) (negate (eval1 p)))
     ((and (some-list args)) (&&* (map eval1 args)))

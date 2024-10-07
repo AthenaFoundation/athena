@@ -2247,12 +2247,10 @@ let
      | A.unitExp(_) => unitVal
      | app_exp as A.BAppExp({proc,arg1,arg2,pos}) => 
       let val head_val = evPhrase(proc,env,ab)
-          val _ = Options.debugPrint("000000000000000000000000")
       in
         (case head_val of
              closBFunVal(body,p1,p2,clos_env as ref(valEnv({val_map,mod_map,...})),{name,...}) =>                         
-                   let val _ = Options.debugPrint("11111111111111111111")
-                       val v1 = evPhrase(arg1,env,ab)
+                   let val v1 = evPhrase(arg1,env,ab)
                        val v2 = evPhrase(arg2,env,ab)
                        val vm = Symbol.enter(Symbol.enter(val_map,p1,v1),p2,v2)
                        val _ = addPos (!name,pos)
@@ -2261,7 +2259,6 @@ let
                    end
            | termConVal(regFSym(some_fsym)) =>
                    (let val name = D.fsymName(some_fsym)
-                        val _ = Options.debugPrint("11111111111111111111")
                         val arg_val1 = evPhrase(arg1,env,ab)              
                         val arg_val2 = evPhrase(arg2,env,ab)
 			val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name)
@@ -2272,7 +2269,6 @@ let
                                   [hd(expected_arg_sorts), hd(tl(expected_arg_sorts))] 	     
                                else evError(wrongArgNumber(MS.name(D.fsymName(some_fsym)),2,N),SOME(pos))
                             end
-                        val _ = Options.debugPrint("HHHHHHHHHHHHHH")				
                         val term_arg2 =  (case coerceValIntoTerm(arg_val2) of
                                              SOME(t) => (case AT.isConstant(t) of 
                  			                   SOME(name) =>  if FTerm.termEq(result_sort,AT.getSort(t)) then 
@@ -2302,11 +2298,11 @@ let
                                                 termVal(applyUnaryTermConstructor(D.fsymName(fsym),term_arg2,pos))
                                         | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos))))
                       else
-                         let val term_arg1 = let val _ = Options.debugPrint("AAAAAAAAAAAAAAAAAAAAA")
+                         let val term_arg1 = let 
                                              in 
                                                 (case coerceValIntoTerm(arg_val1) of
                                                     SOME(t) => #2(massage(t))
-                                                  | _ => let val _ = Options.debugPrint("BBBBBBBBBBBBBBBBBBBBB")
+                                                  | _ => let 
                                                          in
                                                            (case D.funSortArity(arg_1_expected_sort) of 
                                                                SOME(K) => liftArg(arg_val1,K,SOME pos)
@@ -2355,8 +2351,7 @@ let
                                       handle PrimError(msg) => evError(msg,SOME(pos)) 
                                  )
            | funVal(f,name,_) => 
-                           (let val _ = Options.debugPrint("11111111111111111111, here's the name: " ^ name)
-			        val arg_val_1 = evPhrase(arg1,env,ab) 
+                           (let val arg_val_1 = evPhrase(arg1,env,ab) 
                                 val arg_val_2 = evPhrase(arg2,env,ab)
                             in
 		               f([arg_val_1,arg_val_2],env,ab)
