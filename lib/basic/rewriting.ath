@@ -3524,18 +3524,14 @@ define chain-transformer :=
          (check ((ref silent-eval-mode) ())
                 (else (print "\nUnable to reduce the term:\n" t "\nto a normal form.\n")))))
 
-
-## qqq
-
 (define (retrieve-eval-name f)
    (try (let ((name (get-eval-proc-name-generic f (mod-path))))
           (evaluate name))
         (evaluate (get-eval-proc-name f))))
 
 (define (find-matching-app-axiom proc args)
-  (let  ((_ (print "\nEntering find-matching-app-axiom with proc: " proc " and args: " (val->string args)))
+  (let  (#(_ (print "\nEntering find-matching-app-axiom with proc: " proc " and args: " (val->string args)))
          (app-term (make-term app (add proc args)))
-         (_ (print "\nHERE's APP-TERM: " app-term))
          (match-prop  (lambda (p)
                         (match p
                           ((forall (some-list uvars) (= (lhs as (app (some-list terms))) rhs))
@@ -3543,14 +3539,21 @@ define chain-transformer :=
                                (match match-res 
                                  ((some-sub sub) [sub rhs])
                                  (_ ()))))
+                          ((forall (some-list uvars) (if guard (= (lhs as (app (some-list terms))) rhs)))
+                              (match (match-terms app-term lhs)
+                                ((some-sub sub) (try (let ((_ (!prove-components-of (sub guard))))
+                                                        [sub rhs])
+                                                     ()))
+                                (_ ())))                                                   
                           (_ ())))))                                
       (letrec ((loop (lambda (props)
                          (match props
                             ([] ())
                             ((list-of p more)
-                              (let ((_ (print "\nAbout to apply match-prop to this sentence: " p))
+                              (let (#(_ (print "\nAbout to apply match-prop to this sentence: " p))
                                     (res (match-prop p))
-                                    (_ (print "\nRESULT: " res)))
+                                    #(_ (print "\nRESULT: " res))
+                                   )
                                 (match res
                                   (() (loop more))
                                   (res res))))))))
@@ -3590,17 +3593,14 @@ define chain-transformer :=
     ((iff p1 p2) (eval1 (and (if p1 p2) (if p2 p1))))
     (_ t))
   (app` proc args)
-     (let ((_ (print "\nEVALUATING AN APP of this proc: " proc " to these args: " args))
-           (args (check ((list? args) args) (else [args])))
+     (let ((args (check ((list? args) args) (else [args])))
            (name (val->string proc)))
         (check ((equal? [(first (rev name))] "^")
                  (let ((unlifted-sym (string->symbol (all-but-last name)))
                        (unlifted-sym-computist (retrieve-eval-name unlifted-sym)))
                    (app-proc unlifted-sym-computist args)))
                (else (match (find-matching-app-axiom proc args)
-                       ([sub rhs] (let ((_ (print "\nFound sub: " sub " and rhs: " rhs)))
-                                    (eval1 (sub rhs))))
-                       (res  (let ((_ (print "\nDid NOT find a sub, found this instead: " res))) res))))))
+                       ([sub rhs] (eval1 (sub rhs)))))))
   (eval t)
    (check ((has-vars? t) (print "\nNon-ground term given as input, unable to reduce the term:\n" t "\nto a normal form.\n"))
     (else (try (eval1 t)
