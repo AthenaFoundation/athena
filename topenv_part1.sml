@@ -4037,34 +4037,38 @@ fun uSpecPrimBMethod(v1,v2,env,ab) =
        | _ => primError(wrongArgKind(N.uspecPrimMethod_name,1,propLCType,v1)))
     end
 
+fun egenWitnessToFinalRes(witness_term,v,P,body,ab) = 
+      let val v_sort = ATV.getSort(v)
+          val w_sort = AT.getSort(witness_term)
+          val sort_sub_opt = F.isSubSort(w_sort,v_sort)
+          fun f() = let val vsp = F.makeVarSortPrinter()
+                    in
+                       primError("Failed existential generalization---the sort of the "^"witness term: \n"^(AT.toPrettyString(0,witness_term,vsp))^
+  		                 "\nis not a subsort of the existentially "^"quantified variable:\n"^(ATV.toPrettyString(0,v,vsp)))
+		    end
+	  val sort_sub = (case sort_sub_opt of NONE => f() | SOME(s) => s)
+  	  val witness_prop = Prop.replaceVarByTermOfSomeSubSort(v,witness_term,body,sort_sub)
+      in
+        if ABase.isMember(witness_prop,ab) then
+           propVal(P)
+        else
+           primError("Failed existential generalization---the "^"required witness sentence\n"^
+                     pprint(0,witness_prop)^"\nis not in the assumption base")
+      end
+
 fun eGenPrimMethod([v1,v2],env,ab) = 
      (case coerceValIntoProp(v1) of 
          SOME(P) => 
             (case P.isEGen(P) of 
                 SOME(v,body) => 
                     (case coerceValIntoTerm(v2) of
-                        SOME(witness) => 
-                            let val v_sort = ATV.getSort(v)
-				val w_sort = AT.getSort(witness)
-				val sort_sub_opt = F.isSubSort(w_sort,v_sort)
-				fun f() = let val vsp = F.makeVarSortPrinter()
- 				          in
-						primError("Failed existential generalization---the sort of the "^
-						          "witness term: \n"^(AT.toPrettyString(0,witness,vsp))^
-						          "\nis not a subsort of the existentially "^
-						          "quantified variable:\n"^(ATV.toPrettyString(0,v,vsp)))
+                        SOME(witness) => egenWitnessToFinalRes(witness,v,P,body,ab)
+                      | _ => (case D.funSortArity(ATV.getSort(v)) of 
+                                SOME(K) => let val witness_term = Semantics.liftArg(v2,K,NONE)
+                                           in
+ 			  		      egenWitnessToFinalRes(witness_term,v,P,body,ab)
 					   end
-				val sort_sub = (case sort_sub_opt of NONE => f() | SOME(s) => s)
-				val witness_prop = Prop.replaceVarByTermOfSomeSubSort(v,witness,body,sort_sub)
-                            in
-                               if ABase.isMember(witness_prop,ab) then
-                                  propVal(P)
-                               else
-                                  primError("Failed existential generalization---the "^
-					  "required witness sentence\n"^
-                                          pprint(0,witness_prop)^"\nis not in the assumption base")
-                            end
-                      | _ => primError(wrongArgKind(N.egenPrimMethod_name,2,termLCType,v2)))
+			      | _ => primError(wrongArgKind(N.egenPrimMethod_name,2,termLCType,v2))))
               | _ => primError(dwrongArgKind(N.egenPrimMethod_name,1,"an existential generalization",P)))
        | _ => primError(wrongArgKind(N.egenPrimMethod_name,1,propLCType,v1)))
   | eGenPrimMethod(args,_,_) = primError(wrongArgNumber(N.egenPrimMethod_name,length(args),2))

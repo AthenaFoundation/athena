@@ -3529,6 +3529,15 @@ define chain-transformer :=
           (evaluate name))
         (evaluate (get-eval-proc-name f))))
 
+(primitive-method (functor-identity n)
+  (check ((less? n 0) (error "The number given to functor-identity must be nonnegative"))
+         (else (let (([f1 f2] [(fresh-var) (fresh-var)])
+                     (args (map (lambda (_) (fresh-var)) (to 1 n)))
+                     (app1 (make-term app (add f1 args)))
+                     (app2 (make-term app (add f2 args))))
+                 (forall f1 f2 (iff (= f1 f2) (forall* args (= app1 app2))))))))
+
+        
 (define (find-matching-app-axiom proc args)
   (let  (#(_ (print "\nEntering find-matching-app-axiom with proc: " proc " and args: " (val->string args)))
          (app-term (make-term app (add proc args)))
