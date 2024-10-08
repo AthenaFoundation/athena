@@ -2008,20 +2008,32 @@ fun makeAppAndReturnSortSub(f,terms) = makeAppAndReturnSortSubCore(f,terms)
 					failLst(["Unable to infer a sort for the term: \n"^
  			                         (fauxTermToPrettyString(0,f,terms))])
 
+fun sortsMatch(fun_sort,arg_sorts) = 
+   (case Data.funSortArity(fun_sort) of 
+       SOME(n) => n = length(arg_sorts)
+     | _ => false)
+
 fun getFunctorSignature(f,args) = 
    if  MS.modSymEq(f,Names.app_fsym_mname) then 
          let val actual_args = tl args 
              val (fun_sort, arg_sorts, res_sort) = D.makeFunSort(actual_args)
+             val lifted_app_sym_opt = (case (hd args) of 
+                                          (t as App({root,args=[],...})) => 
+                                            if Data.isLiftedFSym(root) andalso sortsMatch(getSort(t),arg_sorts) then SOME(MS.unlift(root)) else NONE
+			                | _ => NONE)
          in
-            (fun_sort::arg_sorts,res_sort,true,false)
+            ((fun_sort::arg_sorts,res_sort,true,false),lifted_app_sym_opt)
          end 
-   else D.getSignature(f)
+   else (D.getSignature(f),NONE)
 
 fun makeApp1(f,terms,from_side) = 
 	if Util.notNumeric(f) then 
-           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = getFunctorSignature(f,terms)
+           let val ((param_sorts,result_sort,is_poly,has_pred_based_sorts),lifted_app_sym_opt) = getFunctorSignature(f,terms)
            in
-            if has_pred_based_sorts then
+            (case lifted_app_sym_opt of 
+               SOME(g) => makeApp1(g,tl terms,from_side)
+             | _ => 
+             if has_pred_based_sorts then
               ((makeAppNormally(f,terms,from_side,param_sorts,result_sort,is_poly,has_pred_based_sorts))
                 handle _ => 
                   let fun loop([],_,arg_sorts',tccs) = (rev(arg_sorts'),tccs)
@@ -2074,7 +2086,7 @@ fun makeApp1(f,terms,from_side) =
                                    poly_constants=new_poly_constants_and_their_sorts'',bits=orTermWords(terms',root_word)})
 	        in
 		   res
-		end
+		end)
            end
 	else 
             let
@@ -2086,7 +2098,7 @@ fun makeAppBinary(f,term1,term2,from_side) =  makeApp1(f,[term1,term2],from_side
 
 fun makeAppUnary(f,term,from_side) =  
 	if Util.notNumeric(f) then 
-           let val (param_sorts,result_sort,is_poly,has_pred_based_sorts) = getFunctorSignature(f,[term])
+           let val ((param_sorts,result_sort,is_poly,has_pred_based_sorts),lifted_app_sym_opt) = getFunctorSignature(f,[term])
            in
              if has_pred_based_sorts then
  	        let val arg_sort = getSort term

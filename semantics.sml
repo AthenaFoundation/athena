@@ -2182,6 +2182,7 @@ fun summarizeTopCallStack() = summarizeCallStack(pos_stack)
 fun massage(t) = 
   (case AT.isConstant(t) of 
       SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
+                         val is_lifted_fsym = D.isLiftedFSym(name)
                          val name_as_string = S.name(MS.lastName(name))
                          val is_lifted_fsym = String.sub(name_as_string,String.size(name_as_string)-1) = #"^"
                          val first_res = if is_lifted_fsym then SOME(name) else NONE
@@ -2196,8 +2197,7 @@ fun liftArg(arg_val,expected_arity,pos_opt) =
        SOME(regFSym(fsym)) => 
          if D.fsymArity(fsym) = expected_arity then 
             (* Lift fsym to its reified version fsym^ as a constant term *)
-            let val _ = print("LIFTING ARGUMENT !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                val fsym_name = D.fsymName(fsym)
+            let val fsym_name = D.fsymName(fsym)
                 val lifted_fsym_name = D.liftMSName(fsym_name)
                 val lifted_term_constant = AT.makeConstant(lifted_fsym_name)
             in 

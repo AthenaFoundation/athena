@@ -154,6 +154,12 @@ fun funSortArity(t) =
 fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) = 
     F.makeApp(Names.fun_name_msym,argument_types @ [range_type])
 
+fun isLiftedFSym(name:MS.mod_symbol) = 
+  let val name_as_string = S.name(MS.lastName(name))
+  in 
+    (String.sub(name_as_string,String.size(name_as_string)-1) = #"^")
+  end 
+
 fun makeLiftedAbsynType(absyn_argument_types:A.absyn_term list, absyn_range_type: A.absyn_term) = 
      SymTerm.makeTaggedApp(Names.fun_name_msym,
 			   SymTerm.getTopTag(absyn_range_type),

@@ -2691,7 +2691,7 @@ define chain-transformer :=
 
 (define (compile-entry equation mod-path)
   (let (
-        #(_ (print "\nCalling compile-entry on equation: " equation))
+        (_ (print "\nCalling compile-entry on equation: " equation))
         (translate-symbol (lambda (g) 
                             (let ((long-name (get-eval-proc-name-1 g))
                                   #(_ (print "\nMOD PATH: " mod-path))
@@ -2709,9 +2709,10 @@ define chain-transformer :=
                                            ((some-var x) (apply-map mapping x))
                                            (((some-symbol g) []) (val->string g))
                                            (((some-symbol g) (some-list args))
+                                             (let ((_ (print "\nHERE's g: " (val->string g))))
                                                (check ((equal? g =) 
                                                         (join lp (translate-symbol g) blank (separate (map loop args) blank) rp))
-                                                      (else (join lp (translate-symbol g) blank (separate (map loop args) blank) rp))))))))
+                                                      (else (join lp (translate-symbol g) blank (separate (map loop args) blank) rp)))))))))
                           (loop term))))) 
         (compile-guard (lambda (guard mapping translate-symbol)
                          (letrec ((loop (lambda (g)
@@ -3530,14 +3531,32 @@ define chain-transformer :=
    (try (let ((name (get-eval-proc-name-generic f (mod-path))))
           (evaluate name))
         (evaluate (get-eval-proc-name f))))
-        
-(define (app` proc arg)
-  (let ((name (val->string proc)))
-    (check ((equal? [(first (rev name))] "^")
-             (let ((unlifted-sym (string->symbol (all-but-last name)))
-                   (unlifted-sym-computist (retrieve-eval-name unlifted-sym)))
-               (unlifted-sym-computist arg)))
-           (else (fail "")))))               
+
+(define (find-matching-app-axiom proc args)
+  (let  ((_ (print "\nEntering find-matching-app-axiom with proc: " proc " and args: " (val->string args)))
+         (app-term (make-term app (add proc args)))
+         (_ (print "\nHERE's APP-TERM: " app-term))
+         (match-prop  (lambda (p)
+                        (match p
+                          ((forall (some-list uvars) (= (lhs as (app (some-list terms))) rhs))
+                             (let ((match-res (match-terms app-term lhs)))
+                               (match match-res 
+                                 ((some-sub sub) [sub rhs])
+                                 (_ ()))))
+                          (_ ())))))                                
+      (letrec ((loop (lambda (props)
+                         (match props
+                            ([] ())
+                            ((list-of p more)
+                              (let ((_ (print "\nAbout to apply match-prop to this sentence: " p))
+                                    (res (match-prop p))
+                                    (_ (print "\nRESULT: " res)))
+                                (match res
+                                  (() (loop more))
+                                  (res res))))))))
+ 
+         (loop (ab)))))
+                                                   
 
 (define 
  (eval1 t)
@@ -3570,6 +3589,18 @@ define chain-transformer :=
     ((if p1 p2) (eval1 (or (not p1) p2)))
     ((iff p1 p2) (eval1 (and (if p1 p2) (if p2 p1))))
     (_ t))
+  (app` proc args)
+     (let ((_ (print "\nEVALUATING AN APP of this proc: " proc " to these args: " args))
+           (args (check ((list? args) args) (else [args])))
+           (name (val->string proc)))
+        (check ((equal? [(first (rev name))] "^")
+                 (let ((unlifted-sym (string->symbol (all-but-last name)))
+                       (unlifted-sym-computist (retrieve-eval-name unlifted-sym)))
+                   (app-proc unlifted-sym-computist args)))
+               (else (match (find-matching-app-axiom proc args)
+                       ([sub rhs] (let ((_ (print "\nFound sub: " sub " and rhs: " rhs)))
+                                    (eval1 (sub rhs))))
+                       (res  (let ((_ (print "\nDid NOT find a sub, found this instead: " res))) res))))))
   (eval t)
    (check ((has-vars? t) (print "\nNon-ground term given as input, unable to reduce the term:\n" t "\nto a normal form.\n"))
     (else (try (eval1 t)
@@ -3695,6 +3726,8 @@ define chain-transformer :=
          (else (val->string t))))
 
  (define (compile-term-new term mapping mod-path evaluator-name)
+   (let (#(_ (print "\nCOMPILING THIS TERM: " term)))
+        )
     (letrec ((loop (lambda (t)
                 (match t
                    ((some-var x) (try (match (apply-map mapping x)
@@ -3703,11 +3736,14 @@ define chain-transformer :=
                                       (val->string t)))
                    ((g []) (compile-constant-term t mod-path evaluator-name))
                    ((g (some-list args))
-                     (check ((&& false (equal? evaluator-name "reduce")
-		                 (equal? (fsd0 g) ()))
-                               (join lp (symbol->string g) " "  (separate (map loop args) blank) rp))
-                            (else (join lp (translate-symbol-new g mod-path evaluator-name) blank (separate (map loop args) blank) rp))))))))
-       (loop term)))
+                     (check ((&& false (equal? evaluator-name "reduce") (equal? (fsd0 g) ()))
+                                (join lp (symbol->string g) " "  (separate (map loop args) blank) rp))
+ 
+                             ((&& (equal? g app) (greater? (length args) 0))
+                                (let (([first-arg rest-args] [(first args) (tail args)]))
+                                 (join lp (translate-symbol g) blank (loop first-arg) blank lb (separate (map loop rest-args) blank) rb rp)))
+                             (else (join lp (translate-symbol-new g mod-path evaluator-name) blank (separate (map loop args) blank) rp))))))))
+       (loop term))))
 
 
  (define (compile-arg-new term mapping mod-path evaluator-name)

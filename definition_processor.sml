@@ -1929,7 +1929,7 @@ fun addFSymDefInfoAndCompile(p,
                     end
                   else NONE
         | SOME({fsym=f,right_syms=right_syms,left_syms=left_syms,guard_syms=guard_syms',defining_props=defining_props,...}) => 
-            if MS.modSymEq(f,Names.mequal_logical_symbol) orelse Data.isFreeStructureConstructor(f) then NONE
+            if MS.modSymEq(f,Names.mequal_logical_symbol) orelse Data.isFreeStructureConstructor(f) orelse MS.modSymEq(f,Names.app_fsym_mname) then NONE
             else 
                 let val _ = debugPrint("\nThis is a defining equation, for symbol: " ^ (MS.name f)
 				       ^ "\nHere is the asserted sentence:\n"^(pprint(0,p))^
