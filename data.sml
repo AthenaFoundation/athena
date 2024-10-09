@@ -156,9 +156,7 @@ fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) =
 
 fun isLiftedFSym(name:MS.mod_symbol) = 
   let val name_as_string = S.name(MS.lastName(name))
-      val _ = print("\nInside isLiftedFSym on name: " ^ name_as_string)
       val res:bool = (String.sub(name_as_string,String.size(name_as_string)-1) = #"^")
-      val _ = print("\nRES: " ^ (Basic.boolToString res))
   in 
     res
   end 
