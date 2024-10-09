@@ -1,0 +1,143 @@
+#************************** EXAMPLE 1: QUANTIFY OVER BINARY RELATIONS **************************
+
+# Pick any arbitrary binary relation R and show that if R is irreflexive and transitive,
+# then it's also asymmetric:
+
+define irref&tran=>asym := 
+  pick-any R:(Fun 'S 'S Boolean)
+    assume (irreflexive R & transitive R)
+      let {R:(OP 2) := R} # So we can use infix notation with R 
+        pick-any x:'S y:'S 
+          assume (x R y)
+            (!by-contradiction (~ y R x)
+              assume (y R x)
+                let {xRx  := (!chain-> [(x R y & y R x)
+                                    ==> (x R x)               [(transitive R)]]);
+                     -xRx := (!chain-> [true ==> (~ x R x)    [(irreflexive R)]])}
+                  (!absurd xRx -xRx))
+
+
+# Now we can instantiate (uspec) the theorem with a regular relation and lifting-delifting 
+# will happen automatically:
+
+(!uspec irref&tran=>asym <)
+
+# Should give the following:
+#
+# Theorem: (if (and (forall ?v989:Real
+#                     (not (< ?v989:Real ?v989:Real)))
+#                   (forall ?v990:Real
+#                     (forall ?v991:Real
+#                       (forall ?v992:Real
+#                         (if (and (< ?v990:Real ?v991:Real)
+#                                  (< ?v991:Real ?v992:Real))
+#                             (< ?v990:Real ?v992:Real))))))
+#              (forall ?v993:Real
+#                (forall ?v994:Real
+#                  (if (< ?v993:Real ?v994:Real)
+#                      (not (< ?v994:Real ?v993:Real))))))
+
+#************************** EXAMPLE 2: map, filter, etc. as functors **************************
+
+# map takes a functor f of sort (Fun S T) and a list l:(List S) and produces a list of T as a result: 
+
+declare map: (S,T) [(Fun S T) (List S)] -> (List T) [[id (alist->list id)]] 
+
+define mapped-to := map
+define [h t l f] := [?h:'S1 ?t:(List 'S2) ?l:(List 'S5) ?f:(Fun 'S3 'S4)]
+transform-output eval [(list->alist id)]
+
+# We can define a higher-order function using quite natural notation:
+
+assert* map-def := [(_ mapped-to nil = nil)
+                    (f mapped-to h::t = (f h) :: (f mapped-to t))]
+
+declare increment: [Int] -> Int
+assert* increment-def := [(increment x = x + 1)]
+
+# We can pass *regular* functions as direct arguments to functions that expect higher-order arguments.
+# For example, increment is a regular function symbol, yet we can pass it to map without any issues.
+# The following, for example, should give [2 3 4 5 6]:
+
+(eval (map increment [1 2 3 4 5]))
+
+# As an example of a HOL theorem, let's prove that the list we obtain by mapping a function f to a list l
+# has the same length as l:
+
+load "list-of"
+define len := List.length
+
+define goal := (forall l f . len f mapped-to l = len l)
+
+# Here is the proof. Note that higher-order symbols and their definitions are treated
+# just as if they were regular symbols and regular symbol definitions:
+
+by-induction goal {
+  (l as nil:(List 'S)) => 
+     pick-any f:(Fun 'S 'T)
+       (!chain [(len f mapped-to nil) 
+              = (len nil)                                  [map-def] 
+              = zero                                       [List.length.empty]
+              = (len l)                                    [List.length.empty]])
+| (l as (h::t:(List 'S))) =>
+     pick-any f:(Fun 'S 'T)
+       let {ih := (forall f . len f mapped-to t = len t)}
+         (!chain [(len f mapped-to l)
+                = (len ((f h)::(f mapped-to t)))           [map-def]
+                = (S len f mapped-to t)                    [List.length.nonempty]
+                = (S len t)                                [ih]
+                = (len l)                                  [List.length.nonempty]])
+}
+
+# Let's also define filter:
+
+declare filter: (S) [(Fun S Boolean) (List S)] -> (List S) [[id (alist->list id)]]
+
+define [pred f g] := [?pred:(Fun 'S Boolean) ?f:(Fun 'S1 'T1) ?f:(Fun 'S2 'T2) ]
+define [h t l] := [?h:'S5 ?t:(List 'S6) ?l:(List 'S7)]
+
+assert* filter-def := [(_ filter nil = nil)
+                       (pred filter h::t = ite (pred h)
+                                               (h::(pred filter t))
+                                               (pred filter t))]
+
+declare even: [Int] -> Boolean
+
+assert* even-def := [(even x <==> x % 2 = 0)]
+
+# Again, we can pass even to filter directly. The following should give [2 4 6]:
+(eval (filter even [1 2 3 4 5 6]))
+
+define in := List.in
+
+# As an exercise, the following is a good proof to give: 
+define filter-correctness := (forall l pred x . x in pred filter l <==> (x in l) & (pred x))
+
+
+#************************** EXAMPLE 3: FUNCTOR COMPOSITION **************************
+
+declare compose: (S1, S2, S3) [(Fun S2 S3) (Fun S1 S2)] -> (Fun S1 S3)
+define o := compose
+
+define [f1 f2 f3] := [?f1:(Fun 'S1 'T1) ?f2:(Fun 'S2 'T2) ?f3:(Fun 'S3 'T3)] 
+
+assert* compose-def := [(= ((f2 o f1) x)
+                           (f2 (f1 x)))]
+
+define increment-twice := (compose increment increment)
+
+(eval (increment-twice 5))
+
+(eval (map increment-twice [1 2 3]))
+
+declare identity: (S) [S] -> S
+assert* identity-def := [(identity x = x)]
+
+define (compose* functors) := (foldl compose identity functors)
+
+define increment-thrice := (compose* [increment increment increment])
+
+(eval (increment-thrice 5))
+
+(eval (map increment-thrice [1 2 3]))
+
