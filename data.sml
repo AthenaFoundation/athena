@@ -156,8 +156,11 @@ fun makeLiftedRangeType(argument_types:F.term list,range_type: F.term) =
 
 fun isLiftedFSym(name:MS.mod_symbol) = 
   let val name_as_string = S.name(MS.lastName(name))
+      val _ = print("\nInside isLiftedFSym on name: " ^ name_as_string)
+      val res:bool = (String.sub(name_as_string,String.size(name_as_string)-1) = #"^")
+      val _ = print("\nRES: " ^ (Basic.boolToString res))
   in 
-    (String.sub(name_as_string,String.size(name_as_string)-1) = #"^")
+    res
   end 
 
 fun makeLiftedAbsynType(absyn_argument_types:A.absyn_term list, absyn_range_type: A.absyn_term) = 
@@ -490,6 +493,15 @@ fun getObType(f) =
                                    Basic.fail("")
                                 end)
 		      end))
+
+
+fun getAppSig(args) = 
+   let val arg_sorts = map (fn _ => F.makeFreshVar()) args
+       val result_sort = F.makeFreshVar()
+       val fun_sort = F.makeApp(Names.app_fsym_mname,arg_sorts @ [result_sort])
+   in
+     (arg_sorts,result_sort,true,true)
+   end
 
 val (getSignature,removeMemoizedSignature) = 
    let val ht: (FTerm.term list * FTerm.term * bool * bool) MS.htable = MS.makeHTableWithInitialSize(79)
