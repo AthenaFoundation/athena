@@ -10,6 +10,11 @@ struct
   fun makeModSymbol x = x 
   fun name(_,_,s) = Symbol.name(s)
 
+  fun makeSimpleName(str) = 
+        let val s = Symbol.symbol(str)
+        in
+          ([],s,s)
+        end
 
   fun nameAsSymbol(_,_,s) = s
 

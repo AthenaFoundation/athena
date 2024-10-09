@@ -673,8 +673,8 @@ define [Nil Cons] := try { [nil ::] | [nil cons] }
 (define (list->alist inner)
   (letrec ((loop (lambda (L)
                    (match L 
-                     (Nil [])
-                     ((Cons x rest) (add (inner x) (loop rest)))
+                     (nil [])
+                     ((:: x rest) (add (inner x) (loop rest)))
                      (_ L)))))
      loop))
 

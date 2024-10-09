@@ -305,8 +305,9 @@ fun tokenize(e,evPhrase,op_table) =
                                SOME(fun_sort,sort_args) => 
                                  (* Shut this off for now, causing more problems than it solves. But still might make sense to 
                                     change the tokenizer to handle higher-order arguments in a different way... *)
-                                 if AT.isGeneralConstant(t) andalso MS.modSymEq(fun_sort,Names.fun_name_msym) then 
-                                   let val root_name = (case AT.isApp(t) of SOME(f,_) => f)
+                                 if false andalso MS.modSymEq(fun_sort,Names.fun_name_msym) (* andalso AT.isGeneralConstant(t) *) then 
+                                   let val root_name = (case AT.isApp(t) of SOME(f,_) => f 
+                                                                          | _  =>  MS.makeSimpleName("foo"))										      
                                        val root_arity = length(sort_args)-1							   
                                    in
                                       [OP({name=root_name,

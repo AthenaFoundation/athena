@@ -3570,6 +3570,8 @@ define chain-transformer :=
          (loop (ab)))))
                                                    
 
+(define Map map)
+
 (define 
  (eval1 t)
     (match t 
@@ -3583,17 +3585,23 @@ define chain-transformer :=
                               (args' (map eval1 args))
                               (res (try (app-proc f' args') (make-term f args'))))
                            (check ((poly? res) (rhs (= t res))) (else res))))))
-               (else (let ((f' (try (let ((name (get-eval-proc-name-generic f (mod-path)))
+               (else (let (#(_ (print "\nHERE IS f: " (val->string f) "\nAND ARGS: " (val->string args) "\nSYMBOL? f: " (symbol? f)))
+                           (f' (try (let ((name (get-eval-proc-name-generic f (mod-path)))
+                                          (res (evaluate name))
                                          )
-                                      (evaluate name))
+                                      res)
                                     (evaluate (get-eval-proc-name f))))
                           # When f is app, examine the first argument: if it's lifted, then apply the de-lifted version to the rest of the args
                           # Otherwise, if it's not lifted but a proper higher-order constant term f:(Fun ...), then try to find axioms of the form
-                          # (forall ... . app f ... = RHS) and produce the appropriate instance of RHS. 
-                           (res (check ((equal? (val->string f') "app")
-                                           (let ((_ (print "\nEvaluating an app of app to these args: " args)))
-                                             (fail "")))
-                                       (else (app-proc f' (map eval1 args))))))
+                          # (forall ... . app f ... = RHS) and produce the appropriate instance of RHS.
+                           (res (check ((equal? (val->string f) "app")
+                                           (let (#(_ (print "\nEvaluating an app of app to these args: " args))
+                                                )
+                                             (app` (first args) (tail args))))
+                                       (else (let ((eval-arg (lambda (arg) (try (eval1 arg) arg)))
+                                                   (evaluated-args (map eval-arg args)))                                                                                    
+                                               (app-proc f' evaluated-args))
+                                             ))))
                         (check ((poly? res) (rhs (= t res))) (else res))))))
     ((not p) (negate (eval1 p)))
     ((and (some-list args)) (&&* (map eval1 args)))
