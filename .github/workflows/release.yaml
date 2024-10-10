@@ -84,7 +84,7 @@ jobs:
 
   release-macos:
     name: Release binaries and supporting files (macos)
-    runs-on: macos-latest
+    runs-on: macos-13
     needs: [generate-release, compare_latest_tag_and_current_version]
     if: |
       (needs.compare_latest_tag_and_current_version.outputs.current_version != 
