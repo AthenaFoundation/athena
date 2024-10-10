@@ -404,7 +404,12 @@ fun inapplicable(phrase) =
   (case phrase of
       exp(taggedConSym(_)) => true
     | exp(numExp(_)) => true
-    | exp(termVarExp(_)) => true
+    | exp(termVarExp({user_sort,...})) =>
+           (case user_sort of 
+               NONE => true
+             | SOME(sort) => (case SymTerm.isTaggedApp(sort) of
+                                 SOME(f,_,args) => not(MS.modSymEq(f,Names.fun_name_msym))
+				| _ => true))
     | exp(quotedIdeExp(_)) => true
     | exp(unitExp(_)) => true
     | exp(charExp(_)) => true

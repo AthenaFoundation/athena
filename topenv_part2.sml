@@ -10,6 +10,8 @@ struct
 
 open TopEnv1
 
+fun debugPrint(str) = if !Options.first_time then () else if !(Options.call_stack_size) < 201 then () else print(str)
+
 fun isSortInstanceFun([v1,v2],(env,_),{pos_ar,file}) = 
      (case (coerceValIntoTerm(v1),coerceValIntoTerm(v2)) of 
          (SOME(t1),SOME(t2)) => (case AT.isSortInstance(t1,t2) of
@@ -1382,152 +1384,6 @@ fun eqSymPrimUMethod(v,env,ab) =
                    | _ => primError("Incorrect application of "^N.eqSymPrimMethod_name^"; the given argument must be an identity"))
     | _ => primError("Incorrect application of "^N.eqSymPrimMethod_name^"; the given argument must be an identity."))
 
-fun uSpecPrimMethod([v1,v2],(env,ab),{pos_ar,file}) = 
-     (case coerceValIntoProp(v1) of
-         SOME(P) => (case P.isUGen(P) of 
-                       SOME(v,body) =>
-                          (case coerceValIntoTerm(v2) of
-                              SOME(t) => 
-                                 let val v_sort = ATV.getSort(v)
-				     val t_sort = AT.getSort(t)
-				     val _ = checkAbMembers([(P,Array.sub(pos_ar,2))],ab,
-							     N.uspecPrimMethod_name)
-				     val msg = "Invalid use of "^N.uspecPrimMethod_name^
-					       ": the sort of the term\n"^
-						AT.toPrettyString(0,t,F.varToString)^
-						"\nis incompatible with the sort of the "^
-						"universally quantified variable in the sentence:\n"^
-						P.toPrettyString(0,P,F.varToString)
-                                     val res_prop = let val sort_sub = 
-						             (case F.isSubSort(t_sort,v_sort) of
-						                 SOME(sub) => sub
-					                       | _ => evError(msg,getPosOpt(pos_ar,0)))
-					            in
-						      Prop.replaceVarByTermOfSomeSubSort(v,t,body,sort_sub)
-					            end
-                                 in
-                                    propVal(res_prop)
-                                 end
-                            | _ => evError(wrongArgKind(N.uspecPrimMethod_name,2,termLCType,v2),getPosOpt(pos_ar,3)))
-                     | _ => evError(dwrongArgKind(N.uspecPrimMethod_name,1,"a universal generalization",P),
-                                    getPosOpt(pos_ar,2)))
-       | _ => evError(wrongArgKind(N.uspecPrimMethod_name,1,propLCType,v1),getPosOpt(pos_ar,2)))
-  | uSpecPrimMethod(args,(env,ab),{pos_ar,file}) = 
-       evError(wrongArgNumber(N.uspecPrimMethod_name,length(args),2),getPosOpt(pos_ar,0))
-
-fun uSpecPrimBMethod(v1,v2,env,ab) = 
-     (case coerceValIntoProp(v1) of
-         SOME(P) => (case P.isUGen(P) of 
-                       SOME(v,body) =>
-                          (case coerceValIntoTerm(v2) of
-                              SOME(t) => 
-                                 let val v_sort = ATV.getSort(v)
-				     val t_sort = AT.getSort(t)
-				     val _ = checkOneAbMemberNoPos(P,ab,N.uspecPrimMethod_name)
-				     val msg = "Invalid use of "^N.uspecPrimMethod_name^
-					       ": the sort of the term\n"^
-						AT.toPrettyString(0,t,F.varToString)^
-						"\nis incompatible with the sort of the "^
-						"universally quantified variable in the sentence:\n"^
-						P.toPrettyString(0,P,F.varToString)
-                                     val res_prop = let val sort_sub = 
-						             (case F.isSubSort(t_sort,v_sort) of
-						                 SOME(sub) => sub
-					                       | _ => primError(msg))
-					            in
-						      Prop.replaceVarByTermOfSomeSubSort(v,t,body,sort_sub)
-					            end
-                                 in
-                                    propVal(res_prop)
-                                 end
-                            | _ => primError(wrongArgKind(N.uspecPrimMethod_name,2,termLCType,v2)))
-                     | _ => primError(dwrongArgKind(N.uspecPrimMethod_name,1,"a universal generalization",P)))
-       | _ => primError(wrongArgKind(N.uspecPrimMethod_name,1,propLCType,v1)))
-
-fun eGenPrimMethod([v1,v2],env,ab) = 
-     (case coerceValIntoProp(v1) of 
-         SOME(P) => 
-            (case P.isEGen(P) of 
-                SOME(v,body) => 
-                    (case coerceValIntoTerm(v2) of
-                        SOME(witness) => 
-                            let val v_sort = ATV.getSort(v)
-				val w_sort = AT.getSort(witness)
-				val sort_sub_opt = F.isSubSort(w_sort,v_sort)
-				fun f() = let val vsp = F.makeVarSortPrinter()
- 				          in
-						primError("Failed existential generalization---the sort of the "^
-						          "witness term: \n"^(AT.toPrettyString(0,witness,vsp))^
-						          "\nis not a subsort of the existentially "^
-						          "quantified variable:\n"^(ATV.toPrettyString(0,v,vsp)))
-					   end
-				val sort_sub = (case sort_sub_opt of NONE => f() | SOME(s) => s)
-				val witness_prop = Prop.replaceVarByTermOfSomeSubSort(v,witness,body,sort_sub)
-                            in
-                               if ABase.isMember(witness_prop,ab) then
-                                  propVal(P)
-                               else
-                                  primError("Failed existential generalization---the "^
-					  "required witness sentence\n"^
-                                          pprint(0,witness_prop)^"\nis not in the assumption base")
-                            end
-                      | _ => primError(wrongArgKind(N.egenPrimMethod_name,2,termLCType,v2)))
-              | _ => primError(dwrongArgKind(N.egenPrimMethod_name,1,"an existential generalization",P)))
-       | _ => primError(wrongArgKind(N.egenPrimMethod_name,1,propLCType,v1)))
-  | eGenPrimMethod(args,_,_) = primError(wrongArgNumber(N.egenPrimMethod_name,length(args),2))
-
-fun eGenUniquePrimMethod([v1,v2],env,ab) = 
-     (case coerceValIntoProp(v1) of 
-         SOME(P) =>
-            (case P.isEGenUnique(P) of
-                SOME(v,body) => 
-                    (case coerceValIntoTerm(v2) of
-                        SOME(witness) => 
-                            let val body' = body
-                                val witness_prop = Prop.replace(v,witness,body)
-                                val fresh_var1 = ATV.fresh()
-                                val fresh_var2 = ATV.fresh()
-                                val (fresh_term1,fresh_term2) =(AthTerm.makeVar(fresh_var1),
-                                                                AthTerm.makeVar(fresh_var2))
-                                val prop1 = Prop.replace(v,fresh_term1,body')
-                                val prop2 = Prop.replace(v,fresh_term2,body')
-                                val desired_conclusion1 = Prop.makeEquality(fresh_term1,fresh_term2)
-                                val desired_conclusion2 = Prop.makeEquality(fresh_term2,fresh_term1)
-                                val uniqueness_prop1 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
-                                                       Prop.makeConditional(Prop.makeConjunction([prop1,prop2]),
-                                                                 desired_conclusion1)))
-                                val uniqueness_prop2 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
-                                                       Prop.makeConditional(Prop.makeConjunction([prop2,prop1]),
-                                                                 desired_conclusion1)))
-                                val uniqueness_prop3 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
-                                                       Prop.makeConditional(Prop.makeConjunction([prop1,prop2]),
-                                                                 desired_conclusion2)))
-                                val uniqueness_prop4 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
-                                                       Prop.makeConditional(Prop.makeConjunction([prop2,prop1]),
-                                                                 desired_conclusion2)))
-                                val uniqueness_holds = (ABase.isMember(uniqueness_prop1,ab) orelse
-                                                        ABase.isMember(uniqueness_prop2,ab) orelse
-                                                        ABase.isMember(uniqueness_prop3,ab) orelse
-                                                        ABase.isMember(uniqueness_prop4,ab))
-                            in
-                               if not(ABase.isMember(witness_prop,ab)) then
-                                  primError("Failed existential generalization: the witness sentence\n"^
-                                          pprint(0,witness_prop)^"\nis not in the assumption base"
-                                          )
-                               else 
-                                  if not(uniqueness_holds) then
-                                     primError("Failed unique existential generalization: the required uniqueness "^
-                                             "condition:\n"^pprint(0,uniqueness_prop1)^"\nis not in "^
-                                             "the assumption base")
-                               else
-                                   propVal(P)
-                            end
-                      | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,2,termLCType,v2)))
-              | _ => primError(dwrongArgKind(N.egenUniquePrimMethod_name,1,"a unique existential generalization",P)
-                                           ))
-       | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,1,propLCType,v1)))
-  | eGenUniquePrimMethod(args,env,ab) = 
-        primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
 
 val init_last_proof_val = MLStringToAthString("(apply-method claim true)")
 
@@ -2359,7 +2215,7 @@ fun makePolySpassPropStringFun([v],env,_) =
   | makePolySpassPropStringFun(_) = raise Basic.Never
 
 fun makePolySpassTermStringFun([v],env,_) = 
-   let val [term] = getTermsNoPos([v],"the argument of "^"make-poly-spass-term")
+   let val [term] = getTermsNoPos([v],"the argument of "^"make-poly-spass-term",NONE)
        val printer = F.makePolyVarSortPrinter()     
        val variableRenamer = Basic.varRenamer;
        val fsymRenamer = Basic.fsymRenamer;
@@ -3241,7 +3097,6 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
   let 
       fun evaluatePhrase(e) = evalPhrase((e,fids),eval_env,!top_assum_base)
       val no_op_val = (~1,~1)
-      fun debugPrint(str) = if !(Options.call_stack_size) < 201 then () else print(str)
       fun headInapplicable(proc) = A.inapplicable(proc) 
                                       orelse (case proc of
                                                A.exp(e as A.idExp(_)) => ((case Semantics.isApplicable(evaluatePhrase(A.exp e)) of
@@ -3253,10 +3108,16 @@ fun infixProcess(p:A.phrase,eval_env,fids) =
              let val proc' = ipPhrase(proc,op_table) 
                  val args' = map (fn p => ipPhrase(p,op_table)) args  
                  val infix_likely = headInapplicable(proc)  
+(***
+                 val _ = debugPrint("\nCalling ipExp on this app: " ^ (A.unparseExp e) ^ "\nInfix_likely: " ^ (Basic.boolToString infix_likely))
+***)
              in
                if length(args) = 0 then e
                else 
-                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table) val _ = () in res end),"")
+                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table)
+                                 val _ = () 
+                             in res 
+                             end),"")
                              handle InfixParser.InfixParseError(msg) => (NONE,msg)
                                   | Semantics.EvalError(msg,_) => (NONE,msg)
                                   | _ => (NONE,"")) of

@@ -13,9 +13,13 @@ signature MOD_SYMBOL =sig
 
   val makeModSymbol' : Symbol.symbol list * Symbol.symbol -> mod_symbol
 
+  val makeSimpleName: string -> mod_symbol
+
   val name : mod_symbol -> string
 
   val nameAsSymbol : mod_symbol -> Symbol.symbol 
+
+  val unlift: mod_symbol -> mod_symbol				       
 
   val makeName: Symbol.symbol list * Symbol.symbol -> string
 

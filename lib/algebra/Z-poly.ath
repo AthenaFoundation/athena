@@ -20,20 +20,20 @@ load "integer-plus"
 
 module ZPS {
 
-domain (Fun N Z)
-declare zero: (Fun N Z)
-declare Apply: [(Fun N Z) N] -> Z
+domain (Function N Z)
+declare zero: (Function N Z)
+declare Apply: [(Function N Z) N] -> Z
 
 define +' := Z.+
 define zero' := Z.zero
 
-define [p q r i k] := [?p:(Fun N Z) ?q:(Fun N Z) ?r:(Fun N Z) ?i:N ?k:N]
+define [p q r i k] := [?p:(Function N Z) ?q:(Function N Z) ?r:(Function N Z) ?i:N ?k:N]
 
 assert equality :=
   (forall p q . (p = q <==> (forall i . (Apply p i) = (Apply q i))))
 assert zero-definition := (forall i . (Apply zero i) = zero')
 
-declare +: [(Fun N Z) (Fun N Z)] -> (Fun N Z)
+declare +: [(Function N Z) (Function N Z)] -> (Function N Z)
 
 module Plus {
 
@@ -69,7 +69,7 @@ define commutative := (forall p q . p + q = q + p)
 define associative := (forall p q r . (p + q) + r = p + (q + r))
 
 conclude commutative
-  pick-any p:(Fun N Z) q:(Fun N Z)
+  pick-any p:(Function N Z) q:(Function N Z)
     let {lemma :=
           pick-any i:N
             (!chain [(Apply (p + q) i)
@@ -79,7 +79,7 @@ conclude commutative
     (!chain-> [lemma ==> (p + q = q + p)        [equality]])
 
 conclude associative
-  pick-any p:(Fun N Z) q:(Fun N Z) r:(Fun N Z) 
+  pick-any p:(Function N Z) q:(Function N Z) r:(Function N Z) 
     let {lemma := 
           pick-any i:N
             (!chain 
@@ -93,14 +93,14 @@ conclude associative
     (!chain-> [lemma ==> ((p + q) + r = p + (q + r))     [equality]])
 } # Plus
 
-declare Negate: [(Fun N Z)] -> (Fun N Z)
+declare Negate: [(Function N Z)] -> (Function N Z)
 
 module Negate {
 assert definition := 
          (forall p i . (Apply (Negate p) i) = (Z.negate (Apply p i)))
 } # Negate
 
-declare -: [(Fun N Z) (Fun N Z)] -> (Fun N Z)
+declare -: [(Function N Z) (Function N Z)] -> (Function N Z)
 
 module Minus {
 assert definition := (forall p q .  p - q = p + Negate q)
@@ -142,7 +142,7 @@ conclude left-inverse
 #                                           (Apply p i) = Z.zero))))
 # The above yields an error: ill-formed symbol definition.
 
-declare poly: [(Fun N Z)] -> Boolean
+declare poly: [(Function N Z)] -> Boolean
 
 define <= := N.<=
 

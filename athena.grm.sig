@@ -80,6 +80,7 @@ val RIGHT_AND:  'a * 'a -> (svalue,'a) token
 val LEFT_AND:  'a * 'a -> (svalue,'a) token
 val SOME_SYMBOL:  'a * 'a -> (svalue,'a) token
 val META_ID:  'a * 'a -> (svalue,'a) token
+val FUN:  'a * 'a -> (svalue,'a) token
 val BY_CASES:  'a * 'a -> (svalue,'a) token
 val ASGN:  'a * 'a -> (svalue,'a) token
 val BOTH:  'a * 'a -> (svalue,'a) token

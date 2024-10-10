@@ -23,7 +23,7 @@ fun getPos((l,p)) = {line=l,pos=p,file=(!Paths.current_file)}
        LPAREN | RPAREN | COMMA | CLAIM | LEFT_BRACKET | RIGHT_BRACKET | SET | ARROW | WILDCARD | SOME_CHAR |
        FUNCTION | METHOD | MATCH | LET | LET_UPPER | DLET | TRY | DTRY | APPLY_METHOD | SOME_VAR | SEQ | DSEQ | SOME_VECTOR | MAP_BEGIN | MAP_END | 
        EQUAL_SIGN | ASSERT | ASSERT_CLOSE | ASSUME | ASSUME_LET | SUPPOSE_ABSURD | SUPPOSE_ABSURD_LET | ON | PROVE | 
-       DMATCH | EITHER | ABSURD | MP | DN | EQUIV | LEFT_IFF | RIGHT_IFF | BOTH  | ASGN | BY_CASES | 
+       DMATCH | EITHER | ABSURD | MP | DN | EQUIV | LEFT_IFF | RIGHT_IFF | BOTH  | ASGN | BY_CASES | FUN | 
        META_ID | SOME_SYMBOL | LEFT_AND | RIGHT_AND | CD | VAL_OF | VAR | FUN_ARROW | DATATYPE | DATATYPES | DEFINE_SORT | 
        SOME_LIST | SOME_CELL | SOME_SUB | SOME_TABLE | SOME_MAP | DEFINE | POUND | STRUCTURE | STRUCTURES | DOMAIN | WHERE | PROVIDED | 
        DECLARE | DDECLARE | DIRECTIVE_PREFIX | EGEN | BEGIN | WHILE | CLEAR | THE | DEFINE_SYMBOL | DOMAINS | OVER  | 
@@ -1051,6 +1051,11 @@ user_sort: QUOTE_SYMBOL ID (SymTerm.makeTaggedVar(Symbol.symbol(ID),getPos(QUOTE
                  in
                    SymTerm.makeTaggedApp(A.makeMS(ID,SOME id_pos),id_pos,one_or_more_user_sorts)
                  end)
+         | LPAREN FUN one_or_more_user_sorts RPAREN 
+		(let val id_pos = getPos(FUNleft)
+                 in 
+                   SymTerm.makeTaggedApp(A.makeMS("Fun",SOME id_pos),id_pos,one_or_more_user_sorts)
+                 end)
 
 one_or_more_user_sorts: user_sort ([user_sort])
                       | user_sort one_or_more_user_sorts (user_sort::one_or_more_user_sorts)
@@ -1466,6 +1471,11 @@ athena_object_type:
                        in 
                           SymTerm.makeTaggedConstant(A.makeMS(ID,SOME id_pos),id_pos)
                        end)
+                  | LPAREN FUN one_or_more_athena_object_types RPAREN
+                       (let val id_pos = getPos(FUNleft)
+                        in
+                           SymTerm.makeTaggedApp(A.makeMS("Fun",SOME id_pos),id_pos,one_or_more_athena_object_types)
+                        end)
                   | LPAREN ID one_or_more_athena_object_types RPAREN
                        (let val id_pos = getPos(IDleft)
                         in

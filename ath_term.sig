@@ -304,6 +304,7 @@ sentence variables. **)
    val applyLst: FTerm.sub * (variable list) * (fsymbol * sort) list * term list -> term list 
 
    val evaluateString:(string -> unit) ref
+   val fauxTermToPrettyString: int * fsymbol * term list -> string 
 
 end
 

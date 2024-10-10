@@ -82,6 +82,17 @@ with
     fun areLegal(terms,arityOf,isLegalVariable) = 
           Basic.forall(terms,fn t => isLegal(t,arityOf,isLegalVariable))
 
+     fun isLegalFlex(Var(v),_,isLegalVariable,_) = isLegalVariable v
+       | isLegalFlex(App(f,terms),arityOf,isLegalVariable,flex_fun_name_msym) = 
+             (case arityOf(f) of
+                SOME(n) => n = length(terms) andalso 
+                           Basic.forall(terms,fn t => isLegalFlex(t,arityOf,isLegalVariable,flex_fun_name_msym))
+               (*** Treat the designated flex_fun_name_msym in a special way ***)
+              | NONE => if ModSymbol.modSymEq(flex_fun_name_msym,f) then Basic.forall(terms,fn t => isLegalFlex(t,arityOf,isLegalVariable,flex_fun_name_msym)) else false)
+
+    fun areLegalFlex(terms,arityOf,isLegalVariable,flex_fun_name_msym) = 
+          Basic.forall(terms,fn t => isLegalFlex(t,arityOf,isLegalVariable,flex_fun_name_msym))
+
     fun getDom(t) = 
 	let fun dom(Var(_)) = [[]] 
 	      | dom(App(f,[])) = [[]]
@@ -323,6 +334,24 @@ with
                                     else
                                        checkLst(terms)
                        | NONE => SOME(tag))
+            and
+                checkLst([]) = NONE 
+              | checkLst(t::more) = (case check(t) of 
+                                        NONE => checkLst(more)
+                                      | r => r)
+            in
+              check(t)
+        end                   
+
+    fun isTaggedLegalFlex(t,arityOf,isLegalVariable,flex_fun_name_msym) = 
+        let fun check(Var(v,tag)) = if isLegalVariable(v) then NONE else SOME(tag)
+              | check(App(f,tag,terms)) =
+                     (case arityOf(f) of
+                         SOME(n) => if not(n = length(terms)) then
+                                       SOME(tag)
+                                    else
+                                       checkLst(terms)
+                       | NONE => if ModSymbol.modSymEq(flex_fun_name_msym,f) then checkLst(terms) else SOME(tag))
             and
                 checkLst([]) = NONE 
               | checkLst(t::more) = (case check(t) of 
