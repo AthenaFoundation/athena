@@ -206,8 +206,6 @@
 #    (writeln-val (map2 add [] [[4 5] [6 7] [8 9 10]]))
 #    (writeln-val (map2 add [1 2 3] []))))
 
-define (non-empty? L) := (match L ((list-of _ _) true) ([] false))
-
 (define (map-select f L pred)
   (letrec ((loop (lambda (L results) 
                    (match L 
@@ -492,7 +490,7 @@ define (flatten L) := (foldl join [] L)
     ([[] _] true)
     ([(list-of x rest1) (list-of x rest2)] (prefix? rest1 rest2))
     (_ false)))
-
+   
 (define (find-min-rest l fun)
   (letrec ((f (lambda (rem rest min i)
 		(match rem

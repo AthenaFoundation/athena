@@ -39,9 +39,11 @@ define irref&tran=>asym :=
 
 #************************** EXAMPLE 2: map, filter, etc. as functors **************************
 
-# map takes a functor f of sort (Fun S T) and a list l:(List S) and produces a list of T as a result: 
+# map takes a functor f of sort (Fun S T) and a list l:(List S) and produces a list of T as a result:
+# The use of the lambda-promote input expander is optional but allows us to use lambda abstractions
+# directly as arguments, as explained below. 
 
-declare map: (S,T) [(Fun S T) (List S)] -> (List T) [[id (alist->list id)]] 
+declare map: (S,T) [(Fun S T) (List S)] -> (List T) [[lambda-promote (alist->list id)]] 
 
 define mapped-to := map
 define [h t l f] := [?h:'S1 ?t:(List 'S2) ?l:(List 'S5) ?f:(Fun 'S3 'S4)]
@@ -113,7 +115,6 @@ define in := List.in
 # As an exercise, the following is a good proof to give: 
 define filter-correctness := (forall l pred x . x in pred filter l <==> (x in l) & (pred x))
 
-
 #************************** EXAMPLE 3: FUNCTOR COMPOSITION **************************
 
 declare compose: (S1, S2, S3) [(Fun S2 S3) (Fun S1 S2)] -> (Fun S1 S3)
@@ -141,3 +142,21 @@ define increment-thrice := (compose* [increment increment increment])
 
 (eval (map increment-thrice [1 2 3]))
 
+#**************************** Lambda promotions ****************************
+
+# Recall again the use of lambda-promote as the first input expander in the declaration of map: 
+
+# declare map: (S,T) [(Fun S T) (List S)] -> (List T) [[lambda-promote (alist->list id)]]
+
+# This allows us to use anonymous lambdas as if they were functors. The lambda-promote expander,
+# defined in util.ath, does the following when applied to a closure C: First, it declares a fresh,
+# randomly named function symbol f of the same arity N as C. Then, it *asserts* the following axiom
+# for f: (foral x_1 ... x_N . (f x_1 ... x_n) = (C x_1 ... X_n)), where x_1, ..., x_N are fresh
+# variables and (C x_1 ... X_n) is the result of applying the given closure to them. It then literally
+# promotes the given lambda C to f, i.e. (lambda-promote C) will return f. This allows us, for instance,
+# to write things like the following, which should return [4 9 16]: 
+
+(eval (map lambda (x) (* x x)
+           [2 3 4]))
+
+# Basically, it allows anonymous lambdas in any context that expects a term of sort (Fun ...). 

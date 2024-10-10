@@ -5011,4 +5011,71 @@ define (define-tuple-datatype n) :=
                                    (1 to n))
                               " ");                                    
        cmd := (join "datatype (" n-str "-Tuple " sort-params ") := (" n-str "-tuple " selectors ")")}
-    (process-input-from-string cmd)    
+    (process-input-from-string cmd)
+
+define all-chars := (map char (97 to 122))
+
+define random-char :=
+  let {all-chars := (join (map char (48 to 57))
+                          (map char (97 to 122)))}
+    lambda ()
+       (nth (random-int 36) all-chars)
+      
+
+define (make-fresh-symbol-name) :=
+  let {len := (plus 6 (random-int 10));
+       chars := (map (lambda (_) (random-char)) (1 to len))}
+   (join "random-fsym-" chars)        
+       
+
+define (get-sort-params sort-strings) := 
+   let {str := (separate sort-strings " ");
+        toks := (tokenize str "() ")}
+     (map (lambda (s) (drop s 1))
+          (dedup (filter toks (lambda (tok) (equal? (first tok) (char 39))))))
+
+
+define (non-empty? l) := (negate (null? l))
+
+define (drop-quotes str) :=
+  letrec {loop := lambda (chars so-far)
+                     match chars {
+                       [] => (rev so-far)
+                     | (list-of c rest) =>
+                                 check {(&& (equals? c (char 39))
+                                             (non-empty? so-far)
+                                             (equals? (first so-far) (char 32))) => (loop rest so-far)
+                                        | else => (loop rest (add c so-far))}
+                     }}
+     (loop str [])
+     
+
+define (promote-aux f) := 
+  let {arity := (arity-of f);
+       fresh-args := (map (lambda (_) (fresh-var)) (1 to arity));
+       fresh-arg-names := (map var->string fresh-args);
+       eqn := (= (app-proc f fresh-args) ?res);
+       result-sort := (sort-of (rhs eqn));
+       arg-sort-pairs := (map (lambda (v)
+                           [(var->string v) (sort-of v)])
+                         (dedup (filter (vars (lhs eqn)) (lambda (v) (member? (var->string v) fresh-arg-names)))));
+       arg-sort-map := (Map.make arg-sort-pairs);
+       arg-sorts := (map (lambda (v)
+                           (arg-sort-map v))
+                         fresh-arg-names);
+       sort-params := (get-sort-params (add result-sort arg-sorts));
+       fresh-name := (make-fresh-symbol-name);
+       sort-param-open := check {(null? sort-params) => "" | else => " ( "};
+       sort-param-close := check {(null? sort-params) => "" | else => " ) "};       
+       declare-cmd := (join "declare " fresh-name ": " sort-param-open (separate sort-params ", ") " " sort-param-close " [" (drop-quotes (separate arg-sorts " ")) "] -> " (drop-quotes result-sort));
+       fresh-arg-names' := (map (lambda (fn) (join "?" fn)) fresh-arg-names);       
+       assert-cmd := (join "assert* " fresh-name "-def := [(= (" fresh-name " " (separate fresh-arg-names' " ") ") " (val->string (app-proc f fresh-args)) ")]");
+       _ := (process-input-from-string "(set-flag silent-mode \"on\")");
+       _ := (process-input-from-string declare-cmd);
+       _ := (process-input-from-string assert-cmd);
+       _ := (process-input-from-string "(set-flag silent-mode \"off\")")}
+   (evaluate fresh-name)
+
+define (lambda-promote f) :=
+  check {(symbol? (val->string f)) => f
+       | else => try { (promote-aux f) | f }}  
