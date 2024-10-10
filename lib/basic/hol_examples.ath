@@ -160,3 +160,22 @@ define increment-thrice := (compose* [increment increment increment])
            [2 3 4]))
 
 # Basically, it allows anonymous lambdas in any context that expects a term of sort (Fun ...). 
+# lambda-promote can also be invoked explicitly, and it also goes by the alias "hol-fun".
+# Moreover, in addition to a closure, it can also be given as argument a map of the form |{'foo := <some-closure>}|. 
+# In that case, instead of using a random function symbol to define <some-closure>, Athena will use the name "foo".
+# For example: (lambda-promote |{'cube := lambda (x) (x * x * x)}|) will introduce a function symbol named cube,
+# define that symbol with axioms based on the given lambda (and bind the name "cube-def" to those axioms), and then
+# return that symbol. Thus, for example:
+
+(hol-fun |{ 'cube := lambda (x) (x * x * x)}|)
+
+# can be seen as equivalent to first executing the following prelude commands: 
+# 
+# declare cube: [Int] -> Int 
+# assert* cube-def := [(cube x = x * x * x)]
+#
+# and then finally returning the newly introduced symbol cube. Recall that a symbol like cube will be automatically
+# coerced into a lifted version, cube^, in any context that requires a functor argument (a term of sort (Fun ...)),
+# which means that the result of (hol-fun |{ 'cube := lambda (x) (x * x * x)}|) can be directly used as an argument
+# to a higher-order function that expects a functor. 
+

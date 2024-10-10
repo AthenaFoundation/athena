@@ -3460,7 +3460,7 @@ fun setFlag(flag as {name,pos=flag_pos}:AbstractSyntax.param,value as (str,pos))
      myPrint("\n"^Options.setBooleanFlag(Options.auto_assert_selector_axioms,Names.auto_assert_selector_axioms_flag,str,pos)^"\n")
   else 
   if Symbol.symEq(name,Names.silent_mode_flag_symbol) then 
-     myPrint("\n"^Options.setBooleanFlag(Options.silent_mode,Names.silent_mode_flag_name,str,pos)^"\n")
+     myPrint(Options.setBooleanFlag(Options.silent_mode,Names.silent_mode_flag_name,str,pos))
   else myPrint("\n"^(Symbol.name(name))^" is not a flag.\n")
  end
 
