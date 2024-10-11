@@ -214,7 +214,7 @@ assert (associative *)
 define goal :=  (= (compose (hol-fun |{'square := lambda (x) (x * x)}|) 
                             (hol-fun lambda (x) (x * x)))
                    (hol-fun |{ 'quad := lambda (x) (x * x * x * x)}|))
-
+                   
 # Note that in the second argument to compose we simply wrote (hol-fun lambda (x) (x * x)), whereas in 
 # the first argument we wrote (hol-fun |{'square := lambda (x) (x * x)}|). A name only needs to be given once,
 # so we don't need to repeat that. Now here is the proof:
