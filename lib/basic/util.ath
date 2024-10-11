@@ -5050,7 +5050,7 @@ define (drop-quotes str) :=
      (loop str [])
      
 
-define (promote-aux f) := 
+define (promote-aux f ht name) := 
   let {arity := (arity-of f);
        fresh-args := (map (lambda (_) (fresh-var)) (1 to arity));
        fresh-arg-names := (map var->string fresh-args);
@@ -5078,4 +5078,81 @@ define (promote-aux f) :=
 
 define (lambda-promote f) :=
   check {(symbol? (val->string f)) => f
-       | else => try { (promote-aux f) | f }}  
+       | else => try { (promote-aux f "") | f }}
+
+define (silent-on) :=
+  (process-input-from-string "(set-flag silent-mode \"on\")");
+
+define (silent-off) :=
+  (process-input-from-string "(set-flag silent-mode \"off\")");  
+
+define (execute-command cmd) :=
+   let {_ := (silent-on);
+        _ := (process-input-from-string cmd)}
+     (silent-off)         
+
+define (execute-commands cmds) := 
+  (map-proc execute-command cmds)
+  
+define lambda-promote :=        
+  let {ht := (HashTable.table 111);
+       promote-aux :=
+               lambda (closure-or-sub)
+                  let {[name closure] := check {(map? closure-or-sub) =>
+                                                     match (Map.key-values closure-or-sub) {
+                                                       ([[k v]] where (&& (meta-id? k) (proc? v))) => [(tail (val->string k)) v]
+                                                     | _ => (error "The map given to a lambda promoter should be of the form |{<meta-identifier> := <closure>}|")
+                                                     }
+                                              | else => ["" closure-or-sub]};
+                       arity := (arity-of closure);
+                       fresh-args := (map (lambda (_) (fresh-var)) (1 to arity));
+                       fresh-arg-names := (map var->string fresh-args);
+                       eqn := (= (app-proc closure fresh-args) ?res);
+                       fingerprint := (close eqn);
+                       _ := ()
+                      }
+                    match try {(HashTable.lookup ht fingerprint) | ()} {
+                       () => let {result-sort := (sort-of (rhs eqn));
+                                  arg-sort-pairs := (map (lambda (v)
+                                                           [(var->string v) (sort-of v)])
+                                                         (dedup (filter (vars (lhs eqn))
+                                  (lambda (v) (member? (var->string v) fresh-arg-names)))));
+                                  arg-sort-map := (Map.make arg-sort-pairs);
+                                  arg-sorts := (map (lambda (v)
+                                                      (arg-sort-map v))
+                                                    fresh-arg-names);
+                                  sort-params := (get-sort-params (add result-sort arg-sorts));
+                                  sym-name := check {(null? name) => (make-fresh-symbol-name)
+                                                     | else => name};
+                                  sort-param-open := check {(null? sort-params) => "" | else => " ( "};
+                                  sort-param-close := check {(null? sort-params) => "" | else => " ) "};       
+                                  declare-cmd := (join "declare " sym-name ": " sort-param-open (separate sort-params ", ") " "
+                                                       sort-param-close " [" (drop-quotes (separate arg-sorts " ")) "] -> "
+                                                       (drop-quotes result-sort));
+                                  fresh-arg-names' := (map (lambda (fn) (join "?" fn)) fresh-arg-names);       
+                                  assert-cmd := (join "assert* " sym-name "-def := [(= (" sym-name " "
+                                                      (separate fresh-arg-names' " ") ") "
+                                                      (val->string (app-proc closure fresh-args)) ")]");
+                                  _ := (silent-on);
+                                  _ := (seq (process-input-from-string declare-cmd) (process-input-from-string assert-cmd));
+                                  _ := (silent-off);                                  
+                                  _ := (process-input-from-string "(set-flag silent-mode \"off\")");
+                                  res := (evaluate (join sym-name "^"));
+                                  _ := (HashTable.add ht [fingerprint res])
+                                 }
+                               res
+                     | cached-symbol => let {_ := check {(null? name) => ()
+                                                       | else => let {cmd := (join "(define " name " " (val->string cached-symbol) ")");
+                                                                      _ := (silent-on);
+                                                                      _ := (process-input-from-string cmd)}
+                                                                   (silent-off)}}
+                                          cached-symbol
+                    }
+      }
+    lambda (f)         
+      check {(symbol? (val->string f)) => f
+       | else => try { (promote-aux f) | f }}
+
+                          
+define hol-fun := lambda-promote
+
