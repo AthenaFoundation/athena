@@ -4701,13 +4701,3 @@ EOF
 
 (load-file "cc")
 
-
-
-
-
-declare compose: (S1, S2, S3) [(Fun S2 S3) (Fun S1 S2)] -> (Fun S1 S3)
-define o := compose
-define [f1 f2 f3] := [?f1:(Fun 'S1 'T1) ?f2:(Fun 'S2 'T2) ?f3:(Fun 'S3 'T3)] 
-
-assert* compose-def := [(= ((f2 o f1) x)
-                           (f2 (f1 x)))]
