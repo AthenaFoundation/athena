@@ -179,3 +179,53 @@ define increment-thrice := (compose* [increment increment increment])
 # which means that the result of (hol-fun |{ 'cube := lambda (x) (x * x * x)}|) can be directly used as an argument
 # to a higher-order function that expects a functor. 
 
+#**************************** Functor Identity ****************************
+
+# The only axiom schema that is needed for higher-order logic is this:
+# (forall f1:(Fun 'S_1 ...'S_n T) f2:(Fun 'S_1 ...'S_n T) . f1 = f2 <==> forall x_1:S_1 ... x_n:S_n . (f1 x_1 ... x_n) = (f2 x_1 ... x_n))
+# This needs to be an axiom schema since n can be any nonnegative integer. This is captured by the primitive method functor-identity
+# defined in rewriting.ath, which takes n as an argument as returns the corresponding instance of the above axiom scheme. For example:
+
+(!functor-identity 2)
+
+# Should return: 
+
+# Theorem: (forall ?v3266:(Fun 'S 'T 'U)
+#            (forall ?v3267:(Fun 'S 'T 'U)
+#              (iff (= ?v3266:(Fun 'S 'T 'U)
+#                      ?v3267:(Fun 'S 'T 'U))
+#                   (forall ?v3268:'S
+#                     (forall ?v3269:'T
+#                       (= (app ?v3266:(Fun 'S 'T 'U)
+#                               ?v3268:'S
+#                               ?v3269:'T)
+#                          (app ?v3267:(Fun 'S 'T 'U)
+#                               ?v3268:'S
+#                               ?v3269:'T)))))))
+
+# Now let 'square' be the functor lambda (x) (x * x) and let 'quad' be the functor lambda (x) (x * x * x * x),
+# and let's use functor-identity to show that (compose square square) is identical to quad. The proof needs
+# the associativity of multiplication, so let's assert that for now since it's not our focus: 
+
+assert (associative *)
+
+# Here is the goal:
+
+define goal :=  (= (compose (hol-fun |{'square := lambda (x) (x * x)}|) 
+                            (hol-fun lambda (x) (x * x)))
+                   (hol-fun |{ 'quad := lambda (x) (x * x * x * x)}|))
+
+# Note that in the second argument to compose we simply wrote (hol-fun lambda (x) (x * x)), whereas in 
+# the first argument we wrote (hol-fun |{'square := lambda (x) (x * x)}|). A name only needs to be given once,
+# so we don't need to repeat that. Now here is the proof:
+
+conclude goal 
+  let {functor-identity-condition := (!right-iff (!uspec* (!functor-identity 1)
+                                                          [(compose square^ square^) quad^]));
+       extensional-identity := pick-any x:Real
+                                 (!chain [(app (compose square^ square^) x)
+                                        = (square square x)                  [compose-def]
+                                        = ((x * x) * (x * x))                [square-def]
+                                        = (x * (x * (x * x)))                [(associative *)]
+                                        = (quad x)                           [quad-def]])}
+    (!mp functor-identity-condition extensional-identity)

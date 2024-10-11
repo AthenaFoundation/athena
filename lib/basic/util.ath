@@ -5137,7 +5137,7 @@ define lambda-promote :=
                                   _ := (seq (process-input-from-string declare-cmd) (process-input-from-string assert-cmd));
                                   _ := (silent-off);                                  
                                   _ := (process-input-from-string "(set-flag silent-mode \"off\")");
-                                  res := (evaluate sym-name);
+                                  res := (evaluate (join sym-name "^"));
                                   _ := (HashTable.add ht [fingerprint res])
                                  }
                                res
@@ -5154,4 +5154,5 @@ define lambda-promote :=
        | else => try { (promote-aux f) | f }}
 
                           
-define hol-fun := lambda-promote 
+define hol-fun := lambda-promote
+
