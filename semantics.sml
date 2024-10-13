@@ -249,6 +249,8 @@ val prop_parser: value option ref = ref(NONE)
 
 val termType = "Term"
 val termLCType = "term"
+val constantTermType = "Constant"
+val constantTermLCType = "constant"
 val atomType = "Atom"
 val atomLCType = "atom"
 val numTermType = "Numeric term"
@@ -2177,6 +2179,31 @@ fun summarizeCallStack(pos_stack) =
 
 fun summarizeTopCallStack() = summarizeCallStack(pos_stack)
 
+fun massage(t) = 
+  (case AT.isConstant(t) of 
+      SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
+                         val is_lifted_fsym = D.isLiftedFSym(name)
+                         val first_res = if is_lifted_fsym then SOME(name) else NONE
+                     in
+                       if FTerm.termEq(sort,AT.getSort(t)) then (first_res,AT.makeSortedConstantAux(name,sort,is_poly))
+                       else (first_res,t)
+                     end
+    | _ => (NONE,t))
+
+fun liftArg(arg_val,expected_arity,pos_opt) = 
+   (case coerceValIntoTermCon(arg_val) of
+       SOME(regFSym(fsym)) => 
+         if D.fsymArity(fsym) = expected_arity then 
+            (* Lift fsym to its reified version fsym^ as a constant term *)
+            let val fsym_name = D.fsymName(fsym)
+                val lifted_fsym_name = D.liftMSName(fsym_name)
+                val lifted_term_constant = AT.makeConstant(lifted_fsym_name)
+            in 
+              lifted_term_constant
+            end
+         else evError(wrongArgKindExpectationOnly(termLCType,arg_val),pos_opt)
+     | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val),pos_opt))
+     
 val (lp,rp,space) = ("(",")"," ")
 
           fun prefix() = "Invalid first argument given to the by-induction-on form. "^
@@ -2220,7 +2247,7 @@ let
       let val head_val = evPhrase(proc,env,ab)
       in
         (case head_val of
-             closBFunVal(body,p1,p2,clos_env as ref(valEnv({val_map,mod_map,...})),{name,...}) => 
+             closBFunVal(body,p1,p2,clos_env as ref(valEnv({val_map,mod_map,...})),{name,...}) =>                         
                    let val v1 = evPhrase(arg1,env,ab)
                        val v2 = evPhrase(arg2,env,ab)
                        val vm = Symbol.enter(Symbol.enter(val_map,p1,v1),p2,v2)
@@ -2230,32 +2257,73 @@ let
                    end
            | termConVal(regFSym(some_fsym)) =>
                    (let val name = D.fsymName(some_fsym)
-                        val arg_val1 = evPhrase(arg1,env,ab)
+                        val arg_val1 = evPhrase(arg1,env,ab)              
                         val arg_val2 = evPhrase(arg2,env,ab)
-                        val term_arg1 =  (case coerceValIntoTerm(arg_val1) of
-                                             SOME(t) => (case AT.isConstant(t) of 
-                 			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
- 					                                  in
-						                            if FTerm.termEq(sort,AT.getSort(t)) then 
-						                               AT.makeSortedConstantAux(name,sort,is_poly)
-                                                                            else t
-                                                                          end
-                                                         | _ => t)
-                                            | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos)))
+			val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name)
+                        val [arg_1_expected_sort,arg_2_expected_sort] = 
+			    let val N = length(expected_arg_sorts)
+                            in
+ 			       if N = 2 then 
+                                  [hd(expected_arg_sorts), hd(tl(expected_arg_sorts))] 	     
+                               else evError(wrongArgNumber(MS.name(D.fsymName(some_fsym)),2,N),SOME(pos))
+                            end
                         val term_arg2 =  (case coerceValIntoTerm(arg_val2) of
                                              SOME(t) => (case AT.isConstant(t) of 
-                 			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
- 					                                  in
-						                            if FTerm.termEq(sort,AT.getSort(t)) then 
-						                               AT.makeSortedConstantAux(name,sort,is_poly)
-                                                                            else t
-                                                                          end
-                                                         | _ => t)
-                                            | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val2),SOME(pos)))
-                        val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
-                      in
-                         termVal(term_res)
-                      end)
+                 			                   SOME(name) =>  if FTerm.termEq(result_sort,AT.getSort(t)) then 
+ 					                                     AT.makeSortedConstantAux(name,result_sort,is_poly)
+                                                                          else t
+                                                         | _ => t)                                 
+                                            | _ => (case D.funSortArity(arg_2_expected_sort) of 
+                                                        SOME(K) => liftArg(arg_val2,K,SOME pos)
+  	  					      | _ =>  evError(wrongArgKindExpectationOnly(termLCType,arg_val2),SOME(pos))))
+                    in 
+                      if MS.modSymEq(name,Names.app_fsym_mname) then  
+                           (*** Binary "app" case: (app E1 E2). If E1 is EITHER a regular function symbol f:[S] -> T OR a constant of the form f^:(Fun S T), 
+                                then just return (f E2). Otherwise, assuming that E1 evaluates to a term t1 of sort (Fun 'S 'T), which could even be some 
+				term variable ?foo:(Fun 'S 'T), and that E2 evaluates to a term t2 of sort 'S, return the term (app t1 t2).  qqq 
+                            ***)
+                           (case coerceValIntoTerm(arg_val1) of
+                               SOME(t) => let val (lifted_fsym_opt,term_arg1) = massage(t)
+                                             (**** If term_arg1 is a term constant of sort (Fun S T) that is lifted, i.e., of the form f^, then we should just return (f term_arg2)  ****)
+                                              val _ = (case F.isApp(AT.getSort(t)) of 
+                                                        SOME(_,expected_functor_arg_sorts) => 
+                                                             let val expected_arity = length(expected_functor_arg_sorts)-1
+                                                             in
+                                                               if not(expected_arity = 1) then
+                                                                    let val msg = "Unable to infer a sort for the term: \n"^(AT.fauxTermToPrettyString(0,name,[term_arg1,term_arg2]))
+                                                                    in
+                                                                       evError(msg,SOME(pos))
+                                                                    end
+                                                               else ()
+						             end
+                                                      | _ => evError("Expected a functional sort with arity 1 here.",SOME(A.posOfPhrase(arg1))))
+					      val term_res = (case lifted_fsym_opt of 
+                                                                 SOME(fsym) => applyUnaryTermConstructor(MS.unlift(fsym),term_arg2,pos)
+							       | _ => applyBinaryTermConstructor(name,term_arg1,term_arg2,pos))
+                                          in
+                                             termVal(term_res)
+                                          end 
+                             | _ => (case coerceValIntoTermCon(arg_val1) of 
+                                         SOME(regFSym(fsym)) => 
+                                                termVal(applyUnaryTermConstructor(D.fsymName(fsym),term_arg2,pos))
+                                        | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos))))
+                      else
+                         let val term_arg1 = let 
+                                             in 
+                                                (case coerceValIntoTerm(arg_val1) of
+                                                    SOME(t) => #2(massage(t))
+                                                  | _ => let 
+                                                         in
+                                                           (case D.funSortArity(arg_1_expected_sort) of 
+                                                               SOME(K) => liftArg(arg_val1,K,SOME pos)
+                                                             | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val1),SOME(pos)))
+                                                         end)
+                                             end
+                             val term_res = applyBinaryTermConstructor(name,term_arg1,term_arg2,pos)
+                         in
+                           termVal(term_res)
+                         end
+                  end)
            | propConVal(con) => 
                   if A.isQuantPropCon(con) then
  	             let val pval = evPhrase(arg2,env,ab)
@@ -2298,6 +2366,22 @@ let
                             in
 		               f([arg_val_1,arg_val_2],env,ab)
                             end handle PrimError(msg) => evError(msg,SOME(pos)))
+           | termVal(hol_fun_term) => 	        
+                  (case F.isApp(AT.getSort(hol_fun_term)) of 
+                      SOME(root,sorts) => if MS.modSymEq(root,Names.fun_name_msym) andalso length(sorts) = 3 
+                                          then 
+                                             let val args' = [arg1,arg2]							   
+						 val arg_vals_and_positions = map (fn p => (evPhrase(p,env,ab),A.posOfPhrase(p)))
+  										  args'
+                                                  val arg_vals_and_positions = (head_val,A.posOfPhrase(proc))::arg_vals_and_positions
+                                                  fun errorMsg(i,v) = wrongArgKindExpectationOnly(termLCType,v)
+                                                  val term_args = getTermsWithCoercion(arg_vals_and_positions,errorMsg,coerceValIntoTerm)
+						  val term_res = applyTermConstructor(Names.app_fsym_mname,3,term_args,pos)
+                                             in
+						 termVal(term_res)
+                                             end
+                                          else evalApp(proc,[arg1,arg2],pos,env,ab)
+		    | _ => evalApp(proc,[arg1,arg2],pos,env,ab))
            | _ => (evalApp(proc,[arg1,arg2],pos,env,ab)))
       end 
   | app_exp as A.UAppExp({proc,arg,pos}) => 
@@ -2316,22 +2400,62 @@ let
                                      handle PrimError(msg) => evError(msg,SOME(pos)) 
                                  )
            | termConVal(regFSym(some_fsym)) =>
+                           (*** TODO: Unary "app" case: (app E). If E is EITHER a regular constant symbol f:[] -> T OR a constant of the form f^:(Fun T), 
+                                then just return (E). Otherwise, assuming that E evaluates to a term t of sort (Fun 'T), which could even be some 
+				term variable ?foo:(Fun 'T), return the term (app t).  qqq
+                            ***)
                     (let val name = D.fsymName(some_fsym)
                          val arg_val = evPhrase(arg,env,ab)
-                         val term_arg =  (case coerceValIntoTerm(arg_val) of
-                                             SOME(t) => (case AT.isConstant(t) of 
-                 			                   SOME(name) =>  let val (_,sort,is_poly,bits) =  Data.getSignature(name)
- 					                                  in
-						                            if FTerm.termEq(sort,AT.getSort(t)) then 
-						                               AT.makeSortedConstantAux(name,sort,is_poly)
-                                                                            else t
-                                                                          end
-                                                         | _ => t)
-                                            | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val),SOME(pos)))
-                         val term_res = applyTermConstructor(name,1,[term_arg],pos)
-                      in
-                         termVal(term_res)
-                      end)
+                     in
+                        if MS.modSymEq(name,Names.app_fsym_mname) then  
+                           (*** TODO: Unary "app" case: (app E). If E is EITHER a regular constant symbol f:[] -> T OR a constant of the form f^:(Fun T), 
+                                then just return f. Otherwise, assuming that E evaluates to a term t of sort (Fun 'T), which could even be some 
+				term variable ?foo:(Fun 'T), return the term (app t). 
+                            ***)
+                             (case coerceValIntoTerm(arg_val) of
+                                  SOME(t) => let val _ = (case F.isApp(AT.getSort(t)) of 
+                                                             SOME(_,expected_functor_arg_sorts) => 
+                                                                let val expected_arity = length(expected_functor_arg_sorts)-1
+                                                                in
+                                                                  if not(expected_arity = 0) then
+                                                                       let val msg = "Unable to infer a sort for the term: \n"^(AT.fauxTermToPrettyString(0,name,[t]))
+                                                                       in
+                                                                         evError(msg,SOME(pos))
+                                                                       end
+                                                                  else ()
+			   	  		                end
+                                                           | _ => evError("Expected a functional sort with arity 0 here.",SOME(A.posOfPhrase(arg))))
+                                             in 
+                                              if AT.isGeneralConstant(t) then 
+                                                let val (lifted_fsym_name_opt,_) = massage(t)
+                                                in
+                                                   (case lifted_fsym_name_opt of
+                                                      SOME(fsym) => termVal(AT.makeConstant(MS.unlift(fsym)))
+						    | _ => termVal(t))
+                                                end
+                                              else (case F.isApp(AT.getSort(t)) of 
+                                                      SOME(sort,sort_args) =>  
+                                                           if Data.isFunSort(sort) then termVal(applyUnaryTermConstructor(name,t,pos))
+                                                           else evError(wrongArgKindExpectationOnly(constantTermLCType,arg_val),SOME(pos))
+						    | _  => termVal(applyUnaryTermConstructor(name,t,pos)))
+                                             end
+			        | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val),SOME(pos)))
+                        else (*** Regular, non-app case ***)
+                          let val term_arg =  (case coerceValIntoTerm(arg_val) of
+                                                 SOME(t) => (case AT.isConstant(t) of 
+                 		   	                      SOME(name) =>  let val (_,sort,is_poly,bits) =  Data.getSignature(name)
+ 					                                     in
+					   	                               if FTerm.termEq(sort,AT.getSort(t)) then 
+						                                  AT.makeSortedConstantAux(name,sort,is_poly)
+                                                                               else t
+                                                                             end
+                                                            | _ => t)
+                                               | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val),SOME(pos)))
+                              val term_res = applyTermConstructor(name,1,[term_arg],pos)
+                          in
+                            termVal(term_res)
+                          end
+                     end)
            | propConVal(con) => 
                      (case con of
                          A.notCon => let val res_prop = 
@@ -2427,6 +2551,21 @@ let
                             end                          
                                     handle PrimError(msg) => evError(msg,SOME(pos)) 
                             )
+           | termVal(hol_fun_term) => 	        
+                  (case F.isApp(AT.getSort(hol_fun_term)) of 
+                      SOME(root,sorts) => if MS.modSymEq(root,Names.fun_name_msym) andalso length(sorts) = 2
+                                          then 
+                                             let val arg_val_and_position = (evPhrase(arg,env,ab),A.posOfPhrase(arg))
+                                                 val arg_vals_and_positions = [(head_val,A.posOfPhrase(proc)),arg_val_and_position]
+                                                 fun errorMsg(i,v) = wrongArgKindExpectationOnly(termLCType,v)
+                                                 val term_args = getTermsWithCoercion(arg_vals_and_positions,errorMsg,coerceValIntoTerm)
+				    	         val term_res = applyTermConstructor(Names.app_fsym_mname,2,term_args,pos)
+                                             in
+						 termVal(term_res)
+                                             end
+                                          else evalApp(proc,[arg],pos,env,ab)
+		    | _ => evalApp(proc,[arg],pos,env,ab))
+
            | _ => (evalApp(proc,[arg],pos,env,ab)))
       end
   | A.matchExp({discriminant,clauses,pos}) => 
@@ -2814,14 +2953,71 @@ and
         | v =>  
              (case coerceValIntoTermCon(v) of
                  SOME(regFSym(some_fsym)) => 
-                    (let val (name,arity) = (D.fsymName(some_fsym),D.fsymArity(some_fsym))
-                         val arg_vals_and_positions = map (fn p => (evPhrase(p,env,ab),A.posOfPhrase(p)))
-  						          args
+                    (let (***  qqq 
+                          Here. some_fsym might be "app", so we'll need to make sure that we evaluate this properly 
+                         ***)
+                         val (name,arity) = (D.fsymName(some_fsym),D.fsymArity(some_fsym))
                          fun errorMsg(i,v) = wrongArgKindExpectationOnly(termLCType,v)
-                         val term_args = getTermsWithCoercion(arg_vals_and_positions,errorMsg,coerceValIntoTerm)
-                         val term_res = applyTermConstructor(name,arity,term_args,pos)
+                         val is_app_app = MS.modSymEq(name,Names.app_fsym_mname)
+			 val (expected_arg_sorts,result_sort,is_poly,_) = 
+                                if is_app_app then Data.getAppSig(args)
+                                else Data.getSignature(name)
+                         fun getTerm(arg_val,expected_sort,pos) = 
+			                 (case coerceValIntoTerm(arg_val) of
+                                             SOME(t) => (case AT.isConstant(t) of 
+                 			                    SOME(name) =>  if FTerm.termEq(result_sort,AT.getSort(t)) then 
+ 					                                      AT.makeSortedConstantAux(name,result_sort,is_poly)
+                                                                          else t
+                                                         | _ => t)                                 
+                                            | _ => (case D.funSortArity(expected_sort) of 
+                                                        SOME(K) => liftArg(arg_val,K,SOME pos)
+  	  					      | _ =>  evError(wrongArgKindExpectationOnly(termLCType,arg_val),SOME(pos))))
+                        val N = length(args)
                      in
-                       termVal(term_res)
+                        if is_app_app andalso N > 2 then  
+                           (*** In this case the entire application is of the form (app E_1 ... E_n) for n > 2. ***)
+                           let val arg_val1 = evPhrase(hd args,env,ab)
+			       val rest_arg_vals_positions_and_expected_sorts = 
+                                          map (fn (p,expected_sort) => (evPhrase(p,env,ab),A.posOfPhrase(p),expected_sort))
+  	                                       (Basic.zip(tl(args),tl(expected_arg_sorts)))
+                               val rest_arg_terms = map (fn (v,pos,e) => getTerm(v,e,pos)) 
+							rest_arg_vals_positions_and_expected_sorts
+                           in
+                             (case coerceValIntoTerm(arg_val1) of
+                                 SOME(functor_term) => 
+                                            let val _ = (case F.isApp(AT.getSort(functor_term)) of 
+                                                            SOME(f,expected_functor_arg_sorts) => 
+                                                             let val expected_arity = length(expected_functor_arg_sorts)-1
+                                                             in 
+                                                               if not(expected_arity = (N-1)) then 
+                                                                  evError("Type inference error: Was expecting " ^ (Int.toString expected_arity) ^ " arguments given to this functor, but instead found " ^ (Int.toString (N-1)),SOME(A.posOfPhrase(hd args)))
+                                                               else ()
+                                                             end
+						           | _ => evError("I was expecting a functor as the first argument of app.", SOME(pos)))
+                                                val (lifted_fsym_opt,term_arg1) = massage(functor_term)
+                                               (**** If term_arg1 is a term constant of sort (Fun S T) that is lifted, i.e., of the form f^, then we should just return (f term_arg2)  ****)
+  	  	  			        val term_res = (case lifted_fsym_opt of 
+                                                                   SOME(fsym) => applyTermConstructor(MS.unlift(fsym),arity,rest_arg_terms,pos)
+						  	         | _ => let (* val _ = print("\nLength of t::rest_arg_terms: " ^ (Int.toString (length (functor_term::rest_arg_terms)))) *)
+                                                                        in
+                                                                          applyTermConstructor(name,arity,functor_term::rest_arg_terms,pos)
+                                                                        end)
+                                            in
+                                              termVal(term_res)
+                                            end 
+                               | _ => (case coerceValIntoTermCon(arg_val1) of 
+                                           SOME(regFSym(fsym)) => termVal(applyTermConstructor(D.fsymName(fsym),arity,rest_arg_terms,pos))
+                                          | _ => evError(wrongArgKindExpectationOnly(termLCType,head_val),SOME(pos))))
+                           end
+                        else let val arg_vals_positions_and_expected_sorts = 
+                                            map (fn (p,expected_sort) => (evPhrase(p,env,ab),A.posOfPhrase(p),expected_sort))
+                                                (Basic.zip(args,expected_arg_sorts))
+                                 val term_args = map (fn (v,pos,e) => getTerm(v,e,pos))
+                                                     arg_vals_positions_and_expected_sorts 
+                                 val term_res = applyTermConstructor(name,arity,term_args,pos)
+                                 in
+                                    termVal(term_res)
+                                 end
                      end)
                | SOME(athNumFSym(anum)) => 
                       (if null(args) then termVal(AT.makeNumTerm(anum))
@@ -4119,9 +4315,10 @@ let
                       evExp(body,ref(valEnv({val_map=vm,mod_map=mod_map})),ab,premises)                   
                    end
            | termConVal(regFSym(some_fsym)) =>
-                     (let val name = D.fsymName(some_fsym)
+                     (let 
+                          val name = D.fsymName(some_fsym)
                           val arg_val1 = evPhrase(arg1,env,ab,premises)
-                          val arg_val2 = evPhrase(arg2,env,ab,premises)
+                          val arg_val2 = evPhrase(arg2,env,ab,premises)                       
                           val term_arg1 =  (case coerceValIntoTerm(arg_val1) of
                                              SOME(t) => (case AT.isConstant(t) of 
                  			                   SOME(name) =>  let val (_,sort,is_poly,_) = Data.getSignature(name)
@@ -6151,7 +6348,7 @@ fun getTerms(val_lst,list_name,pos) =
     getTerms(val_lst,[],1)
   end
 
-fun getTermsNoPos(val_lst,list_name) = 
+fun getTermsNoPos(val_lst,list_name,NONE) = 
   let fun msg(v,i) = "Wrong type of value found in the "^ordinal(i)^" argument position of "^list_name^
                      ".\n"^expectUC(termLCType,v)
       fun getTerms([],results,i) = rev results
@@ -6161,6 +6358,33 @@ fun getTermsNoPos(val_lst,list_name) =
               | _ => primError(msg(v,i)))
   in 
     getTerms(val_lst,[],1)
+  end
+| getTermsNoPos(val_lst,list_name,SOME(expected_arg_sorts,result_sort,is_poly)) = 
+(** The last option argument is of the form SOME(...) iff the relevant functor to be applied to these terms that are being collected
+    is a function symbol that expects at least one argument of sort (Fun ...). 
+**)
+  let fun msg(v,i) = "Wrong type of value found in the "^ordinal(i)^" argument position of "^list_name^
+                     ".\n"^expectUC(termLCType,v)
+      fun getTerms([],results,i,_) = rev results
+        | getTerms(v::rest,results,i,expected_arg_sort::more_expected_arg_sorts) = 
+           (case coerceValIntoTerm(v) of
+               SOME(t) => let val resulting_term = 
+                                        (case AT.isConstant(t) of 
+          			            SOME(name) =>  if FTerm.termEq(result_sort,AT.getSort(t)) then 
+						              AT.makeSortedConstantAux(name,result_sort,is_poly)
+                                                           else t
+                                           | _ => t)
+                          in
+			    getTerms(rest,resulting_term::results,i+1,more_expected_arg_sorts)
+                          end
+             | _ => (case D.funSortArity(expected_arg_sort) of 
+                        SOME(K) => let val resulting_term = liftArg(v,K,NONE)
+                                   in
+				     getTerms(rest,resulting_term::results,i+1,more_expected_arg_sorts)
+                                   end 
+                      | _ =>  primError(msg(v,i))))
+  in 
+    getTerms(val_lst,[],1,expected_arg_sorts)
   end
 
 (* It's important that the above coercion function take term *values* as inputs

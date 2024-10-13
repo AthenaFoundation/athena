@@ -1518,7 +1518,7 @@ fun makeTermFun([v,listVal(arg_vals)],_,{pos_ar,file}) =
                                              SOME(Array.sub(pos_ar,0)))
 
 fun makeTermPrimBFun(v,listVal(arg_vals),_,_) = 
-      let val term_args = getTermsNoPos(arg_vals,"the list argument of "^N.makeTermFun_name)
+      let val term_args = getTermsNoPos(arg_vals,"the list argument of "^N.makeTermFun_name,NONE)
           fun wrongArgNumber(name,giv,req) = "Wrong number of arguments ("^Int.toString(giv)^") given to "^
                                              name^" via the "^N.makeTermFun_name^" procedure---exactly "^
                                              argNumToString(req)^" required";
@@ -1566,7 +1566,7 @@ fun  transformOutputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
                        val _ = if not(arg_num = arity) then 
                                   primError(wrongArgNumber(name_string,arg_num,arity))
                                else ()                                            
-                       val arg_terms = getTermsNoPos(arg_vals,name_string)
+                       val arg_terms = getTermsNoPos(arg_vals,name_string,NONE)
                        val res = termVal(applyTermConstructorNoPos(name,arg_terms))
                    in
                       loop(converters,res)
@@ -1681,6 +1681,7 @@ fun expandInputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
       SOME(regFSym(f)) => 
         let val (arity,name,prec,assoc) = (Data.fsymArity(f),Data.fsymName(f),Data.fsymPrec(f),Data.fsymAssoc(f))
             val name_string = MS.name name 
+            val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name)
             val converters = getConverters(v2,name_string,arity)
             fun makeNew(arity,name_string,converters) = 
              (fn (arg_vals,env',ab') => 
@@ -1691,7 +1692,7 @@ fun expandInputFun(vals as [v1,v2],(env,ab),{pos_ar,file}) =
                        val args_and_converters = Basic.zip(arg_vals,converters)
                        val arg_term_vals = List.map (fn (arg_val,converter) => converter(arg_val))
                                                   args_and_converters
-                       val arg_terms = getTermsNoPos(arg_term_vals,name_string)
+                       val arg_terms = getTermsNoPos(arg_term_vals,name_string,SOME(expected_arg_sorts,result_sort,is_poly))
                    in
                       termVal(applyTermConstructorNoPos(name,arg_terms))
                    end)
@@ -1821,8 +1822,9 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
             (case coerceValIntoTermCon(v2) of
                SOME(regFSym(old_fsym)) => let val old_sym = Data.fsymName(old_fsym)
                                               val old_sym_str = MS.name(old_sym)
-                                              fun appOld(name,arity,arg_vals,ab) = 
-                                                    termVal(applyTermConstructorNoPos(name,getTermsNoPos(arg_vals,old_sym_str)))
+					      val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(old_sym)
+                                              fun appOld(name,arity,arg_vals,ab) =                                                 
+                                                    termVal(applyTermConstructorNoPos(name,getTermsNoPos(arg_vals,old_sym_str,SOME(expected_arg_sorts,result_sort,is_poly))))
                                           in
                                             (appOld,Data.fsymArity(old_fsym),old_sym)
                                           end
@@ -1890,6 +1892,7 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                          end
                      | _ => evError("Overloading error: a function symbol was expected here",SOME(Array.sub(pos_ar,3)))))
      val name_old = MS.name(name_old_sym)
+     val signature_opt = ref(NONE: (FTerm.term list * FTerm.term * bool) option)
      val (applyNew,name_new:string,arity_new,prec_new,assoc_new) = 
             (case coerceValIntoTermCon(v1) of
                 SOME(regFSym(new_fsym)) => 
@@ -1897,6 +1900,11 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                                   (Data.fsymArity(new_fsym),Data.fsymName(new_fsym),
                                    Data.fsymPrec(new_fsym),Data.fsymAssoc(new_fsym))
                       val new_name:string = MS.name name_new_sym
+                      val (expected_arg_sorts,result_sort,is_poly,_) = Data.getSignature(name_new_sym)
+                      val _ = let 
+                              in
+                                 (signature_opt := SOME(expected_arg_sorts,result_sort,is_poly))
+                              end
                   in
                      ((fn (arity_new,val_args,term_args_thunk) => 
                           termVal(applyTermConstructorNoPos(name_new_sym,term_args_thunk()))),
@@ -1952,7 +1960,7 @@ fun overloadFun(vals as [v1,v2],(env,ab),pos_ar_and_file as {pos_ar,file},overlo
                                       SOME(Array.sub(pos_ar,2)))))
      val new_name_sym = A.makeMS(name_new,NONE)
      fun newFun(vals,env',ab') = 
-          let val term_args_thunk = fn () => getTermsNoPos(vals,name_new)
+          let val term_args_thunk = fn () => getTermsNoPos(vals,name_new,!signature_opt)
               val msg = ref ""
            in
              if inverted then 
@@ -3880,8 +3888,8 @@ fun matchFun([v1,v2],env,_) =
                 listVal(tvals1) =>  
                  (case v2 of
                     listVal(tvals2) => 
-                       let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name)
-                           val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name)
+                       let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name,NONE)
+                           val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name,NONE)
                        in 
                           (case AthTerm.matchLst(terms1,terms2) of
                              SOME(sub) => subVal(sub)
@@ -3903,8 +3911,8 @@ fun matchFun([v1,v2],env,_) =
                     listVal(tvals1) =>  
                      (case v2 of
                         listVal(tvals2) => 
-                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name)
-                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name)
+                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.matchFun_name,NONE)
+                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.matchFun_name,NONE)
                            in 
                               (case AthTerm.matchLstRW(terms1,terms2,uvars) of
                                  SOME(sub) => subVal(sub)
@@ -3938,8 +3946,8 @@ fun unifyFun([v1,v2],env,_) =
                     listVal(tvals1) =>  
                      (case v2 of
                         listVal(tvals2) => 
-                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.unifyFun_name)
-                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.unifyFun_name)
+                           let val terms1 = getTermsNoPos(tvals1,"the first list argument of "^N.unifyFun_name,NONE)
+                               val terms2 = getTermsNoPos(tvals2,"the second list argument of "^N.unifyFun_name,NONE)
                            in 
                               (case AthTerm.unifyLstRW(terms1,terms2,var_constants) of
                                  SOME(sub) => subVal(sub)
@@ -3949,6 +3957,174 @@ fun unifyFun([v1,v2],env,_) =
                   | _ => primError(wrongArgKind(N.unifyFun_name,1,termLCType^" or "^listLCType^" of "^termLCType^"s",v1))))
         end
   | unifyFun(vals,_,_) = primError(wrongArgNumber(N.unifyFun_name,length(vals),2));
+
+
+fun uspecGivenTermToFinalRes(t,v,P,body,ab,pos_opt) = 
+             let val v_sort = ATV.getSort(v)
+                 val t_sort = AT.getSort(t)
+                 val _ = (case pos_opt of 
+                             NONE => checkOneAbMemberNoPos(P,ab,N.uspecPrimMethod_name)
+		           | SOME(pos)  => checkAbMembers([(P,pos)],ab,N.uspecPrimMethod_name))
+                 val msg = "Invalid use of "^N.uspecPrimMethod_name^": the sort of the term\n"^
+        		   AT.toPrettyString(0,t,F.varToString)^"\nis incompatible with the sort of the "^
+                           "universally quantified variable in the sentence:\n"^P.toPrettyString(0,P,F.varToString)
+                 val res_prop = let val sort_sub = 
+                                          (case F.isSubSort(t_sort,v_sort) of						             
+                                              SOME(sub) => sub
+   	                                    | _ => evError(msg,pos_opt))
+ 		                in
+ 			           Prop.replaceVarByTermOfSomeSubSort(v,t,body,sort_sub)
+		                end
+             in
+                propVal(res_prop)
+             end
+
+fun uSpecPrimMethod([v1,v2],(env,ab),{pos_ar,file}) = 
+     (case coerceValIntoProp(v1) of
+         SOME(P) => (case P.isUGen(P) of 
+                       SOME(v,body) =>
+                          (case coerceValIntoTerm(v2) of
+                              SOME(t) => uspecGivenTermToFinalRes(t,v,P,body,ab,getPosOpt(pos_ar,0))
+                            | _ => let
+                                   in
+                                     (case D.funSortArity(ATV.getSort(v)) of 
+                                       SOME(K) => let val t = Semantics.liftArg(v1,K,getPosOpt(pos_ar,3))
+                                                  in
+ 						    uspecGivenTermToFinalRes(t,v,P,body,ab,getPosOpt(pos_ar,0))
+						  end
+                                     | _ => evError(wrongArgKind(N.uspecPrimMethod_name,2,termLCType,v2),getPosOpt(pos_ar,3)))
+                                  end)
+                     | _ => evError(dwrongArgKind(N.uspecPrimMethod_name,1,"a universal generalization",P),
+                                    getPosOpt(pos_ar,2)))
+       | _ => evError(wrongArgKind(N.uspecPrimMethod_name,1,propLCType,v1),getPosOpt(pos_ar,2)))
+  | uSpecPrimMethod(args,(env,ab),{pos_ar,file}) = 
+       evError(wrongArgNumber(N.uspecPrimMethod_name,length(args),2),getPosOpt(pos_ar,0))
+
+fun uSpecPrimBMethod(v1,v2,env,ab) = 
+  let
+  in
+     (case coerceValIntoProp(v1) of
+         SOME(P) => (case P.isUGen(P) of 
+                       SOME(v,body) =>
+                          (case coerceValIntoTerm(v2) of
+                              SOME(t) => 
+                                 let val v_sort = ATV.getSort(v)
+				     val t_sort = AT.getSort(t)
+				     val _ = checkOneAbMemberNoPos(P,ab,N.uspecPrimMethod_name)
+				     val msg = "Invalid use of "^N.uspecPrimMethod_name^
+					       ": the sort of the term\n"^
+						AT.toPrettyString(0,t,F.varToString)^
+						"\nis incompatible with the sort of the "^
+						"universally quantified variable in the sentence:\n"^
+						P.toPrettyString(0,P,F.varToString)
+                                     val res_prop = let val sort_sub = 
+						             (case F.isSubSort(t_sort,v_sort) of
+						                 SOME(sub) => sub
+					                       | _ => primError(msg))
+					            in
+						      Prop.replaceVarByTermOfSomeSubSort(v,t,body,sort_sub)
+					            end
+                                 in
+                                    propVal(res_prop)
+                                 end
+                            | _ => (case D.funSortArity(ATV.getSort(v)) of 
+                                       SOME(K) => let val t = Semantics.liftArg(v2,K,NONE)
+                                                  in
+ 						    uspecGivenTermToFinalRes(t,v,P,body,ab,NONE)
+						  end
+                                     | _ => evError(wrongArgKind(N.uspecPrimMethod_name,2,termLCType,v2),NONE)))
+                     | _ => primError(dwrongArgKind(N.uspecPrimMethod_name,1,"a universal generalization",P)))
+       | _ => primError(wrongArgKind(N.uspecPrimMethod_name,1,propLCType,v1)))
+    end
+
+fun egenWitnessToFinalRes(witness_term,v,P,body,ab) = 
+      let val v_sort = ATV.getSort(v)
+          val w_sort = AT.getSort(witness_term)
+          val sort_sub_opt = F.isSubSort(w_sort,v_sort)
+          fun f() = let val vsp = F.makeVarSortPrinter()
+                    in
+                       primError("Failed existential generalization---the sort of the "^"witness term: \n"^(AT.toPrettyString(0,witness_term,vsp))^
+  		                 "\nis not a subsort of the existentially "^"quantified variable:\n"^(ATV.toPrettyString(0,v,vsp)))
+		    end
+	  val sort_sub = (case sort_sub_opt of NONE => f() | SOME(s) => s)
+  	  val witness_prop = Prop.replaceVarByTermOfSomeSubSort(v,witness_term,body,sort_sub)
+      in
+        if ABase.isMember(witness_prop,ab) then
+           propVal(P)
+        else
+           primError("Failed existential generalization---the "^"required witness sentence\n"^
+                     pprint(0,witness_prop)^"\nis not in the assumption base")
+      end
+
+fun eGenPrimMethod([v1,v2],env,ab) = 
+     (case coerceValIntoProp(v1) of 
+         SOME(P) => 
+            (case P.isEGen(P) of 
+                SOME(v,body) => 
+                    (case coerceValIntoTerm(v2) of
+                        SOME(witness) => egenWitnessToFinalRes(witness,v,P,body,ab)
+                      | _ => (case D.funSortArity(ATV.getSort(v)) of 
+                                SOME(K) => let val witness_term = Semantics.liftArg(v2,K,NONE)
+                                           in
+ 			  		      egenWitnessToFinalRes(witness_term,v,P,body,ab)
+					   end
+			      | _ => primError(wrongArgKind(N.egenPrimMethod_name,2,termLCType,v2))))
+              | _ => primError(dwrongArgKind(N.egenPrimMethod_name,1,"an existential generalization",P)))
+       | _ => primError(wrongArgKind(N.egenPrimMethod_name,1,propLCType,v1)))
+  | eGenPrimMethod(args,_,_) = primError(wrongArgNumber(N.egenPrimMethod_name,length(args),2))
+
+fun eGenUniquePrimMethod([v1,v2],env,ab) = 
+     (case coerceValIntoProp(v1) of 
+         SOME(P) =>
+            (case P.isEGenUnique(P) of
+                SOME(v,body) => 
+                    (case coerceValIntoTerm(v2) of
+                        SOME(witness) => 
+                            let val body' = body
+                                val witness_prop = Prop.replace(v,witness,body)
+                                val fresh_var1 = ATV.fresh()
+                                val fresh_var2 = ATV.fresh()
+                                val (fresh_term1,fresh_term2) =(AthTerm.makeVar(fresh_var1),
+                                                                AthTerm.makeVar(fresh_var2))
+                                val prop1 = Prop.replace(v,fresh_term1,body')
+                                val prop2 = Prop.replace(v,fresh_term2,body')
+                                val desired_conclusion1 = Prop.makeEquality(fresh_term1,fresh_term2)
+                                val desired_conclusion2 = Prop.makeEquality(fresh_term2,fresh_term1)
+                                val uniqueness_prop1 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
+                                                       Prop.makeConditional(Prop.makeConjunction([prop1,prop2]),
+                                                                 desired_conclusion1)))
+                                val uniqueness_prop2 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
+                                                       Prop.makeConditional(Prop.makeConjunction([prop2,prop1]),
+                                                                 desired_conclusion1)))
+                                val uniqueness_prop3 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
+                                                       Prop.makeConditional(Prop.makeConjunction([prop1,prop2]),
+                                                                 desired_conclusion2)))
+                                val uniqueness_prop4 = Prop.makeUGen([fresh_var1],Prop.makeUGen([fresh_var2],
+                                                       Prop.makeConditional(Prop.makeConjunction([prop2,prop1]),
+                                                                 desired_conclusion2)))
+                                val uniqueness_holds = (ABase.isMember(uniqueness_prop1,ab) orelse
+                                                        ABase.isMember(uniqueness_prop2,ab) orelse
+                                                        ABase.isMember(uniqueness_prop3,ab) orelse
+                                                        ABase.isMember(uniqueness_prop4,ab))
+                            in
+                               if not(ABase.isMember(witness_prop,ab)) then
+                                  primError("Failed existential generalization: the witness sentence\n"^
+                                          pprint(0,witness_prop)^"\nis not in the assumption base"
+                                          )
+                               else 
+                                  if not(uniqueness_holds) then
+                                     primError("Failed unique existential generalization: the required uniqueness "^
+                                             "condition:\n"^pprint(0,uniqueness_prop1)^"\nis not in "^
+                                             "the assumption base")
+                               else
+                                   propVal(P)
+                            end
+                      | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,2,termLCType,v2)))
+              | _ => primError(dwrongArgKind(N.egenUniquePrimMethod_name,1,"a unique existential generalization",P)
+                                           ))
+       | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,1,propLCType,v1)))
+  | eGenUniquePrimMethod(args,env,ab) = 
+        primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
 
 end;
 

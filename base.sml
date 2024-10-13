@@ -446,6 +446,14 @@ fun skipWhiteSpace([]) = []
 fun skipAll([],pred) = []
   | skipAll(L as (x::rest),pred) = if (pred x) then skipAll(rest,pred) else L
 
+fun skipAllAndReturnCount(L,pred) = 
+   let fun skip([],count) = count 
+         | skip(lst as (x::rest),count) = 
+                if (pred x) then skip(rest,count+1) else count
+   in
+     skip(L,0)
+   end
+
 fun skipUntilRev(L,pred) = 
      let fun loop([],res) = (res,[])
            | loop(L as (x::more),res) = if pred(x) then (res,L) else loop(more,x::res)

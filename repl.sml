@@ -860,6 +860,7 @@ fun init(file_name_option) =
 			       N.false_logical_name^")",mod_path,env,eval_env)
          val _ = processString("(domains Int Real Ide)",mod_path,env,eval_env)
          val _ = processString("(subsort Int Real)",mod_path,env,eval_env)
+         val _ = processString("(declare app ((S T) -> ((Fun S T) S) T))",mod_path,env,eval_env)
          val _ = processString("(declare ("^
 		 N.addition_name^" "^N.subtraction_name^" "^N.multiplication_name^" "^N.division_name^" "^N.modulo_name^") "^
 		 "(-> (Real Real) Real))",mod_path,env,eval_env)

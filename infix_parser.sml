@@ -22,6 +22,8 @@ fun infixParseError(msg,SOME(pos)) =
 
 datatype associativity = LEFT | RIGHT
 
+fun debugPrint(str) = if true orelse !Options.first_time then () else print(str)
+
 fun decodeAssoc(true) = LEFT
   | decodeAssoc(false) = RIGHT
 
@@ -65,6 +67,8 @@ fun tok2String(tok) =
  end
 
 fun toks2String(toks) = Basic.printListStr(toks,tok2String,"  ")
+
+fun showToks(toks) = Basic.printListStr(toks,tok2String, " || ")
 
 fun tokPos(LPAREN(pos)) = pos
   | tokPos(RPAREN(pos)) = pos
@@ -185,7 +189,7 @@ fun okSorts(e:phrase,sort_option,previous_op,f,true) =
 (* at all); and (2) the leftmost-argument sort of f must be unifiable with                *)
 (* sort_option, if that is defined at all.                                                *)
 
-  let fun debugPrint(str) = ()
+  let 
       val (f_param_sorts,f_result_sort,_,_) = Data.getSignature(f)
       val constraint_1 = 
            (case previous_op of 
@@ -237,7 +241,7 @@ fun makeQuant(q,vars,e,pos) = A.exp(A.appExp({proc=exp(q),alt_exp=ref(NONE),
                                               args=vars@[e],pos=pos}))
 
 fun tokenize(e,evPhrase,op_table) = 
-  let fun debugPrint(str) = ()
+  let 
       fun isMinusOrPlus(OP({name,...})) = if MS.modSymEq(name,Names.msubtraction_symbol) orelse MS.modSymEq(name,Names.maddition_symbol) then
                                           SOME(name) else NONE
         | isMinusOrPlus(_) = NONE
@@ -275,10 +279,9 @@ fun tokenize(e,evPhrase,op_table) =
        | unparseExp(e) = translate(e) 
      and translate(e) = 
           let val e_pos = AbstractSyntax.posOfExp(e) 
-              val _ = (case e of 
-                          A.idExp(_) => ()
-                        | A.appExp(_) => ()
-                        | _ => ())
+(***
+              val _ = print("\nTokenizing this expression: "  ^ (A.unparseExp e))
+***)
           in  
             (case evPhrase(A.exp e) of
                     termConVal(regFSym(some_fsym)) => 
@@ -287,9 +290,42 @@ fun tokenize(e,evPhrase,op_table) =
                              [OP({name=D.fsymName(some_fsym),arity=D.fsymArity(some_fsym),
                                   prec=(!(D.fsymPrec some_fsym)),
                                   assoc=SOME(decodeAssoc(b)),is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})]
-                        | ref(_) => [OP({name=D.fsymName(some_fsym),arity=D.fsymArity(some_fsym),
+                        | ref(_) => [OP({name=D.fsymName(some_fsym),
+					 arity=D.fsymArity(some_fsym),
                                          prec=(!(D.fsymPrec some_fsym)),
-                                         assoc=NONE,is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
+                                         assoc=NONE,
+					 is_fsym=true,
+					 pos=e_pos,
+					 orig_exp=SOME(A.exp(e))})])
+                  | termVal(t) => 
+                        let val term_sort = AT.getSort(t)
+                            (** val _ = print("\nHere's the INFIX term: " ^ (AT.toPrettyStringDefault(0,t)))  **)
+                        in
+                           (case F.isApp(term_sort) of 
+                               SOME(fun_sort,sort_args) => 
+                                 (* Shut this off for now, causing more problems than it solves. But still might make sense to 
+                                    change the tokenizer to handle higher-order arguments in a different way... *)
+                                 if false andalso MS.modSymEq(fun_sort,Names.fun_name_msym) (* andalso AT.isGeneralConstant(t) *) then 
+                                   let val root_name = (case AT.isApp(t) of SOME(f,_) => f 
+                                                                          | _  =>  MS.makeSimpleName("foo"))										      
+                                       val root_arity = length(sort_args)-1							   
+                                   in
+                                      [OP({name=root_name,
+  					   arity=root_arity,
+                                           prec=(if root_arity = 1 orelse root_arity = 2 then 110 else 0),
+                                           assoc=NONE,
+					   is_fsym=false,
+					   pos=e_pos,
+					   orig_exp=SOME(A.exp(e))})]
+                                   end
+                                 else
+                                   (case AthTerm.isConstant(t) of
+                                       SOME(f) => ([OP({name=f,arity=0,prec=0,assoc=NONE,
+                                                        is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
+                                     | _ => (case AthTerm.isVarOpt(t) of
+                                                SOME(v) => [exp_tok(A.exp e)] 
+                                              | _ => [exp_tok(A.exp e)])))
+                        end
                   | closUFunVal(_,_,_,{prec,name}) =>
                        [OP({name=A.makeMS(!name,NONE),arity=1,prec=(!prec),
                             assoc=NONE,is_fsym=false,pos=A.posOfExp(e),orig_exp=SOME(A.exp(e))})]
@@ -337,14 +373,7 @@ fun tokenize(e,evPhrase,op_table) =
                   | propConVal(forallCon) =>  [QUANT(e,e_pos)]
 
                   | propConVal(existsCon) => [QUANT(e,e_pos)]
-                  | propConVal(existsUniqueCon) => [QUANT(e,e_pos)]
-                  | termVal(t) => 
-                       (case AthTerm.isConstant(t) of
-                          SOME(f) => ([OP({name=f,arity=0,prec=0,assoc=NONE,
-                                           is_fsym=true,pos=e_pos,orig_exp=SOME(A.exp(e))})])
-                        | _ => (case AthTerm.isVarOpt(t) of
-                                   SOME(v) => [exp_tok(A.exp e)] 
-                                 | _ => [exp_tok(A.exp e)]))
+                  | propConVal(existsUniqueCon) => [QUANT(e,e_pos)]                 
                   | _ => [exp_tok(A.exp e)]) handle _ => [exp_tok(A.exp e)]
           end
       and unparseDed(d) = [exp_tok(A.ded d)]
@@ -355,7 +384,7 @@ fun tokenize(e,evPhrase,op_table) =
   end
 
 fun parseExpTop1(token_list,evPhrase) = 
- let fun debugPrint(str) = if !(Options.call_stack_size) < 201 then () else print(str)
+ let 
     fun endsWithDot(name) = (case List.last(explode(name)) of
                                 #"." => true
                               | _ => false)
@@ -384,8 +413,14 @@ fun parseExpTop1(token_list,evPhrase) =
                          end
                      else res
                | loop(res) = res
+            val parse_unary_results = let val _ = debugPrint("\n[[[[[ About to parseUnary these toks: " ^ (showToks tokens))
+                                          val res = (case parseUnary(tokens) of 
+                                                        (results as (_,more_toks)) => (debugPrint("\n]]]]] Remaining tokens: " ^ (showToks more_toks)); results))
+                                      in 
+                                         res
+                                      end
          in
-           loop(parseUnary tokens)
+           loop(parse_unary_results)
          end
    and parseUnary(all_toks as (QUANT(q,pos))::rest) = 
           (case parseVars(rest,[]) of
@@ -418,15 +453,28 @@ fun parseExpTop1(token_list,evPhrase) =
         end
      | parseUnary(all_toks as (LPAREN lp_pos)::rest) = 
         ((case rest of
-            (OP({name=f,arity=n,prec,assoc,is_fsym,pos,orig_exp,...}))::rest' => 
+              (OP({name=f,arity=n,prec,assoc,is_fsym,pos,orig_exp,...}))::rest' => 
                if n > 1 then 
-                 (case parse_N_Exps(rest',n,[]) of
+                let val app_arity = 
+                         if MS.modSymEq(f,Names.app_fsym_mname) then 
+			    Basic.skipAllAndReturnCount(rest',(fn tok => (case tok of RPAREN(_) => false | _ => true)))
+                         else n
+                    val _ = debugPrint("\nIn parseUnary APP_ARITY = " ^ (Int.toString app_arity) ^ "\nwith these rest' toks: " ^ (Basic.printListStr(rest',tok2String," || ")))
+                in
+                 ((case parse_N_Exps(rest',app_arity,[]) of
                      (results,(RPAREN _)::rest'') => 
+                      let val _ = debugPrint("\nMADE IT HERE...")
+                      in
        	                (case allSortOptions(results) of 
                             SOME(exps,sorts) => 
                               (({infix_exp=doApp(f,exps,pos,orig_exp),sort_option=combineSorts(f,SOME sorts)},rest''))
                             | _ => (({infix_exp=doApp(f,map #infix_exp results,pos,orig_exp),sort_option=combineSorts(f,NONE)},rest'')))
-                   | (_,toks) => (doError("right parenthesis expected here",toks,all_toks)))
+                      end
+                   | (_,toks) => let val _ = debugPrint("\nWas expecting a rparen after parsing 4 expressions, instead got this: " ^ (Basic.printListStr(toks,tok2String," || ")))							
+                                 in
+                                   (doError("right parenthesis expected here",toks,all_toks))
+                                end) handle ex => (debugPrint("\nEXCEPTION HERE!!!"); raise ex))
+                end
                else 
                 (case rest' of  (* New code here to deal with nullary applications *)
                     (RPAREN _)::rest'' => 
@@ -490,8 +538,12 @@ fun parseExpTop1(token_list,evPhrase) =
      | parseUnary((exp_tok e)::rest) = (({infix_exp=e,sort_option=NONE},rest))
      | parseUnary(toks) = doError("term or sentence expected here",toks,token_list)
    and parse_N_Exps(toks,0,res) = (rev(res),toks)
-     | parse_N_Exps(toks,i,res) = (case parseExp2(toks) of 
-                                     ({infix_exp=e,sort_option},more) => parse_N_Exps(more,i-1,{infix_exp=e,sort_option=sort_option}::res))
+     | parse_N_Exps(toks,i,res) = 
+            let val _ = debugPrint("\nInside parse_N_exps with i: " ^ (Int.toString i) ^ ", about to parse these toks: " ^ (Basic.printListStr(toks,tok2String," || ")))
+            in 
+              (case parseExp2(toks) of 
+                  ({infix_exp=e,sort_option},more) => parse_N_Exps(more,i-1,{infix_exp=e,sort_option=sort_option}::res))
+            end
    and parse_N_Comma_Separated_Exps(toks,0,res) = (rev(res),toks)
      | parse_N_Comma_Separated_Exps(toks,1,res) = 
            (case parseExp2(toks) of 
@@ -538,6 +590,9 @@ fun parseExpTop(token_list,evPhrase) = #1(parseExpTop1(token_list,evPhrase))
 
 fun parse(e,evPhrase,op_table) = 
   let val toks = tokenize(e,evPhrase,op_table)
+(*******)
+      val _ = debugPrint("\nAbout to infix-parse this exp: " ^ (A.unparseExp e) ^ "\nHere are the tokens: " ^ (Basic.printListStr(toks,tok2String," || ")))
+(*******)
       val res = (case parseExpTop(toks,evPhrase) of 
                    ({infix_exp=e,...},_) => e)
   in

@@ -4,14 +4,17 @@ struct
 
   structure S = Symbol;
 
+  (* whole sym is last *)
   type mod_symbol = Symbol.symbol list * Symbol.symbol * Symbol.symbol
 
   fun makeModSymbol x = x 
-
-
-
   fun name(_,_,s) = Symbol.name(s)
 
+  fun makeSimpleName(str) = 
+        let val s = Symbol.symbol(str)
+        in
+          ([],s,s)
+        end
 
   fun nameAsSymbol(_,_,s) = s
 
@@ -43,6 +46,12 @@ struct
 
   fun dum_modsym(str) = let val s = Symbol.symbol(str) in makeModSymbol([],s,s) end;
 
+  fun unlift((mods,last_name,whole)) = 
+          let val new_last_name = Basic.stripLast(S.name(last_name))
+              val new_whole = (modulePrefix0 mods)^new_last_name
+          in
+           (mods,S.symbol new_last_name,S.symbol new_whole)
+          end
 
   fun hash(syms,sym,s) = Symbol.hashSymbol(s)
 

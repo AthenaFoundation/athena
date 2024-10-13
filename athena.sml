@@ -24,7 +24,8 @@ fun runWithStarterFileAndQuit(file_name) =
    (Repl.init(file_name);
     print("\nDone...\n"))
 
-fun run() = runWithStarterFile(NONE)
+fun run() = let val _ = Options.first_time := true
+            in runWithStarterFile(NONE) end 
 
 (**
 
@@ -44,12 +45,15 @@ fun initializeXSB() =
 **)
 
 fun main(arg0,args) = 
-  let fun M(file_name_option:string option) =              
+  let fun M(file_name_option:string option,quit_after) =              
              (print("\nWelcome to Athena!\n");
               print("\nType an expression or deduction at the\nprompt below, ");
               print("and press Enter to evaluate it.\n");
 	          print("\nTo exit Athena, type \"quit\" at the prompt\nand press Enter.\n");
-              runWithStarterFile(file_name_option);
+              if quit_after then
+                 runWithStarterFileAndQuit(file_name_option)
+	      else 		  
+                 runWithStarterFile(file_name_option);
 	      OS.Process.success) 
 (**      
       val i = initializeXSB()
@@ -57,8 +61,9 @@ fun main(arg0,args) =
 **)
   in
     (case args of
-       [] => M(NONE)
-     | file_name::_ => M(SOME(file_name)))
+       [] => M(NONE,false)
+     | [file_name] => M(SOME(file_name),false)
+     | file_name::(_::_) => M(SOME(file_name),true))
    end
    
 end 
