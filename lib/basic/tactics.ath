@@ -1,5 +1,140 @@
 module Tactics {
 
+define (flip pol) :=
+    match pol {
+      'p  => 'n
+    | 'n  => 'p
+    | 'pn => 'pn}
+
+  define (polarities p q) := 
+    match q {
+      (val-of p) => ['p]
+    | (~ q1) => (map flip (polarities p q1))
+    | (q1 ==> q2) => (join (map flip (polarities p q1))
+                           (polarities p q2))
+    | (q1 <==> q2) => (map lambda (_) 'pn
+                           (join (polarities p q1) (polarities p q2)))
+    | ((some-sent-con _) (some-list args)) =>
+         (flatten (map lambda (q) (polarities p q) 
+                       args))
+    | _ => []
+    }
+    
+
+define (sub-sentence-map p) :=
+  letrec {loop := lambda (p M pos) 
+                    match p {
+                      ((some-sent-con _) (some-list args)) => (loop* args (Map.add M [[pos p]]) pos 1)
+                    | _ => (Map.add M [[pos p]])
+                    };
+          loop* := lambda (props M pos i)
+                     match props {
+                       [] => M
+                     | (list-of p more) => (loop* more (loop p M (join pos [i])) pos (plus i 1))
+                     }}
+   (loop p |{}| [])
+
+
+define (extend-map M k v) := 
+  let {res := try { (M k) | [] }}
+    (Map.add M [[k (add v res)]])
+
+# (sub-sentence-map p) returns a dictionary that maps every subsentence q of p
+# to a list of pairs of the form [position polarity], where position is a Dewey path
+# indicating the position of q in p (viewing p as a tree) and polarity indicates the polarity of q in p.
+# A list of such pairs is returned because a single subsentence may have multiple occurrences in p. 
+
+define (sub-sentence-map p) :=
+  letrec {loop := lambda (p pos pol M) 
+                    match p {
+                      (~ q) => (loop q (join pos [1]) (flip pol) (extend-map M p [pos pol]))
+                    | (and (some-list args)) =>
+                        (loop* args
+                               pos
+                               pol
+                               (extend-map M p [pos pol])
+                               1)
+                    | (or (some-list args)) =>
+                        (loop* args
+                               pos
+                               pol
+                               (extend-map M p [pos pol])
+                               1)
+                    | (if p1 p2) => (loop p2
+                                          (join pos [2])
+                                          pol 
+                                          (loop p1
+                                               (join pos [1])
+                                               (flip pol)
+                                               (extend-map M p [pos pol])))
+                    | (iff p1 p2) => let {M1 := (loop p1 (join pos [1]) 'pn M);
+                                          M2 := (loop p2 (join pos [2]) 'pn M1)}
+                                      (extend-map M2 p [pos pol])
+                    | _ => (extend-map M p [pos pol])
+                    };
+          loop* := lambda (props pos pol M i) 
+                     match props {
+                       [] => M
+                     | (list-of p more) =>
+                          (loop* more
+                                 pos
+                                 pol
+                                 (loop p (join pos [i]) pol M)
+                                 (plus i 1))
+                     }}
+   (loop p [] 'p |{}|)
+   
+define (polarities-and-positions p q) :=
+    let {prepend-and-process := 
+           lambda (i f)
+             lambda (pos-pol-pair)
+               match pos-pol-pair {
+                 [pos pol] => [(add i pos) (f pol)]
+               };
+         id := lambda (x) x;
+         make-pos-neg := lambda (_) 'pn}
+      match q {
+        (val-of p) => [[[] 'p]]
+      | (~ q1) => (map (prepend-and-process 1 flip)
+                       (polarities-and-positions p q1))
+      | (q1 ==> q2) =>  (join (map (prepend-and-process 1 flip) 
+                                   (polarities-and-positions p q1))
+                              (map (prepend-and-process 2 id)
+                                   (polarities-and-positions p q2)))
+      | (q1 <==> q2) => (join (map (prepend-and-process 1 make-pos-neg)
+                                   (polarities-and-positions p q1))
+                              (map (prepend-and-process 2 make-pos-neg)
+                                   (polarities-and-positions p q2)))
+      | ((some-sent-con _) (some-list args)) =>
+          let {i := (cell 1)}
+            (flatten (map lambda (q)
+                             (map (prepend-and-process (inc i) id)
+                                  (polarities-and-positions p q))
+                          args))
+      | _ => []
+      }
+
+define (find-positive-goal-parent goal premise) :=
+# Find a positive subsentence of the premise that is a parent of the goal.
+# If no such subsentences exists, return ().
+# If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
+  let {subsentence-map := (sub-sentence-map premise);
+       parent? := lambda (parent child)
+                    (member? child (children parent));
+       complex-non-negation := lambda (p)
+                                 (|| (conjunction? p) (disjunction? p) (conditional? p) (biconditional? p));
+       positive?       := lambda (position-polarity-pair)
+                            (member? (second position-polarity-pair)
+                                     ['p 'pn])}
+    (find-element (Map.keys subsentence-map)
+                  lambda (ss)
+                    (&& (parent? ss goal)
+                        (complex-non-negation ss)
+                        (for-some (subsentence-map ss) positive?))
+                  lambda (pp) (print "\nHERE'S A POSITIVE PARENT OF THE GIVEN GOAL:" pp)                        
+                  lambda () ())                        
+                    
+
 # A record (or frame) on the goal stack has the following form:
 # |{
 #   'goal           := <a sentence>,
@@ -21,27 +156,13 @@ module Tactics {
  define fresh-goal-id := lambda () (join "g" (val->string (inc goal-id-counter)))
 
  define (add-all p assumptions) :=
-    (join assumptions (dedup (get-conjuncts-recursive p)))
+    (join assumptions (dedup (add p (get-conjuncts-recursive p))))
  
  define clear-state :=
    lambda ()
       (seq (set! root-goal (cell ()))
            (set! goal-id-counter 0))
            
-define set-goal :=
-  lambda (goal-sentence)
-    let {_         := (clear-state);
-         goal-node := |{'id             := (fresh-goal-id),
-                        'path           := [],
-                        'goal           := goal-sentence,
-                        'assumptions    := [],
-                        'eigenvariables := [],
-                        'witnesses      := [],
-                        'parent         := (),
-                        'children       := (cell [])}|;
-         _ := (set! root-goal goal-node)}
-     (set! goal-stack [goal-node])
-
 define (set-parent g1 g2) :=
 # Make g1 the parent of g2 and g2 a child of g1:
   let {_ := (set! (g1 'children)
@@ -57,16 +178,17 @@ define (add-child goal child) :=
   let {goal-children-cell := (goal 'children);
        goal-children      := (ref goal-children-cell)}
     (set! goal-children-cell (join goal-children [child]))
-  
+
+define (extend-path goal index) := (join (goal 'path) [index])
+
 define (make-child goal new-child-bindings) :=
   let {child :=   (Map.add goal (join [['parent goal]
+                                       ['path (extend-path goal 1)]
                                        ['id (fresh-goal-id)]
                                        ['children (cell [])]]
                                        new-child-bindings));
        _ := (add-child goal child)}
     child 
-
-define (extend-path goal index) := (join (goal 'path) [index])
 
 define (make-subgoals goal subgoals) := 
   let {make-subgoal := lambda (p index) (make-child goal [['goal p] ['path (extend-path goal index)]]);
@@ -97,18 +219,10 @@ define (backward-tactic goal-stack tactic-name) :=
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
    }
-
-define tactic-dictionary :=
-  |{
-    'back-lor := lambda (goal-stack) (backward-tactic goal-stack 'lor),
-    'back-ror := lambda (goal-stack) (backward-tactic goal-stack 'back-ror),
-    'back-if  := lambda (goal-stack) (backward-tactic goal-stack 'back-if),
-    'back-iff := lambda (goal-stack) (backward-tactic goal-stack 'back-iff),
-    'back-and := lambda (goal-stack) (backward-tactic goal-stack 'back-end),                
-  }|
   
 define (show-goal-record g i N) :=
-  (print "\n\n****************************** Stack record" i "out of" N "\n--Goal: " (g 'goal) "\n--Goal id: " (g 'id)
+  (print "\n\n****************************** Stack record" i "out of" N "\n--Goal: " (g 'goal)
+         "\n--Goal id: " (g 'id) "\n--Path: " (g 'path)
          "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvariables) "\n--Witnesses: " (g 'witnesses))
    
 define (show-stack) :=
@@ -119,15 +233,103 @@ define (show-stack) :=
                   (ref goal-stack))
         (print "\n\n]]]]]]]]]]]]]\n"))
 
-define (apply-tactic tactic-name) := 
+define set-goal :=
+  lambda (goal-sentence)
+    check {(holds? goal-sentence) => (print "\nThis sentence already holds.")
+         | else => let {_         := (clear-state);
+                        goal-node := |{'id             := (fresh-goal-id),
+                                       'path           := [],
+                                       'goal           := goal-sentence,
+                                       'assumptions    := [],
+                                       'eigenvariables := [],
+                                       'witnesses      := [],
+                                       'parent         := (),
+                                       'children       := (cell [])}|;
+                        _ := (set! root-goal goal-node);
+                        _ := (set! goal-stack [goal-node]);
+                        _ := (print "\nCreated a new goal stack:\n")}
+                     (show-stack)
+          }                     
+
+
+define extraction-tactic :=
+  lambda (goal-stack args)
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match [ (goal-record 'goal) args] {
+         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
+            [goal [premise]] => check {(negate (|| (member? premise (goal-record 'assumptions))
+                                                   (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
+                                     | else => match (find-positive-goal-parent goal premise) {
+                                                 () => (error "Invalid application of the extraction tactic: the given premise does not have any positive occurrences of a parent of the given goal")
+                                               | (some-sentence parent) => let {goal-record' := (make-child goal-record [['goal parent]])}
+                                                                             (add goal-record' rest)
+                                               }}
+         }
+     }
+
+define tactic-dictionary :=
+  |{
+    'back-lor := lambda (goal-stack _) (backward-tactic goal-stack 'lor),
+    'back-ror := lambda (goal-stack _) (backward-tactic goal-stack 'back-ror),
+    'back-if  := lambda (goal-stack _) (backward-tactic goal-stack 'back-if),
+    'back-iff := lambda (goal-stack _) (backward-tactic goal-stack 'back-iff),
+    'back-and := lambda (goal-stack _) (backward-tactic goal-stack 'back-and),
+    'extract  := extraction-tactic,
+    'back     := lambda (goal-stack _)
+                   match goal-stack {
+                     (list-of goal-record _) =>
+                        match (goal-record 'goal) {
+                          (and (some-list _)) => (backward-tactic goal-stack 'back-and)
+                        | (or (some-list _)) => (backward-tactic goal-stack 'lor)
+                        | (if _ _) => (backward-tactic goal-stack 'back-if)
+                        | (iff _ _) => (backward-tactic goal-stack 'back-iff)
+                        | _ => goal-stack
+                        }
+                   | _ => goal-stack                        
+                   },
+    'claim := lambda (goal-stack _)  
+                match goal-stack {
+                  (list-of goal-record rest) =>
+                    let {goal := (goal-record 'goal)}
+                      check {(|| (holds? goal) (member? goal (goal-record 'assumptions))) => rest
+                           | else => (error "Incorrect application of 'claim tactic--the top goal does not hold.")}
+                | _ => goal-stack
+              }
+  }|
+
+
+define done? := lambda () (null? (ref goal-stack))
+
+define (apply-tactic tactic-name args) :=
   let {# Retrieve the tactic by name: 
        tactic := (tactic-dictionary tactic-name);
        # Apply the tactic to the goal-stack: 
-        new-stack      := (tactic (ref goal-stack));
-        _ := (set! goal-stack new-stack);
-        _ := (print "\nTactic application successful, new goal stack:\n")}
-    (show-stack)        
-    
+        new-stack      := (try (tactic (ref goal-stack) args) 'error)}
+    match new-stack {
+      'error => 'error
+    | _ => let {_ := (set! goal-stack new-stack);
+                _ := (print "\nApplied tactic" (val->string tactic-name) "successfully.\n");
+                _ := check {(done?) => (print "\nGoal completely proven!")
+                          | else => (seq (print "\nHere's the new goal stack:\n") 
+                                         (show-stack)
+                                         (print "\nWill now try to apply the claim tactic...\n")
+                                         (apply-tactic 'claim []))
+                           }
+               }
+             'success                                         
+    }
+
+define (apply-tactic* tactic-name args) :=
+## As long as it can be successfully applied and we are not completely done, keep applying the given tactic. 
+  match (apply-tactic tactic-name args) {
+    'success => check {(done?) => ()
+                     | else => (apply-tactic* tactic-name args)}
+  | _ => ()                     
+  }                                         
+
+
+
 } # close module Tactics 
 
 declare A, B, C, D, E: Boolean
@@ -140,5 +342,8 @@ load "lib/basic/tactics"
 
 (set-goal (if (and A B) (and B A)))
 
-(apply-tactic 'back-if)
-(apply-tactic 'back-and)
+(apply-tactic 'back [])
+
+(apply-tactic* 'back [])
+
+(apply-tactic 'back-and [])
