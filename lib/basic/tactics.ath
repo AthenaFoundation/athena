@@ -3,10 +3,10 @@ module Tactics {
 # A record (or frame) on the goal stack has the following form:
 # |{
 #   'goal           := <a sentence>,
-#   'id             := <a unique identifier>,
+#   'id             := <a unique identifier (e.g. a Dewey path)>
 #   'assumptions    := <a list of assumptions>,
 #   'eigenvariables := <a list of eigenvariables>,
-#   'witnesses      := <a list of eigenvariables>,
+#   'witnesses      := <a list of witness variables>,
 #   'parent         := <uplink to the parent or to ()>
 #   'children       := <downinks to children or to ()> 
 # }|    
@@ -16,29 +16,31 @@ module Tactics {
 
  define goal-id-counter := (cell 0)
 
- define ht := (HashTable.table 500)
-
- define root-id := (cell "g1")
+ define root-goal := (cell ())
 
  define fresh-goal-id := lambda () (join "g" (val->string (inc goal-id-counter)))
 
+ define (add-all p assumptions) :=
+    (join assumptions (dedup (get-conjuncts-recursive p)))
+ 
  define clear-state :=
    lambda ()
-      (seq (HashTable.clear ht)
+      (seq (set! root-goal (cell ()))
            (set! goal-id-counter 0))
            
 define set-goal :=
   lambda (goal-sentence)
-    let {_    := (clear-state);
-         root := (fresh-goal-id);
-         _    := (set! root-id root)}
-     (set! goal-stack [|{'id             := root,
-                         'goal           := goal-sentence,
-                         'assumptions    := [],
-                         'eigenvariables := [],
-                         'witnesses      := [],
-                         'parent         := (cell ()),
-                         'children       := (cell [])}|])
+    let {_         := (clear-state);
+         goal-node := |{'id             := (fresh-goal-id),
+                        'path           := [],
+                        'goal           := goal-sentence,
+                        'assumptions    := [],
+                        'eigenvariables := [],
+                        'witnesses      := [],
+                        'parent         := (),
+                        'children       := (cell [])}|;
+         _ := (set! root-goal goal-node)}
+     (set! goal-stack [goal-node])
 
 define (set-parent g1 g2) :=
 # Make g1 the parent of g2 and g2 a child of g1:
@@ -49,41 +51,53 @@ define (set-parent g1 g2) :=
 define (set-parent* g1 goal-records) :=
   (map-proc (lambda (g) (set-parent g1 g)) goal-records)
 
-# Apply a given tactic to the topmost goal:
+# Apply a given tactic to the top goal:
 
-define (make-new goal-record new-bindings) :=
-  (Map.add goal-record (join [['parent (cell ())] ['id (fresh-goal-id)] ['children (cell [])]] new-bindings))
+define (add-child goal child) := 
+  let {goal-children-cell := (goal 'children);
+       goal-children      := (ref goal-children-cell)}
+    (set! goal-children-cell (join goal-children [child]))
+  
+define (make-child goal new-child-bindings) :=
+  let {child :=   (Map.add goal (join [['parent goal]
+                                       ['id (fresh-goal-id)]
+                                       ['children (cell [])]]
+                                       new-child-bindings));
+       _ := (add-child goal child)}
+    child 
 
+define (extend-path goal index) := (join (goal 'path) [index])
+
+define (make-subgoals goal subgoals) := 
+  let {make-subgoal := lambda (p index) (make-child goal [['goal p] ['path (extend-path goal index)]]);
+       counter := (cell 1)}
+    (map lambda (p) (make-subgoal p (inc counter))
+         subgoals)
+  
 define (backward-tactic goal-stack tactic-name) :=
    match goal-stack {
      (list-of goal-record rest) =>
          match (goal-record 'goal) {
            (and (some-list conjuncts)) => 
-             let {make-new-goal-record := lambda (conjunct) (make-new goal-record [['goal conjunct]]);
-                  new-goal-records := (map make-new-goal-record conjuncts);
-                  _                := (set-parent* goal-record new-goal-records);
-                         new-stack := (join new-goal-records rest);
-                         _         := (print "\nNEW STACK: " new-stack)}
+             let {make-new-goal-record := lambda (conjunct) (make-child goal-record [['goal conjunct]]);
+                  new-goal-records := (make-subgoals goal-record conjuncts);
+                         new-stack := (join new-goal-records rest)}
                new-stack
          | (if (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := (make-new goal-record [['goal q] ['assumptions  (add p (goal-record 'assumptions))]]);
-                  _            := (set-parent goal-record goal-record')}
+             let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]])}
                (add goal-record' rest)
          | (iff (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := (make-new goal-record [['goal (and (if p q) (if q p))]]);
-                  _            := (set-parent goal-record goal-record')}
+             let {goal-record' := (make-child goal-record [['goal (and (if p q) (if q p))]])}
                (add goal-record' rest)
          | (or (some-sentence p) (some-sentence q)) =>
-             let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p q] | else => [q p]};
-                  goal-record'   := (make-new goal-record [['goal new-goal] ['assumptions  (add new-assumption (goal-record 'assumptions))]]);
-                  _            := (set-parent goal-record goal-record')}
+             let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p (not q)] | else => [q (not p)]};
+                  goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]])}
                (add goal-record' rest)                                    
          | _ => goal-stack
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
    }
 
- 
 define tactic-dictionary :=
   |{
     'back-lor := lambda (goal-stack) (backward-tactic goal-stack 'lor),
@@ -93,26 +107,38 @@ define tactic-dictionary :=
     'back-and := lambda (goal-stack) (backward-tactic goal-stack 'back-end),                
   }|
   
+define (show-goal-record g i N) :=
+  (print "\n\n****************************** Stack record" i "out of" N "\n--Goal: " (g 'goal) "\n--Goal id: " (g 'id)
+         "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvariables) "\n--Witnesses: " (g 'witnesses))
+   
+define (show-stack) :=
+ let {counter := (cell 1);
+      N := (length (ref goal-stack))}
+   (seq (print "\n[[[[[[[[[[[[[")
+        (map-proc (lambda (r) (show-goal-record r (inc counter) N))
+                  (ref goal-stack))
+        (print "\n\n]]]]]]]]]]]]]\n"))
+
 define (apply-tactic tactic-name) := 
   let {# Retrieve the tactic by name: 
        tactic := (tactic-dictionary tactic-name);
        # Apply the tactic to the goal-stack: 
-        new-stack      := (tactic (ref goal-stack))}
-    (set! goal-stack new-stack)
-
-define (show-goal-record g i N) :=
-  (print "\n*** Stack record #" i " out of " N ":\n--Goal: " (g 'goal) "\n--Goal id: " (g 'id)
-         "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvariables) "\n--Witnesses: " (g 'witnesses))
-   
-define (show-stack) :=
- let {counter := (cell 0);
-      N := (length (ref goal-stack))}
-   (seq (print "\n[[[[[[[[[[[[[\n")
-        (map-proc (lambda (r) (show-goal-record r (inc counter) N))
-                  (ref goal-stack))
-        (print "\n]]]]]]]]]]]]]"))
+        new-stack      := (tactic (ref goal-stack));
+        _ := (set! goal-stack new-stack);
+        _ := (print "\nTactic application successful, new goal stack:\n")}
+    (show-stack)        
     
 } # close module Tactics 
 
+declare A, B, C, D, E: Boolean
+
+open Tactics
+
 EOF
+
 load "lib/basic/tactics"
+
+(set-goal (if (and A B) (and B A)))
+
+(apply-tactic 'back-if)
+(apply-tactic 'back-and)
