@@ -143,7 +143,8 @@ define (find-positive-goal-parent goal premise) :=
 #   'eigenvariables := <a list of eigenvariables>,
 #   'witnesses      := <a list of witness variables>,
 #   'parent         := <uplink to the parent or to ()>
-#   'children       := <downinks to children or to ()> 
+#   'children       := <downinks to children or to ()>
+#   'tactic         := <a cell of a pair of the form [<tactic-name> <tactic-args>] used to obtain the children goals> 
 # }|    
 
 
@@ -163,15 +164,6 @@ define (find-positive-goal-parent goal premise) :=
       (seq (set! root-goal (cell ()))
            (set! goal-id-counter 0))
            
-define (set-parent g1 g2) :=
-# Make g1 the parent of g2 and g2 a child of g1:
-  let {_ := (set! (g1 'children)
-                  (join (ref (g1 'children)) [g2]))}
-    (seq (set! (g2 'parent) g1))
-       
-define (set-parent* g1 goal-records) :=
-  (map-proc (lambda (g) (set-parent g1 g)) goal-records)
-
 # Apply a given tactic to the top goal:
 
 define (add-child goal child) := 
@@ -197,11 +189,13 @@ define (make-subgoals goal subgoals) :=
          subgoals)
   
 define (backward-tactic goal-stack tactic-name) :=
+# This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'back-and is applied to a conditional? 
    match goal-stack {
      (list-of goal-record rest) =>
+       let {_ := (set! (goal-record 'tactic) [tactic-name []])}
          match (goal-record 'goal) {
            (and (some-list conjuncts)) => 
-             let {make-new-goal-record := lambda (conjunct) (make-child goal-record [['goal conjunct]]);
+             let {make-new-goal-record := lambda (conjunct) (make-child goal-record [['goal conjunct]]);              
                   new-goal-records := (make-subgoals goal-record conjuncts);
                          new-stack := (join new-goal-records rest)}
                new-stack
@@ -244,6 +238,7 @@ define set-goal :=
                                        'eigenvariables := [],
                                        'witnesses      := [],
                                        'parent         := (),
+                                       'tactic         := (cell ()),
                                        'children       := (cell [])}|;
                         _ := (set! root-goal goal-node);
                         _ := (set! goal-stack [goal-node]);
@@ -251,6 +246,11 @@ define set-goal :=
                      (show-stack)
           }                     
 
+define (proper-extraction-tactic goal premise parent) :=
+# This will produce a pair of the form [<extraction-tactic-name> args] where
+# <extraction-tactic-name> is a meta-identifier representing a proper (fully specified) extraction tactic name, and args is the list
+# of all those values that are necessary for the tactic to work. qqq IMPLEMENT THIS FUNCTION 
+  () 
 
 define extraction-tactic :=
   lambda (goal-stack args)
@@ -262,7 +262,8 @@ define extraction-tactic :=
                                                    (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
                                      | else => match (find-positive-goal-parent goal premise) {
                                                  () => (error "Invalid application of the extraction tactic: the given premise does not have any positive occurrences of a parent of the given goal")
-                                               | (some-sentence parent) => let {goal-record' := (make-child goal-record [['goal parent]])}
+                                               | (some-sentence parent) => let {goal-record' := (make-child goal-record [['goal parent]]);
+                                                                                _ := (set! (goal-record 'tactic) (proper-extraction-tactic goal premise parent))}
                                                                              (add goal-record' rest)
                                                }}
          }
