@@ -261,7 +261,7 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise)
 #
 # where <extraction-tactic-name> is a meta-identifier representing a proper (fully specified) extraction 
 # tactic name, and args is the list of all those values that are necessary for the tactic to work.
-  let {aux-info := [premise parent parent-position-in-premise]}
+  let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise}|}
     match parent {
       
       ((and (some-list props)) where (member? goal props)) => |{'tactic-info := ['and-> aux-info], 'subgoals := [parent]}|
@@ -344,37 +344,6 @@ define tactic-dictionary :=
   }|
 
 
-define done? := lambda () (null? (ref goal-stack))
-
-define (apply-tactic tactic-name args) :=
-  let {# Retrieve the tactic by name: 
-       tactic := (tactic-dictionary tactic-name);
-       _ := (print "\nGot the tactic, and here's the args: " args);
-       # Apply the tactic to the goal-stack: 
-       new-stack      := (try (tactic (ref goal-stack) args) 'error)}
-    match new-stack {
-      'error => 'error
-    | _ => let {_ := (set! goal-stack new-stack);
-                _ := (print "\nApplied tactic" (val->string tactic-name) "successfully.\n");
-                _ := check {(done?) => (print "\nGoal completely proven!")
-                          | else => (seq (print "\nHere's the new goal stack:\n") 
-                                         (show-stack)
-                                         (print "\nWill now try to apply the claim tactic...\n")
-                                         (apply-tactic 'claim []))
-                           }
-               }
-             'success                                         
-    }
-
-define (apply-tactic* tactic-name args) :=
-## As long as it can be successfully applied and we are not completely done, keep applying the given tactic. 
-  match (apply-tactic tactic-name args) {
-    'success => check {(done?) => ()
-                     | else => (apply-tactic* tactic-name args)}
-  | _ => ()                     
-  }                                         
-
-
 define (spaces n) :=
   check {(n less? 1) => ""
        | else => (join " " (spaces (n minus 1)))}
@@ -390,15 +359,26 @@ define (stringify v) :=
     (loop (val->string v) [])                   
    
      
-    
-define (show-tree) :=
+define (tac->string tac) :=
+  match tac {
+    [tactic-name tactic-info] =>
+      check {(tactic-name equals? 'claim) => "'claim ** LEAF **"
+           | else => (stringify tac)}
+  | _ => (stringify tac)
+  }
+
+define (show-tree current-goal-id) :=
   let {start := (ref root-goal)}
     letrec {display-goal-record  := lambda (goal-record level)
-                                      let {goal := (goal-record 'goal); 
+                                      let {goal := (goal-record 'goal);
+                                           goal-id := (goal-record 'id);
+                                           is-current := (equals? goal-id current-goal-id);
+                                           goal-line := check {(equals? goal-id current-goal-id) => (join "---> Goal: " (stringify goal))
+                                                             | else => (join "Goal: " (stringify goal))};
                                            _ := (print "\n" (spaces level) (stringify (goal-record 'path))
-                                                       "Goal:" (stringify goal)
+                                                       goal-line 
                                                        "Assumptions:" (stringify (goal-record 'assumptions))
-                                                       "Tactic:" (stringify (ref (goal-record 'tactic))))}
+                                                       "Tactic:" (tac->string (ref (goal-record 'tactic))))}
                                        (display-goal-records (ref (goal-record 'children)) (plus level 2));
             display-goal-records := lambda (goal-records level)
                                       match goal-records {
@@ -408,6 +388,41 @@ define (show-tree) :=
                                       }}
        (display-goal-record start 0)                                      
   
+define done? := lambda () (null? (ref goal-stack))
+
+define (apply-tactic tactic-name args) :=
+  let {# Retrieve the tactic by name: 
+       tactic := (tactic-dictionary tactic-name);
+       _ := (print "\nGot the tactic, and here's the args: " args);
+       # Apply the tactic to the goal-stack: 
+       new-stack      := (try (tactic (ref goal-stack) args) 'error)}
+    match new-stack {
+      'error => 'error
+    | _ => let {_ := (set! goal-stack new-stack);
+                _ := (print "\nApplied tactic" (val->string tactic-name) "successfully.\n");
+                current-goal-id := check {(null? new-stack) => ()
+                                        | else => ((first new-stack) 'id)};
+                _ := check {(done?) => (print "\nGoal completely proven!")
+                          | else => (seq (print "\nHere's the new goal stack:\n") 
+                                         (show-stack)
+                                         (print "\nWill now try to apply the claim tactic...\n")
+                                         (apply-tactic 'claim [])
+                                         (print "\nAnd the new search tree:\n")
+                                         (show-tree current-goal-id))
+                           }
+               }
+             'success                                         
+    }
+
+define (apply-tactic* tactic-name args) :=
+## As long as it can be successfully applied and we are not completely done, keep applying the given tactic. 
+  match (apply-tactic tactic-name args) {
+    'success => check {(done?) => ()
+                     | else => (apply-tactic* tactic-name args)}
+  | _ => ()                     
+  }                                         
+
+
 
 } # close module Tactics 
 
@@ -437,3 +452,4 @@ assert [p1 p2]
 (set-goal C)
 (apply-tactic 'extract [p1])
 (apply-tactic 'extract [p1])
+(apply-tactic 'extract [p2])
