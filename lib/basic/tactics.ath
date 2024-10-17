@@ -186,10 +186,14 @@ define (make-child goal-record new-child-bindings) :=
                                               ['path (extend-path goal-record 1)]
                                               ['id (fresh-goal-id)]
                                               ['children (cell [])]
+                                              ['proof (cell "")]
                                               ['tactic (cell [])]]
                                               new-child-bindings));
        _ := (add-child goal-record child)}
     child 
+
+
+define (leaf? goal-record) := (&& (null? (ref (goal-record 'children))) (unequal? (ref (goal-record 'tactic)) []))
 
 define (make-subgoals goal subgoals) := 
   let {make-subgoal := lambda (p index) (make-child goal [['goal p] ['path (extend-path goal index)]]);
@@ -247,7 +251,7 @@ define set-goal :=
                                        'eigenvariables := [],
                                        'witnesses      := [],
                                        'parent         := (),
-                                       'tactic         := (cell ()),
+                                       'tactic         := (cell []),
                                        'children       := (cell [])}|;
                         _ := (set! root-goal goal-node);
                         _ := (set! goal-stack [goal-node]);
@@ -316,7 +320,7 @@ define contradiction-tactic :=
      match goal-stack {
        (list-of goal-record rest) =>
          let {goal := (goal-record 'goal);
-              _ := (set! (goal-record 'tactic) |{'tactic-info := ['contradiction []], 'subgoals := [false]}|);
+              _ := (set! (goal-record 'tactic) ['contradiction []]);
               new-goal-record := (make-child goal-record [['assumptions  (add-all (complement goal) (goal-record 'assumptions))] ['goal false]])}
            (add new-goal-record rest)
      | _ => (error "Invalid tactic application - there are no open goals currently.")
@@ -338,7 +342,7 @@ define from-complements-tactic :=
            [_ [complement-1 complement-2]] =>
              check {(hold-in [complement-1 complement-2] goal-record) =>
                      let {_ := (mark `1);
-                          _ := (set! (goal-record 'tactic) |{'tactic-info := ['from-complements [complement-1 complement-2]], 'subgoals := [], 'leaf := true}|)}
+                          _ := (set! (goal-record 'tactic) ['from-complements [complement-1 complement-2]])}
                        rest
                    | else => (merror "Incorrect application of 'from-complements, at least one of the given complements does not hold.")}
          | _ => (print "Invalid information given to the tactic from-complements: exactly two sentences are required, each a complement of the other.")
@@ -387,7 +391,7 @@ define infer-tactic :=
                        lemma := (execute-thunk M (goal-record 'assumptions));
                        _ := (print "\nGOT THIS LEMMA: " lemma);
                        new-goal := (make-child goal-record [['assumptions  (add-all lemma (goal-record 'assumptions))]]);
-                              _ := (set! (goal-record 'tactic) |{'tactic-info := ['infer args], 'subgoals := []}|)}
+                              _ := (set! (goal-record 'tactic) ['infer args])}
                     (add new-goal rest)
          | _ => (print "Invalid argument given to the infer tactic: A nullary method is expected.")
          }
@@ -453,23 +457,28 @@ define (stringify v) :=
 define (tac->string tac) :=
   match tac {
     [tactic-name tactic-info] =>
-      check {(tactic-name equals? 'claim) => "'claim ** LEAF **"
+      check {(tactic-name equals? 'claim) => "'claim " 
            | else => (stringify tac)}
   | _ => (stringify tac)
   }
 
-define (show-tree current-goal-id) :=
-  let {start := (ref root-goal)}
+define (show-tree) :=
+  let {start := (ref root-goal);
+       current-stack := (ref goal-stack);
+       current-goal-id := check {(null? current-stack) => ()
+                               | else => ((first current-stack) 'id)}}
     letrec {display-goal-record  := lambda (goal-record level)
                                       let {goal := (goal-record 'goal);
                                            goal-id := (goal-record 'id);
+                                           leaf-suffix := check {(leaf? goal-record) => " ** LEAF **"
+                                                               | else => ""};
                                            is-current := (equals? goal-id current-goal-id);
                                            goal-line := check {(equals? goal-id current-goal-id) => (join "---> Goal: " (stringify goal))
                                                              | else => (join "Goal: " (stringify goal))};
                                            _ := (print "\n" (spaces level) (stringify (goal-record 'path))
                                                        goal-line 
                                                        "Assumptions:" (stringify (goal-record 'assumptions))
-                                                       "Tactic:" (tac->string (ref (goal-record 'tactic))))}
+                                                       "Tactic:" (join (tac->string (ref (goal-record 'tactic))) leaf-suffix))}
                                        (display-goal-records (ref (goal-record 'children)) (plus level 2));
             display-goal-records := lambda (goal-records level)
                                       match goal-records {
@@ -491,15 +500,13 @@ define (apply-tactic tactic-name args) :=
       'error => 'error
     | _ => let {_ := (set! goal-stack new-stack);
                 _ := (print "\nApplied tactic" (val->string tactic-name) "successfully.\n");
-                current-goal-id := check {(null? new-stack) => ()
-                                        | else => ((first new-stack) 'id)};
                 _ := check {(done?) => (print "\nGoal completely proven!")
                           | else => (seq (print "\nHere's the new goal stack:\n") 
                                          (show-stack)
                                          (print "\nWill now try to apply the claim tactic...\n")
                                          (apply-tactic 'claim [])
                                          (print "\nAnd the new search tree:\n")
-                                         (show-tree current-goal-id))
+                                         (show-tree))
                            }
                }
              'success                                         
