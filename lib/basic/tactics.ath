@@ -20,6 +20,9 @@ define (flip pol) :=
     | _ => []
     }
     
+define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
+define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
+define (merror str) := let {_ := (print "\nMERRORRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR" str "\n")} (error str)
 
 define (sub-sentence-map p) :=
   letrec {loop := lambda (p M pos) 
@@ -168,8 +171,8 @@ define (find-positive-goal-parent goal premise) :=
            
 # Apply a given tactic to the top goal:
 
-define (add-child goal child) := 
-  let {goal-children-cell := (goal 'children);
+define (add-child goal-record child) := 
+  let {goal-children-cell := (goal-record 'children);
        goal-children      := (ref goal-children-cell)}
     (set! goal-children-cell (join goal-children [child]))
 
@@ -178,14 +181,14 @@ define (extend-path goal index) := (join (goal 'path) [index])
 define (make-new-goal starting-goal bindings) := 
   (Map.add starting-goal bindings)
   
-define (make-child goal new-child-bindings) :=
-  let {child :=   (Map.add goal (join [['parent goal]
-                                       ['path (extend-path goal 1)]
-                                       ['id (fresh-goal-id)]
-                                       ['children (cell [])]
-                                       ['tactic (cell [])]]
-                                       new-child-bindings));
-       _ := (add-child goal child)}
+define (make-child goal-record new-child-bindings) :=
+  let {child :=   (Map.add goal-record (join [['parent goal-record]
+                                              ['path (extend-path goal-record 1)]
+                                              ['id (fresh-goal-id)]
+                                              ['children (cell [])]
+                                              ['tactic (cell [])]]
+                                              new-child-bindings));
+       _ := (add-child goal-record child)}
     child 
 
 define (make-subgoals goal subgoals) := 
@@ -307,6 +310,91 @@ define extraction-tactic :=
          }
      }
 
+define contradiction-tactic :=
+  lambda (goal-stack _)
+  # We must return a new goal stack. 
+     match goal-stack {
+       (list-of goal-record rest) =>
+         let {goal := (goal-record 'goal);
+              _ := (set! (goal-record 'tactic) |{'tactic-info := ['contradiction []], 'subgoals := [false]}|);
+              new-goal-record := (make-child goal-record [['assumptions  (add-all (complement goal) (goal-record 'assumptions))] ['goal false]])}
+           (add new-goal-record rest)
+     | _ => (error "Invalid tactic application - there are no open goals currently.")
+     }           
+
+define (holds-in p goal-record) :=
+   (|| (holds? p) (member? p (goal-record 'assumptions)))
+
+define (hold-in props goal-record) := (for-each props lambda (p) (holds-in p goal-record))
+   
+define from-complements-tactic := 
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     let {_ := (print "\nInside the from-complements tactic, here's args: " args "\nand here is the goal stack: " goal-stack)}
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match [(goal-record 'goal) args] {
+         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
+           [_ [complement-1 complement-2]] =>
+             check {(hold-in [complement-1 complement-2] goal-record) =>
+                     let {_ := (mark `1);
+                          _ := (set! (goal-record 'tactic) |{'tactic-info := ['from-complements [complement-1 complement-2]], 'subgoals := [], 'leaf := true}|)}
+                       rest
+                   | else => (merror "Incorrect application of 'from-complements, at least one of the given complements does not hold.")}
+         | _ => (print "Invalid information given to the tactic from-complements: exactly two sentences are required, each a complement of the other.")
+         }
+     | _ => (merror "Invalid tactic application - there are no open goals currently.")
+     }
+
+define (assert-all props) :=
+  let {c := (cell []);
+       _ := (print "\nAbout to assert-all these assumptions: " props);
+       #_ := (silence-on);
+       _ := (map-proc lambda (p) let {_ := check {(holds? p) => () | else => (set! c (add p (ref c)))};
+                                      cmd := (join "(assert " (val->string p) ")");
+                                      _   := (print "\nCMD to execute: " cmd "\n")
+                                    }
+                                  (process-input-from-string cmd)
+                      props);
+       _ :=  (map-proc (lambda (p) check {(holds? p) => (print "\nYES," p "holds...") | else => (print "\nNO, " p " STILL DOES NOT HOLD...")}) props);
+       _ := (silence-off)}                     
+    (ref c)                      
+
+define (retract-all props) :=
+  let {_ := (silence-on);
+       _ := (map-proc lambda (p) (process-input-from-string (join "(retract " (val->string p) ")"))
+                      props)}
+    (silence-off)
+    
+define (execute-thunk M assumptions) := 
+  let {#assumptions-not-already-in-ab := (assert-all assumptions);
+       #_ := (print "\nAB NOW: " (ab));
+       p := assume (and assumptions) (!M);
+       #_ := (print "\nTHUNK RESULT: " p);
+       #_ := (retract-all assumptions-not-already-in-ab)
+       _ := ()
+       }
+    (consequent p)
+
+define infer-tactic := 
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match args {
+           [(some-method M)] =>
+                  let {_ := (print "\nINSIDE INFER-TACTIC...");
+                       lemma := (execute-thunk M (goal-record 'assumptions));
+                       _ := (print "\nGOT THIS LEMMA: " lemma);
+                       new-goal := (make-child goal-record [['assumptions  (add-all lemma (goal-record 'assumptions))]]);
+                              _ := (set! (goal-record 'tactic) |{'tactic-info := ['infer args], 'subgoals := []}|)}
+                    (add new-goal rest)
+         | _ => (print "Invalid argument given to the infer tactic: A nullary method is expected.")
+         }
+     | _ => (error "Invalid tactic application - there are no open goals currently.")
+     }
+
+     
 define tactic-dictionary :=
   |{
     'back-lor := lambda (goal-stack _) (backward-tactic goal-stack 'lor),
@@ -315,6 +403,9 @@ define tactic-dictionary :=
     'back-iff := lambda (goal-stack _) (backward-tactic goal-stack 'back-iff),
     'back-and := lambda (goal-stack _) (backward-tactic goal-stack 'back-and),
     'extract  := extraction-tactic,
+    'infer  := infer-tactic,
+    'contradiction  := contradiction-tactic,
+    'from-complements  := from-complements-tactic,    
     'back     := lambda (goal-stack _)
                    match goal-stack {
                      (list-of goal-record _) =>
@@ -433,6 +524,13 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+assert p1 := (A ==> B & C)
+assert p2 := (~ B)
+(set-goal (not A))
+(apply-tactic 'contradiction [])
+(apply-tactic 'infer [(method () (!mp p1 A))])
+(apply-tactic 'from-complements [B p2])
+
 
 (set-goal (if (and A B) (and B A)))
 
@@ -445,6 +543,7 @@ define p := (and (not A) (not not A) (iff (A & B) (B & A)) (not not A));;
 (apply-tactic* 'back [])
 
 (apply-tactic 'back-and [])
+
 
 
 define [p1 p2] := [(A ==> B & C) (A & E)]
