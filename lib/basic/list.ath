@@ -1039,4 +1039,15 @@ define (list->counts L) :=
 		      [] => M
                     | (list-of x rest) => (loop rest (Map.add M [[x try {(1 plus (M x)) | 1}]]))		     
 		    }}
-   (loop L (Map.make []))		    
+   (loop L (Map.make []))
+
+
+define (white-space-character? c) := (member? (char-ord c) [9 10 11 12 13 32 133 160])
+
+define (white-space? str) := (for-each str white-space-character?)
+
+define (trim str chars-to-be-trimmed) :=
+   check {(null? str) => str
+        | (member? (first str) chars-to-be-trimmed) => (trim (tail str) chars-to-be-trimmed)
+        | (member? (last str) chars-to-be-trimmed)  => (trim (all-but-last str) chars-to-be-trimmed)
+        | else => str}

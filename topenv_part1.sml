@@ -707,6 +707,15 @@ fun mergeSortPrimBFun'(v1,v2,env,ab) =
                            listVal(Basic.mergeSortBuiltIn(vals,compare))
                         end))
  
+fun unparseFun([closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref)],env,ab) = 
+      let val proof_str = A.unparseDed(body)
+      in
+         MLStringToAthString(proof_str)
+      end
+  | unparseFun([v],_,{pos_ar,file}) = primError(wrongArgKind(N.unparseFun_name,1,closMethodLCType,v))
+  | unparseFun(vals,_,{pos_ar,file}) = evError(wrongArgNumber(N.unparseFun_name,length(vals),1),SOME(Array.sub(pos_ar,0)))
+                                              
+
 fun rootPrimUFun(v,env,ab) = 
      (case coerceValIntoTerm(v) of
          SOME(t) => (case isGeneralApp(t) of

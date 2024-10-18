@@ -1004,8 +1004,13 @@ and unparseCheckClause({test=boolCond(phr),result,...}:check_clause) = lparen^(u
   | unparseCheckClause({test=elseCond,result,...}:check_clause) = lparen^(Names.else_name)^space^(unparseExp(result))^rparen
 and unparseCheckClauses(clauses) = Basic.printSExpListStr(clauses,unparseCheckClause)
 and unparseBinding({bpat,def,...}) = lparen^(printPat bpat)^space^(unparsePhrase def)^rparen
+and unparseBindingInfix({bpat,def,...}) = (printPat bpat)^ " := " ^(unparsePhrase def)
 and unparseBindings(bindings) = Basic.printSExpListStr(bindings,unparseBinding)
+and unparseBindingsInfix(bindings) = Basic.printListStr(bindings,unparseBindingInfix,"; ")
 and unparseDed(methodAppDed({method,args,pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr(args,unparsePhrase))^")"
+  | unparseDed(UMethAppDed({method, arg, pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg],unparsePhrase))^")"
+  | unparseDed(BMethAppDed({method, arg1, arg2, pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg1,arg2],unparsePhrase))^")"
+  | unparseDed(letDed({bindings,body,pos,...})) = "let {"^(unparseBindingsInfix bindings)^"}"^space^(unparseDed body)
   | unparseDed(_) = "(Don't know how to unparse this deduction yet.)"
 and unparsePhrase(exp(e)) = unparseExp(e)
   | unparsePhrase(ded(d)) = unparseDed(d)

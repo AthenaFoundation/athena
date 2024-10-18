@@ -973,6 +973,9 @@ val makeServerFun_symbol = Symbol.symbol makeServerFun_name
 val evalFun_name = "evaluate"
 val evalFun_symbol = Symbol.symbol evalFun_name
 
+val unparseFun_name = "unparse"
+val unparseFun_symbol = Symbol.symbol unparseFun_name
+
 val processInputFun_name = "process-input-from-string"
 val processInputFun_symbol = Symbol.symbol processInputFun_name
 
