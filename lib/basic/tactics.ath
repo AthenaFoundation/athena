@@ -149,7 +149,8 @@ define (find-positive-goal-parent goal premise) :=
 #   'witnesses      := <a list of witness variables>,
 #   'parent         := <uplink to the parent or to ()>,
 #   'children       := <a cell of downinks to children or to ()>,
-#   'tactic         := <a cell of a pair of the form [<tactic-name> <tactic-args>] used to obtain the children goals> 
+#   'tactic         := <a cell of a pair of the form [<tactic-name> <tactic-args>] used to obtain the children goals>
+#   'proof          := <a cell containing a list of strings, which, when joined, represents a partial proof>h
 # }|    
 
 
@@ -210,17 +211,35 @@ define (backward-tactic goal-stack tactic-name) :=
            (and (some-list conjuncts)) => 
              let {make-new-goal-record := lambda (conjunct) (make-child goal-record [['goal conjunct]]);              
                   new-goal-records := (make-subgoals goal-record conjuncts);
-                         new-stack := (join new-goal-records rest)}
+                         new-stack := (join new-goal-records rest);
+                         proof-chunks := check {(equal? (length new-goal-records) 2) => ["(!both " "**" " " "**" ")"]
+                                              | else => (join ["(!conj-intro "] (separate (map (lambda (_) "**") conjuncts) " ") [")"])};
+                         _ := (set! (goal-record 'proof) proof-chunks)}                                             
                new-stack
          | (if (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]])}
+             let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]]);
+                  proof-chunks := [(join "assume " (val->string p) "\n   ")
+                                   "**"];
+                  _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
          | (iff (some-sentence p) (some-sentence q)) =>
-             let {goal-record' := (make-child goal-record [['goal (and (if p q) (if q p))]])}
+             let {goal-record' := (make-child goal-record [['goal (and (if p q) (if q p))]]);
+                  proof-chunks := ["let {biconditional := " "**" "}\n  (!equiv (!left-and biconditional) (!right-and biconditional))"];
+                  _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
          | (or (some-sentence p) (some-sentence q)) =>
              let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p (not q)] | else => [q (not p)]};
-                  goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]])}
+                  goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]]);
+                  [p-str q-str] := [(val->string p) (val->string q)];
+                  proof-chunks := check {(tactic-name equals? 'back-lor) =>
+                                           ["(!two-cases \n  assume " q-str "\n    (!right-either " p-str " " q-str ")\n  "
+                                            "\n  assume (~ " q-str ")\n let {_ := conclude " p-str "\n    "
+                                            "**" "}\n  (!left-either " p-str " " q-str "))"]
+                                       | else =>
+                                           ["(!two-cases \n  assume " p-str "\n    (!left-either " p-str " " q-str ")\n  "
+                                            "\n  assume (~ " p-str ")\n let {_ := conclude " q-str "\n    "
+                                            "**" "}\n  (!right-either " p-str " " q-str "))"]};
+                  _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)                                    
          | _ => goal-stack
          }
@@ -252,6 +271,7 @@ define set-goal :=
                                        'witnesses      := [],
                                        'parent         := (),
                                        'tactic         := (cell []),
+                                       'proof          := (cell ""),
                                        'children       := (cell [])}|;
                         _ := (set! root-goal goal-node);
                         _ := (set! goal-stack [goal-node]);
@@ -431,13 +451,13 @@ define tactic-dictionary :=
                             _ := (print "\nWe'll try to claim this goal:" goal ". Does it hold?: " cond1 ". Is it in the assumptions?: " cond2)
                         }
                       check {(|| cond1 cond2) =>
-                          let {_ := (set! (goal-record 'tactic) ['claim []])}
+                          let {_ := (set! (goal-record 'proof) ["(!claim " (val->string goal) ")"]);
+                               _ := (set! (goal-record 'tactic) ['claim []])}
                             rest
                            | else => let {_ := (print "\nNO DICE...\n")} (error "Incorrect application of 'claim tactic--the top goal does not hold.")}
                 | _ => goal-stack
               }
   }|
-
 
 define (spaces n) :=
   check {(n less? 1) => ""
@@ -521,6 +541,23 @@ define (apply-tactic* tactic-name args) :=
   }                                         
 
 
+
+define (show-proof) :=
+  letrec {join-proof-chunks := lambda (proof-chunks children-proofs res) 
+                                 match proof-chunks {
+                                   [] => (flatten (join (rev res)))
+                                 | (list-of chunk more) => check {(&& (equal? chunk "**") (negate (null? children-proofs))) =>
+                                                                    (join-proof-chunks more
+                                                                                      (tail children-proofs)
+                                                                                      (add (first children-proofs) res))
+                                                                | else => (join-proof-chunks more children-proofs (add chunk res))}
+                                 };
+          compose-proof := lambda (goal-record)
+                             check {(leaf? goal-record) => (flatten (join (ref (goal-record 'proof))))
+                                  | else => let {children-proofs := (map compose-proof (ref (goal-record 'children)));
+                                                 proof-chunks := (ref (goal-record 'proof))}
+                                              (join-proof-chunks proof-chunks children-proofs [])}}
+    (compose-proof (ref root-goal))
 
 } # close module Tactics 
 
