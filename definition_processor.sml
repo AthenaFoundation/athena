@@ -79,9 +79,12 @@ val pprint =  TopEnv.pprint
 val top_assum_base = ABase.top_assum_base
 
 fun addPropToGlobalAb(p,mod_path,string_opt) = 
-    (top_assum_base := ABase.insert(p,!top_assum_base);
+  let 
+  in
+    (top_assum_base := ABase.insertAlongWithConjuncts(p,!top_assum_base);
      P.addToModuleAb(mod_path,p,string_opt);
-     top_assum_base := ABase.addAssertion(p,!top_assum_base))
+     top_assum_base := ABase.addAssertionAlongWithConjuncts(p,!top_assum_base))
+  end 
                                      
 fun addPropsToGlobalAb(props,mod_path,string_opt) = List.app (fn p => addPropToGlobalAb(p,mod_path,string_opt)) props
 val top_val_env = SV.top_val_env 
@@ -1281,7 +1284,7 @@ fun printVal(Semantics.propVal(p),(true,_)) =
 
 fun addProp(v as Semantics.propVal(p),env,eval_env,(is_ded,name_opt),mod_path,definition_sym_opt) = 
          if is_ded then
-            (top_assum_base := ABase.augment(!top_assum_base,[p]);  	     
+            (top_assum_base := ABase.insertAlongWithConjuncts(p,!top_assum_base);
              (case (name_opt,definition_sym_opt) of 
                  (SOME(name),_) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))
                | (_,SOME(name)) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))

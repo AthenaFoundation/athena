@@ -138,7 +138,11 @@ fun addAssertion(p,abase({prop_table,tag,...}):assum_base) =
 fun addAssertions(props,beta:assum_base) = 
   let fun loop([],res) = res
         | loop(a::more,res) = loop(more,addAssertion(a,res))
-  in loop(props,beta) end
+  in 
+    loop(props,beta) 
+  end
+
+fun addAssertionAlongWithConjuncts(p,ab) = addAssertions(p::(Prop.getConjunctsOnly p),ab)
 
 fun isAssertion(p,abase({prop_table,...}):assum_base) = 
       (case IntBinaryMap.find(prop_table,getPropCode(p)) of
@@ -212,9 +216,11 @@ fun insertAux(P,ab as abase({prop_table,tag,...}): assum_base) =
        abase({prop_table=IntBinaryMap.insert(prop_table,code,P),tag=inc(next_ab_tag)})
      end
 
-fun insert(P,ab) =  insertAux(P,ab)
+fun insert(P,ab) = insertAux(P,ab)
 
 fun augment(ab,props) = List.foldl insert ab props
+
+fun insertAlongWithConjuncts(P,ab) = augment(ab,P::(Prop.getConjunctsOnly P))
 
 fun getAll(ab as abase({prop_table,...}):assum_base) = IntBinaryMap.listItems(prop_table)
 

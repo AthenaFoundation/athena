@@ -152,6 +152,7 @@ sig
    val decomposeConjunctionsStrict: prop -> prop list
 
    val getConjuncts: prop -> prop list
+   val getConjunctsOnly: prop -> prop list
    val getConjunctsLst: prop list -> prop list
 
    val foldConditionals: prop list * prop -> prop

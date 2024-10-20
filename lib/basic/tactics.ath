@@ -23,6 +23,8 @@ define (flip pol) :=
 define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
 define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
 
+define (merror str) := let {_ := (print str)}
+                         (error str)
 define marker := "**"
 
 define (sub-sentence-map p) :=
@@ -118,10 +120,12 @@ define (polarities-and-positions p q) :=
       | _ => []
       }
 
-define (find-positive-goal-parent goal premise) :=
-# Find a positive subsentence of the premise, call it p, that is a parent of the goal. Return a pair of p and the position of p in premise. 
-# If no such subsentences exists, return ().
+define (find-positive-parent goal premise) :=
+# Find a positive subsentence of the premise, call it p, that is a parent of the given goal.
+# Return a pair of p and the position of p in premise. 
+# If no such subsentence exists, return ().
 # If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
+
   let {subsentence-map := (sub-sentence-map premise);
        parent? := lambda (parent child)
                     (member? child (children parent));
@@ -139,7 +143,18 @@ define (find-positive-goal-parent goal premise) :=
                    lambda (ss) [ss (first (first (subsentence-map ss)))]
                    lambda (ss-pair) ss-pair
                    lambda () ())                      
-                    
+
+
+define (positive-in-ab? p props) :=
+  let {F := lambda () false;
+       S := lambda (_) true}
+   (find-element props 
+                 lambda (q)
+                    let {M := (sub-sentence-map q)}
+                      try {let {_ := (M p)} true | false }
+                 S
+                 F)
+
 # A record (or frame) on the goal stack has the following form:
 # |{
 #   'goal           := <a sentence>,
@@ -326,7 +341,6 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise)
                                                                                                 props
                                                                                                 lambda (disjunct)
                                                                                                   (unequal? disjunct goal)))}|
-                                                                                             
     | (if antecedent (val-of goal))                        => |{'tactic-info := ['if-> aux-info],
                                                                 'proof := ["let {cond := " marker ";\n     ant := " marker "\n    }\n  (!mp cond ant)"],
                                                                 'subgoals := [parent antecedent]}|
@@ -351,7 +365,7 @@ define extraction-tactic :=
          # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
             [goal [premise]] => check {(negate (|| (member? premise (goal-record 'assumptions))
                                                    (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
-                                     | else => match (find-positive-goal-parent goal premise) {
+                                     | else => match (find-positive-parent goal premise) {
                                                  () => (error "Invalid application of the extraction tactic: the given premise does not have any positive occurrences of a goal parent")
                                                | [(some-sentence parent) position] =>
                                                         let {                     D := (proper-extraction-tactic goal premise parent position);
@@ -364,6 +378,35 @@ define extraction-tactic :=
                                                             }
                                                           (join new-goal-records' rest)
                                                }}
+         }
+     }
+     
+define case-analysis-tactic :=
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     let {_ := (print "\nInside the case-analysis tactic, here's args: " args "\nand here is the goal stack: " goal-stack)}
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match [(goal-record 'goal) args] {
+         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:
+         [goal [(disjunction as (or (some-list _)))]] =>
+               let {disjuncts := (get-disjuncts disjunction)}
+               check {(positive-in-ab? disjunction (join (ab) (goal-record 'assumptions))) =>
+                       let {subgoals := (add disjunction (map lambda (disjunct) (if disjunct goal)
+                                                              disjuncts));
+                                   _ := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);
+                               index := (cell 1);
+                                   _ := (set! (goal-record 'proof) (join ["let {disjunction := " marker "}\n  " "(!cases disjunction\n  "]                                                                          
+                                                                         (map lambda (d) marker
+                                                                              disjuncts)
+                                                                         [")"]));
+                             counter := (cell 1);
+                             new-goal-records' := (map lambda (subgoal)
+                                                         (make-child goal-record [['goal subgoal] ['path (extend-path goal-record (inc counter))]])
+                                                       subgoals)}
+                         (join new-goal-records' rest)
+                    | else => (error "Invalid application of the case-analysis tactic: the given disjunction is not positively embedded in the current a.b.")
+               }
          }
      }
 
@@ -383,6 +426,8 @@ define contradiction-tactic :=
 
 define (holds-in p goal-record) :=
    (|| (holds? p) (member? p (goal-record 'assumptions)))
+
+define (fails-in p goal-record) := (negate (holds-in p goal-record))
 
 define (hold-in props goal-record) := (for-each props lambda (p) (holds-in p goal-record))
    
@@ -431,6 +476,33 @@ define infer-tactic :=
      | _ => (error "Invalid tactic application - there are no open goals currently.")
      }
 
+define (go-back-to goal-stack target-path) :=
+  let {new-stack := (filter-out goal-stack
+                                lambda (goal-record)
+                                   (prefix? target-path (goal-record 'path)))}
+    letrec {navigate-to := lambda (current-goal-record current-path)
+                             match current-path {
+                               [] => current-goal-record
+                             | (list-of index more) => (navigate-to (nth index (current-goal-record 'children)) more)
+                             }}
+       try {let {target-goal := (navigate-to (ref root-goal) target-path);
+                           _ := (set! (target-goal 'children) []);
+                           _ := (set! (target-goal 'tactic) []);
+                           _ := (set! (target-goal 'proof) "")}
+              (add target-goal new-stack)
+          | (error "Invalid path")}
+         
+define go-back-tactic :=
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match args {
+           ([path] where (for-each path numeral?)) => (go-back-to goal-stack path)
+         | _ => (merror "Invalid tactic application - the 'go-back tactic expects an argument of the form [<path>]")
+         }
+     | _ => (merror "Invalid tactic application - there are no open goals currently.")
+     }         
      
 define tactic-dictionary :=
   |{
@@ -442,6 +514,7 @@ define tactic-dictionary :=
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
+    'case-analysis  := case-analysis-tactic,
     'from-complements  := from-complements-tactic,    
     'back     := lambda (goal-stack _)
                    match goal-stack {
@@ -455,6 +528,7 @@ define tactic-dictionary :=
                         }
                    | _ => goal-stack                        
                    },
+    'go-back := go-back-tactic,
     'claim := lambda (goal-stack _)  
                 match goal-stack {
                   (list-of goal-record rest) =>
@@ -581,14 +655,23 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+
+assert d := (A | B | C)
+assert con := (and (if A D) (if B D) (if C D))
+(set-goal D)
+
+(apply-tactic 'case-analysis [d])
+
 assert p1 := (A ==> B & C)
 assert p2 := (~ B)
 (set-goal (not A))
 (apply-tactic 'contradiction [])
-
 (apply-tactic 'infer [method () (!mp p1 A)])
+(apply-tactic 'go-back [[]])
 
 (apply-tactic 'from-complements [B p2])
+
+
 
 (!by-contradiction (not A)
   let {_ := (!mp p1 A)}
@@ -600,7 +683,7 @@ assert p2 := (~ B)
 
 define p := (and (not A) (not not A) (iff (A & B) (B & A)) (not not A));;
 
-(find-positive-goal-parent A p)
+(find-positive-parent A p)
 
 (apply-tactic 'back [])
 

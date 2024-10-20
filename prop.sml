@@ -187,6 +187,9 @@ fun decomposeConjunctionsStrict(conj({args,...})) = (Basic.flatten (map decompos
 fun getConjuncts(p as conj({args,...})) = (List.foldl op@ [] (map getConjuncts args))
   | getConjuncts(p) = [p]
 
+fun getConjunctsOnly(p as conj({args,...})) = (List.foldl op@ args (map getConjunctsOnly args))
+  | getConjunctsOnly(p) = []
+
 fun getConjunctsLst(props) = 
        let fun loop([],res) = res
              | loop(p::more,res) = loop(more,(getConjuncts p)@res)
