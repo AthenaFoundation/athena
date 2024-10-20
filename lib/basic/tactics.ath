@@ -1,174 +1,29 @@
+# load "/mnt/c/papers/dpls/dbook/proofs/pol"
+
+load "polarities"
+
 module Tactics {
 
-define (flip pol) :=
-    match pol {
-      'p  => 'n
-    | 'n  => 'p
-    | 'pn => 'pn}
+  define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
+  define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
 
-  define (polarities p q) := 
-    match q {
-      (val-of p) => ['p]
-    | (~ q1) => (map flip (polarities p q1))
-    | (q1 ==> q2) => (join (map flip (polarities p q1))
-                           (polarities p q2))
-    | (q1 <==> q2) => (map lambda (_) 'pn
-                           (join (polarities p q1) (polarities p q2)))
-    | ((some-sent-con _) (some-list args)) =>
-         (flatten (map lambda (q) (polarities p q) 
-                       args))
-    | _ => []
-    }
-    
-define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
-define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
-
-define (merror str) := let {_ := (print str)}
+  define (merror str) := let {_ := (print str)}
                          (error str)
-define marker := "**"
+  define marker := "**"
 
-define (sub-sentence-map p) :=
-  letrec {loop := lambda (p M pos) 
-                    match p {
-                      ((some-sent-con _) (some-list args)) => (loop* args (Map.add M [[pos p]]) pos 1)
-                    | _ => (Map.add M [[pos p]])
-                    };
-          loop* := lambda (props M pos i)
-                     match props {
-                       [] => M
-                     | (list-of p more) => (loop* more (loop p M (join pos [i])) pos (plus i 1))
-                     }}
-   (loop p |{}| [])
-
-
-define (extend-map M k v) := 
-  let {res := try { (M k) | [] }}
-    (Map.add M [[k (add v res)]])
-
-# (sub-sentence-map p) returns a dictionary that maps every subsentence q of p
-# to a list of pairs of the form [position polarity], where position is a Dewey path
-# indicating the position of q in p (viewing p as a tree) and polarity indicates the polarity of q in p.
-# A list of such pairs is returned because a single subsentence may have multiple occurrences in p. 
-
-define (sub-sentence-map p) :=
-  letrec {loop := lambda (p pos pol M) 
-                    match p {
-                      (~ q) => (loop q (join pos [1]) (flip pol) (extend-map M p [pos pol]))
-                    | (and (some-list args)) =>
-                        (loop* args
-                               pos
-                               pol
-                               (extend-map M p [pos pol])
-                               1)
-                    | (or (some-list args)) =>
-                        (loop* args
-                               pos
-                               pol
-                               (extend-map M p [pos pol])
-                               1)
-                    | (if p1 p2) => (loop p2
-                                          (join pos [2])
-                                          pol 
-                                          (loop p1
-                                               (join pos [1])
-                                               (flip pol)
-                                               (extend-map M p [pos pol])))
-                    | (iff p1 p2) => let {M1 := (loop p1 (join pos [1]) 'pn M);
-                                          M2 := (loop p2 (join pos [2]) 'pn M1)}
-                                      (extend-map M2 p [pos pol])
-                    | _ => (extend-map M p [pos pol])
-                    };
-          loop* := lambda (props pos pol M i) 
-                     match props {
-                       [] => M
-                     | (list-of p more) =>
-                          (loop* more
-                                 pos
-                                 pol
-                                 (loop p (join pos [i]) pol M)
-                                 (plus i 1))
-                     }}
-   (loop p [] 'p |{}|)
-   
-define (polarities-and-positions p q) :=
-    let {prepend-and-process := 
-           lambda (i f)
-             lambda (pos-pol-pair)
-               match pos-pol-pair {
-                 [pos pol] => [(add i pos) (f pol)]
-               };
-         id := lambda (x) x;
-         make-pos-neg := lambda (_) 'pn}
-      match q {
-        (val-of p) => [[[] 'p]]
-      | (~ q1) => (map (prepend-and-process 1 flip)
-                       (polarities-and-positions p q1))
-      | (q1 ==> q2) =>  (join (map (prepend-and-process 1 flip) 
-                                   (polarities-and-positions p q1))
-                              (map (prepend-and-process 2 id)
-                                   (polarities-and-positions p q2)))
-      | (q1 <==> q2) => (join (map (prepend-and-process 1 make-pos-neg)
-                                   (polarities-and-positions p q1))
-                              (map (prepend-and-process 2 make-pos-neg)
-                                   (polarities-and-positions p q2)))
-      | ((some-sent-con _) (some-list args)) =>
-          let {i := (cell 1)}
-            (flatten (map lambda (q)
-                             (map (prepend-and-process (inc i) id)
-                                  (polarities-and-positions p q))
-                          args))
-      | _ => []
-      }
-
-define (find-positive-parent goal premise) :=
-# Find a positive subsentence of the premise, call it p, that is a parent of the given goal.
-# Return a pair of p and the position of p in premise. 
-# If no such subsentence exists, return ().
-# If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
-
-  let {subsentence-map := (sub-sentence-map premise);
-       parent? := lambda (parent child)
-                    (member? child (children parent));
-       complex-non-negation := lambda (p)
-                                 (|| (conjunction? p) (disjunction? p) (conditional? p) (biconditional? p));
-       positive?       := lambda (position-polarity-pair)
-                            (member? (second position-polarity-pair)
-                                     ['p 'pn])}
-    (find-element' (Map.keys subsentence-map)
-                   lambda (ss-pos-pair)
-                     let {[ss pos] := ss-pos-pair}
-                       (&& (parent? ss goal)
-                           (complex-non-negation ss)
-                           (for-some (subsentence-map ss) positive?))
-                   lambda (ss) [ss (first (first (subsentence-map ss)))]
-                   lambda (ss-pair) ss-pair
-                   lambda () ())                      
-
-
-define (positive-in-ab? p props) :=
-  let {F := lambda () false;
-       S := lambda (_) true}
-   (find-element props 
-                 lambda (q)
-                    let {M := (sub-sentence-map q)}
-                      try {let {_ := (M p)} true | false }
-                 S
-                 F)
-
-# A record (or frame) on the goal stack has the following form:
-# |{
-#   'goal           := <a sentence>,
-#   'id             := <a unique identifier>,
-#   'path           := <a unique Dewey list>,
-#   'assumptions    := <a list of assumptions>,
-#   'eigenvariables := <a list of eigenvariables>,
-#   'witnesses      := <a list of witness variables>,
-#   'parent         := <uplink to the parent or to ()>,
-#   'children       := <a cell of downinks to children or to ()>,
-#   'tactic         := <a cell of a pair of the form [<tactic-name> <tactic-args>] used to obtain the children goals>
-#   'proof          := <a cell containing a list of strings, which, when joined, represents a partial proof>h
-# }|    
-
+  # A record (or frame) on the goal stack has the following form:
+  # |{
+  #   'goal           := <a sentence>,
+  #   'id             := <a unique identifier>,
+  #   'path           := <a unique Dewey list>,
+  #   'assumptions    := <a list of assumptions>,
+  #   'eigenvariables := <a list of eigenvariables>,
+  #   'witnesses      := <a list of witness variables>,
+  #   'parent         := <uplink to the parent or to ()>,
+  #   'children       := <a cell of downinks to children or to ()>,
+  #   'tactic         := <a cell of a pair of the form [<tactic-name> <tactic-args>] used to obtain the children goals>
+  #   'proof          := <a cell containing a list of strings, which, when joined, represents a partial proof>h
+  # }|    
 
  define goal-stack := (cell [])
 
@@ -186,7 +41,7 @@ define (positive-in-ab? p props) :=
       (seq (set! root-goal (cell ()))
            (set! goal-id-counter 0))
            
-# Apply a given tactic to the top goal:
+ # Apply a given tactic to the top goal:
 
 define (add-child goal-record child) := 
   let {goal-children-cell := (goal-record 'children);
@@ -365,7 +220,7 @@ define extraction-tactic :=
          # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
             [goal [premise]] => check {(negate (|| (member? premise (goal-record 'assumptions))
                                                    (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
-                                     | else => match (find-positive-parent goal premise) {
+                                     | else => match (Polarities.find-positive-parent goal premise) {
                                                  () => (error "Invalid application of the extraction tactic: the given premise does not have any positive occurrences of a goal parent")
                                                | [(some-sentence parent) position] =>
                                                         let {                     D := (proper-extraction-tactic goal premise parent position);
@@ -391,7 +246,7 @@ define case-analysis-tactic :=
          # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:
          [goal [(disjunction as (or (some-list _)))]] =>
                let {disjuncts := (get-disjuncts disjunction)}
-               check {(positive-in-ab? disjunction (join (ab) (goal-record 'assumptions))) =>
+               check {(Polarities.positive-in-ab? disjunction (join (ab) (goal-record 'assumptions))) =>
                        let {subgoals := (add disjunction (map lambda (disjunct) (if disjunct goal)
                                                               disjuncts));
                                    _ := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);

@@ -1,0 +1,236 @@
+module Polarities {
+
+define (flip pol) :=
+    match pol {
+      'p  => 'n
+    | 'n  => 'p
+    | 'pn => 'pn}
+
+(define (positive-pol? pol)
+  (equal? pol 'p))
+
+(define (negative-pol? pol)
+  (equal? pol 'n))
+
+(define (subprop p pos)
+  (match [p pos]
+    ([_ []] p)
+    ([((some-sent-con _) (some-list props)) (list-of i rest)] (subprop (ith props i) rest))
+    ([((some-quant q) (some-var _) (some-prop q)) (list-of 2 rest)] (subprop q rest))))
+
+(define (polarities p q)
+  (let ((prepend-and-process (lambda (i f)
+                               (lambda (pos-pol-pair)
+                                 (match pos-pol-pair
+                                   ([pos pol] [(add i pos) (f pol)])))))
+        (id (lambda (x) x))
+        (make-pos-neg (lambda (_) 'pn)))
+    (match q 
+      ((val-of p) [[[] 'p]])
+      ((not q1) (map (prepend-and-process 1 flip)
+                     (polarities p q1)))
+      ((if q1 q2) (join (map (prepend-and-process 1 flip) 
+                             (polarities p q1))
+                        (map (prepend-and-process 2 id)
+                             (polarities p q2))))
+      ((iff q1 q2) (join (map (prepend-and-process 1 make-pos-neg)
+                              (polarities p q1))
+                         (map (prepend-and-process 2 make-pos-neg)
+                              (polarities p q2))))
+      (((some-prop-con _) (some-list props))
+        (let ((i (cell 1)))
+          (flatten (map (lambda (q)
+                          (map (prepend-and-process (inc i) id) 
+                               (polarities p q)))
+                        props))))
+      (((some-quant _) (some-var _) (some-prop body)) 
+          (map (prepend-and-process 2 id)
+               (polarities p body)))
+      (_ []))))
+
+define (extend-map M k v) := 
+  let {res := try { (M k) | [] }}
+    (Map.add M [[k (add v res)]])
+      
+# (sub-sentence-map p) returns a dictionary that maps every subsentence q of p
+# to a list of pairs of the form [position polarity], where position is a Dewey path
+# indicating the position of q in p (viewing p as a tree) and polarity indicates the polarity of q in p.
+# A list of such pairs is returned because a single subsentence may have multiple occurrences in p. 
+
+define (sub-sentence-map p) :=
+  letrec {loop := lambda (p pos pol M) 
+                    match p {
+                      (~ q) => (loop q (join pos [1]) (flip pol) (extend-map M p [pos pol]))
+                    | (and (some-list args)) =>
+                        (loop* args
+                               pos
+                               pol
+                               (extend-map M p [pos pol])
+                               1)
+                    | (or (some-list args)) =>
+                        (loop* args
+                               pos
+                               pol
+                               (extend-map M p [pos pol])
+                               1)
+                    | (if p1 p2) => (loop p2
+                                          (join pos [2])
+                                          pol 
+                                          (loop p1
+                                               (join pos [1])
+                                               (flip pol)
+                                               (extend-map M p [pos pol])))
+                    | (iff p1 p2) => let {M1 := (loop p1 (join pos [1]) 'pn M);
+                                          M2 := (loop p2 (join pos [2]) 'pn M1)}
+                                      (extend-map M2 p [pos pol])
+                    | _ => (extend-map M p [pos pol])
+                    };
+          loop* := lambda (props pos pol M i) 
+                     match props {
+                       [] => M
+                     | (list-of p more) =>
+                          (loop* more
+                                 pos
+                                 pol
+                                 (loop p (join pos [i]) pol M)
+                                 (plus i 1))
+                     }}
+   (loop p [] 'p |{}|)
+
+define (find-positive-parent goal premise) :=
+# Find a positive subsentence of the premise, call it p, that is a parent of the given goal.
+# Return a pair of p and the position of p in premise. 
+# If no such subsentence exists, return ().
+# If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
+
+  let {subsentence-map := (sub-sentence-map premise);
+       parent? := lambda (parent child)
+                    (member? child (children parent));
+       complex-non-negation := lambda (p)
+                                 (|| (conjunction? p) (disjunction? p) (conditional? p) (biconditional? p));
+       positive?       := lambda (position-polarity-pair)
+                            (member? (second position-polarity-pair)
+                                     ['p 'pn])}
+    (find-element' (Map.keys subsentence-map)
+                   lambda (ss-pos-pair)
+                     let {[ss pos] := ss-pos-pair}
+                       (&& (parent? ss goal)
+                           (complex-non-negation ss)
+                           (for-some (subsentence-map ss) positive?))
+                   lambda (ss) [ss (first (first (subsentence-map ss)))]
+                   lambda (ss-pair) ss-pair
+                   lambda () ())                      
+
+
+define (positive-in-ab? p props) :=
+  let {F := lambda () false;
+       S := lambda (_) true}
+   (find-element props 
+                 lambda (q)
+                    let {M := (sub-sentence-map q)}
+                      try {let {_ := (M p)} true | false }
+                 S
+                 F)
+
+define (polarities-and-positions p q) :=
+    let {prepend-and-process := 
+           lambda (i f)
+             lambda (pos-pol-pair)
+               match pos-pol-pair {
+                 [pos pol] => [(add i pos) (f pol)]
+               };
+         id := lambda (x) x;
+         make-pos-neg := lambda (_) 'pn}
+      match q {
+        (val-of p) => [[[] 'p]]
+      | (~ q1) => (map (prepend-and-process 1 flip)
+                       (polarities-and-positions p q1))
+      | (q1 ==> q2) =>  (join (map (prepend-and-process 1 flip) 
+                                   (polarities-and-positions p q1))
+                              (map (prepend-and-process 2 id)
+                                   (polarities-and-positions p q2)))
+      | (q1 <==> q2) => (join (map (prepend-and-process 1 make-pos-neg)
+                                   (polarities-and-positions p q1))
+                              (map (prepend-and-process 2 make-pos-neg)
+                                   (polarities-and-positions p q2)))
+      | ((some-sent-con _) (some-list args)) =>
+          let {i := (cell 1)}
+            (flatten (map lambda (q)
+                             (map (prepend-and-process (inc i) id)
+                                  (polarities-and-positions p q))
+                          args))
+      | _ => []
+      }
+   
+(define (fpm r q p q-parent q-parent-pos q-pos q-pol)
+  (match (match-props r q)
+    ((some-sub theta) (check ((negative-pol? q-pol) [])
+                             (else [[q (rev q-pos) theta q-parent (rev q-parent-pos) p]])))
+    (_ (match q 
+         ((not q') (fpm r q' p q q-pos (add 1 q-pos) (flip q-pol)))
+         ((if q1 q2) (join (fpm r q1 p q q-pos (add 1 q-pos) (flip q-pol))
+                           (fpm r q2 p q q-pos (add 2 q-pos) q-pol)))
+         ((iff q1 q2) (join (fpm r q1 p q q-pos (add 1 q-pos) 'pn)
+                            (fpm r q2 p q q-pos (add 2 q-pos) 'pn)))
+         (((some-sent-con pc) (some-list props)) 
+           (let ((i (cell 1)))
+             (flatten (map (lambda (q_i)
+                             (fpm r q_i p q q-pos (add (inc i) q-pos) q-pol))
+                           props))))
+         ((forall (some-var _) (some-sentence body))
+            (check ((negative-pol? q-pol) [])
+                   (else (fpm r body p q q-pos (add 2 q-pos) q-pol))))
+         ((exists (some-var _) (some-sentence body))
+            (check ((positive-pol? q-pol) [])
+                   (else (fpm r body p q q-pos (add 2 q-pos) q-pol))))
+         (_ [])))))
+
+(define (show-result p r res)
+  (match res
+    ([q q-pos theta q-parent q-parent-pos _]
+          (seq (println "[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
+               (print "Given target: ") (writeln-val r)
+               (print "\nGiven base prop (p) to search: ") (writeln-val p)
+               (print "\nThe target matched the following subsentence of p, call it q: ") (writeln-val q)
+               (print "\nIn position: ") (writeln-val q-pos)
+               (print "\nThe matching sub: ") (writeln-val theta)                
+               (print "\nThe parent of q: ") (writeln-val q-parent)
+               (print "\nAnd the parent's position: ") (writeln-val q-parent-pos)
+               (print "]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")))))
+
+
+define (list->sub result) :=
+  match result {
+    [q q-pos theta q-parent q-parent-pos _] =>
+      |{'matching-subsentence := q,
+        'matching-subsentence-position := q-pos,
+        'theta := theta,
+        'match-parent := q-parent,
+        'match-parent-position := q-parent-pos
+      }|    
+  }
+  
+define (find-proper-matches r p) := (map list->sub (fpm r p p p [] [] 'p))
+
+define (top-level-match? D) := ((D 'matching-subsentence-position) equals? [])
+
+define (find-proper-matches* r props) :=
+  letrec {loop := lambda (props results)
+                    match props {
+                      [] => (rev results)
+                    | (list-of p more) =>
+                        match (find-proper-matches r p) {
+                          [] => (loop more results)
+                        | (results' as (list-of D _)) =>
+                            check {(top-level-match? D) => [D]
+                                 | else => (loop more (join results' results))}
+                        }
+                    }}
+     (loop props [])
+    
+define (ufv q p q-pos-in-p) :=
+  let {p-fvars := (fv p);
+       q-fvars := (fv (subprop p q-pos-in-p))}
+   (list-diff q-fvars p-fvars)
+   
+}     
