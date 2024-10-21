@@ -137,8 +137,41 @@ define (polarities-and-positions p q) :=
                           args))
       | _ => []
       }
-   
+
+
+define (get-disjuncts-and-their-positions p) :=
+  letrec {loop := lambda (p path)
+                    match p {
+                      (or (some-list args)) =>
+                         let {index := (cell 1)}
+                          (fold join
+                                (map lambda (arg)
+                                       (loop arg (add (inc index) path))
+                                     args)
+                                [])                                     
+                    | _ => [[p path]]
+                    }}
+    (loop p [])
+
+define (get-conjuncts-and-their-positions p) :=
+  letrec {loop := lambda (p path)
+                    match p {
+                      (and (some-list args)) =>
+                         let {index := (cell 1)}
+                          (fold join
+                                (map lambda (arg)
+                                       (loop arg (add (inc index) path))
+                                     args)
+                                [])                                     
+                    | _ => [[p path]]
+                    }}
+    (loop p [])
+    
 (define (fpm r q p q-parent q-parent-pos q-pos q-pol)
+# Note: r and p (the target sentence and the sentence being searched) do not vary at all from call to call below - they're constant.
+# Only q, and q-parent vary (along with their positions and polarities) from call to call. 
+# A more efficient/cleaner implementation would implement the recursive search via an internal procedure that did not take r and p as arguments.
+# The final output is a list of search results, each of this form: [q q-pos theta q-parent q-parent-pos p]
   (match (match-props r q)
     ((some-sub theta) (check ((negative-pol? q-pol) [])
                              (else [[q (rev q-pos) theta q-parent (rev q-parent-pos) p]])))
@@ -148,17 +181,38 @@ define (polarities-and-positions p q) :=
                            (fpm r q2 p q q-pos (add 2 q-pos) q-pol)))
          ((iff q1 q2) (join (fpm r q1 p q q-pos (add 1 q-pos) 'pn)
                             (fpm r q2 p q q-pos (add 2 q-pos) 'pn)))
+
+         ((or (some-list _))
+           (let ((disjuncts-and-their-positions (get-disjuncts-and-their-positions q))
+                 (i (cell 1)))
+             (flatten (map (lambda (disjunct-and-its-position)
+                             (let (([q_i q_i_pos] disjunct-and-its-position))
+                               (fpm r q_i p q q-pos (join q_i_pos q-pos) q-pol)))
+                           disjuncts-and-their-positions))))
+
+         ((and (some-list _))
+           (let ((conjuncts-and-their-positions (get-conjuncts-and-their-positions q))
+                 (i (cell 1)))
+             (flatten (map (lambda (conjunct-and-its-position)
+                             (let (([q_i q_i_pos] conjunct-and-its-position))
+                               (fpm r q_i p q q-pos (join q_i_pos q-pos) q-pol)))
+                           conjuncts-and-their-positions))))
+                            
          (((some-sent-con pc) (some-list props)) 
            (let ((i (cell 1)))
              (flatten (map (lambda (q_i)
                              (fpm r q_i p q q-pos (add (inc i) q-pos) q-pol))
                            props))))
+                           
          ((forall (some-var _) (some-sentence body))
             (check ((negative-pol? q-pol) [])
                    (else (fpm r body p q q-pos (add 2 q-pos) q-pol))))
          ((exists (some-var _) (some-sentence body))
             (check ((positive-pol? q-pol) [])
                    (else (fpm r body p q q-pos (add 2 q-pos) q-pol))))
+         ((exists-unique (some-var _) (some-sentence body))
+            (check ((positive-pol? q-pol) [])
+                   (else (fpm r body p q q-pos (add 2 q-pos) q-pol))))                   
          (_ [])))))
 
 (define (show-result p r res)

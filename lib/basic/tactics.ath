@@ -195,13 +195,15 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                     'proof := let {index := (cell 1);
                                    goal-str := (val->string goal);
                                    trivial-case := (join "assume h := " goal-str "\n  (!claim h)");
+                                   process-disjunct := lambda (disjunct tail-end)
+                                                         check {(equal? disjunct goal) => ["\ncase-" (val->string (inc index)) " := " trivial-case tail-end]
+                                                              | else => ["\ncase-" (val->string (inc index)) " := " marker tail-end]};
                                    case-chunks := (flatten
-                                                    (map lambda (disjunct)
-                                                           check {(equal? disjunct goal) => ["\ncase-" (val->string (inc index)) " := " trivial-case ";\n"]
-                                                                | else => ["\ncase-" (val->string (inc index)) " := " marker ";\n"]}
-                                                         disjuncts));
+                                                    (join (map lambda (d) (process-disjunct d ";\n")
+                                                              (all-but-last disjuncts))
+                                                          [(process-disjunct (last disjuncts) "\n")]));
                                    _ := (set! index 1)}
-                                (join ["let {disjunction := " (val->string parent)]
+                                (join ["let {disjunction := " marker ";\n"]
                                       case-chunks
                                       ["}\n  (!cases disjunction "
                                       (separate (map lambda (_)
@@ -587,10 +589,25 @@ assert [p1 p2]
 
 
 (clear-state)
+(clear-assumption-base)
+
+
 assert p1 := (forall x . P x & Q x & T x)
+(set-goal (Q a))
+(apply-tactic 'extract [p1])
+
+
+(clear-state)
+(clear-assumption-base)
+
+assert p1 := (forall x . P x | Q x | T x)
+assert p2 := (P a ==> Q a)
+assert p3 := (T a ==> Q a)
 
 (set-goal (Q a))
-(apply-tactic* 'extract [p1])
+
+(apply-tactic 'extract [p1])
+
 
 (apply-tactic 'extract [p1])
 
