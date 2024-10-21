@@ -160,7 +160,8 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
 #
 # where <extraction-tactic-name> is a meta-identifier representing a proper (fully specified) extraction 
 # tactic name, and args is the list of all those values that are necessary for the tactic to work.
-  let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise, 'theta := theta}|; 
+  let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise, 'theta := theta}|;
+       _ := (print "\nHERE'S THETA: " theta);
        instantiated-parent := (theta parent)}
        
     match instantiated-parent {
@@ -179,41 +180,57 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                   }|
                | else => (error "Invalid application of conjunctive extraction tactic.")}
                 
-    | ((or (some-list props)) where (member? goal props))  => |{'tactic-info := ['or-> aux-info],
-                                                                'proof := let {index := (cell 1);
-                                                                               goal-str := (val->string goal);
-                                                                               trivial-case := (join "assume h := " goal-str "\n  (!claim h)");
-                                                                               case-chunks := (flatten
-                                                                                                (map lambda (disjunct)
-                                                                                                       check {(equal? disjunct goal) => ["\ncase-" (val->string (inc index)) " := " trivial-case ";\n"]
-                                                                                                            | else => ["\ncase-" (val->string (inc index)) " := " marker ";\n"]}
-                                                                                                     props));
-                                                                               _ := (set! index 1)}
-                                                                            (join ["let {disjunction := " (val->string parent)]
-                                                                                  case-chunks
-                                                                                  ["}\n  (!cases disjunction "
-                                                                                  (separate (map lambda (_)
-                                                                                                   (join "case-" (val->string (inc index)))
-                                                                                                 props)
-                                                                                             " ")
-                                                                                  ")"]),
-                                                                'subgoals := (add parent
-                                                                                  (map-select-2 lambda (disjunct)
-                                                                                                  (if disjunct goal)
-                                                                                                props
-                                                                                                lambda (disjunct)
-                                                                                                  (unequal? disjunct goal)))}|
-    | (if antecedent (val-of goal))                        => |{'tactic-info := ['if-> aux-info],
-                                                                'proof := ["let {cond := " marker ";\n     ant := " marker "\n    }\n  (!mp cond ant)"],
-                                                                'subgoals := [parent antecedent]}|
+    | (or (some-list _))  =>
+        let {disjuncts := (get-disjuncts instantiated-parent)}
+          check {(member? goal disjuncts) =>
+                  |{'tactic-info := ['or-> aux-info],
+                    'subgoals := (add instantiated-parent
+                                      (map-select-2 lambda (disjunct)
+                                                      (if disjunct goal)
+                                                    disjuncts
+                                                    lambda (disjunct)
+                                                      (unequal? disjunct goal))),
+                    'proof := let {index := (cell 1);
+                                   goal-str := (val->string goal);
+                                   trivial-case := (join "assume h := " goal-str "\n  (!claim h)");
+                                   case-chunks := (flatten
+                                                    (map lambda (disjunct)
+                                                           check {(equal? disjunct goal) => ["\ncase-" (val->string (inc index)) " := " trivial-case ";\n"]
+                                                                | else => ["\ncase-" (val->string (inc index)) " := " marker ";\n"]}
+                                                         disjuncts));
+                                   _ := (set! index 1)}
+                                (join ["let {disjunction := " (val->string parent)]
+                                      case-chunks
+                                      ["}\n  (!cases disjunction "
+                                      (separate (map lambda (_)
+                                                       (join "case-" (val->string (inc index)))
+                                                     disjuncts)
+                                                " ")
+                                      ")"])}|
+               | else => (error "Invalid application of disjunctive extraction tactic.")}
+               
+    | (if antecedent (val-of goal)) =>
+        |{'tactic-info := ['if-> aux-info],
+          'proof := ["let {cond := " marker ";\n     ant := " marker "\n    }\n  (!mp cond ant)"],
+          'subgoals := [instantiated-parent antecedent]}|
     
-    | (iff left (val-of goal))                             => |{'tactic-info := ['iff-left->  aux-info],
-                                                                'proof := ["let {bicond := " marker ";\n     left := " marker "\n    }\n  (!mp (!left-iff bicond) left)"],    
-                                                                'subgoals := [parent left]}|
+    | (iff left (val-of goal)) =>
+        |{'tactic-info := ['iff-left->  aux-info],
+          'proof := ["let {bicond := " marker ";\n     left := " marker "\n    }\n  (!mp (!left-iff bicond) left)"],    
+          'subgoals := [instantiated-parent left]}|
     
-    | (iff (val-of goal) right)                            => |{'tactic-info := ['iff-right-> aux-info],
-                                                                'proof := ["let {bicond := " marker ";\n     right := " marker "\n    }\n  (!mp (!right-iff bicond) right)"],    
-                                                                'subgoals := [parent right]}|
+    | (iff (val-of goal) right) =>
+        |{'tactic-info := ['iff-right-> aux-info],
+           'proof := ["let {bicond := " marker ";\n     right := " marker "\n    }\n  (!mp (!right-iff bicond) right)"],    
+           'subgoals := [instantiated-parent right]}|
+           
+    | (forall (some-var v) (some-sentence _)) => 
+        |{'tactic-info := ['forall3-> aux-info],
+           'subgoals := let {_ := (print "\nINSTANTIATED PARENT: " instantiated-parent "\nAND PARENT: " parent)}
+                         [instantiated-parent],        
+           'proof := let {theta' := (make-sub [[v (first (quant-vars parent))]])}
+                      ["let {ugen := " marker "}\n  (!uspec ugen " (val->string ((compose-subs theta theta') v)) ")"]
+        }|
     
     }
 
@@ -512,6 +529,11 @@ define (show-proof) :=
 
 declare A, B, C, D, E: Boolean
 
+declare zero:Int
+declare succ: [Int] -> Int
+declare P, Q, pos: [Int] -> Boolean
+declare a, b, c: Int
+
 open Tactics
 
 EOF
@@ -562,19 +584,10 @@ assert [p1 p2]
 (apply-tactic 'extract [p2])
 
 
+assert p1 := (forall x . P x ==> Q x)
+assert p2 := (P a)
 
-let {_ := let {cond := (!claim (if A (and B C)));
-               ant := let {_ := (!claim (and A E))}
-                       (!left-and (and A E))}
-    }
-  (!mp cond ant)
-    }
-  (!right-and (and B C))
+(set-goal (Q a))
 
-
-
-  let {_ := let {cond := (!claim (if A (and B C)));
-                  ant := let {_ := (!claim (and A E))}
-                          (!left-and (and A E))}
-             (!mp cond ant)}
-    (!right-and (and B C))
+(apply-tactic 'extract [p1])
+(apply-tactic 'extract [p1])
