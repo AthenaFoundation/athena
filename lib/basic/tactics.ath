@@ -7,8 +7,9 @@ module Tactics {
   define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
   define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
 
-  define (merror str) := let {_ := (print str)}
-                         (error str)
+  define error' := error 
+  define (error str) := let {_ := (print str)}
+                         (error' str)
   define marker := "**"
 
   # A record (or frame) on the goal stack has the following form:
@@ -167,12 +168,13 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
     match instantiated-parent {
       
       (and (some-list props)) =>
-        let {conjuncts := (get-conjuncts instantiated-parent)}
-          check {(member? goal conjuncts) => 
+        let {instantiated-conjuncts := (get-conjuncts instantiated-parent);
+             _ := (print "\nGoal: " goal "\nParent: " parent "\ninstantiated-parent: " instantiated-parent "\nconjuncts: " instantiated-conjuncts)}
+          check {(subset? (get-conjuncts goal) instantiated-conjuncts) => 
                   |{'tactic-info := ['and-> aux-info],
                     'subgoals := [instantiated-parent],
-                    'proof := check {(equal? (length conjuncts) 2) =>
-                                      check {(equal? goal (first conjuncts)) =>
+                    'proof := check {(equal? (length instantiated-conjuncts) 2) =>
+                                      check {(equal? goal (first instantiated-conjuncts)) =>
                                                ["let {_ := " marker "\n    }\n  (!left-and " (val->string instantiated-parent) ")"]
                                            | else => ["let {_ := " marker "\n    }\n  (!right-and " (val->string instantiated-parent) ")"]
                                       }
@@ -378,9 +380,9 @@ define go-back-tactic :=
        (list-of goal-record rest) =>
          match args {
            ([path] where (for-each path numeral?)) => (go-back-to goal-stack path)
-         | _ => (merror "Invalid tactic application - the 'go-back tactic expects an argument of the form [<path>]")
+         | _ => (error "Invalid tactic application - the 'go-back tactic expects an argument of the form [<path>]")
          }
-     | _ => (merror "Invalid tactic application - there are no open goals currently.")
+     | _ => (error "Invalid tactic application - there are no open goals currently.")
      }         
      
 define tactic-dictionary :=
@@ -531,7 +533,7 @@ declare A, B, C, D, E: Boolean
 
 declare zero:Int
 declare succ: [Int] -> Int
-declare P, Q, pos: [Int] -> Boolean
+declare P, Q, pos, T: [Int] -> Boolean
 declare a, b, c: Int
 
 open Tactics
@@ -584,10 +586,13 @@ assert [p1 p2]
 (apply-tactic 'extract [p2])
 
 
-assert p1 := (forall x . P x ==> Q x)
-assert p2 := (P a)
+(clear-state)
+assert p1 := (forall x . P x & Q x & T x)
 
 (set-goal (Q a))
+(apply-tactic 'extract [p1])
+(apply-tactic 'extract [p1])
 
-(apply-tactic 'extract [p1])
-(apply-tactic 'extract [p1])
+
+
+(Polarities.find-universally-positive-parent (Q a) p1)

@@ -387,11 +387,6 @@ define (pairs->table L) :=
     ((some-list args) (!map-method conj-intro args (method (_) (!and-intro args))))
     ((some-sent p) (!claim p))))
 
-(define (conj-elim p C)
-  (dmatch C 
-    ((and (some-list args)) (!decompose C (method (_) (!claim p))))
-    (_ (!claim p))))
-
 (define (dhalt)
   (dlet ((_ (halt)))
     (!true-intro)))
@@ -3742,6 +3737,12 @@ define raised-to := raise
 (define (simplify p q)
   (!decompose p (method (_) (!claim q))))
 
+
+(define (conj-elim p C)
+  (dmatch C 
+    ((and (some-list args)) (!decompose C (method (_) (!prove-components-of p))))
+    (_ (!claim p))))
+    
 (define (complement-conjunction C p)
   (!by-contradiction (complement C)
     (assume C
