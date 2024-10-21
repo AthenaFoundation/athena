@@ -150,7 +150,7 @@ define set-goal :=
                      (show-stack)
           }                     
 
-define (proper-extraction-tactic goal premise parent parent-position-in-premise) :=
+define (proper-extraction-tactic goal premise parent parent-position-in-premise theta) :=
 # This will produce a dictionary of the form
 # |{
 #   'tactic-info := [<extraction-tactic-name> args],
@@ -160,18 +160,25 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise)
 #
 # where <extraction-tactic-name> is a meta-identifier representing a proper (fully specified) extraction 
 # tactic name, and args is the list of all those values that are necessary for the tactic to work.
-  let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise}|}
-    match parent {
+  let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise, 'theta := theta}|; 
+       instantiated-parent := (theta parent)}
+       
+    match instantiated-parent {
       
-      ((and (some-list props)) where (member? goal props)) => |{'tactic-info := ['and-> aux-info],
-                                                                'subgoals := [parent],
-                                                                'proof := check {(equal? (length props) 2) =>
-                                                                                      check {(equal? goal (first props)) => ["let {_ := " marker "\n    }\n  (!left-and " (val->string parent) ")"]
-                                                                                           | else => ["let {_ := " marker "\n    }\n  (!right-and " (val->string parent) ")"]
-                                                                                      } 
-                                                                               | else => ["let {_ := " marker "\n    }\n  (!conj-elim " (val->string goal) " " (val->string parent) ")"]
-                                                                          }
-                                                              }|
+      (and (some-list props)) =>
+        let {conjuncts := (get-conjuncts instantiated-parent)}
+          check {(member? goal conjuncts) => 
+                  |{'tactic-info := ['and-> aux-info],
+                    'subgoals := [instantiated-parent],
+                    'proof := check {(equal? (length conjuncts) 2) =>
+                                      check {(equal? goal (first conjuncts)) =>
+                                               ["let {_ := " marker "\n    }\n  (!left-and " (val->string instantiated-parent) ")"]
+                                           | else => ["let {_ := " marker "\n    }\n  (!right-and " (val->string instantiated-parent) ")"]
+                                      }
+                            | else => ["let {_ := " marker "\n    }\n  (!conj-elim " (val->string goal) " " instantiated-parent ")"]}
+                  }|
+               | else => (error "Invalid application of conjunctive extraction tactic.")}
+                
     | ((or (some-list props)) where (member? goal props))  => |{'tactic-info := ['or-> aux-info],
                                                                 'proof := let {index := (cell 1);
                                                                                goal-str := (val->string goal);
@@ -220,10 +227,10 @@ define extraction-tactic :=
          # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
             [goal [premise]] => check {(negate (|| (member? premise (goal-record 'assumptions))
                                                    (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
-                                     | else => match (Polarities.find-positive-parent goal premise) {
-                                                 () => (error "Invalid application of the extraction tactic: the given premise does not have any positive occurrences of a goal parent")
-                                               | [(some-sentence parent) position] =>
-                                                        let {                     D := (proper-extraction-tactic goal premise parent position);
+                                     | else => match (Polarities.find-universally-positive-parent goal premise) {
+                                                 () => (error "Invalid application of the extraction tactic: the given premise does not have any universally positive occurrences of a goal parent")
+                                               | [(some-sentence parent) parent-position-in-premise theta] =>
+                                                        let {                     D := (proper-extraction-tactic goal premise parent parent-position-in-premise theta);
                                                              [tactic-info subgoals] := [(D 'tactic-info) (D 'subgoals)];
                                                                                   _ := (set! (goal-record 'tactic) tactic-info);
                                                                                   _ := (set! (goal-record 'proof) (D 'proof));

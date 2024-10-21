@@ -16,7 +16,7 @@ define (flip pol) :=
   (match [p pos]
     ([_ []] p)
     ([((some-sent-con _) (some-list props)) (list-of i rest)] (subprop (ith props i) rest))
-    ([((some-quant q) (some-var _) (some-prop q)) (list-of 2 rest)] (subprop q rest))))
+    ([((some-quant q) (some-var _) (some-sentence q)) (list-of 2 rest)] (subprop q rest))))
 
 (define (polarities p q)
   (let ((prepend-and-process (lambda (i f)
@@ -37,13 +37,13 @@ define (flip pol) :=
                               (polarities p q1))
                          (map (prepend-and-process 2 make-pos-neg)
                               (polarities p q2))))
-      (((some-prop-con _) (some-list props))
+      (((some-sent-con _) (some-list props))
         (let ((i (cell 1)))
           (flatten (map (lambda (q)
                           (map (prepend-and-process (inc i) id) 
                                (polarities p q)))
                         props))))
-      (((some-quant _) (some-var _) (some-prop body)) 
+      (((some-quant _) (some-var _) (some-sentence body)) 
           (map (prepend-and-process 2 id)
                (polarities p body)))
       (_ []))))
@@ -96,30 +96,6 @@ define (sub-sentence-map p) :=
                                  (plus i 1))
                      }}
    (loop p [] 'p |{}|)
-
-define (find-positive-parent goal premise) :=
-# Find a positive subsentence of the premise, call it p, that is a parent of the given goal.
-# Return a pair of p and the position of p in premise. 
-# If no such subsentence exists, return ().
-# If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
-
-  let {subsentence-map := (sub-sentence-map premise);
-       parent? := lambda (parent child)
-                    (member? child (children parent));
-       complex-non-negation := lambda (p)
-                                 (|| (conjunction? p) (disjunction? p) (conditional? p) (biconditional? p));
-       positive?       := lambda (position-polarity-pair)
-                            (member? (second position-polarity-pair)
-                                     ['p 'pn])}
-    (find-element' (Map.keys subsentence-map)
-                   lambda (ss-pos-pair)
-                     let {[ss pos] := ss-pos-pair}
-                       (&& (parent? ss goal)
-                           (complex-non-negation ss)
-                           (for-some (subsentence-map ss) positive?))
-                   lambda (ss) [ss (first (first (subsentence-map ss)))]
-                   lambda (ss-pair) ss-pair
-                   lambda () ())                      
 
 
 define (positive-in-ab? p props) :=
@@ -228,9 +204,89 @@ define (find-proper-matches* r props) :=
                     }}
      (loop props [])
     
-define (ufv q p q-pos-in-p) :=
+define (ufv p subsentence-position) :=
+# This computes UFV(q,p) where q is the unique subsentence of p at subsentence-position: 
   let {p-fvars := (fv p);
-       q-fvars := (fv (subprop p q-pos-in-p))}
+       q-fvars := (fv (subprop p subsentence-position))}
    (list-diff q-fvars p-fvars)
+
+define (find-universally-positive-parent goal premise) :=
+  let {compromise-result := (cell ());
+       update-theta := lambda (D)
+                         let {parent-ufvs := (ufv premise (D 'match-parent-position));
+                              theta       := (D 'theta);
+                              extra-fvs := (list-diff parent-ufvs (supp theta))}
+                           (extend-sub theta (map lambda (extra-fv) [extra-fv (fresh-var (sort-of extra-fv))]
+                                                  extra-fvs));
+       update-compromise := lambda (D)
+                              check {(equal? (ref compromise-result) ()) =>
+                                       (set! compromise-result [(D 'match-parent) (D 'match-parent-position)  (update-theta D)])
+                                   | else => ()}}
+    (find-element 
+       (find-proper-matches goal premise) 
+       lambda (D)
+          let {theta                 := (D 'theta);
+               match-pos             := (D 'matching-subsentence-position);
+               ufv-vars              := (ufv premise match-pos);
+               match-parent          := (D 'match-parent);
+               match-parent-position := (D 'match-parent-position);
+               support               := (supp theta)}
+            check {(subset? support ufv-vars) =>
+                      let {_           := (update-compromise D);
+                           parent-ufvs := (ufv premise match-parent-position)}
+                        (subset? parent-ufvs support)
+                 | else => false}                      
+       lambda (D) [(D 'match-parent) (D 'match-parent-position) (D 'theta)]
+       lambda () (ref compromise-result))
+
+       
+# Find a universally positive subsentence of the premise, call it q, that is a parent of the given goal.
+# Return a pair of q and the position of q in the given premise. 
+# If no such subsentence exists, return ().
+# If more than one such subsentence exists, return the first one (in a DFS ordering of all subsentences of the premise).
+
+  # let {subsentence-map := (sub-sentence-map premise);
+  #      parent? := lambda (parent child)
+  #                   (member? child (children parent));
+  #      complex-non-negation := lambda (p)
+  #                                (|| (conjunction? p) (disjunction? p) (conditional? p) (biconditional? p));
+  #      positive?       := lambda (position-polarity-pair)
+  #                           (member? (second position-polarity-pair)
+  #                                    ['p 'pn])}
+  #   (find-element' (Map.keys subsentence-map)
+  #                  lambda (ss-pos-pair)
+  #                    let {[ss pos] := ss-pos-pair}
+  #                      (&& (parent? ss goal)
+  #                          (complex-non-negation ss)
+  #                          (for-some (subsentence-map ss) positive?))
+  #                  lambda (ss) [ss (first (first (subsentence-map ss)))]
+  #                  lambda (ss-pair) ss-pair
+  #                  lambda () ())                      
+
    
-}     
+}
+
+
+EOF
+
+declare zero:Int
+declare succ: [Int] -> Int
+declare pos: [Int] -> Boolean
+declare a, b, c: Int
+
+define goal := (zero < succ a)
+
+define p1 := (forall x y . x < y ==> pos y)
+define p2 := (forall x . zero < succ x) 
+
+
+(Polarities.find-universally-positive-parent (zero < succ a) p2)
+
+(Polarities.find-universally-positive-parent (pos succ a) p1)
+
+Need to prove: (?vf < succ a)
+{?vf:Int --> zero
+?x:Int --> a}
+
+
+(Polarities.find-universally-positive-parent (?vf < succ a) p2)
