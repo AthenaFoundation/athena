@@ -178,7 +178,7 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                                                ["let {_ := " marker "\n    }\n  (!left-and " (val->string instantiated-parent) ")"]
                                            | else => ["let {_ := " marker "\n    }\n  (!right-and " (val->string instantiated-parent) ")"]
                                       }
-                            | else => ["let {_ := " marker "\n    }\n  (!conj-elim " (val->string goal) " " instantiated-parent ")"]}
+                            | else => ["let {_ := " marker "\n    }\n  (!conj-elim " (val->string goal) " " (val->string instantiated-parent) ")"]}
                   }|
                | else => (error "Invalid application of conjunctive extraction tactic.")}
                 
@@ -590,7 +590,8 @@ assert [p1 p2]
 assert p1 := (forall x . P x & Q x & T x)
 
 (set-goal (Q a))
-(apply-tactic 'extract [p1])
+(apply-tactic* 'extract [p1])
+
 (apply-tactic 'extract [p1])
 
 
