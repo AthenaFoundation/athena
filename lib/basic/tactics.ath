@@ -8,7 +8,7 @@ module Tactics {
   define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
 
   define error' := error 
-  define (error str) := let {_ := (print str)}
+  define (error str) := let {_ := (print (join "\n" str "\n"))}
                          (error' str)
   define marker := "**"
 
@@ -75,7 +75,7 @@ define (make-subgoals goal subgoals) :=
          subgoals)
   
 define (backward-tactic goal-stack tactic-name) :=
-# This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'back-and is applied to a conditional? 
+# This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'and<- is applied to a conditional? 
    match goal-stack {
      (list-of goal-record rest) =>
        let {_ := (set! (goal-record 'tactic) [tactic-name []])}
@@ -100,10 +100,11 @@ define (backward-tactic goal-stack tactic-name) :=
                   _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
          | (or (some-sentence p) (some-sentence q)) =>
-             let {[new-goal new-assumption] := check {(tactic-name equals? 'back-lor) => [p (not q)] | else => [q (not p)]};
+             let {[new-goal new-assumption] := check {(tactic-name equals? 'lor<-) => [p (not q)] | else => [q (not p)]};
                   goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]]);
+                  _ := (print "\nHERE WE ARE...New goal:\n" new-goal);
                   [p-str q-str] := [(val->string p) (val->string q)];
-                  proof-chunks := check {(tactic-name equals? 'back-lor) =>
+                  proof-chunks := check {(tactic-name equals? 'lor<-) =>
                                            ["(!two-cases \n  assume " q-str "\n    (!right-either " p-str " " q-str ")\n  "
                                             "\n  assume (~ " q-str ")\n let {_ := conclude " p-str "\n    "
                                             marker "}\n  (!left-either " p-str " " q-str "))"]
@@ -389,11 +390,11 @@ define go-back-tactic :=
      
 define tactic-dictionary :=
   |{
-    'back-lor := lambda (goal-stack _) (backward-tactic goal-stack 'lor),
-    'back-ror := lambda (goal-stack _) (backward-tactic goal-stack 'back-ror),
-    'back-if  := lambda (goal-stack _) (backward-tactic goal-stack 'back-if),
-    'back-iff := lambda (goal-stack _) (backward-tactic goal-stack 'back-iff),
-    'back-and := lambda (goal-stack _) (backward-tactic goal-stack 'back-and),
+    'lor<- := lambda (goal-stack _) (backward-tactic goal-stack 'lor<-),
+    'ror<- := lambda (goal-stack _) (backward-tactic goal-stack 'ror<-),
+    'if<-  := lambda (goal-stack _) (backward-tactic goal-stack 'if<-),
+    'iff<- := lambda (goal-stack _) (backward-tactic goal-stack 'iff<-),
+    'and<- := lambda (goal-stack _) (backward-tactic goal-stack 'and<-),
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
@@ -403,11 +404,11 @@ define tactic-dictionary :=
                    match goal-stack {
                      (list-of goal-record _) =>
                         match (goal-record 'goal) {
-                          (and (some-list _)) => (backward-tactic goal-stack 'back-and)
-                        | (or (some-list _)) => (backward-tactic goal-stack 'lor)
-                        | (if _ _) => (backward-tactic goal-stack 'back-if)
-                        | (iff _ _) => (backward-tactic goal-stack 'back-iff)
-                        | _ => goal-stack
+                          (and (some-list _)) => (backward-tactic goal-stack 'and<-)
+                        | (or (some-list _)) => (backward-tactic goal-stack 'lor<-)
+                        | (if _ _) => (backward-tactic goal-stack 'if<-)
+                        | (iff _ _) => (backward-tactic goal-stack 'iff<-)
+                        | _ => (error "Invalid application of 'back - no backward tactic is applicable to the this goal")
                         }
                    | _ => goal-stack                        
                    },
@@ -577,7 +578,7 @@ define p := (and (not A) (not not A) (iff (A & B) (B & A)) (not not A));;
 
 (apply-tactic* 'back [])
 
-(apply-tactic 'back-and [])
+(apply-tactic 'and<- [])
 
 
 define [p1 p2] := [(A ==> B & C) (A & E)]
@@ -596,6 +597,19 @@ assert p1 := (forall x . P x & Q x & T x)
 (set-goal (Q a))
 (apply-tactic 'extract [p1])
 
+
+(clear-state)
+(clear-assumption-base)
+
+load "lib/basic/tactics"
+assert p1 := (forall x . P x | T x ==> Q x)
+assert p2 := (P a)
+(set-goal (Q a))
+(apply-tactic 'extract [p1])
+(apply-tactic 'extract [p1])
+(show-tree)
+(apply-tactic 'lor<- [])
+---> THIS NOW GIVES INFINITE LOOP: (apply-tactic 'back [])
 
 (clear-state)
 (clear-assumption-base)
