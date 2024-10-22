@@ -367,8 +367,7 @@ define from-complements-tactic :=
          match [(goal-record 'goal) args] {
            [goal [complement-1 complement-2]] =>
              check {(hold-in [complement-1 complement-2] goal-record) =>
-                     let {_ := (mark `1);
-                          _ := (set! (goal-record 'tactic) ['from-complements [complement-1 complement-2]]);
+                     let {_ := (set! (goal-record 'tactic) ['from-complements [complement-1 complement-2]]);
                           _ := (set! (goal-record 'proof) ["(!from-complements " (val->string goal) " " (val->string complement-1) " " (val->string complement-2) ")"]) 
                          }
                        rest
@@ -410,15 +409,17 @@ define (go-back-to goal-stack target-path) :=
     letrec {navigate-to := lambda (current-goal-record current-path)
                              match current-path {
                                [] => current-goal-record
-                             | (list-of index more) => (navigate-to (nth index (current-goal-record 'children)) more)
+                             | (list-of index more) => (navigate-to (nth index (ref (current-goal-record 'children))) more)
                              }}
-       try {let {target-goal := (navigate-to (ref root-goal) target-path);
+       try {let {_           := (mark `1);
+                 target-goal := (navigate-to (ref root-goal) target-path);
+                 _           := (mark `2);                 
                            _ := (set! (target-goal 'children) []);
                            _ := (set! (target-goal 'tactic) []);
                            _ := (set! (target-goal 'proof) "")}
               (add target-goal new-stack)
           | (error "Invalid path")}
-         
+          
 define go-back-tactic :=
   lambda (goal-stack args)
   # We must return a new goal stack. 
@@ -588,9 +589,8 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
-assert [B C]
-(set-goal (A | (B & C) | D))
-(apply-tactic 'or<- [(B & C)])
+(set-goal (A & B <==> B & A))
+(apply-tactic* 'back [])
 
 (print (show-proof))
 
