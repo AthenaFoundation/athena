@@ -78,15 +78,29 @@ define (backward-tactic goal-stack tactic-name) :=
 # This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'and<- is applied to a conditional? 
    match goal-stack {
      (list-of goal-record rest) =>
-       let {_ := (set! (goal-record 'tactic) [tactic-name []])}
-         match (goal-record 'goal) {
-           (and (some-list conjuncts)) => 
-             let {make-new-goal-record := lambda (conjunct) (make-child goal-record [['goal conjunct]]);              
+       let {_ := (set! (goal-record 'tactic) [tactic-name []]);
+            goal := (goal-record 'goal)}
+         match goal {
+           (and (some-list _)) => 
+             let {conjuncts        := (get-conjuncts goal);
                   new-goal-records := (make-subgoals goal-record conjuncts);
-                         new-stack := (join new-goal-records rest);
-                         proof-chunks := check {(equal? (length new-goal-records) 2) => ["(!both " marker " " marker ")"]
-                                              | else => (join ["(!conj-intro "] (separate (map (lambda (_) marker) conjuncts) " ") [")"])};
-                         _ := (set! (goal-record 'proof) proof-chunks)}                                             
+                  new-stack        := (join new-goal-records rest);
+                  proof-chunks     := check {(equal? (length conjuncts) 2) => ["(!both " marker " " marker ")"]
+                                              | else =>  let {counter    := (cell 1);
+                                                                    _    := (mark `1);
+                                                              components := (flatten (map lambda (_) [(join "conjunct-" (val->string (inc counter)) " := ") marker ";\n"]
+                                                                                          (all-but-last conjuncts)));
+                                                                    _    := (mark `2);                                                                                          
+                                                              last-component := [(join "conjunct-" (val->string (inc counter)) " := ") marker "\n"];
+                                                                    _    := (mark `3)}                                                                                                                                                        
+                                                          (add "let {" (join components
+                                                                             last-component
+                                                                             ["}\n  (!conj-intro ["]
+                                                                             [let {index := (cell 1)} (trim (flatten (map lambda (_) (join "conjunct-" (val->string (inc index)) " ")
+                                                                                                                      conjuncts)) " ")]
+                                                                             ["])"]))
+                                            };
+                  _                := (set! (goal-record 'proof) proof-chunks)}                                             
                new-stack
          | (if (some-sentence p) (some-sentence q)) =>
              let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]]);
@@ -485,7 +499,7 @@ define (apply-tactic tactic-name args) :=
   let {# Retrieve the tactic by name: 
        tactic := (tactic-dictionary tactic-name);
        _ := (print "\nGot the tactic, and here's the args: " args);
-       # Apply the tactic to the goal-stack: 
+       # Apply the tactic to the goal-stack, to get either an error or a new goal stack: 
        new-stack      := (try (tactic (ref goal-stack) args) 'error)}
     match new-stack {
       'error => 'error
@@ -544,6 +558,11 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+
+assert c := (A & B & C)
+(set-goal (B & C & A))
+(apply-tactic 'and<- [])
+(print (show-proof))
 
 assert d := (A | B | C)
 assert con := (and (if A D) (if B D) (if C D))
@@ -605,11 +624,19 @@ load "lib/basic/tactics"
 assert p1 := (forall x . P x | T x ==> Q x)
 assert p2 := (P a)
 (set-goal (Q a))
+# This sequence fails to revert to state [1], even though it should: 
+(apply-tactic 'extract [p1])
+(apply-tactic 'back [])
+(apply-tactic 'go-back [[1]])
+
+# This now Works:
 (apply-tactic 'extract [p1])
 (apply-tactic 'extract [p1])
-(show-tree)
 (apply-tactic 'lor<- [])
----> THIS NOW GIVES INFINITE LOOP: (apply-tactic 'back [])
+or equivalently:
+(apply-tactic* 'extract [p1])
+(apply-tactic 'back [])
+
 
 (clear-state)
 (clear-assumption-base)
