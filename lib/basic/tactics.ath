@@ -74,11 +74,11 @@ define (make-subgoals goal subgoals) :=
     (map lambda (p) (make-subgoal p (inc counter))
          subgoals)
   
-define (backward-tactic goal-stack tactic-name) :=
+define (backward-tactic goal-stack tactic-name args) :=
 # This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'and<- is applied to a conditional? 
    match goal-stack {
      (list-of goal-record rest) =>
-       let {_ := (set! (goal-record 'tactic) [tactic-name []]);
+       let {_ := (set! (goal-record 'tactic) [tactic-name args]);
             goal := (goal-record 'goal)}
          match goal {
            (and (some-list _)) => 
@@ -87,12 +87,9 @@ define (backward-tactic goal-stack tactic-name) :=
                   new-stack        := (join new-goal-records rest);
                   proof-chunks     := check {(equal? (length conjuncts) 2) => ["(!both " marker " " marker ")"]
                                               | else =>  let {counter    := (cell 1);
-                                                                    _    := (mark `1);
                                                               components := (flatten (map lambda (_) [(join "conjunct-" (val->string (inc counter)) " := ") marker ";\n"]
                                                                                           (all-but-last conjuncts)));
-                                                                    _    := (mark `2);                                                                                          
-                                                              last-component := [(join "conjunct-" (val->string (inc counter)) " := ") marker "\n"];
-                                                                    _    := (mark `3)}                                                                                                                                                        
+                                                              last-component := [(join "conjunct-" (val->string (inc counter)) " := ") marker "\n"]}
                                                           (add "let {" (join components
                                                                              last-component
                                                                              ["}\n  (!conj-intro ["]
@@ -113,6 +110,38 @@ define (backward-tactic goal-stack tactic-name) :=
                   proof-chunks := ["let {biconditional := " marker "}\n  (!equiv (!left-and biconditional) (!right-and biconditional))"];
                   _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
+         | (or (some-list _)) => 
+             let {disjuncts := (get-disjuncts goal)}
+               check {(member? tactic-name ['lor<- 'ror<-]) => 
+                       # If we're specifically applying 'lor or 'ror, then the given disjunction should be binary and the new subgoal will become either the left or the right disjunct, respectively.
+                       # In this case we're going to ignore the value of args.
+                        match goal {
+                          (or (some-sentence p) (some-sentence q)) =>
+                                     let {[new-goal method-name] := check {(equal? tactic-name 'lor<-) => [p "left-either "]
+                                                                         | else => [q "right-either "]};
+                                           new-goal-record := (make-child goal-record [['goal new-goal]]);
+                                           proof-chunks    := ["let {_ := " marker "}\n  " (join "(!" method-name (val->string p) " " (val->string q) ")")];
+                                          _                := (set! (goal-record 'proof) proof-chunks)}
+                                      (add new-goal-record rest)
+                        | _ => (error (join "Invalid application of " tactic-name))}                                      
+                    | (&& (member? tactic-name ['back 'or<-]) (null? args)) =>
+                       # If we're generically applying 'back without any additional info, then one of the disjuncts had better hold: 
+                                      (find-element disjuncts
+                                                    holds?
+                                                    lambda (d)
+                                                      let {new-goal-record := (make-child goal-record [['goal d]]);
+                                                           proof-chunks    := ["let {_ := " marker "}\n  " (join "(!either " (val->string goal) ")")];
+                                                           _               := (set! (goal-record 'proof) proof-chunks)}
+                                                        (add new-goal-record rest)
+                                                    lambda ()                                                        
+                                                      (error "Invalid application of 'back to a disjunction."))
+                    | (&& (member? tactic-name ['back 'or<-]) (equal? (length args) 1) (sentence? (first args))) =>
+                        let {subgoal := (first args);
+                             new-goal-record := (make-child goal-record [['goal subgoal]]);
+                             proof-chunks    := ["let {_ := " marker "}\n  " (join "(!either " (val->string goal) ")")];
+                             _               := (set! (goal-record 'proof) proof-chunks)}
+                          (add new-goal-record rest)
+                    | else => (error "Invalid backward tactic application to a disjunction.")}
          | (or (some-sentence p) (some-sentence q)) =>
              let {[new-goal new-assumption] := check {(tactic-name equals? 'lor<-) => [p (not q)] | else => [q (not p)]};
                   goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]]);
@@ -404,24 +433,25 @@ define go-back-tactic :=
      
 define tactic-dictionary :=
   |{
-    'lor<- := lambda (goal-stack _) (backward-tactic goal-stack 'lor<-),
-    'ror<- := lambda (goal-stack _) (backward-tactic goal-stack 'ror<-),
-    'if<-  := lambda (goal-stack _) (backward-tactic goal-stack 'if<-),
-    'iff<- := lambda (goal-stack _) (backward-tactic goal-stack 'iff<-),
-    'and<- := lambda (goal-stack _) (backward-tactic goal-stack 'and<-),
+    'lor<- := lambda (goal-stack args) (backward-tactic goal-stack 'lor<- args),
+    'ror<- := lambda (goal-stack args) (backward-tactic goal-stack 'ror<- args),
+    'or<-  := lambda (goal-stack args) (backward-tactic goal-stack 'or<- args),    
+    'if<-  := lambda (goal-stack args) (backward-tactic goal-stack 'if<-  args),
+    'iff<- := lambda (goal-stack args) (backward-tactic goal-stack 'iff<- args),
+    'and<- := lambda (goal-stack args) (backward-tactic goal-stack 'and<- args),
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
     'case-analysis  := case-analysis-tactic,
     'from-complements  := from-complements-tactic,    
-    'back     := lambda (goal-stack _)
+    'back     := lambda (goal-stack args)
                    match goal-stack {
                      (list-of goal-record _) =>
                         match (goal-record 'goal) {
-                          (and (some-list _)) => (backward-tactic goal-stack 'and<-)
-                        | (or (some-list _)) => (backward-tactic goal-stack 'lor<-)
-                        | (if _ _) => (backward-tactic goal-stack 'if<-)
-                        | (iff _ _) => (backward-tactic goal-stack 'iff<-)
+                          (and (some-list _)) => (backward-tactic goal-stack 'and<- args)
+                        | (or (some-list _)) => (backward-tactic goal-stack 'back args)
+                        | (if _ _) => (backward-tactic goal-stack 'if<- args)
+                        | (iff _ _) => (backward-tactic goal-stack 'iff<- args)
                         | _ => (error "Invalid application of 'back - no backward tactic is applicable to the this goal")
                         }
                    | _ => goal-stack                        
@@ -558,11 +588,27 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+assert [B C]
+(set-goal (A | (B & C) | D))
+(apply-tactic 'or<- [(B & C)])
+
+(print (show-proof))
+
+assert c := (A & B)
+(set-goal (B & A))
+(apply-tactic 'and<- [])
+(print (show-proof))
 
 assert c := (A & B & C)
 (set-goal (B & C & A))
 (apply-tactic 'and<- [])
 (print (show-proof))
+
+assert c := B
+(set-goal (A | B | C))
+(apply-tactic 'back [])
+(print (show-proof))
+
 
 assert d := (A | B | C)
 assert con := (and (if A D) (if B D) (if C D))
