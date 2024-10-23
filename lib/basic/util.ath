@@ -5161,3 +5161,10 @@ define (unparse-body method-thunk) :=
   let {str := (unparse method-thunk)}
     check {(prefix?  "Method:" str) => (trim (all-but-last (drop str 18)) " ")
          | else => (trim (all-but-last (drop str 10)) " ")}
+
+define (replace-string pat replacement base) :=
+  match base {
+    (split (some-list L1) (val-of pat) (some-list L2)) => (replace-string pat replacement (join L1 replacement L2))
+  | _ => base
+  }
+         
