@@ -5167,4 +5167,10 @@ define (replace-string pat replacement base) :=
     (split (some-list L1) (val-of pat) (some-list L2)) => (replace-string pat replacement (join L1 replacement L2))
   | _ => base
   }
+
+define (replace-strings pat-replacement-pairs base) :=
+  match pat-replacement-pairs {
+    (list-of [pat replacement] rest) => (replace-strings rest (replace-string pat replacement base))
+  | _ => base
+  }
          
