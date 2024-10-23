@@ -152,19 +152,22 @@ define (backward-tactic goal-stack tactic-name args) :=
                              _               := (set! (goal-record 'proof) proof-chunks)}
                           (add new-goal-record rest)
                     | else => (error "Invalid backward tactic application to a disjunction.")}
-         | (forall (some-list vars) (some-sentence body)) =>
-             let {_          := (mark `1);
-                  fresh-vars := (map lambda (v) (fresh-var (sort-of v) (string->id (var->string v))) vars);
-                  _          := (mark `2);                  
+         | (forall (vars as (list-of _ _)) (some-sentence body)) =>
+             let {fresh-vars := (map lambda (v) (fresh-var (sort-of v) (string->id (var->string v))) vars);
                   subgoal := (replace-vars vars fresh-vars body);
-                  _          := (mark `3);                  
                   new-goal-record := (make-child goal-record [['goal subgoal]]);
                   eigen-vars := (map var->string vars);
-                  pat-replacement-pairs := (zip fresh-vars eigen-vars);
-                  _                     := (HashTable.add marker-replacements [(current-marker-counter) pat-replacement-pairs]);
-                  proof-chunks    := (join ["pick-any "] eigen-vars ["\n  " (marker)])}
+                  pat-replacement-pairs := (zip (map val->string fresh-vars)
+                                                eigen-vars);
+                                      cm := (join "**" (val->string (current-marker-counter)));
+                                      _ := (print "\nCurrent marker counter: " cm);
+                  _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
+                  _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);
+                  proof-chunks    := (join ["pick-any "] eigen-vars ["\n  " (marker)]);
+                               _  := check {(for-each proof-chunks string?) => (print "\nOK Chunks...") | else => (print "\nNON-STRING chunk...")};
+                 _                := (set! (goal-record 'proof) proof-chunks)}                               
               (add new-goal-record rest)
-         | _ => goal-stack
+         | _ => (error "Error: No backward tactic applicable.")
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
    }
@@ -418,9 +421,7 @@ define (go-back-to goal-stack target-path) :=
                                [] => current-goal-record
                              | (list-of index more) => (navigate-to (nth index (ref (current-goal-record 'children))) more)
                              }}
-       try {let {_           := (mark `1);
-                 target-goal := (navigate-to (ref root-goal) target-path);
-                 _           := (mark `2);                 
+       try {let {target-goal := (navigate-to (ref root-goal) target-path);
                            _ := (set! (target-goal 'children) []);
                            _ := (set! (target-goal 'tactic) []);
                            _ := (set! (target-goal 'proof) "")}
@@ -603,6 +604,9 @@ EOF
 load "lib/basic/tactics"
 (assert (forall x . P x & Q x))
 (set-goal (forall x . Q x))
+(apply-tactic 'back [])
+(apply-tactic* 'extract [(forall x . P x & Q x)])
+(print (show-proof))
 
 # qqq !!!! FIX: This works: (apply-tactic 'back []) but this gives an infinite loop: (apply-tactic* 'back [])
 
