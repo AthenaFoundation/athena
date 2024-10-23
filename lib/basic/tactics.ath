@@ -10,7 +10,14 @@ module Tactics {
   define error' := error 
   define (error str) := let {_ := (print (join "\n" str "\n"))}
                          (error' str)
-  define marker := "**"
+                         
+  define [marker current-marker-counter] :=
+    let {marker-counter := (cell 1)}
+      [lambda ()
+        (join "**" (val->string (inc marker-counter)))
+       lambda () (ref marker-counter)]
+
+  define marker-transformations := (HashTable.table 100)
 
   # A record (or frame) on the goal stack has the following form:
   # |{
@@ -85,11 +92,11 @@ define (backward-tactic goal-stack tactic-name args) :=
              let {conjuncts        := (get-conjuncts goal);
                   new-goal-records := (make-subgoals goal-record conjuncts);
                   new-stack        := (join new-goal-records rest);
-                  proof-chunks     := check {(equal? (length conjuncts) 2) => ["(!both " marker " " marker ")"]
+                  proof-chunks     := check {(equal? (length conjuncts) 2) => ["(!both " (marker) " " (marker) ")"]
                                               | else =>  let {counter    := (cell 1);
-                                                              components := (flatten (map lambda (_) [(join "conjunct-" (val->string (inc counter)) " := ") marker ";\n"]
+                                                              components := (flatten (map lambda (_) [(join "conjunct-" (val->string (inc counter)) " := ") (marker) ";\n"]
                                                                                           (all-but-last conjuncts)));
-                                                              last-component := [(join "conjunct-" (val->string (inc counter)) " := ") marker "\n"]}
+                                                              last-component := [(join "conjunct-" (val->string (inc counter)) " := ") (marker) "\n"]}
                                                           (add "let {" (join components
                                                                              last-component
                                                                              ["}\n  (!conj-intro ["]
@@ -102,12 +109,12 @@ define (backward-tactic goal-stack tactic-name args) :=
          | (if (some-sentence p) (some-sentence q)) =>
              let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]]);
                   proof-chunks := [(join "assume " (val->string p) "\n   ")
-                                   marker];
+                                   (marker)];
                   _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
          | (iff (some-sentence p) (some-sentence q)) =>
              let {goal-record' := (make-child goal-record [['goal (and (if p q) (if q p))]]);
-                  proof-chunks := ["let {biconditional := " marker "}\n  (!equiv (!left-and biconditional) (!right-and biconditional))"];
+                  proof-chunks := ["let {biconditional := " (marker) "}\n  (!equiv (!left-and biconditional) (!right-and biconditional))"];
                   _ := (set! (goal-record 'proof) proof-chunks)}
                (add goal-record' rest)
          | (or (some-list _)) => 
@@ -120,7 +127,7 @@ define (backward-tactic goal-stack tactic-name args) :=
                                      let {[new-goal method-name] := check {(equal? tactic-name 'lor<-) => [p "left-either "]
                                                                          | else => [q "right-either "]};
                                            new-goal-record := (make-child goal-record [['goal new-goal]]);
-                                           proof-chunks    := ["let {_ := " marker "}\n  " (join "(!" method-name (val->string p) " " (val->string q) ")")];
+                                           proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!" method-name (val->string p) " " (val->string q) ")")];
                                           _                := (set! (goal-record 'proof) proof-chunks)}
                                       (add new-goal-record rest)
                         | _ => (error (join "Invalid application of " tactic-name))}                                      
@@ -130,7 +137,7 @@ define (backward-tactic goal-stack tactic-name args) :=
                                                     holds?
                                                     lambda (d)
                                                       let {new-goal-record := (make-child goal-record [['goal d]]);
-                                                           proof-chunks    := ["let {_ := " marker "}\n  " (join "(!either " (val->string goal) ")")];
+                                                           proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!either " (val->string goal) ")")];
                                                            _               := (set! (goal-record 'proof) proof-chunks)}
                                                         (add new-goal-record rest)
                                                     lambda ()                                                        
@@ -138,25 +145,16 @@ define (backward-tactic goal-stack tactic-name args) :=
                     | (&& (member? tactic-name ['back 'or<-]) (equal? (length args) 1) (sentence? (first args))) =>
                         let {subgoal := (first args);
                              new-goal-record := (make-child goal-record [['goal subgoal]]);
-                             proof-chunks    := ["let {_ := " marker "}\n  " (join "(!either " (val->string goal) ")")];
+                             proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!either " (val->string goal) ")")];
                              _               := (set! (goal-record 'proof) proof-chunks)}
                           (add new-goal-record rest)
                     | else => (error "Invalid backward tactic application to a disjunction.")}
-         | (or (some-sentence p) (some-sentence q)) =>
-             let {[new-goal new-assumption] := check {(tactic-name equals? 'lor<-) => [p (not q)] | else => [q (not p)]};
-                  goal-record'   := (make-child goal-record [['goal new-goal] ['assumptions  (add-all new-assumption (goal-record 'assumptions))]]);
-                  _ := (print "\nHERE WE ARE...New goal:\n" new-goal);
-                  [p-str q-str] := [(val->string p) (val->string q)];
-                  proof-chunks := check {(tactic-name equals? 'lor<-) =>
-                                           ["(!two-cases \n  assume " q-str "\n    (!right-either " p-str " " q-str ")\n  "
-                                            "\n  assume (~ " q-str ")\n let {_ := conclude " p-str "\n    "
-                                            marker "}\n  (!left-either " p-str " " q-str "))"]
-                                       | else =>
-                                           ["(!two-cases \n  assume " p-str "\n    (!left-either " p-str " " q-str ")\n  "
-                                            "\n  assume (~ " p-str ")\n let {_ := conclude " q-str "\n    "
-                                            marker "}\n  (!right-either " p-str " " q-str "))"]};
-                  _ := (set! (goal-record 'proof) proof-chunks)}
-               (add goal-record' rest)                                    
+         | (forall (some-list vars) (some-sentence body)) =>
+             let {fresh-vars := (map lambda (v) (fresh-var (sort-of v) (var->string v)) vars);
+                  subgoal := (replace-vars vars fresh-vars body);
+                  new-goal-record := (make-child goal-record [['goal subgoal]]);
+                  proof-chunks    := (join ["pick-any "] (map var->string vars) ["\n  " (marker)])}
+              (error "Not yet implemented")
          | _ => goal-stack
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
@@ -219,10 +217,10 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                     'subgoals := [instantiated-parent],
                     'proof := check {(equal? (length instantiated-conjuncts) 2) =>
                                       check {(equal? goal (first instantiated-conjuncts)) =>
-                                               ["let {_ := " marker "\n    }\n  (!left-and " (val->string instantiated-parent) ")"]
-                                           | else => ["let {_ := " marker "\n    }\n  (!right-and " (val->string instantiated-parent) ")"]
+                                               ["let {_ := " (marker) "\n    }\n  (!left-and " (val->string instantiated-parent) ")"]
+                                           | else => ["let {_ := " (marker) "\n    }\n  (!right-and " (val->string instantiated-parent) ")"]
                                       }
-                            | else => ["let {_ := " marker "\n    }\n  (!conj-elim " (val->string goal) " " (val->string instantiated-parent) ")"]}
+                            | else => ["let {_ := " (marker) "\n    }\n  (!conj-elim " (val->string goal) " " (val->string instantiated-parent) ")"]}
                   }|
                | else => (error "Invalid application of conjunctive extraction tactic.")}
                 
@@ -241,13 +239,13 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                                    trivial-case := (join "assume h := " goal-str "\n  (!claim h)");
                                    process-disjunct := lambda (disjunct tail-end)
                                                          check {(equal? disjunct goal) => ["\ncase-" (val->string (inc index)) " := " trivial-case tail-end]
-                                                              | else => ["\ncase-" (val->string (inc index)) " := " marker tail-end]};
+                                                              | else => ["\ncase-" (val->string (inc index)) " := " (marker) tail-end]};
                                    case-chunks := (flatten
                                                     (join (map lambda (d) (process-disjunct d ";\n")
                                                               (all-but-last disjuncts))
                                                           [(process-disjunct (last disjuncts) "\n")]));
                                    _ := (set! index 1)}
-                                (join ["let {disjunction := " marker ";\n"]
+                                (join ["let {disjunction := " (marker) ";\n"]
                                       case-chunks
                                       ["}\n  (!cases disjunction "
                                       (separate (map lambda (_)
@@ -259,17 +257,17 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
                
     | (if antecedent (val-of goal)) =>
         |{'tactic-info := ['if-> aux-info],
-          'proof := ["let {cond := " marker ";\n     ant := " marker "\n    }\n  (!mp cond ant)"],
+          'proof := ["let {cond := " (marker) ";\n     ant := " (marker) "\n    }\n  (!mp cond ant)"],
           'subgoals := [instantiated-parent antecedent]}|
     
     | (iff left (val-of goal)) =>
         |{'tactic-info := ['iff-left->  aux-info],
-          'proof := ["let {bicond := " marker ";\n     left := " marker "\n    }\n  (!mp (!left-iff bicond) left)"],    
+          'proof := ["let {bicond := " (marker) ";\n     left := " (marker) "\n    }\n  (!mp (!left-iff bicond) left)"],    
           'subgoals := [instantiated-parent left]}|
     
     | (iff (val-of goal) right) =>
         |{'tactic-info := ['iff-right-> aux-info],
-           'proof := ["let {bicond := " marker ";\n     right := " marker "\n    }\n  (!mp (!right-iff bicond) right)"],    
+           'proof := ["let {bicond := " (marker) ";\n     right := " (marker) "\n    }\n  (!mp (!right-iff bicond) right)"],    
            'subgoals := [instantiated-parent right]}|
            
     | (forall (some-var v) (some-sentence _)) => 
@@ -277,7 +275,7 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
            'subgoals := let {_ := (print "\nINSTANTIATED PARENT: " instantiated-parent "\nAND PARENT: " parent)}
                          [instantiated-parent],        
            'proof := let {theta' := (make-sub [[v (first (quant-vars parent))]])}
-                      ["let {ugen := " marker "}\n  (!uspec ugen " (val->string ((compose-subs theta theta') v)) ")"]
+                      ["let {ugen := " (marker) "}\n  (!uspec ugen " (val->string ((compose-subs theta theta') v)) ")"]
         }|
     
     }
@@ -323,8 +321,8 @@ define case-analysis-tactic :=
                                                               disjuncts));
                                    _ := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);
                                index := (cell 1);
-                                   _ := (set! (goal-record 'proof) (join ["let {disjunction := " marker "}\n  " "(!cases disjunction\n  "]                                                                          
-                                                                         (map lambda (d) marker
+                                   _ := (set! (goal-record 'proof) (join ["let {disjunction := " (marker) "}\n  " "(!cases disjunction\n  "]                                                                          
+                                                                         (map lambda (d) (marker)
                                                                               disjuncts)
                                                                          [")"]));
                              counter := (cell 1);
@@ -345,7 +343,7 @@ define contradiction-tactic :=
          let {goal := (goal-record 'goal);
               goal-complement := (complement goal);
               _ := (set! (goal-record 'tactic) ['contradiction []]);
-              _ := (set! (goal-record 'proof) ["(!by-contradiction " (val->string goal) "\n  assume " (val->string goal-complement) "\n    " marker ")"]);
+              _ := (set! (goal-record 'proof) ["(!by-contradiction " (val->string goal) "\n  assume " (val->string goal-complement) "\n    " (marker) ")"]);
               new-goal-record := (make-child goal-record [['assumptions  (add-all goal-complement (goal-record 'assumptions))] ['goal false]])}
            (add new-goal-record rest)
      | _ => (error "Invalid tactic application - there are no open goals currently.")
@@ -394,7 +392,7 @@ define infer-tactic :=
                        _ := (print "\nGOT THIS LEMMA: " lemma);
                        new-goal := (make-child goal-record [['assumptions  (add-all lemma (goal-record 'assumptions))]]);
                               _ := (set! (goal-record 'tactic) ['infer args]);
-                              _ := (set! (goal-record 'proof) ["let {_ := " (unparse-body M) "}\n  " marker])
+                              _ := (set! (goal-record 'proof) ["let {_ := " (unparse-body M) "}\n  " (marker)])
                       }
                     (add new-goal rest)
          | _ => (print "Invalid argument given to the infer tactic: A nullary method is expected.")
@@ -556,13 +554,13 @@ define (apply-tactic* tactic-name args) :=
   | _ => ()                     
   }                                         
 
-
+define (marker? str) := (&& (prefix? "**" str) (for-each (drop str 2) digit?))
 
 define (show-proof) :=
   letrec {join-proof-chunks := lambda (proof-chunks children-proofs res) 
                                  match proof-chunks {
                                    [] => (flatten (join (rev res)))
-                                 | (list-of chunk more) => check {(&& (equal? chunk marker) (negate (null? children-proofs))) =>
+                                 | (list-of chunk more) => check {(&& (marker? chunk) (negate (null? children-proofs))) =>
                                                                     (join-proof-chunks more
                                                                                       (tail children-proofs)
                                                                                       (add (first children-proofs) res))
@@ -593,6 +591,8 @@ load "lib/basic/tactics"
 (apply-tactic* 'back [])
 
 (print (show-proof))
+
+(clear-state)
 
 assert c := (A & B)
 (set-goal (B & A))

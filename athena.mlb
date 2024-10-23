@@ -92,5 +92,6 @@ in
 	repl.sml
 	athena.sml
 	sml_c_util.sml
+	mlton_main_old.sml
 	mlton_main.sml
 end
