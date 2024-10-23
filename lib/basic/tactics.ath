@@ -164,9 +164,21 @@ define (backward-tactic goal-stack tactic-name args) :=
                   _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
                   _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);
                   proof-chunks    := (join ["pick-any "] eigen-vars ["\n  " (marker)]);
-                               _  := check {(for-each proof-chunks string?) => (print "\nOK Chunks...") | else => (print "\nNON-STRING chunk...")};
                  _                := (set! (goal-record 'proof) proof-chunks)}                               
               (add new-goal-record rest)
+         | (exists (vars as (list-of _ _)) (some-sentence body)) =>
+               let {_ := (mark `1)}         
+            match args {
+               [((some-list witnesses) where (&& (for-each witnesses term?) (equal? (length witnesses) (length vars))))] =>
+                  let {_ := (mark `2);
+                       subgoal         := (replace-vars vars witnesses body);
+                       new-goal-record := (make-child goal-record [['goal subgoal]]);
+                       proof-chunks    := (join ["let {_ := " (marker) "}\n  " "(!egen* " (val->string goal) " ["]
+                                                [(separate (map val->string witnesses) " ")]
+                                                ["])"]);
+                       _               := (set! (goal-record 'proof) proof-chunks)}
+                    (add new-goal-record rest)                        
+            }
          | _ => (error "Error: No backward tactic applicable.")
          }
    | _ => (error "Error: Attempt to apply the backward tactic to an empty goal stack.")         
@@ -449,6 +461,7 @@ define tactic-dictionary :=
     'iff<- := lambda (goal-stack args) (backward-tactic goal-stack 'iff<- args),
     'and<- := lambda (goal-stack args) (backward-tactic goal-stack 'and<- args),
     'forall<- := lambda (goal-stack args) (backward-tactic goal-stack 'forall<- args),
+    'exists<- := lambda (goal-stack args) (backward-tactic goal-stack 'exists<- args),    
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
@@ -462,8 +475,9 @@ define tactic-dictionary :=
                         | (or (some-list _)) => (backward-tactic goal-stack 'back args)
                         | (if _ _) => (backward-tactic goal-stack 'if<- args)
                         | (iff _ _) => (backward-tactic goal-stack 'iff<- args)
-                        | (forall (some-list _) _) => (backward-tactic goal-stack 'forall<- args)                        
-                        | _ => (error "Invalid application of 'back - no backward tactic is applicable to the this goal")
+                        | (forall (list-of _ _) _) => (backward-tactic goal-stack 'forall<- args)
+                        | (exists (list-of _ _) _) => (backward-tactic goal-stack 'exists<- args)                                                
+                        | _ => (error "Invalid application of 'back - no backward tactic is applicable to this goal")
                         }
                    | _ => goal-stack                        
                    },
@@ -595,6 +609,7 @@ declare A, B, C, D, E: Boolean
 declare zero:Int
 declare succ: [Int] -> Int
 declare P, Q, pos, T: [Int] -> Boolean
+declare R: [Int Int] -> Boolean
 declare a, b, c: Int
 
 open Tactics
@@ -602,6 +617,14 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+
+(assert p := (1 R succ 2))
+(set-goal (exists x  y . x R succ y))
+(apply-tactic 'exists<- [[1 2]])
+
+
+
+(clear-state)
 (assert (forall x . P x & Q x))
 (set-goal (forall x . Q x))
 (apply-tactic 'back [])
