@@ -97,17 +97,6 @@ define (sub-sentence-map p) :=
                      }}
    (loop p [] 'p |{}|)
 
-
-define (positive-in-ab? p props) :=
-  let {F := lambda () false;
-       S := lambda (_) true}
-   (find-element props 
-                 lambda (q)
-                    let {M := (sub-sentence-map q)}
-                      try {let {_ := (M p)} true | false }
-                 S
-                 F)
-
 define (polarities-and-positions p q) :=
     let {prepend-and-process := 
            lambda (i f)
@@ -257,7 +246,13 @@ define (find-proper-matches* r props) :=
                         }
                     }}
      (loop props [])
-    
+
+define (positive-in-ab? p props) :=
+  match (find-proper-matches* p props) {
+      [] => false
+    | _ => true
+  }
+                 
 define (ufv p subsentence-position) :=
 # This computes UFV(q,p) where q is the unique subsentence of p at subsentence-position: 
   let {p-fvars := (fv p);

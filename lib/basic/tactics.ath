@@ -217,6 +217,13 @@ define (show-stack) :=
                   (ref goal-stack))
         (print "\n\n]]]]]]]]]]]]]\n"))
 
+define (holds-in p goal-record) :=
+   (|| (holds? p) (member? p (goal-record 'assumptions)))
+
+define (fails-in p goal-record) := (negate (holds-in p goal-record))
+
+define (hold-in props goal-record) := (for-each props lambda (p) (holds-in p goal-record))
+        
 define set-goal :=
   lambda (goal-sentence)
     check {(holds? goal-sentence) => (print "\nThis sentence already holds.")
@@ -331,9 +338,13 @@ define extraction-tactic :=
      match goal-stack {
        (list-of goal-record rest) =>
          match [(goal-record 'goal) args] {
-         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise: 
-            [goal [premise]] => check {(negate (|| (member? premise (goal-record 'assumptions))
-                                                   (holds? premise))) => (error "Invalid application of the extraction tactic: the given premise does not hold:\n" premise)
+         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:         
+            [goal []] => # If no premise is specified, try to find one: 
+                (find-element (join (ab) (goal-record 'assumptions))
+                              lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ())
+                              lambda (premise) (extraction-tactic goal-stack [premise])
+                              lambda () (error "Invalid application of extraction: the given goal does not have any universally positive parents in the current assumptions."))
+          | [goal [premise]] => check {(premise fails-in goal-record)  => (error (join "Invalid application of the extraction tactic: the given premise does not hold:\n" (val->string premise)))
                                      | else => match (Polarities.find-universally-positive-parent goal premise) {
                                                  () => (error "Invalid application of the extraction tactic: the given premise does not have any universally positive occurrences of a goal parent")
                                                | [(some-sentence parent) parent-position-in-premise theta] =>
@@ -363,28 +374,31 @@ define case-analysis-tactic :=
      match goal-stack {
        (list-of goal-record rest) =>
          match [(goal-record 'goal) args] {
-         # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:
-         [goal [(disjunction as (or (some-list _)))]] =>
-               let {disjuncts := (get-disjuncts disjunction)}
-               check {(Polarities.positive-in-ab? disjunction (join (ab) (goal-record 'assumptions))) =>
-                       let {subgoals := (add disjunction (map lambda (disjunct) (if disjunct goal)
-                                                              disjuncts));
-                                   _ := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);
-                               index := (cell 1);
-                                   _ := (set! (goal-record 'proof) (join ["let {disjunction := " (marker) "}\n  " "(!cases disjunction\n  "]                                                                          
-                                                                         #(map lambda (d) (join (marker) " ") (all-but-last disjuncts)) qqq
-                                                                         (separated-markers (length disjuncts))
-                                                                         [")"]));
-                             counter := (cell 1);
-                             new-goal-records' := (map lambda (subgoal)
-                                                         (make-child goal-record [['goal subgoal] ['path (extend-path goal-record (inc counter))]])
-                                                       subgoals)}
-                         (join new-goal-records' rest)
-                    | else => (error "Invalid application of the case-analysis tactic: the given disjunction is not positively embedded in the current a.b.")
-               }
+           # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:
+           [goal [(disjunction as (or (some-list _)))]] =>
+             let {_ := (mark `0)}
+             match (Polarities.find-proper-matches* disjunction (join (ab) (goal-record 'assumptions))) {
+               (list-of (some-map D) _) => 
+                         let {_                 := (mark `1);
+                              theta             := (D 'theta);
+                              disjuncts         := (get-disjuncts disjunction);
+                              subgoals          := (add disjunction (map lambda (disjunct) (if disjunct goal)
+                                                                          disjuncts));
+                              _                 := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);
+                              index             := (cell 1);
+                              _                 := (set! (goal-record 'proof) (join ["let {disjunction := " (marker) "}\n  " "(!cases disjunction\n  "]                                                                          
+                                                                                    (separated-markers (length disjuncts))
+                                                                                    [")"]));
+                              counter           := (cell 1);
+                              new-goal-records' := (map lambda (subgoal)
+                                                           (make-child goal-record [['goal subgoal] ['path (extend-path goal-record (inc counter))]])
+                                                         subgoals)}
+                           (join new-goal-records' rest)
+             | _ => (error "Invalid application of the case-analysis tactic: the given disjunction is not positively embedded in the current a.b.")
+             }
          }
      }
-
+     
 define contradiction-tactic :=
   lambda (goal-stack _)
   # We must return a new goal stack. 
@@ -398,13 +412,6 @@ define contradiction-tactic :=
            (add new-goal-record rest)
      | _ => (error "Invalid tactic application - there are no open goals currently.")
      }           
-
-define (holds-in p goal-record) :=
-   (|| (holds? p) (member? p (goal-record 'assumptions)))
-
-define (fails-in p goal-record) := (negate (holds-in p goal-record))
-
-define (hold-in props goal-record) := (for-each props lambda (p) (holds-in p goal-record))
    
 define from-complements-tactic := 
   lambda (goal-stack args)
@@ -634,7 +641,7 @@ declare A, B, C, D, E: Boolean
 
 declare zero:Int
 declare succ: [Int] -> Int
-declare P, Q, pos, T: [Int] -> Boolean
+declare P, Q, pos, S, T: [Int] -> Boolean
 declare R: [Int Int] -> Boolean
 declare a, b, c: Int
 
@@ -643,6 +650,25 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+assert p1 := (forall x . P x | Q x)
+assert p2 := (forall x . P x ==> S x)
+assert p3 := (forall x . Q x ==> S x)
+(set-goal (S a))
+
+(apply-tactic 'case-analysis [(P a | Q a)])
+(apply-tactic* 'extract [])
+
+(apply-tactic 'extract [])
+
+(apply-tactic 'extract [p1])
+
+(apply-tactic 'extract [p2])
+(apply-tactic 'extract [p3])
+
+
+
+(apply-tactic 'case-analysis [(P a | Q a)])
+
 
 (assert p := (1 R succ 2))
 (set-goal (exists x . x R succ 2))
@@ -689,8 +715,15 @@ assert c := B
 assert d := (A | B | C)
 assert con := (and (if A D) (if B D) (if C D))
 (set-goal D)
-
 (apply-tactic 'case-analysis [d])
+
+
+assert p1 := (forall x . P x | Q x)
+assert p2 := (forall x . P x ==> S x)
+assert p3 := (forall x . Q x ==> S x)
+(set-goal (S a))
+(apply-tactic 'case-analysis [(P a | Q a)])
+
 
 assert p1 := (A ==> B & C)
 assert p2 := (~ B)
