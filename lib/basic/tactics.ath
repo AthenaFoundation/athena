@@ -349,7 +349,13 @@ define extraction-tactic :=
                                                }}
          }
      }
-     
+
+define (separated-markers N) :=
+  letrec {loop := lambda (i res) 
+                     check {(less? i 2) => (rev (add (marker) res))
+                          | else => (loop (minus i 1) (add " " (add (marker) res)))}}
+    (loop N [])                          
+                          
 define case-analysis-tactic :=
   lambda (goal-stack args)
   # We must return a new goal stack. 
@@ -366,8 +372,8 @@ define case-analysis-tactic :=
                                    _ := (set! (goal-record 'tactic) ['case-analysis [disjunction]]);
                                index := (cell 1);
                                    _ := (set! (goal-record 'proof) (join ["let {disjunction := " (marker) "}\n  " "(!cases disjunction\n  "]                                                                          
-                                                                         (map lambda (d) (marker)
-                                                                              disjuncts)
+                                                                         #(map lambda (d) (join (marker) " ") (all-but-last disjuncts)) qqq
+                                                                         (separated-markers (length disjuncts))
                                                                          [")"]));
                              counter := (cell 1);
                              new-goal-records' := (map lambda (subgoal)
