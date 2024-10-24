@@ -78,9 +78,13 @@ define (make-child goal-record new-child-bindings) :=
 
 define (find-instance p props) :=
 # Viewing p as a pattern, find some sentence q in props that matches (is an instance of) p, and return the corresponding substitution.
-# If no such q exists, return ().
-  ()
-
+# If no such q exists, return false. 
+  (find-element' props
+                 substitution?  
+                 lambda (q) (match-props q p)
+                 lambda (res) res
+                 lambda () false)
+                 
 define (leaf? goal-record) :=
   (&& (null? (ref (goal-record 'children)))
       (unequal? (ref (goal-record 'tactic)) []))
@@ -635,9 +639,9 @@ EOF
 load "lib/basic/tactics"
 
 (assert p := (1 R succ 2))
-(set-goal (exists x  y . x R succ y))
+(set-goal (exists x . x R succ 2))
 
-(apply-tactic 'exists<- [])
+(apply-tactic 'exists<- [[1]])
 
 (apply-tactic 'exists<- [[1 2]])
 
