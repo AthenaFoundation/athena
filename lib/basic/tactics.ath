@@ -76,20 +76,30 @@ define (make-child goal-record new-child-bindings) :=
     child 
 
 
-define (leaf? goal-record) := (&& (null? (ref (goal-record 'children))) (unequal? (ref (goal-record 'tactic)) []))
+define (find-instance p props) :=
+# Viewing p as a pattern, find some sentence q in props that matches (is an instance of) p, and return the corresponding substitution.
+# If no such q exists, return ().
+  ()
+
+define (leaf? goal-record) :=
+  (&& (null? (ref (goal-record 'children)))
+      (unequal? (ref (goal-record 'tactic)) []))
 
 define (make-subgoals goal subgoals) := 
   let {make-subgoal := lambda (p index) (make-child goal [['goal p] ['path (extend-path goal index)]]);
        counter := (cell 1)}
     (map lambda (p) (make-subgoal p (inc counter))
          subgoals)
-  
+
+define (set-proof-and-tactic-info goal-record tactic-name args proof-chunks) := 
+  (seq (set! (goal-record 'tactic) [tactic-name args])
+       (set! (goal-record 'proof)  proof-chunks))
+       
 define (backward-tactic goal-stack tactic-name args) :=
 # This essentially ignores tactic-name for all cases except disjunctions. What if a tactic like 'and<- is applied to a conditional? 
    match goal-stack {
      (list-of goal-record rest) =>
-       let {_ := (set! (goal-record 'tactic) [tactic-name args]);
-            goal := (goal-record 'goal)}
+       let {goal := (goal-record 'goal)}
          match goal {
            (and (some-list _)) => 
              let {conjuncts        := (get-conjuncts goal);
@@ -107,18 +117,18 @@ define (backward-tactic goal-stack tactic-name args) :=
                                                                                                                       conjuncts)) " ")]
                                                                              ["])"]))
                                             };
-                  _                := (set! (goal-record 'proof) proof-chunks)}                                             
+                   _               := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                new-stack
          | (if (some-sentence p) (some-sentence q)) =>
              let {goal-record' := (make-child goal-record [['goal q] ['assumptions  (add-all p (goal-record 'assumptions))]]);
                   proof-chunks := [(join "assume " (val->string p) "\n   ")
                                    (marker)];
-                  _ := (set! (goal-record 'proof) proof-chunks)}
+                  _ := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                (add goal-record' rest)
          | (iff (some-sentence p) (some-sentence q)) =>
              let {goal-record' := (make-child goal-record [['goal (and (if p q) (if q p))]]);
                   proof-chunks := ["let {biconditional := " (marker) "}\n  (!equiv (!left-and biconditional) (!right-and biconditional))"];
-                  _ := (set! (goal-record 'proof) proof-chunks)}
+                  _ := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                (add goal-record' rest)
          | (or (some-list _)) => 
              let {disjuncts := (get-disjuncts goal)}
@@ -131,7 +141,7 @@ define (backward-tactic goal-stack tactic-name args) :=
                                                                          | else => [q "right-either "]};
                                            new-goal-record := (make-child goal-record [['goal new-goal]]);
                                            proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!" method-name (val->string p) " " (val->string q) ")")];
-                                          _                := (set! (goal-record 'proof) proof-chunks)}
+                                          _                := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                                       (add new-goal-record rest)
                         | _ => (error (join "Invalid application of " tactic-name))}                                      
                     | (&& (member? tactic-name ['back 'or<-]) (null? args)) =>
@@ -141,7 +151,7 @@ define (backward-tactic goal-stack tactic-name args) :=
                                                     lambda (d)
                                                       let {new-goal-record := (make-child goal-record [['goal d]]);
                                                            proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!either " (val->string goal) ")")];
-                                                           _               := (set! (goal-record 'proof) proof-chunks)}
+                                                           _               := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                                                         (add new-goal-record rest)
                                                     lambda ()                                                        
                                                       (error "Invalid application of 'back to a disjunction."))
@@ -149,7 +159,7 @@ define (backward-tactic goal-stack tactic-name args) :=
                         let {subgoal := (first args);
                              new-goal-record := (make-child goal-record [['goal subgoal]]);
                              proof-chunks    := ["let {_ := " (marker) "}\n  " (join "(!either " (val->string goal) ")")];
-                             _               := (set! (goal-record 'proof) proof-chunks)}
+                             _               := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
                           (add new-goal-record rest)
                     | else => (error "Invalid backward tactic application to a disjunction.")}
          | (forall (vars as (list-of _ _)) (some-sentence body)) =>
@@ -164,10 +174,9 @@ define (backward-tactic goal-stack tactic-name args) :=
                   _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
                   _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);
                   proof-chunks    := (join ["pick-any "] eigen-vars ["\n  " (marker)]);
-                 _                := (set! (goal-record 'proof) proof-chunks)}                               
+                 _                := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}                               
               (add new-goal-record rest)
          | (exists (vars as (list-of _ _)) (some-sentence body)) =>
-               let {_ := (mark `1)}         
             match args {
                [((some-list witnesses) where (&& (for-each witnesses term?) (equal? (length witnesses) (length vars))))] =>
                   let {_ := (mark `2);
@@ -176,8 +185,15 @@ define (backward-tactic goal-stack tactic-name args) :=
                        proof-chunks    := (join ["let {_ := " (marker) "}\n  " "(!egen* " (val->string goal) " ["]
                                                 [(separate (map val->string witnesses) " ")]
                                                 ["])"]);
-                       _               := (set! (goal-record 'proof) proof-chunks)}
-                    (add new-goal-record rest)                        
+                       _               := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}
+                    (add new-goal-record rest)
+             # If no instantiating term is specified, then try to find one: 
+             | [] => match (find-instance body (join (goal-record 'assumptions) (ab))) {
+                      (some-sub theta) => let {witnesses := (theta vars)}
+                                           (backward-tactic goal-stack tactic-name [witnesses])
+                    | _ => (error "Invalid application of exists<-: No witnesses specified and none could be found.")
+                    }
+             | _ =>  (error "Error: Invalid application of exists<-: A (possibly empty) list of witnesses was expected as the tactic argument.")
             }
          | _ => (error "Error: No backward tactic applicable.")
          }
@@ -451,7 +467,7 @@ define go-back-tactic :=
          }
      | _ => (error "Invalid tactic application - there are no open goals currently.")
      }         
-     
+
 define tactic-dictionary :=
   |{
     'lor<- := lambda (goal-stack args) (backward-tactic goal-stack 'lor<- args),
@@ -620,6 +636,9 @@ load "lib/basic/tactics"
 
 (assert p := (1 R succ 2))
 (set-goal (exists x  y . x R succ y))
+
+(apply-tactic 'exists<- [])
+
 (apply-tactic 'exists<- [[1 2]])
 
 
