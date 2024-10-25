@@ -217,7 +217,92 @@ define (get-conjuncts-and-their-positions p) :=
                (print "\nAnd the parent's position: ") (writeln-val q-parent-pos)
                (print "]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]")))))
 
+define (all-universal-occurrences r p positive?) :=
+# This will return a list of all *universal* occurrences of a generalized version of r, call it q, inside p.
+# By a generalized version we mean that r must match q under some theta. The positive? boolean flag determines
+# whether the returned occurrences are positive in p (or negative, respectively). Thus,
+# (find-universal-occurrences (Q a) (forall x . P x & Q x) true) should return [2 2] under {?x -> a} as the
+# sole match, but (find-universal-occurrences (Q a) (forall x . P x & Q x) false) would be asking for universally
+# negative occurrences of (Q a) inside the base (forall x . P x & Q x), and there are no such occurrences, so
+# in that case the empty list should be returned.
+  let {prohibited-polarity? := lambda (pol)
+                                 check {positive? => (negative-pol? pol)
+                                      | else      => (positive-pol? pol)}}
+    letrec {loop := lambda (q q-pos q-pol)
+                      match (match-props r q) {     
+                        (some-sub theta) => check {(prohibited-polarity? q-pol) => [] 
+                                                 | else => [|{'matching-subsentence := q, 'matching-pos := (rev q-pos), 'theta := theta, 'base-sentence := p}|]}
+                      | _ => match q {
+                               (not q')            => (loop q' (add 1 q-pos) (flip q-pol))
+                                 
+                             | (if q1 q2)          => (join (loop q1 (add 1 q-pos) (flip q-pol))
+                                                            (loop q2 (add 2 q-pos) q-pol))
+                             | (iff q1 q2)         => (join (loop q1 (add 1 q-pos) 'pn)
+                                                            (loop q2 (add 2 q-pos) 'pn))
+                             | (and (some-list _)) => let {conjuncts-and-their-positions := (get-conjuncts-and-their-positions q)}
+                                                        (flatten (map lambda (conjunct-and-its-position)
+                                                                         let {[q_i q_i_pos] := conjunct-and-its-position}
+                                                                           (loop q_i q_i_pos q-pol)
+                                                                      conjuncts-and-their-positions))
+                             | (or (some-list _))  => let {disjuncts-and-their-positions := (get-disjuncts-and-their-positions q)}
+                                                        (flatten (map lambda (disjunct-and-its-position)
+                                                                         let {[q_i q_i_pos] := disjunct-and-its-position}
+                                                                           (loop q_i q_i_pos q-pol)
+                                                                      disjuncts-and-their-positions))
+                             | (forall (some-var _) (some-sentence body)) =>
+                                  check {(negative-pol? q-pol) => []
+                                       | else => (loop body (add 2 q-pos) q-pol)}
+                             | ((|| exists exists-unique) (some-var _) (some-sentence body)) =>
+                                  check {(positive-pol? q-pol) => []
+                                       | else => (loop body (add 2 q-pos) q-pol)}
+                             | _ => []                                     
+                             }
+                      }}
+        (loop p [] 'p)
 
+define (all-universally-positive-occurrences r p) := (all-universal-occurrences r p true)
+
+define (all-universally-negative-occurrences r p) := (all-universal-occurrences r p false)
+
+define (all-universally-positive-occurrences* r props) :=
+  (flatten (map lambda (p)
+                  (all-universally-positive-occurrences r p)
+                props))                  
+
+define (find-universally-positive-occurrence target base) :=
+# If there are no universally positive occurrences of the given target in base, then this will return ().
+   match (all-universally-positive-occurrences target base) {
+     (list-of (some-map D) _) => D
+   | _ => ()
+   }
+
+define (find-universally-negative-occurrence target base) :=
+# If there are no universally negative occurrences of the given target in base, then this will return ().
+   match (all-universally-negative-occurrences target base) {
+     (list-of (some-map D) _) => D
+   | _ => ()
+   }
+
+define (find-universally-positive-occurrence* target props) :=
+# Find the *first* match among all props. If there are none, return (): 
+    (find-element' 
+       props
+       lambda (D)
+         (unequal? D ())
+       lambda (p) (find-universally-positive-occurrence target p)         
+       lambda (x) x
+       lambda () ())
+
+define (find-universally-negative-occurrence* target props) :=
+# Find the *first* match among all props. If there are none, return (): 
+    (find-element' 
+       props
+       lambda (D)
+         (unequal? D ())
+       lambda (p) (find-universally-negative-occurrence target p)         
+       lambda (x) x
+       lambda () ())
+       
 define (list->sub result) :=
   match result {
     [q q-pos theta q-parent q-parent-pos _] =>
