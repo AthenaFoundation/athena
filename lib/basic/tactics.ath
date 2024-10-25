@@ -28,7 +28,7 @@ module Tactics {
   #   'id             := <a unique identifier>,
   #   'path           := <a unique Dewey list>,
   #   'assumptions    := <a list of assumptions>,
-  #   'eigenvariables := <a list of eigenvariables>,
+  #   'eigenvars      := <a list of eigenvariables>,
   #   'witnesses      := <a list of witness variables>,
   #   'parent         := <uplink to the parent or to ()>,
   #   'children       := <a cell of downinks to children or to ()>,
@@ -169,7 +169,6 @@ define (backward-tactic goal-stack tactic-name args) :=
          | (forall (vars as (list-of _ _)) (some-sentence body)) =>
              let {fresh-vars := (map lambda (v) (fresh-var (sort-of v) (string->id (var->string v))) vars);
                   subgoal := (replace-vars vars fresh-vars body);
-                  new-goal-record := (make-child goal-record [['goal subgoal]]);
                   eigen-vars := (map var->string vars);
                   pat-replacement-pairs := (zip (map val->string fresh-vars)
                                                 eigen-vars);
@@ -178,7 +177,8 @@ define (backward-tactic goal-stack tactic-name args) :=
                   _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
                   _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);
                   proof-chunks    := (join ["pick-any "] eigen-vars ["\n  " (marker)]);
-                 _                := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks)}                               
+                 _                := (set-proof-and-tactic-info goal-record tactic-name args proof-chunks);
+                  new-goal-record := (make-child goal-record [['goal subgoal] ['eigenvars (join fresh-vars (goal-record 'eigenvars))]])}                 
               (add new-goal-record rest)
          | (exists (vars as (list-of _ _)) (some-sentence body)) =>
             match args {
@@ -207,7 +207,7 @@ define (backward-tactic goal-stack tactic-name args) :=
 define (show-goal-record g i N) :=
   (print "\n\n****************************** Stack record" i "out of" N "\n--Goal: " (g 'goal)
          "\n--Goal id: " (g 'id) "\n--Path: " (g 'path)
-         "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvariables) "\n--Witnesses: " (g 'witnesses))
+         "\n--Assumptions:\n" (g 'assumptions) "\n--Eigenvariables: " (g 'eigenvars) "\n--Witnesses: " (g 'witnesses))
    
 define (show-stack) :=
  let {counter := (cell 1);
@@ -232,7 +232,7 @@ define set-goal :=
                                        'path           := [],
                                        'goal           := goal-sentence,
                                        'assumptions    := [],
-                                       'eigenvariables := [],
+                                       'eigenvars      := [],
                                        'witnesses      := [],
                                        'parent         := (),
                                        'tactic         := (cell []),
@@ -432,7 +432,45 @@ define from-complements-tactic :=
      | _ => (error "Invalid tactic application - there are no open goals currently.")
      }
 
-    
+
+define pick-witness-tactic := 
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     let {_ := (print "\nInside the from-complements tactic, here's args: " args "\nand here is the goal stack: " goal-stack)}
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match [(goal-record 'goal) args] {
+           [goal []] => (error "Empty argument lists for exists-> are not supported yet.")
+         | [goal [(existential-sentence as (exists (some-var v) (some-sentence body)))]] =>
+             match (Polarities.find-proper-matches* existential-sentence (join (ab) (goal-record 'assumptions))) {
+                 [] => (error "Incorrect application of 'exists->: The given existential quantification is not positively embedded in the current set of assumptions.")
+               | (list-of (some-map D) _) =>
+                     let {subgoal               := existential-sentence;
+                          witness-var           := (fresh-var (sort-of v) 'witness);
+                          witness-marker        := (marker);
+                          pat-replacement-pairs := [[(val->string witness-var) "w"]];
+                          cm                    := (join "**" (val->string (current-marker-counter)));
+                          _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
+                                      _         := (print "\nCurrent marker counter: " cm);
+                          _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);                                      
+                          witness-body          := (replace-var v witness-var body);
+                          _                     := (print "\nWITNESS BODY:\n" witness-body);
+                          new-goal-record-1     := (make-child goal-record [['goal subgoal]]);
+                          new-goal-record-2     := (make-child goal-record [['assumptions (add-all witness-body (goal-record 'assumptions))]
+                                                                            ['witnesses (add witness-var (goal-record 'witnesses))]]);
+                          proof-chunks          := (join ["let {_ := " witness-marker "}\n  "]
+                                                         ["pick-witness w for "]
+                                                         [(val->string existential-sentence)]
+                                                         ["\n  "]
+                                                         [(marker)]);
+                          _                     := (set-proof-and-tactic-info goal-record 'exists-> args proof-chunks)}
+                       (join [new-goal-record-1 new-goal-record-2] rest)
+               }
+         | _ => (error "The exists-> tactic expects an existential quantification as its sole argument, or else no arguments at all.")
+         }
+     | _ => (error "Invalid tactic application - there are no open goals currently.")         
+     }
+     
 define (execute-thunk M assumptions) := 
   let {p := assume (and assumptions) (!M)}
     (consequent p)
@@ -494,7 +532,8 @@ define tactic-dictionary :=
     'iff<- := lambda (goal-stack args) (backward-tactic goal-stack 'iff<- args),
     'and<- := lambda (goal-stack args) (backward-tactic goal-stack 'and<- args),
     'forall<- := lambda (goal-stack args) (backward-tactic goal-stack 'forall<- args),
-    'exists<- := lambda (goal-stack args) (backward-tactic goal-stack 'exists<- args),    
+    'exists<- := lambda (goal-stack args) (backward-tactic goal-stack 'exists<- args),
+    'exists-> := pick-witness-tactic,
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
@@ -650,6 +689,20 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+assert p1 := (forall x . P x ==> Q x)
+assert p2 := (exists x . P x)
+(set-goal (exists x . Q x))
+(apply-tactic 'exists-> [p2])
+(apply-tactic 'exists<- [[?witness964:Int]])
+(apply-tactic* 'extract [])
+
+(print (show-proof))
+
+
+
+(apply-tactic 'infer [method () (!uspec p1 ?witness964:Int)])
+
+
 assert p1 := (forall x . P x | Q x)
 assert p2 := (forall x . P x ==> S x)
 assert p3 := (forall x . Q x ==> S x)
@@ -683,7 +736,7 @@ assert p3 := (forall x . Q x ==> S x)
 (assert (forall x . P x & Q x))
 (set-goal (forall x . Q x))
 (apply-tactic 'back [])
-(apply-tactic* 'extract [(forall x . P x & Q x)])
+(apply-tactic* 'extract [])
 (print (show-proof))
 
 # qqq !!!! FIX: This works: (apply-tactic 'back []) but this gives an infinite loop: (apply-tactic* 'back [])
