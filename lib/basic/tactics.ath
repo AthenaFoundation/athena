@@ -318,9 +318,19 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
     
     | (iff (val-of goal) right) =>
         |{'tactic-info := ['iff-right-> aux-info],
-           'proof := ["let {bicond := " (marker) ";\n     right := " (marker) "\n    }\n  (!mp (!right-iff bicond) right)"],    
-           'subgoals := [instantiated-parent right]}|
-           
+                'proof := ["let {bicond := " (marker) ";\n     right := " (marker) "\n    }\n  (!mp (!right-iff bicond) right)"],    
+             'subgoals := [instantiated-parent right]}|
+
+    | (not (some-sentence body)) =>
+        # If the parent is the negation of the goal, but the parent itself is negated, then
+        let {grand-parent := (Polarities.subprop premise (all-but-last parent-position-in-premise))}
+          check {(&& (non-empty? parent-position-in-premise)
+                     (equals? (root grand-parent) not)) =>
+                       |{'tactic-info := ['not-> aux-info],
+                         'subgoals := [grand-parent],
+                         'proof := ["let {doubly-negated-goal := " (marker) "}\n  (!dn doubly-negated-goal)"]}|
+               | else => (error "Invalid application of not->")}
+               
     | (forall (some-var v) (some-sentence _)) => 
         |{'tactic-info := ['forall3-> aux-info],
            'subgoals := let {_ := (print "\nINSTANTIATED PARENT: " instantiated-parent "\nAND PARENT: " parent)}
@@ -466,6 +476,32 @@ define pick-witness-tactic :=
                           _                     := (set-proof-and-tactic-info goal-record 'exists-> args proof-chunks)}
                        (join [new-goal-record-1 new-goal-record-2] rest)
                }
+         | [goal [(negative-existential-sentence as (forall (some-var v) (some-sentence body)))]] =>
+              let {_ := (mark `1)}
+              match (Polarities.find-universally-negative-occurrence* negative-existential-sentence (join (ab) (goal-record 'assumptions))) {
+                () => (error "Incorrect application of 'exists->: The given universal quantification is not negatively embedded in the current set of assumptions.")
+              | (some-map D) =>
+                     let {subgoal               := (not negative-existential-sentence);
+                          _                     := (mark `2);
+                          witness-var           := (fresh-var (sort-of v) 'witness);
+                          witness-marker        := (marker);
+                          pat-replacement-pairs := [[(val->string witness-var) "w"]];
+                          cm                    := (join "**" (val->string (current-marker-counter)));
+                          _                     := (HashTable.add marker-replacements [cm pat-replacement-pairs]);
+                                      _         := (print "\nCurrent marker counter: " cm);
+                          _                     := (print "\n pat-replacement-pairs:\n" pat-replacement-pairs);                                      
+                          witness-body          := (replace-var v witness-var (not body));
+                          _                     := (print "\nWITNESS BODY:\n" witness-body);
+                          new-goal-record-1     := (make-child goal-record [['goal subgoal]]);
+                          new-goal-record-2     := (make-child goal-record [['assumptions (add-all witness-body (goal-record 'assumptions))]
+                                                                            ['witnesses (add witness-var (goal-record 'witnesses))]]);
+                          proof-chunks          := (join ["let {negative-universal := " witness-marker ";\n     existential := (!qn-strict negative-universal)" "}\n  "]
+                                                         ["pick-witness w for existential"]
+                                                         ["\n  "]
+                                                         [(marker)]);
+                          _                     := (set-proof-and-tactic-info goal-record 'exists-> args proof-chunks)}
+                       (join [new-goal-record-1 new-goal-record-2] rest)
+              }
          | _ => (error "The exists-> tactic expects an existential quantification as its sole argument, or else no arguments at all.")
          }
      | _ => (error "Invalid tactic application - there are no open goals currently.")         
@@ -690,11 +726,28 @@ EOF
 
 load "lib/basic/tactics"
 assert p1 := (forall x . P x ==> Q x)
-assert p2 := (exists x . P x)
+assert p2 := (and true (exists x (P x)))
 (set-goal (exists x . Q x))
-(apply-tactic 'exists-> [p2])
-(apply-tactic 'exists<- [[?witness964:Int]])
+(apply-tactic 'exists-> [(exists x (P x))])
+
+(apply-tactic 'exists<- [[?witness1061:Int]])
 (apply-tactic* 'extract [])
+(print (show-proof))
+
+
+
+assert p1 := (forall x . P x ==> Q x)
+assert p2 := (and true (not (forall x (not (P x)))))
+(set-goal (exists x . Q x))
+(apply-tactic 'exists-> [(forall x (not (P x)))])
+(apply-tactic 'exists<- [[?witness1061:Int]])
+(apply-tactic* 'extract [])
+(print (show-proof))
+
+
+(apply-tactic 'extract [])
+(apply-tactic 'extract [])
+(apply-tactic 'extract [])
 
 (print (show-proof))
 
