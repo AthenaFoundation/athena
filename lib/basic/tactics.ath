@@ -255,7 +255,9 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
 # where <extraction-tactic-name> is a meta-identifier representing a proper (fully specified) extraction 
 # tactic name, and args is the list of all those values that are necessary for the tactic to work.
   let {aux-info := |{'premise := premise, 'goal-parent := parent, 'parent-position-in-premise := parent-position-in-premise, 'theta := theta}|;
-       _ := (print "\nHERE'S THETA: " theta);
+       parent-polarity-in-premise := (Polarities.get-polarity parent-position-in-premise premise);
+       negative-parent-polarity := (Polarities.negative-pol? parent-polarity-in-premise);       
+       non-negative-parent-polarity := (negate negative-parent-polarity);
        instantiated-parent := (theta parent)}
        
     match instantiated-parent {
@@ -311,26 +313,31 @@ define (proper-extraction-tactic goal premise parent parent-position-in-premise 
           'proof := ["let {cond := " (marker) ";\n     ant := " (marker) "\n    }\n  (!mp cond ant)"],
           'subgoals := [instantiated-parent antecedent]}|
     
-    | (iff left (val-of goal)) =>
+    | ((iff left (val-of goal)) where non-negative-parent-polarity) =>
         |{'tactic-info := ['iff-left->  aux-info],
           'proof := ["let {bicond := " (marker) ";\n     left := " (marker) "\n    }\n  (!mp (!left-iff bicond) left)"],    
           'subgoals := [instantiated-parent left]}|
     
-    | (iff (val-of goal) right) =>
+    | ((iff (val-of goal) right) where non-negative-parent-polarity) =>
         |{'tactic-info := ['iff-right-> aux-info],
                 'proof := ["let {bicond := " (marker) ";\n     right := " (marker) "\n    }\n  (!mp (!right-iff bicond) right)"],    
              'subgoals := [instantiated-parent right]}|
 
-    | (not (some-sentence body)) =>
-        # If the parent is the negation of the goal, but the parent itself is negated, then
-        let {grand-parent := (Polarities.subprop premise (all-but-last parent-position-in-premise))}
-          check {(&& (non-empty? parent-position-in-premise)
-                     (equals? (root grand-parent) not)) =>
-                       |{'tactic-info := ['not-> aux-info],
-                         'subgoals := [grand-parent],
-                         'proof := ["let {doubly-negated-goal := " (marker) "}\n  (!dn doubly-negated-goal)"]}|
-               | else => (error "Invalid application of not->")}
-               
+    | ((|| (not (some-sentence body))
+           (if (val-of goal) (some-sentence consequent)))
+        where negative-parent-polarity) =>
+          # In each of the 2 cases here, there will only be one subgoal: the negation of the parent (note: we know that
+          # the parent has negative polarity in the given premise, so (~ parent) should be derivable). So in each
+          # case, (marker) will be the proof of (not parent). 
+          # The main goal will then need to be extracted from (~ parent) according to each case: where the parent
+          # is a negation, (not goal), or conditional of the form (if goal _). 
+          let {proof := match instantiated-parent {
+                          (not _) => ["let {doubly-negated-goal := " (marker)   "}\n  (!dn doubly-negated-goal)"]
+                        | (if _ _) => ["let {negative-conditional := " (marker) "}\n  (!left-and (!neg-cond negative-conditional))"]
+                        }}
+            |{'tactic-info := ['neg-extract aux-info],
+              'subgoals := [(not instantiated-parent)],
+              'proof := proof}|
     | (forall (some-var v) (some-sentence _)) => 
         |{'tactic-info := ['forall3-> aux-info],
            'subgoals := let {_ := (print "\nINSTANTIATED PARENT: " instantiated-parent "\nAND PARENT: " parent)}
@@ -477,7 +484,6 @@ define pick-witness-tactic :=
                        (join [new-goal-record-1 new-goal-record-2] rest)
                }
          | [goal [(negative-existential-sentence as (forall (some-var v) (some-sentence body)))]] =>
-              let {_ := (mark `1)}
               match (Polarities.find-universally-negative-occurrence* negative-existential-sentence (join (ab) (goal-record 'assumptions))) {
                 () => (error "Incorrect application of 'exists->: The given universal quantification is not negatively embedded in the current set of assumptions.")
               | (some-map D) =>
@@ -725,6 +731,28 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+
+assert p := (B | ~ (A ==> C))
+assert p1 := (B ==> A)
+(set-goal A)
+(apply-tactic 'case-analysis [p])
+(apply-tactic 'back [])
+(apply-tactic 'infer [method () (!neg-cond  (not (if A C)))])
+qqq
+
+
+(apply-tactic 'extract [])
+
+
+
+# WTF:
+assert p := (B | (~A ==> C))
+assert p1 := (B ==> A)
+assert p2 := (C ==> A)
+(set-goal A)
+(apply-tactic 'extract [p])
+
+
 assert p1 := (forall x . P x ==> Q x)
 assert p2 := (and true (exists x (P x)))
 (set-goal (exists x . Q x))

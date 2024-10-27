@@ -48,6 +48,26 @@ define (flip pol) :=
                (polarities p body)))
       (_ []))))
 
+define (get-polarity position base) := 
+# Find the polarity of a certain position (subsentence occurrence) inside a base sentence. 
+# If the given position is not valid in base, return (). Otherwise return 'p, 'n, or 'pn accordingly.
+  let {new-polarity := lambda (p i current-polarity) 
+                          match [p i] {
+                         [(not _) 1] => (flip current-polarity)
+                       | [(if _ _) 1] => (flip current-polarity)
+                       | [(iff _ _) (|| 1 2)] => 'pn
+                       | _  => current-polarity
+                      }} 
+  letrec {loop := lambda (position p polarity)
+                    match [position p] {
+                      [[] _] => polarity 
+                    | [(list-of i more) ((some-sent-con sc) (some-list props))] => (loop more (nth i props) (new-polarity p i polarity))
+                    | [(list-of 2 more) ((some-quant _) (some-var _) (some-sentence body))] => (loop more body polarity)
+                    | _ => (print "Something went wrong, here's [position p]: " [position p])                                                
+                     }}
+    try {(loop position base 'p) | () }                     
+  
+
 define (extend-map M k v) := 
   let {res := try { (M k) | [] }}
     (Map.add M [[k (add v res)]])
@@ -345,6 +365,8 @@ define (ufv p subsentence-position) :=
    (list-diff q-fvars p-fvars)
 
 define (find-universally-positive-parent goal premise) :=
+# This actually finds a universally positive occurrence of the goal. The returned parent itself
+# might or might not be in a positive position.
   let {compromise-result := (cell ());
        update-theta := lambda (D)
                          let {parent-ufvs := (ufv premise (D 'match-parent-position));
