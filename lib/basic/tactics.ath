@@ -582,6 +582,35 @@ define infer-tactic :=
      | _ => (error "Invalid tactic application - there are no open goals currently.")
      }
 
+define (get-method-name M) :=
+  let {long-name := (val->string M)}
+  match (skip-until' long-name white-space-character?) {
+    [first-chunk _] => first-chunk
+  | _               => long-name
+  }
+
+     
+define replacement-tactic<- := 
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match args {
+           [(some-sentence goal') ((some-list methods) where (for-each methods method?))] =>
+                  let {_                   := (print "\nINSIDE BACKWARD REPLACEMENT TACTIC");
+                       goal                := (goal-record 'goal);
+                       new-goal            := (make-child goal-record [['goal goal']]);
+                                         _ := (set! (goal-record 'tactic) ['replace<- args]);
+                       method-names-str    := (separate (map get-method-name methods) " ");
+                       proof-chunks        := ["let {_ :=  " (marker) "\n    }\n  " "(!transform " (val->string goal') " " (val->string goal) " [" method-names-str "])\n  "];
+                              _            := (set-proof-and-tactic-info goal-record 'replace<- args proof-chunks)                              
+                      }
+                    (add new-goal rest)
+         | _ => (print "Invalid application of replace<- tactic, which expects two arguments: a transformed goal and a list of methods.")
+         }
+     | _ => (error "Invalid tactic application - there are no open goals currently.")
+     }
+         
 define (go-back-to goal-stack target-path) :=
   let {new-stack := (filter-out goal-stack
                                 lambda (goal-record)
@@ -624,6 +653,7 @@ define tactic-dictionary :=
     'forall2-> := forall2->tactic,
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
+    'replace<-  := replacement-tactic<-,
     'contradiction  := contradiction-tactic,
     'case-analysis  := case-analysis-tactic,
     'from-complements  := from-complements-tactic,    
@@ -777,6 +807,15 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+
+
+
+assert p1 := (forall x . P x ==> Q x)
+assert p2 := (exists x . P x)
+(set-goal (exists x . ~ ~ Q x))
+(apply-tactic 'replace<- [(exists x . Q x) [bdn]])
+
+
 assert p1 := (forall x . P x ==> Q x)
 assert p2 := (and true (not (exists x (not (P x)))))
 (set-goal (exists x . Q x))
