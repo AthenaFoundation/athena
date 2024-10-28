@@ -45,7 +45,13 @@ module Tactics {
  define fresh-goal-id := lambda () (join "g" (val->string (inc goal-id-counter)))
 
  define (add-all p assumptions) :=
-    (join assumptions (dedup (add p (get-conjuncts-recursive p))))
+    (join (dedup (add p (get-conjuncts-recursive p))) assumptions)
+
+ define (add-all* props assumptions) :=
+   match props {
+       [] => assumptions
+     | (list-of p more) => (add-all* more (add-all p assumptions))
+   }
  
  define clear-state :=
    lambda ()
@@ -514,9 +520,48 @@ define pick-witness-tactic :=
      }
      
 define (execute-thunk M assumptions) := 
-  let {p := assume (and assumptions) (!M)}
+  let {sole-assumption := check {(null? assumptions) => true | _ => (and assumptions)};
+                     p := assume sole-assumption (!M)}
     (consequent p)
 
+define (double-negation? p) :=
+  match p {
+    (not (not _)) => true | _ => false 
+  }
+  
+define forall2->tactic := 
+  lambda (goal-stack args)
+  # We must return a new goal stack. 
+     match goal-stack {
+       (list-of goal-record rest) =>
+         match args {
+           [(negative-existential-sentence as (exists (some-var v) (some-sentence body))) (some-term t)] => 
+              match (Polarities.find-universally-negative-occurrence* negative-existential-sentence (join (ab) (goal-record 'assumptions))) {
+                () => (error "Incorrect application of 'forall2->: The given existential quantification is not negatively embedded in the current set of assumptions.")
+              | (some-map D) =>
+                     let {subgoal                 := (not negative-existential-sentence);
+                          universal               := (forall v (not body));                                         
+                          new-goal-record-1       := (make-child goal-record [['goal subgoal]]);
+                          new-conclusion-1        := (replace-var v t (not body));
+                          doubly-negated-body?    := (double-negation? new-conclusion-1);
+                          new-conclusions         := check {doubly-negated-body? => [universal new-conclusion-1 (negation-body (negation-body new-conclusion-1))] | else => [universal new-conclusion-1]};
+                          new-goal-record-2       := (make-child goal-record [['assumptions (add-all* new-conclusions (goal-record 'assumptions))]]);
+                          conditional-chunk       :=  check {doubly-negated-body? => [";\n     _ := (!dn instantiated-universal)}\n  "] | else => ["}\n  "]};
+                          proof-chunks            := (join ["let {negative-existential := " (marker) ";\n     "]
+                                                           ["universal := (!qn-strict negative-existential) ;\n     "]
+                                                           ["instantiated-universal := (!uspec universal " (val->string t) ")"]
+                                                           conditional-chunk 
+                                                           [(marker)]);
+                            _                     := (set-proof-and-tactic-info goal-record 'forall2-> args proof-chunks)}
+                       (join [new-goal-record-1 new-goal-record-2] rest)
+              | _ => (print "Invalid result obtained from Polarities.find-universally-negative-occurrence* - a dictionary was expected here.")
+              }
+         | _ => (error "Invalid tactic application: forall2-> expects 2 arguments, a negatively embeed existential quantification and a term.")
+         }
+     | _ => (error "Invalid tactic application - there are no open goals currently.")
+     }
+
+     
 define infer-tactic := 
   lambda (goal-stack args)
   # We must return a new goal stack. 
@@ -576,6 +621,7 @@ define tactic-dictionary :=
     'forall<- := lambda (goal-stack args) (backward-tactic goal-stack 'forall<- args),
     'exists<- := lambda (goal-stack args) (backward-tactic goal-stack 'exists<- args),
     'exists-> := pick-witness-tactic,
+    'forall2-> := forall2->tactic,
     'extract  := extraction-tactic,
     'infer  := infer-tactic,
     'contradiction  := contradiction-tactic,
@@ -731,6 +777,14 @@ open Tactics
 EOF
 
 load "lib/basic/tactics"
+assert p1 := (forall x . P x ==> Q x)
+assert p2 := (and true (not (exists x (not (P x)))))
+(set-goal (exists x . Q x))
+(apply-tactic 'forall2-> [(exists x (not (P x))) a])
+(apply-tactic 'exists<- [[a]])
+(apply-tactic* 'extract [])
+(apply-tactic 'extract [])
+
 
 assert p := (B | ~ (A ==> C))
 assert p1 := (B ==> A)
@@ -738,8 +792,6 @@ assert p1 := (B ==> A)
 (apply-tactic 'case-analysis [p])
 (apply-tactic 'back [])
 (apply-tactic 'infer [method () (!neg-cond  (not (if A C)))])
-qqq
-
 
 (apply-tactic 'extract [])
 
@@ -780,8 +832,9 @@ assert p2 := (and true (not (forall x (not (P x)))))
 (print (show-proof))
 
 
-
+qqq
 (apply-tactic 'infer [method () (!uspec p1 ?witness964:Int)])
+(apply-tactic 'infer [method () (!uspec p1 ?foo)])
 
 
 assert p1 := (forall x . P x | Q x)
