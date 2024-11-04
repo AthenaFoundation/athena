@@ -181,9 +181,13 @@ sig
    val makePolyPropList: prop list * string * (string -> string) -> (string * string list * ModSymbol.mod_symbol list) * (string * string list) * string list * ModSymbol.mod_symbol list 
 
 (* satSolveTableau is a simple tableau-based propositional sat solver. If the input sentences are satisfiable, the result
-   is SOME(L) where L is list of literals representing a satisfying interpretation; otherwise NONE is returned. *)
-   
+   is SOME(L) where L is list of literals representing a satisfying interpretation; otherwise NONE is returned. 
+
    val satSolveTableau: prop list -> prop list option
+*)
+   
+   val satSolveTableauNew: prop list -> bool
+
    
 (* satSolvableTableau uses a similar technique but only returns a yes/no answer. *)
    val satSolvableTableau: prop list -> bool option 

@@ -1629,9 +1629,15 @@ fun isMember(atom({term=t,...}),lits) =
                         SOME(_) => true
                       | _ => false))
 
-fun insert(l as atom({term=t,...}),lits) = if isMember(l, lits) then lits else
+fun insert(l as atom({term=t,...}),lits) = 
+  let
+      val res =  if isMember(l, lits) then lits else
                                          (case AT.isVarOpt(t) of
                                           SOME(v) => ATV.enter(lits,v,true))
+
+  in
+    res
+  end
 
 fun pNegOfq(p,q) = 
      (case p of
@@ -1648,16 +1654,21 @@ fun literal(atom(_)) = true
 
 fun sat(props,plits,nlits) = 
   let  val counter = ref 0 
+       fun getPosLits(lits) = let fun makeProp(v,_) = atom({term=AT.makeVar(v),hash_code=ATV.hash(v),flags=(ref NONE,zero_word)})
+                              in 
+                                 map makeProp (ATV.listAll lits)
+                              end
+       fun getNegLits(lits) = let fun makeProp(v,_) = makeNegation(atom({term=AT.makeVar(v),hash_code=ATV.hash(v),flags=(ref NONE,zero_word)}))
+                              in 
+                                 map makeProp (ATV.listAll lits)
+                              end
        fun loop(props,plits,nlits) = 
        let val _ = counter := !counter + 1
-           fun getPosLits(lits) = let fun makeProp(v,_) = atom({term=AT.makeVar(v),hash_code=ATV.hash(v),flags=(ref NONE,zero_word)})
-                               in 
-                                  map makeProp (ATV.listAll lits)
-                               end
-           fun getNegLits(lits) = let fun makeProp(v,_) = makeNegation(atom({term=AT.makeVar(v),hash_code=ATV.hash(v),flags=(ref NONE,zero_word)}))
-                               in 
-                                  map makeProp (ATV.listAll lits)
-                               end
+(****)
+           val _ = print("\nIterating on these props: " ^ (Basic.printListStr(props,toString1,"\n"))
+                         ^ "\nthese plits: " ^ (Basic.printListStr(getPosLits(plits),toString1,"\n"))
+                         ^ "\nand these nlits:\n" ^ (Basic.printListStr(getNegLits(nlits),toString1,"\n")))
+(****)
        in
             (case props of
                 conj({args=[p1,p2],...})::rest => if literal(p2) then loop(p2::p1::rest,plits,nlits) else loop(p1::p2::rest,plits,nlits)
@@ -1677,7 +1688,7 @@ fun sat(props,plits,nlits) =
                     loop(neg({arg=p1,flags=flags,fvars=fvars,hash_code=hash_code,poly_constants=poly_constants})::
 		              neg({arg=p2,flags=flags,hash_code=hash_code,fvars=fvars,poly_constants=poly_constants})::
 			      rest,plits,nlits)
-               else  loop(neg({arg=p2,flags=flags,hash_code=hash_code,fvars=fvars,poly_constants=poly_constants})::
+                   else  loop(neg({arg=p2,flags=flags,hash_code=hash_code,fvars=fvars,poly_constants=poly_constants})::
 	       	               neg({arg=p1,hash_code=hash_code,flags=flags,fvars=fvars,poly_constants=poly_constants})::
 			       rest,plits,nlits)
               | neg({arg=cond({ant,con,hash_code,flags,fvars,poly_constants,...}),...})::rest => 
@@ -1688,7 +1699,10 @@ fun sat(props,plits,nlits) =
               | neg({arg=neg({arg=p,...}),...})::rest => loop(p::rest,plits,nlits)
 
               | (l as (neg({arg=l',...})))::rest => if isMember(l',plits) then false else loop(rest,plits,(insert(l',nlits)))
-              | l::rest => if isMember(l,nlits) then false else loop(rest,insert(l,plits),nlits)
+              | l::rest => let 
+                           in
+                              if isMember(l,nlits) then false else loop(rest,insert(l,plits),nlits)
+                           end
               | _ => true)
       end 
    in 
@@ -1702,7 +1716,8 @@ fun satSolvableTableau(props) =
      if res then SOME(res) else NONE
   end
 
-(* Slightly different redefinition of tableu satisfiability for the solver: *)
+(*****
+ Slightly different redefinition of tableu satisfiability for the solver: 
 
 fun sat((conj({args=[p1,p2],...}))::rest,plits,nlits) = sat(p1::p2::rest,plits,nlits)
   | sat((disj({args=[p1,p2],...}))::rest,plits,nlits) = sat(p1::rest,plits,nlits) orelse sat(p2::rest,plits,nlits)
@@ -1734,6 +1749,16 @@ fun satSolveTableau(props) =
    in 
       if res then SOME(!cell) else NONE
    end 
+
+****)
+
+fun satSolveTableauNew(props) =
+   let val cell = ref []
+       val res = sat(props,ATV.empty_mapping,ATV.empty_mapping)
+   in 
+     res
+  end
+
 
 fun isSortInstance(P1,P2) = 
   let val (word1,word2) = (getWord P1,getWord P2)
@@ -4085,9 +4110,10 @@ let val A = Unsafe.Array.create(10+array_n,false)
                                                        " ") ^ " 0\n"
     val clause_strings = map clauseToString clauses
     val dimacs_stream = TextIO.openOut(dimacs_file_name)
-    val _ = TextIO.output(dimacs_stream,"p cnf "^(Int.toString(!total_var_count))^" "^(Int.toString(clause_num))^"\n")
-    val _ = List.app (fn cl => TextIO.output(dimacs_stream,cl)) clause_strings
-
+    val _ = ((TextIO.output(dimacs_stream,"p cnf "^(Int.toString(!total_var_count))^" "^(Int.toString(clause_num))^"\n");
+              List.app (fn cl => TextIO.output(dimacs_stream,cl)) clause_strings)
+             handle exn => (TextIO.closeOut dimacs_stream; raise exn)
+             before TextIO.closeOut dimacs_stream)
 in
   TextIO.closeOut(dimacs_stream)
 end
@@ -4095,11 +4121,27 @@ end
 fun runSatSolver(dimacs_file,out_file_name) = 
 let val (error_file,other_file) = ("minisat_error2.txt", "other_out_mini2.txt")
     val sat_solver_cmd = Names.minisat_binary ^ " -verb=0 "^dimacs_file^" "^out_file_name^" 1> "^other_file^" 2> "^error_file
+
+(***
     val _ = OS.Process.system(sat_solver_cmd)
+***)
+    val result = OS.Process.system(sat_solver_cmd)
+(***
+    val _ = if result = 10 orelse result = 20 
+            then ()
+            else Basic.fail("SAT solver did not complete successfully")
+***)
+(*** 
     val _ = (List.app OS.FileSys.remove [error_file,other_file]) handle _ => ()
+***)
+   (* Remove temporary files with a structured exception handler *)
+    val _ =  (List.app (fn file => (OS.FileSys.remove file handle _ => ())) 
+             [error_file, other_file])
 in
     ()
 end
+
+val dimacs_counter = ref(0)
 
 fun propSat(props,
             out_hash_table,
@@ -4107,7 +4149,7 @@ fun propSat(props,
 	    transformBool) = 
 
   let val r as {clauses,table=inverse_atom_table,total_var_num,tseitin_var_num,clause_num,cnf_conversion_time,array_n,...} = cnfLst(props) 
-      val (dimacs_file,minisat_out_file_name) = ("dimacs_file.txt","./minisat_out.txt")
+      val (dimacs_file,minisat_out_file_name) = ("dimacs_file_" ^ (Int.toString (Basic.incAndReturn(dimacs_counter))) ^ ".txt" ,"./minisat_out.txt")
       val t1 = Time.toReal(Time.now())
       val _ = makeDimacsFile(r,dimacs_file)
       val t2 = Time.toReal(Time.now())
@@ -4117,6 +4159,8 @@ fun propSat(props,
       val sat_solving_time = (Real.-(t3,t2))
       val out_stream = TextIO.openIn(minisat_out_file_name)
       val res = getMiniSatResult(out_stream,inverse_atom_table,out_hash_table,transformProp,transformBool)
+      val _ =  List.app (fn file => (OS.FileSys.remove file handle _ => ()))
+                        [dimacs_file,minisat_out_file_name]
   in
      {assignment=res,
       clause_num=clause_num,

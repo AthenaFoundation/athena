@@ -87,6 +87,7 @@ Group is
 	server.sml
 	topenv_part1.sml
 	topenv_part2.sml
+	simp.sml
 	definition_processor.sml
 	repl.sml
 	athena.sml

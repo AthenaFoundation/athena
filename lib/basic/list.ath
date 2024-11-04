@@ -132,6 +132,8 @@
 
 (define (list-remove x L) (remove x L))
 
+define (list-remove* to-be-removed L) := (list-diff L to-be-removed)
+
 (define (remove-and-preserve-order a L)
   (letrec ((loop (lambda (rest already-seen)
                    (match rest 

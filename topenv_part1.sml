@@ -2375,11 +2375,10 @@ fun freeVarsPrimUFun(listVal(pvals),env,_) =
 fun satSolve([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
       in 
-        case Prop.satSolveTableau(props) of
-           SOME(props) => listVal(map propVal props)
-         | _ => MLBoolToAth(false)
+        MLBoolToAth(Prop.satSolveTableauNew(props))
       end
   | satSolve(_) = primError("Incorrect invocation of ssat")
+
 
 fun satSolve0([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
