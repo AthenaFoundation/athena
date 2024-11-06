@@ -2248,22 +2248,6 @@ fun hasEquality(P) =
              SOME(_,props) => List.exists hasEquality props
            | _ => raise Basic.Never))
 
-fun unparsePrimUFun(v,env,_) = 
-   (case v of
-       closUFunVal(e,_,_,{name,...}) => 
-              MLStringToAthString("Unary procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closBFunVal(e,_,_,_,{name,...}) => 
-              MLStringToAthString("Binary procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closFunVal(e,_,{name,...}) => 
-              MLStringToAthString("Procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closUMethodVal(d,_,_,name) => 
-              MLStringToAthString("Unary method: " ^ (!name) ^ (A.unparseDed(d)))
-    | closBMethodVal(d,_,_,_,name) => 
-              MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
-    | closMethodVal(e,_) => 
-              MLStringToAthString("Method: " ^ (A.unparseExp(e)))
-    | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
-
 fun make_CNF_Result(clauses,output_format,inverse_atom_table) = 
  let fun makeAtom(i) = (case (HashTable.find inverse_atom_table i) of
       	                   SOME(A) => A

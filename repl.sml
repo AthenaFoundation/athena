@@ -799,8 +799,12 @@ fun getInputAndProcess() =
                                                   end
                      in
                        if ok_input then
-                           (List.app (fn i => processInputWithTopValBackUpRefreshed(i, [], ref(SV.valEnv({val_map=SV.empty_val_map,mod_map=SV.empty_mod_map})), 
-                                                                  Semantics.top_val_env, N.top_level_name,top_loaded_files_ht)) 
+                           (List.app (fn i => processInputWithTopValBackUpRefreshed(i, 
+										    [], 
+										    ref(SV.valEnv({val_map=SV.empty_val_map,mod_map=SV.empty_mod_map})), 
+										    Semantics.top_val_env, 
+										    N.top_level_name,
+										    top_loaded_files_ht))
                                      user_inputs;
   	                    TextIO.closeIn istream;
                             ABase.adjustHashTable(!SM.top_assum_base);

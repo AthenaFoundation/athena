@@ -4657,13 +4657,6 @@ set-precedence holds? 2
        (max-cost (sum (length vars))))
     [constraint vars cost-constraint cost-term max-cost]))
 
-(define [constraint-30 vars-30 cost-constraint-30 cost-term-30 max-cost-30] (make-constraint 30))
-
-(define [constraint-100 vars-100 cost-constraint-100 cost-term-100 max-cost-100] (make-constraint 100))
-
-# (running-time (lambda () (solve-and-minimize (and constraint-30 cost-constraint-30) cost-term-30 max-cost-30)) 0)
-
-# (solve-and-minimize (and constraint-100 cost-constraint-100) cost-term-100 max-cost-100)
 
 }
 

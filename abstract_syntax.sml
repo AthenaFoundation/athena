@@ -1007,8 +1007,16 @@ and unparseBinding({bpat,def,...}) = lparen^(printPat bpat)^space^(unparsePhrase
 and unparseBindingInfix({bpat,def,...}) = (printPat bpat)^ " := " ^(unparsePhrase def)
 and unparseBindings(bindings) = Basic.printSExpListStr(bindings,unparseBinding)
 and unparseBindingsInfix(bindings) = Basic.printListStr(bindings,unparseBindingInfix,"; ")
-and unparseDed(methodAppDed({method,args,pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr(args,unparsePhrase))^")"
-  | unparseDed(UMethAppDed({method, arg, pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg],unparsePhrase))^")"
+and unparseDed(methodAppDed({method,args,pos})) = 
+       let 
+       in
+          "(!"^(unparseExp method)^space^(Basic.printSExpListStr(args,unparsePhrase))^")"
+       end
+  | unparseDed(UMethAppDed({method, arg, pos})) = 
+       let 
+       in
+         "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg],unparsePhrase))^")"
+       end 
   | unparseDed(BMethAppDed({method, arg1, arg2, pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg1,arg2],unparsePhrase))^")"
   | unparseDed(letDed({bindings,body,pos,...})) = "let {"^(unparseBindingsInfix bindings)^"}"^space^(unparseDed body)
   | unparseDed(beginDed({members,pos,...})) = "{"^(Basic.printListStr(members, unparseDed, ";\n"))^"}"
