@@ -213,6 +213,7 @@ let fun conclusion(D,starting_env,starting_ab) =
                    A.idExp({msym, mods=[],sym,...}) => 
                       (case Symbol.name(sym) of 
                           "mp" => getMpConclusion(p1,p2)
+                        | "by-contradiction" => p1 
 			| "mt" => getMtConclusion(p1,p2)
 			| "dsyl" => getDsylConclusion(p1,p2)
 			| "both" => Prop.makeConjunction([p1,p2])
@@ -299,6 +300,11 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
           in
             Basic.removeEq(hypothesis,fa(body,env,ab),Prop.alEq)
           end
+  | fa(A.absurdDed({hyp,body,...}),env,ab) = 
+        let val hypothesis = getProp(hyp,env,ab)
+        in
+           Basic.removeEq(hypothesis,fa(body,env,ab),Prop.alEq)
+        end 
   | fa(A.infixAssumeDed({bindings,body,...}),env,ab) =  
           let val (binding_fas,binding_conclusions,new_env) = faLoop(bindings,[],[],env,ab)
               val (props,new_env') = getPropsAndEnv(bindings,[],env,ab)
@@ -322,23 +328,27 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
   | fa(A.beginDed({members,...}),env,ab) = getSeqFAs(members,env,ab)
   | fa(A.BMethAppDed({method,arg1,arg2,...}),env,ab) = 
              let val p1 = getProp(arg1,env,ab)
+                 val p1_lst = if A.isDeduction(arg1) then [] else [p1]
                  val p2 = getProp(arg2,env,ab)
+                 val p2_lst = if A.isDeduction(arg2) then [] else [p2]
              in 
                (case method of 
                    A.idExp({msym, mods=[],sym,...}) => 
                       (case Symbol.name(sym) of 
-			  "left-either" => [p1]
-			| "right-either" => [p2]
+			  "left-either" => p1_lst
+			| "right-either" => p2_lst
 			| "either" => let val fas = ref([])
                                           val _ = if not(ABase.isMember(p1,ab)) then fas := [p1] else ()
                                           val _ = if not(ABase.isMember(p2,ab)) then fas := p1::(!fas) else ()
                                       in
                                         !fas
 				      end
- 	  	        | _ => [p1,p2])
+ 	  	        | _ => p1_lst @ p2_lst)
                  | _ => Basic.fail("Cannot compute free assumptions for BMethodApps where the operator is not an identifier."))
              end
   | fa(A.UMethAppDed({method,arg,...}),env,ab) = 
+             if A.isDeduction(arg) then []
+             else 
              let val p = getProp(arg,env,ab)
              in
                (case method of 
@@ -350,13 +360,16 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
                  | _ => Basic.fail("Cannot compute free assumptions for UMethodApps where the operator is not an identifier."))
              end
   | fa(A.methodAppDed({method,args,...}),env,ab) = 
-             let val props = map (fn p => getProp(p,env,ab)) args 
+             let fun getAllNonDeds([],res) = rev(res)
+                   | getAllNonDeds(phrase::more,res) = if A.isDeduction(phrase) then getAllNonDeds(more,res) else getAllNonDeds(more,(getProp(phrase,env,ab))::res)
+                 val tail_props_non_deds = getAllNonDeds(tl args,[])
+                 val props_non_deds = if not(null(args)) andalso not(A.isDeduction(hd args)) then (getProp(hd args,env,ab))::tail_props_non_deds else tail_props_non_deds
              in
                (case method of 
                    A.idExp({msym, mods=[],sym,...}) => 
                      (case Symbol.name(sym) of 
-                         "from-complements" => tl(props)
- 	  	     | _ => props)
+                         "from-complements" => tail_props_non_deds 
+ 	  	     | _ => props_non_deds)
 	         | _ => Basic.fail("Cannot compute free assumptions for methodApps where the operator is not an identifier."))
              end
   | fa(input_ded as A.byCasesDed({disj,from_exps,arms,...}),env,ab) = 
@@ -368,7 +381,7 @@ Finally, the FAs of all the proofs of all the arms will also be in the result.
                (case arms of 
                    [] => Basic.fail("At least one case arm was expected here.")
                  | _ => let val disj_sentence = getProp(disj,env,ab)                                               
-                            val disj_sentences = if Prop.isExMiddleInstance(disj_sentence) then [] else [disj_sentence]
+                            val disj_sentences = if A.isDeduction(disj) orelse Prop.isExMiddleInstance(disj_sentence) then [] else [disj_sentence]
                             val arm_fas = List.concat (map (fn cc:A.case_clause as {alt,proof,...} => 
                                                                   let val alt_sentence = getProp(A.exp(alt),env,ab)
                                                                       val proof_fas = Basic.removeEq(alt_sentence,fa(proof,env,ab),Prop.alEq)
@@ -397,5 +410,41 @@ end
 fun proofConclusion(D,ab) = proofConclusionTop(D,SemanticValues.top_val_env,ab)
 
 fun FA(D,ab) = FATop(D,SemanticValues.top_val_env,ab)
+
+fun makeStrict(D,ab) = 
+  let fun ms(A.assumeDed({assumption,body,pos})) = A.assumeDed({assumption=assumption,body=ms(body),pos=pos})
+	| ms(D as A.beginDed({members,pos})) = 
+                let val members' = map ms members
+                    fun loop([last_proof],retained) = A.beginDed({members=rev(last_proof::retained),pos=pos})
+		      | loop(D::(more as (_::_)),retained) = 
+                               let val D_conc = proofConclusion(D,ab)
+                                   val more_fas = FA(A.beginDed({members=more,pos=pos}),ab)
+                               in
+                                 if Basic.isMemberEq(D_conc,more_fas,Prop.alEq) then loop(more,D::retained) else loop(more,retained)
+                            end
+                    val res = loop(members',[])
+                in
+                  res 
+                end
+        | ms(A.infixAssumeDed({bindings,body,pos})) = 
+            let val body' = ms(body)
+                fun loop([],bindings_so_far) = rev(bindings_so_far)
+		  | loop((b:A.binding as {bpat,pos,def,...})::more,bindings_so_far) = 
+                      (case def of
+                          A.ded(d) => loop(more,{bpat=bpat,pos=pos,def=A.ded(ms(d))}::bindings_so_far)
+  		        | _ => loop(more,b::bindings_so_far))
+                val bindings' = loop(bindings,[])
+            in
+               A.infixAssumeDed({bindings=bindings',body=body',pos=pos}) 
+            end
+        | ms(A.letDed({bindings, body, ...})) = 
+             let 
+              in
+                 Basic.fail("")
+              end                         
+	| ms(D) = D
+  in
+    ms(D)
+  end  
 
 end; (* of structure Simplify_New *)
