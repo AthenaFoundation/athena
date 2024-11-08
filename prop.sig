@@ -325,5 +325,7 @@ is specified as a string:
 			      dimacs_file_prep_time: real,
 			      sat_solving_time:real}
 
+    val isExMiddleInstance: prop -> bool 
+
 end
 

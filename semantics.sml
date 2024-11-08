@@ -3670,7 +3670,7 @@ and
 			      | _ => evError("A sentence (disjunction) was expected here. Instead, a\n"^
 					     "value of type "^valLCTypeAndString(disj_val)^" was found.",
                 	                      SOME(A.posOfPhrase(disj))))
-	    val disj_holds = if ABase.isMember(disj_prop,ab) orelse A.isDeduction(disj) then true
+	    val disj_holds = if ABase.isMember(disj_prop,ab) orelse A.isDeduction(disj) orelse Prop.isExMiddleInstance(disj_prop) then true
 			     else
 				(case from_exps of 
 				   NONE => evError("By-cases disjunction doesn't hold",

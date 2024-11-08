@@ -36,9 +36,7 @@ fun makeEvalExpFunction(env,ab) =
 
 
 fun getPropAndEnv(b:A.binding as {bpat,pos,def,...},env,ab) = 
-      let val _ = Basic.mark("HERE WE ARE")
-          val pval = Semantics.evalPhrase(def,env,ab)
-          val _ = Basic.mark("UHOH...")
+      let val pval = Semantics.evalPhrase(def,env,ab)
       in
          (case Semantics.coerceValIntoProp(pval) of
              SOME(p) => (case Semantics.matchPat(pval,bpat,makeEvalExpFunction (env,ab)) of 
@@ -224,16 +222,6 @@ let fun conclusion(D,starting_env,starting_ab) =
  	  	        | _ => Basic.fail("Unknown binary method, cannot compute conclusion..."))
                  | _ => Basic.fail("Cannot compute conclusions for BMethodApps where the operator is not an identifier."))
              end
-        | C(A.methodAppDed({method,args,...}),env) = 
-	     let val props = map (fn arg => getProp(arg,env,starting_ab)) args
-             in
-               (case method of 
-                   A.idExp({msym, mods=[],sym,...}) => 
-                      (case Symbol.name(sym) of 
-                          "from-complements" => getFromComplementsConclusions(props)
-   		        | _ => Basic.fail("Unknown method, cannot compute conclusion..."))
-		 | _ => Basic.fail("Cannot compute conclusions for methodApps where the operator is not an identifier."))
-             end
         | C(A.UMethAppDed({method,arg,...}),env) = 
              let val p = getProp(arg,env,starting_ab)
              in
@@ -261,6 +249,20 @@ let fun conclusion(D,starting_env,starting_ab) =
   	  	         | _ => Basic.fail("Unknown unary method, cannot compute conclusion..."))
                  | _ => Basic.fail("Cannot compute conclusions for UMethodApps where the operator is not an identifier."))
              end
+        | C(A.methodAppDed({method,args,...}),env) = 
+	     let val props = map (fn arg => getProp(arg,env,starting_ab)) args
+             in
+               (case method of 
+                   A.idExp({msym, mods=[],sym,...}) => 
+                      (case Symbol.name(sym) of 
+                          "from-complements" => getFromComplementsConclusions(props)
+   		        | _ => Basic.fail("Unknown method, cannot compute conclusion..."))
+		 | _ => Basic.fail("Cannot compute conclusions for methodApps where the operator is not an identifier."))
+             end
+	| C(A.byCasesDed({disj,from_exps,arms,...}),env) = 
+               (case arms of 
+                   [] => Basic.fail("At least one case arm was expected here.")
+                 | (arm:A.case_clause as {proof,...})::_  => C(proof,env))
         | C(_) = Basic.fail("Unable to compute conclusions for this type of deduction.")
               
   in
@@ -280,9 +282,7 @@ and getSeqFAs(deds,env,ab) =
             end 
 and faLoop([],fas_so_far,conclusions_so_far,env,ab) = (rev(fas_so_far),rev(conclusions_so_far),env)
   | faLoop((b:A.binding as {bpat,pos,def,...})::more,fas_so_far,conclusions_so_far,env,ab) = 
-                       let  val _ = Basic.mark("GPGP")
-                            val (p,env') = getPropAndEnv(b,env,ab)
-			    val _ = Basic.mark("DONE")
+                       let  val (p,env') = getPropAndEnv(b,env,ab)
                        in
                           (case def of
                              A.ded(d) =>
@@ -305,20 +305,14 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
               val hyps = rev(props)
               val conjuncts:Prop.prop list = List.concat (map Prop.decomposeConjunctionsStrict hyps)
               val all_hyps = hyps@conjuncts		
-(****			  
-              val _ = print("\nHere's new_env: " ^ (SemanticValues.envToString (!new_env)))
-***)
-              val _ = Basic.mark("XXXXXXXXXXXXXXXXXX")
               val body_fas = fa(body,new_env,ABase.augment(ab,all_hyps))
-              val _ = Basic.mark("DDDDD")
               val true_body_fas = Basic.removeAllEq(all_hyps,body_fas,Prop.alEq)
           in
              Basic.removeDuplicatesEq(true_body_fas@binding_fas,Prop.alEq)
           end
   | fa(A.letDed({bindings, body, ...}),env,ab) = 
-             let val _ = Basic.mark("YYYYYYYYYYYYYYYYY")
-                 val (binding_fas,binding_conclusions,env') = faLoop(bindings,[],[],env,ab)
-                 val _ = print("FAs of bindings: " ^ (Basic.printListStr(binding_fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")))
+             let val (binding_fas,binding_conclusions,env') = faLoop(bindings,[],[],env,ab)
+                 (** val _ = print("FAs of bindings: " ^ (Basic.printListStr(binding_fas,fn p => Prop.toPrettyStringDefault(0,p),"\n"))) **)
                  val (body_fas,body_conclusion) = (fa(body,env',ab),conclusion(body,env',ab))
 						      
                  val true_body_fas = Basic.removeAllEq(binding_conclusions,body_fas,Prop.alEq)
@@ -333,8 +327,7 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
                (case method of 
                    A.idExp({msym, mods=[],sym,...}) => 
                       (case Symbol.name(sym) of 
-                          "mp" => [p1,p2]
-			| "left-either" => [p1]
+			  "left-either" => [p1]
 			| "right-either" => [p2]
 			| "either" => let val fas = ref([])
                                           val _ = if not(ABase.isMember(p1,ab)) then fas := [p1] else ()
@@ -356,6 +349,41 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
   	  	         | _ => [p])
                  | _ => Basic.fail("Cannot compute free assumptions for UMethodApps where the operator is not an identifier."))
              end
+  | fa(A.methodAppDed({method,args,...}),env,ab) = 
+             let val props = map (fn p => getProp(p,env,ab)) args 
+             in
+               (case method of 
+                   A.idExp({msym, mods=[],sym,...}) => 
+                     (case Symbol.name(sym) of 
+                         "from-complements" => tl(props)
+ 	  	     | _ => props)
+	         | _ => Basic.fail("Cannot compute free assumptions for methodApps where the operator is not an identifier."))
+             end
+  | fa(input_ded as A.byCasesDed({disj,from_exps,arms,...}),env,ab) = 
+(***
+If from_exps is SOME(<expression-list>), then <expression-list> must produce a list of sentences, all of which will be members of the result (i.e., of FA(input_ded). ). 
+Otherwise, disj must produce a sentence, and that sentence will be a member of the result UNLESS disj is a deduction. 
+Finally, the FAs of all the proofs of all the arms will also be in the result.
+***)
+               (case arms of 
+                   [] => Basic.fail("At least one case arm was expected here.")
+                 | _ => let val disj_sentence = getProp(disj,env,ab)                                               
+                            val disj_sentences = if Prop.isExMiddleInstance(disj_sentence) then [] else [disj_sentence]
+                            val arm_fas = List.concat (map (fn cc:A.case_clause as {alt,proof,...} => 
+                                                                  let val alt_sentence = getProp(A.exp(alt),env,ab)
+                                                                      val proof_fas = Basic.removeEq(alt_sentence,fa(proof,env,ab),Prop.alEq)
+                                                                  in
+                                                                     proof_fas
+								  end)
+                                                           arms)
+                        in
+                          (case from_exps of
+                              SOME(exps) => let val exp_sentences = map (fn e => getProp(A.exp(e),env,ab)) exps
+                                            in
+                                               disj_sentences @ exp_sentences @ arm_fas 
+                                            end
+			    | _ => (disj_sentences @ arm_fas))
+                        end)
   | fa(D,_,_) = Basic.fail("Don't know how to do FAs on this type of proof yet: " ^ (A.unparseDed D))
 in
   (fn (D,starting_env,starting_ab) => 

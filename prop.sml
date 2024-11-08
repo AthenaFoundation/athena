@@ -4307,6 +4307,11 @@ fun renameSortVarsLst(props) =
        props'
      end
 
+fun isExMiddleInstance(p) = 
+      (case isDisj(p) of
+          SOME([p1,p2]) => alEq(p2,makeNegation(p1))
+	| _ => false)
+
 end  (**  of "abstype prop with..."  **)
 
 end (** Of Prop structure **)

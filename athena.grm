@@ -702,7 +702,6 @@ deduction:  LPAREN expression BY deduction RPAREN (A.byDed({wanted_res=expressio
                 (A.byCasesDed({disj=phrase,from_exps=NONE,
                                arms=case_clauses,pos=getPos BY_CASESleft}))
 
-
           | BY_CASES phrase FROM comma_separated_expression_list BEGIN case_clauses END 
               (A.byCasesDed({disj=phrase,from_exps=SOME(comma_separated_expression_list),
                              arms=case_clauses,pos=getPos BY_CASESleft}))

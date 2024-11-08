@@ -734,12 +734,9 @@ fun unparsePrimUFun(v,env,ab) =
               MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
     | closMethodVal(e as A.methodExp({body,...}),_) => 
           let val conc = Simplify_New.proofConclusion(body,ab) 
-              val _ = Basic.mark("11111111")						     
               val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
-              val _ = Basic.mark("2222222222222")
               val fas = Simplify_New.FA(body,ab)
-              val _ = Basic.mark("33333333333333333")
-              val _ = print("\n[[[[[[[ FREE ASSUMPTIONS:\n" ^ (Basic.printListStr(fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")) ^ "\n]]]]]]]\n")
+              val _ = print("\n[[[[[[[ FREE ASSUMPTIONS:\n\n" ^ (Basic.printListStr(fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")) ^ "\n\n]]]]]]]\n")
           in
               MLStringToAthString("Method: " ^ (A.unparseExp(e)))
           end
