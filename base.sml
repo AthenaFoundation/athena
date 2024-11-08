@@ -223,12 +223,20 @@ fun removeAll(L1,L2) =
            loop(L1,L2)
        end
 
+
 fun removeEq(x,l,eq) = 
     let fun remove([],res) = res
           | remove(y::ys,res) = if eq(x,y) then remove(ys,res) else remove(ys,y::res)
         in
           remove(l,[])
     end
+
+fun removeAllEq(L1,L2,f) = 
+       let fun loop([],res) = res
+             | loop(x::more,res) = loop(more,removeEq(x,res,f))
+       in
+           loop(L1,L2)
+       end
 
 (* removeAndCheckMemEq also does not preserve order: *)
 

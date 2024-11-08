@@ -33,6 +33,7 @@ sig
     val writeString: string * char Array.array * int -> int 
     val remove : ''a * ''a list -> ''a list
     val removeAll : ''a list * ''a list -> ''a list
+    val removeAllEq : 'a list * 'a list * ('a * 'a -> bool) -> 'a list
     val removeEq : 'a * 'a list * ('a * 'a ->bool) -> 'a list
     val removeAndCheckMemEq : 'a * 'a list * ('a * 'a ->bool) -> ('a list * bool)
     val zip : 'a list * 'b list -> ('a * 'b) list

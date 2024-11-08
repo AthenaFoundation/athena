@@ -29,7 +29,8 @@ sig
    val toPrettyStringDefault: int * prop  -> string 
 
 (* Alphabetic equivalence for Athena sentences - a fundamental relation: *)
-   val alEq: prop * prop -> bool 
+   val alEq
+: prop * prop -> bool 
 
 (* Literal equality (unlike alpha equality): *)
    val literalEq: prop * prop -> bool 
