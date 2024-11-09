@@ -88,18 +88,9 @@ Group is
 	smt_output.sml
 	compiler.sml
 	server.sml
-(**
-	server2.sml
-***)
-(***
-        client.sml
-***)
 	topenv_part1.sml
 	topenv_part2.sml
 	simp.sml
-(**
-        athenaServer.sml
-**)
 	definition_processor.sml
 	repl.sml
 	athena.sml
