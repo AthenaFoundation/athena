@@ -8,9 +8,12 @@
 Group is
     $/basis.cm
     $smlnj/compiler/compiler.cm     
+    $cml/cml.cm
     $/smlnj-lib.cm
+    $/inet-lib.cm
+    $/json-lib.cm
     $/ml-yacc-lib.cm
-	compat_11072.sml
+    	compat_11072.sml
 	ord_map.sig
 	ord_map.sml
 	inf_num.sig
@@ -85,9 +88,18 @@ Group is
 	smt_output.sml
 	compiler.sml
 	server.sml
+(**
+	server2.sml
+***)
+(***
+        client.sml
+***)
 	topenv_part1.sml
 	topenv_part2.sml
 	simp.sml
+(**
+        athenaServer.sml
+**)
 	definition_processor.sml
 	repl.sml
 	athena.sml

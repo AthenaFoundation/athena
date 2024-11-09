@@ -324,6 +324,9 @@ val valToString_symbol' = Symbol.symbol valToString_name'
 val transOntologyFun_name = "translate-ontology"
 val transOntologyFun_symbol = Symbol.symbol transOntologyFun_name
 
+val clientConnect_name = "client"
+val clientConnect_symbol = Symbol.symbol clientConnect_name
+
 val getABFun_name = "get-ab"
 val getABFun_symbol =  Symbol.symbol getABFun_name
 val renameFun_name = "rename"

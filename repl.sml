@@ -40,22 +40,6 @@ fun printLoadedFiles(loaded_files : (string,bool) HashTable.hash_table) =
 
 fun debugPrint(_) = ()
 
-fun exceptionToString(e) =
- let fun f(ErrorMsg.ParseError((l,p),str)) = ("\n"^A.posToString({line=l,file=(!Paths.current_file),pos=p})^": Parsing error, "^str^".\n")
-       | f(A.LexError(str,SOME(pos))) = ("\n"^A.posToString(pos)^": Lexical error, "^str^".\n")
-       | f(A.LexError(str,NONE)) = ((!Paths.current_file)^": Lexical error at end of file, "^str^".\n")
-       | f(A.SyntaxError(str,SOME(pos))) = ("\n"^(A.posToString pos)^": Syntax error: "^str^".\n")
-       | f(A.SyntaxError(str,NONE)) = ("\n"^(!Paths.current_file)^": Syntax error: "^str^".\n")
-       | f(Semantics.AthenaError(msg)) = ("\n"^msg^"\n")
-       | f(Semantics.EvalError(x)) = Semantics.makeErrorWithPosInfo(x)
-       | f(Data.GenEx(str)) = str^"\n"
-       | f(SemanticValues.GenEx(x as (msg,pos_opt))) = Semantics.makeErrorWithPosInfo(x)
-       | f(Basic.Fail(str)) = "\n"^str^"\n"
-       | f(Basic.FailLst(strings)) = "\n"^(Basic.printListStr(strings,fn x => x, "\n"))^"\n" 
-       | f(_) = "\nUnknown error: "^(exnMessage e)
- in
-   f e
- end
             
 fun showFreeIds(phr,mod_path) = 
  let val (new_phrase,vars,fids) = preProcessPhrase(phr,mod_path)
@@ -140,7 +124,7 @@ in
                                         print(Semantics.summarizeTopCallStack()))
                                      end
      | TopEnv.Halt => ()     
-     | _ => print(exceptionToString(e)))
+     | _ => print(Semantics.exceptionToString(e)))
 end
            
 fun pathToString(path) = if null(path) then "[]" else Basic.printListStr(path,Symbol.name,".")
@@ -337,7 +321,7 @@ and processModuleExtension(module:A.module_entry as {module_name,module_contents
                        val _ = returned_env := SV.valEnv({val_map=val_map1',mod_map=Symbol.enter(mod_map1,mod_sym,new_module)})
                    in
                       eval_env := SV.valEnv({val_map=val_map2,mod_map=Symbol.enter(mod_map2,mod_sym,new_module)})
-                   end handle ex => (error_msg := exceptionToString(ex);
+                   end handle ex => (error_msg := Semantics.exceptionToString(ex);
                                      Paths.open_mod_paths := starting_open_mod_paths_val;
                                      Paths.open_mod_directives := starting_open_mod_directives_val;
                                      eval_env := starting_eval_env;
@@ -408,7 +392,7 @@ and processModule(module:A.module_entry as {module_name,module_contents,module_f
 				 else ()
                     in
                        ()
-                    end) handle ex => (error_msg := exceptionToString(ex);
+                    end) handle ex => (error_msg := Semantics.exceptionToString(ex);
                                        Paths.open_mod_paths := starting_open_mod_paths_val;
 				       Paths.open_mod_directives := starting_open_mod_directives_val;
                                        eval_env := starting_eval_env;
@@ -795,7 +779,7 @@ fun getInputAndProcess() =
                                   ((Parse.parse_from_stream istream),true,"") 
                                       handle e => let val _ = Parse.setLinePos(1,0)
                                                   in
-                                                    ([],false,exceptionToString(e))
+                                                    ([],false,Semantics.exceptionToString(e))
                                                   end
                      in
                        if ok_input then
@@ -837,9 +821,9 @@ fun escape(str) =
 fun processString(cmd,mod_path,env,eval_env) =
     let val stream = TextIO.openString (cmd)
         val inputs  = Parse.parse_from_stream(stream)
-        val _ = List.app (fn i => (processInput(i,mod_path,env, Semantics.top_val_env, N.top_level_name,top_loaded_files_ht))) inputs
-
-    in () 
+        val responses = List.app (fn i => (processInput(i,mod_path,env, Semantics.top_val_env, N.top_level_name,top_loaded_files_ht))) inputs
+    in 
+      ()
     end
 
 val _ = (Semantics.processString := processString)

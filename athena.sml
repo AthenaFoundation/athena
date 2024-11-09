@@ -28,6 +28,10 @@ fun run() = let val _ = Options.first_time := true
             in runWithStarterFile(NONE) end 
 
 (**
+fun run() = let val _ = Options.first_time := true
+            in ExpressServer.startServerOnPort(10000) end 
+**)
+(**
 
 -- XSB-specific code, commented out by default:
 

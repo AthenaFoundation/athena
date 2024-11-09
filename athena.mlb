@@ -83,6 +83,7 @@ in
 	smt_output.sml
 	compiler.sml
 	server.sml 
+        simp.sml
 	topenv_part1.sml
 	topenv_part2.sml
 	definition_processor.sml

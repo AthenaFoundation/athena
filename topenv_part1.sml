@@ -4160,6 +4160,29 @@ fun eGenUniquePrimMethod([v1,v2],env,ab) =
   | eGenUniquePrimMethod(args,env,ab) = 
         primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
 
+
+fun catchPrimBFun(v1,v2,env,ab) = 
+     (case (v1,v2) of
+        (closFunVal(e1,ref env1,_),closUFunVal(e2,arg_name,ref env2,_)) => 
+           let val _ = (case (getClosureArity(v1),getClosureArity(v2)) of
+                           (0,1) => ()
+                         | (0,n) => primError("The second procedure argument given to "^(N.catchFun_name)^" must take exactly one argument,\n"^
+                                              "but here it takes "^(Int.toString(n)))
+                         | (n,_) =>   primError("The first procedure argument given to "^(N.catchFun_name)^" must take zero arguments,\n"^
+                                                "but here it takes "^(Int.toString(n))))
+           in
+             ((evalClosure(v1,[],ab,NONE))
+                handle e => let val str = MLStringToAthString(Semantics.exceptionToString(e))
+                            in 
+                              evalClosure(v2,[str],ab,NONE)
+                            end)
+           end
+      | (closFunVal(_),v) => 
+           
+              primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
+      | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
+
+
 end;
 
 

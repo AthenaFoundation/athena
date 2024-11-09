@@ -5173,4 +5173,6 @@ define (replace-strings pat-replacement-pairs base) :=
     (list-of [pat replacement] rest) => (replace-strings rest (replace-string pat replacement base))
   | _ => base
   }
-         
+
+define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
+define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")  

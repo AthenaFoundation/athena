@@ -336,26 +336,6 @@ fun compErrorPrimUFun(v,_,_) =
           SOME(msg) => makeAthenaError(msg)
         | _ => primError(wrongArgKind(N.compErrorFun_name,1,subLCType,v)))
 
-fun catchPrimBFun(v1,v2,env,ab) = 
-     (case (v1,v2) of
-        (closFunVal(e1,ref env1,_),closFunVal(e2,ref env2,_)) => 
-           let val _ = (case (getClosureArity(v1),getClosureArity(v2)) of
-                           (0,1) => ()
-                         | (0,n) => primError("The second procedure argument given to "^(N.catchFun_name)^" must take exactly one argument,\n"^
-                                              "but here it takes "^(Int.toString(n)))
-                         | (n,_) =>   primError("The first procedure argument given to "^(N.catchFun_name)^" must take zero arguments,\n"^
-                                                "but here it takes "^(Int.toString(n))))
-           in
-             ((evalClosure(v1,[],ab,NONE))
-                handle EvalError(msg,_) => 
-                          let val str = MLStringToAthString(msg)
-                          in 
-                            evalClosure(v2,[str],ab,NONE)
-                          end)
-           end
-      | (closFunVal(_),_) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
-      | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
-
 fun getMethodValClosureArity(closUMethodVal(_)) = 1
   | getMethodValClosureArity(closBMethodVal(_)) = 2
   | getMethodValClosureArity(closMethodVal(e,_)) = getMethodClosureArity(e)
@@ -2974,6 +2954,10 @@ fun paradoxProvePrimFun([listVal(vals)],env,ab) =
 
 fun getABFun([],_,ab) = listVal(map propVal (ABase.getAll(ab)))
 
+(***
+fun clientConnectFun([],_,ab) = let val _ = Client.connect(10000) in unitVal end 
+***)
+
 fun getBucketSizesFun([],_,ab) = listVal(map (fn i => termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))) (ABase.bucketSizes()))
 
 fun showBucketStatisticsFun([],_,ab) = (print("\n"^(ABase.getBucketSizeStatistics())^"\n\n");unitVal)
@@ -3333,12 +3317,10 @@ fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) =
 									          print("\nAnd here's the TOP_VAL_ENV:[[[[[[[[\n" 
 									          ^ SV.envToString(!top_val_env) ^ "\n]]]]]]]]\n")
 										  else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the EXTENDED environment, env';:[[[[[[[[\n" 
-									          ^ SV.envToString(!env') ^ "\n]]]]]]]]\n")
-										  else ()
                                                                       in processPhraseAndReturn(new_phrase,env',fids) end
-                                                | _ => primError("Incorrect application of "^(Names.evalFun_name)^".\nOnly phrases can be evaluated."))
+                                                | _ => let val doString = !processString
+                                                           val _ = doString(str,(!Paths.current_mod_path),ref(!env),env)
+                                                       in unitVal end)
                             in 
                                res_val
                             end
@@ -3651,6 +3633,9 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (Symbol.symbol("tsat0"),funVal(satSolve0,"tsat0",default_fv_pa_for_procs 1)),
                          (N.fastSatFun_symbol,funVal(fastSatFun,N.fastSatFun_name,default_fv_pa_for_procs 2)),
                          (N.getABFun_symbol,funVal(getABFun,N.getABFun_name,default_fv_pa_for_procs 0)),     
+(***
+                         (N.clientConnect_symbol,funVal(clientConnectFun,N.clientConnect_name,default_fv_pa_for_procs 0)),     
+***)
                          (Symbol.symbol "get-bucket-sizes",funVal(getBucketSizesFun,"get-bucket-sizes",default_fv_pa_for_procs 0)),
                          (Symbol.symbol "show-bucket-stats",funVal(showBucketStatisticsFun,"show-bucket-stats",default_fv_pa_for_procs 0)),
                          (N.concatFun_symbol,funVal(concatFun,N.concatFun_name,default_fv_pa_for_procs 2)),
