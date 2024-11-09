@@ -1,6 +1,4 @@
 import sys
-sys.path.append('/mnt/c/code/python')
-from utils1 import *
 import socket
 
 def send_request_to_server(request: str,port=10000) -> str:
