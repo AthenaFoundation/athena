@@ -2954,6 +2954,8 @@ fun paradoxProvePrimFun([listVal(vals)],env,ab) =
 
 fun getABFun([],_,ab) = listVal(map propVal (ABase.getAll(ab)))
 
+fun getBucketSizesFun([],_,ab) = listVal(map (fn i => termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))) (ABase.bucketSizes()))
+
 fun showBucketStatisticsFun([],_,ab) = (print("\n"^(ABase.getBucketSizeStatistics())^"\n\n");unitVal)
 
 fun getAllFSymsFun([],_,_) = listVal(map (fn x => termConVal(SV.regFSym(x))) (Data.allFSyms()))
@@ -3302,15 +3304,6 @@ fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) =
                                                                           val (new_phrase,vars,fids) = SV.preProcessPhrase(p,mod_path)
                                                                           val (vmap,mmap) = getValAndModMaps(!env)
                                                                           val env' = ref(augmentWithBothMaps(!top_val_env,mmap,vmap))
-
-									  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									           print("\nGiven env in which to evaluate " ^ str ^ "\nIS THIS:[[[[[[[[[[[\n" ^ 
-										        SV.envToString(!env) ^ "\n]]]]]]]]]]]\n")
-									          else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the TOP_VAL_ENV:[[[[[[[[\n" 
-									          ^ SV.envToString(!top_val_env) ^ "\n]]]]]]]]\n")
-										  else ()
                                                                       in processPhraseAndReturn(new_phrase,env',fids) end
                                                 | _ => let val doString = !processString
                                                            val _ = doString(str,(!Paths.current_mod_path),ref(!env),env)

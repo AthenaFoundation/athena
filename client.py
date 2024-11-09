@@ -12,6 +12,7 @@ def send_request_to_server(request: str,port=10000) -> str:
         sock.connect((server_address, port))
         try:
             # Send the request string encoded as bytes
+            print("About to send this text: " + request)
             sock.sendall(request.encode('utf-8'))
             # Receive the response from the server
             response = sock.recv(4096)  # Buffer size is 4096 bytes
@@ -51,3 +52,4 @@ s = '''assume h := (A & B)
           (!both (!dn h) (!left-and h))
 '''
 
+s = readFileAsString("t.ath")

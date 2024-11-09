@@ -1,14 +1,9 @@
-define client-request-size := 122880
-
-(silence-on)
-
-define server := 
-    (make-server client-request-size
-      lambda (str)
-        (catch lambda () (val->string (evaluate str))
-               lambda (error_msg)
-                 error_msg))
-
-define port := 10000
-
-(server port)
+define (start-athena-server port) :=
+ let {client-request-size := 122880;
+      _                   := (silence-on);
+      server              := (make-server client-request-size
+                               lambda (str)
+                                 (catch lambda () (val->string (evaluate str))
+                                        lambda (error_msg)
+                                         error_msg))}
+   (server port)

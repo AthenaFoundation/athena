@@ -17,12 +17,25 @@ fun runWithStarterFile(file_name) =
    in		    
       (Repl.init(file_name);
        print("\nReady...\n");
-       loop())
+       loop();
+       OS.Process.success)
    end
+
+fun startServer(port_number,starter_file_option) = 
+  let val _ = Repl.init(starter_file_option)
+      val env = ref(SemanticValues.valEnv({val_map=SemanticValues.empty_val_map,mod_map=SemanticValues.empty_mod_map}))
+      val eval_env = Semantics.top_val_env
+      val cmd = "(start-athena-server " ^ (Int.toString port_number) ^ ")"
+      val process = !Semantics.processString
+      val _ = process(cmd,[],env,eval_env)
+  in
+     OS.Process.success
+  end
 
 fun runWithStarterFileAndQuit(file_name) = 
    (Repl.init(file_name);
-    print("\nDone...\n"))
+    print("\nDone...\n");
+    OS.Process.success)
 
 fun run() = let val _ = Options.first_time := true
             in runWithStarterFile(NONE) end 
@@ -67,6 +80,24 @@ fun main(arg0,args) =
     (case args of
        [] => M(NONE,false)
      | [file_name] => M(SOME(file_name),false)
+     | [arg_1,arg_2] => if arg_1 = "-port" orelse arg_1 = "--port" then
+                           let val port_num_opt = Int.fromString(arg_2)
+                           in
+                              (case port_num_opt of 
+                                  SOME(port_num) => startServer(port_num,NONE)
+                                | _ => (print("\nInvalid port number."); OS.Process.failure))
+                           end 
+                        else M(SOME(arg_1),true)          
+     | [arg_1,arg_2,arg_3,arg_4] => 
+                       if (arg_1 = "-port" orelse arg_1 = "--port") andalso (arg_3 = "--file" orelse arg_3 = "-file") then
+                           let val port_num_opt = Int.fromString(arg_2)
+                               val starter_file = arg_4
+                           in
+                              (case port_num_opt of 
+                                  SOME(port_num) => startServer(port_num,NONE)
+                                | _ => (print("\nInvalid port number."); OS.Process.failure))
+                           end 
+                       else M(SOME(arg_1),true)
      | file_name::(_::_) => M(SOME(file_name),true))
    end
    

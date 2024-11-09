@@ -5175,4 +5175,15 @@ define (replace-strings pat-replacement-pairs base) :=
   }
 
 define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
-define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")  
+define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
+
+define (start-athena-server port) :=
+ let {client-request-size := 122880;
+      _                   := (print "\nStarting an Athena server on port: " port "\n");
+      server              := (make-server client-request-size
+                               lambda (str)
+                                let {_ := (print "\nIncoming string to process: " str "\n")}
+                                 (catch lambda () (val->string (evaluate str))
+                                        lambda (error_msg)
+                                         error_msg))}
+   (server port)

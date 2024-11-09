@@ -10,28 +10,25 @@ structure Socket = struct
 
 open TextIO
 
-fun readAll conn req =
-    let val ntoread = Socket.Ctl.getNREAD conn in
-    if ntoread > 0
-    then
-    let
-        val ntoreadMax1024x80 = if ntoread > 1024 * 80 then 1024 * 80 else ntoread;
-        val vec = Socket.recvVec (conn, ntoreadMax1024x80);
-        val vecLength = Word8Vector.length vec;
-        val reqSoFar = req ^ (String.substring (Byte.bytesToString vec, 0, vecLength))
-    in
-        if vecLength < ntoreadMax1024x80
-        then reqSoFar
-        else readAll conn reqSoFar 
-    end
-    else req
-    end;
+fun readAll(conn) = 
+    let val max = 1024 * 80
+        fun loop(vector_list,iteration) = 
+  	           let val in_vector = Socket.recvVec(conn,max)
+	               val len = Word8Vector.length(in_vector)
+   	           in
+                      if len < max then rev(in_vector::vector_list)
+                      else loop(in_vector::vector_list,iteration+1)
+                   end
+	val vector_list = loop([],1)
+     in
+        Byte.bytesToString(Word8Vector.concat(vector_list))
+     end;
 
 fun makeServer(input_buffer_size,processRequest) = 
  fn port => 
    let fun run(listener) = let fun accept() = 
                                     let val (conn,conn_addr) = Socket.accept(listener)
-	                                val text = readAll conn ""
+	                                val text = readAll(conn)
                                     in
                                        respond(conn,text);                                      
                                        accept()
