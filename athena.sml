@@ -105,7 +105,7 @@ fun main(arg0,args) =
                                val starter_file = arg_4
                            in
                               (case port_num_opt of 
-                                  SOME(port_num) => startServer(port_num,NONE)
+                                  SOME(port_num) => startServer(port_num,SOME(starter_file))
                                 | _ => (print("\nInvalid port number."); OS.Process.failure))
                            end 
                        else M(SOME(arg_1),true)
