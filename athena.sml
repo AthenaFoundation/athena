@@ -61,6 +61,17 @@ fun initializeXSB() =
 	       
 **)
 
+(****************************************************************************************************************
+Assuming that the executable you've produced is named "athena", run the following:
+
+./athena                                -> Starts the Athena REPL
+./athena foo.ath                        -> Loads foo.ath first and then starts the Athena REPL
+./athena foo.ath quit          	        -> Loads foo.ath and then quits 
+./athena -port <number>                 -> Starts an Athena TCP server running on port <number>
+./athena -port <number> -file foo.ath   -> Loads foo.ath and then starts an Athena TCP server on port <number>
+
+*****************************************************************************************************************)
+
 fun main(arg0,args) = 
   let fun M(file_name_option:string option,quit_after) =              
              (print("\nWelcome to Athena!\n");

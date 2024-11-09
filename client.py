@@ -12,7 +12,6 @@ def send_request_to_server(request: str,port=10000) -> str:
         sock.connect((server_address, port))
         try:
             # Send the request string encoded as bytes
-            print("About to send this text: " + request)
             sock.sendall(request.encode('utf-8'))
             # Receive the response from the server
             response = sock.recv(4096)  # Buffer size is 4096 bytes
@@ -22,34 +21,3 @@ def send_request_to_server(request: str,port=10000) -> str:
             print(f"An error occurred: {e}")
             return ""
 
-# Usage example
-# Usage example
-#response = send_request_to_server("Hello, server!")
-
-
-s = "(plus 1 2)"
-request = s
-b = s.encode('utf-8')
-port = 10000
-server_address = 'localhost'
-#sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-
-s = '''let {_ := (process-input-from-string "declare A, B, C, D, E, F, G, H: Boolean")}
-  assume h := (A & B) {
-    (!both (!right-and h) (!left-and h))
-  }
-'''
-
-#send_request_to_server('(process-input-from-string "(declare (A B C D E F G H) Boolean)")')
-
-s = '''assume h := (A & B) 
-          (!both (!right-and h) (!left-and h))
-'''
-
-
-s = '''assume h := (A & B) 
-          (!both (!dn h) (!left-and h))
-'''
-
-s = readFileAsString("t.ath")

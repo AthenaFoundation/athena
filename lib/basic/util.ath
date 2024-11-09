@@ -5182,7 +5182,6 @@ define (start-athena-server port) :=
       _                   := (print "\nStarting an Athena server on port: " port "\n");
       server              := (make-server client-request-size
                                lambda (str)
-                                let {_ := (print "\nIncoming string to process: " str "\n")}
                                  (catch lambda () (val->string (evaluate str))
                                         lambda (error_msg)
                                          error_msg))}
