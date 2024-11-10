@@ -47,6 +47,7 @@ def checkProof(line):
 
 file = "./ft/data/gpt_and_english_proofs_230.jsonl"
 #L = getLines(file)
+
 def checkAll(file):
     L = getLines(file)
     R = []
@@ -57,3 +58,4 @@ def checkAll(file):
     return R
 
 # R = checkAll(file) 
+# T = [r for r in R if r[0]]
