@@ -24,7 +24,7 @@ fun readAll(conn) =
         Byte.bytesToString(Word8Vector.concat(vector_list))
      end;
 
-fun makeServer(input_buffer_size,processRequest) = 
+fun makeSingleThreadedServer(input_buffer_size,processRequest) = 
  fn port => 
    let fun run(listener) = let fun accept() = 
                                     let val (conn,conn_addr) = Socket.accept(listener)
@@ -48,6 +48,37 @@ fun makeServer(input_buffer_size,processRequest) =
   in
     run(INetSock.TCP.socket())
   end handle e => (print("\nSomething went wrong" ^ (exnMessage e) ^ "\n");raise e)
+
+
+fun makeServer(input_buffer_size, processRequest) = 
+ fn port => 
+   let fun run(listener) = 
+           let fun accept() = 
+                   let val (conn, conn_addr) = Socket.accept(listener)
+                   in
+                       case fork() of
+                           NONE => (* Child process *)
+                               (let val text = readAll(conn)
+                                    val reply = processRequest(text)
+                                    val buf = Word8VectorSlice.slice(Byte.stringToBytes reply, 0, NONE)
+                                in
+                                    ignore(Socket.sendVec(conn, buf));
+                                    Socket.close(conn);
+                                    OS.Process.exit OS.Process.success  (* Exit child process *)
+                                end handle x => (Socket.close(conn); OS.Process.exit OS.Process.failure))
+                         | SOME _ => (* Parent process *)
+                               (Socket.close(conn);  (* Parent closes its copy of the connection *)
+                                accept())  (* Continue accepting new connections *)
+                   end
+               in 
+                   Socket.Ctl.setREUSEADDR(listener, true);
+                   Socket.bind(listener, INetSock.any port);
+                   Socket.listen(listener, 9);
+                   accept()
+               end handle x => (Socket.close(listener); raise x)
+   in
+       run(INetSock.TCP.socket())
+   end handle e => (print("\nSomething went wrong: " ^ exnMessage e ^ "\n"); raise e)
 
 end
 
