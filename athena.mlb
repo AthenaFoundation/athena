@@ -13,7 +13,7 @@ in
 	ord_map.sml
 	inf_num.sig
 	inf_num.sml
-	sockets.sml
+	sockets2.sml
 	threads.sml
 	inf_int_map.sml		
 	inf_table.sig

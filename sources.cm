@@ -20,7 +20,7 @@ Group is
 	inf_num.sml
 	base.sig
 	base.sml
-	sockets.sml
+	sockets2.sml
 	inf_table.sig
 	inf_table.sml	
 	term.sig

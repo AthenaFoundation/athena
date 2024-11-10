@@ -42,7 +42,7 @@ fun makeServer(input_buffer_size,processRequest) =
                           in 
                              Socket.Ctl.setREUSEADDR(listener,true);
                              Socket.bind(listener,INetSock.any port);
-                             Socket.listen(listener,9);
+                             Socket.listen(listener,128);
                              accept()
                           end handle x => (Socket.close(listener);raise x)
   in
