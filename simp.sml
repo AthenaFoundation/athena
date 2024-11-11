@@ -8,10 +8,15 @@ structure A = AbstractSyntax;
 
 fun illFormed() = raise IllFormedProof;
 
-fun fp f = fn D => let val D' = f D
-                    in
-                       if D = D' then D else (fp f) D'
-                    end;
+fun fp(f,eq) = 
+   let fun fixedPoint(D) = 
+              let val D' = f D
+              in
+                if eq(D,D') then D else (fixedPoint D')
+              end 
+   in
+      fixedPoint
+   end
 
 fun weave f [] = f
   | weave f (g::rest) = f o g o (weave f rest);
@@ -630,12 +635,18 @@ fun elimClaims(D,env,ab) =
     elim(D,env,ab)
   end
  
-            
+fun dedEq(D1,D2) = false
 
-fun fp f = fn D => let val D' = f D
-                    in
-                       if D = D' then D else (fp f) D'
-                    end
+fun contractAux(proof,env,ab) = 
+     let fun ms D = makeStrict(D,ab)
+         fun RR D = removeRepetitions(D,env,ab) 
+         fun ec D = elimClaims(D,env,ab)
+         val contractor = fp(ec o RR o ms,dedEq)
+     in
+       contractor(proof)
+     end
 
+fun contract(D) =  
+     contractAux(D,SemanticValues.top_val_env,!ABase.top_assum_base)
 
 end; (* of structure Simplify_New *)
