@@ -46,7 +46,7 @@ def checkProof(line):
         return (True,athena_response)
 
 file = "./ft/data/gpt_and_english_proofs_230.jsonl"
-#L = getLines(file)
+#L = getLines(file)  
 
 def checkAll(file):
     L = getLines(file)

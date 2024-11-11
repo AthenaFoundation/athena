@@ -9,6 +9,8 @@ to implement an Athena server that can be hit by arbitrary TCP clients
 structure Socket = struct
 
 open TextIO
+open Posix.Process
+open OS.Process
 
 fun readAll(conn) = 
     let val max = 1024 * 80

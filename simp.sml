@@ -35,6 +35,18 @@ fun makeEvalExpFunction(env,ab) =
                                 | SOME(map) => Semantics.evalExp(e,ref(Semantics.augmentWithMap(!env,map)),ab)))
 
 
+fun getValAndEnv(b:A.binding as {bpat,pos,def,...},env,ab) = 
+      let val v = Semantics.evalPhrase(def,env,ab)
+      in
+        (case Semantics.matchPat(v,bpat,makeEvalExpFunction (env,ab)) of 
+          SOME(map,_) => let val (vmap,mmap) = Semantics.getValAndModMaps(!env)
+                             val env' = ref(Semantics.valEnv({val_map=Symbol.augment(vmap,map),mod_map=mmap}))
+                         in
+                            (v,env')
+                         end
+        | _ => Basic.fail("Pattern failed to match the corresponding value."))
+      end 
+
 fun getPropAndEnv(b:A.binding as {bpat,pos,def,...},env,ab) = 
       let val pval = Semantics.evalPhrase(def,env,ab)
       in
@@ -49,13 +61,18 @@ fun getPropAndEnv(b:A.binding as {bpat,pos,def,...},env,ab) =
            | _ => Basic.fail("A sentence (hypothesis) was expected here..."))
       end 
 
-fun getPropsAndEnv([],props,env,_) = (props,env)
-  | getPropsAndEnv((b:A.binding as {bpat,pos,def,...})::rest,props,env,ab) = 
-      let val pval = Semantics.evalPhrase(def,env,ab)
-          val (p,env') =  getPropAndEnv(b,env,ab)
-     in
-        getPropsAndEnv(rest,p::props,env',ab)
-      end
+fun getPropsAndEnv(bindings,env,ab,binding_transformer_option) = 
+  let fun getPropsAndEnvAux([],props,env,_,bindings_so_far) = (props,env,rev(bindings_so_far))
+        | getPropsAndEnvAux((b:A.binding as {bpat,pos,def,...})::rest,props,env,ab,bindings_so_far) = 
+             let val pval = Semantics.evalPhrase(def,env,ab)
+                 val (p,env') =  getPropAndEnv(b,env,ab)
+                 val new_binding = (case binding_transformer_option of SOME(transformer) => transformer(b,props,env') | _ => b)
+             in
+                getPropsAndEnvAux(rest,p::props,env',ab,new_binding::bindings_so_far)
+             end
+  in
+     getPropsAndEnvAux(bindings,[],env,ab,[])
+  end
 
 fun getProp(phrase,env,ab) = 
      (case Semantics.coerceValIntoPropVal(Semantics.evalPhrase(phrase,env,ab)) of 
@@ -191,7 +208,7 @@ let fun conclusion(D,starting_env,starting_ab) =
                   SOME(Semantics.propVal(hyp)) => Prop.makeNegation(hyp)
                 | _ => Basic.fail("A sentence was expected here."))
         | C(A.infixAssumeDed({bindings,body,...}),env) = 
-              let val (props,new_env) = getPropsAndEnv(bindings,[],env,starting_ab)
+              let val (props,new_env,bindings') = getPropsAndEnv(bindings,env,starting_ab,NONE)
    	          val hyps = rev(props)
                   val q = C(body,new_env)					    
               in
@@ -201,7 +218,7 @@ let fun conclusion(D,starting_env,starting_ab) =
               end
         | C(A.letDed({bindings, body, ...}),env) = 
               let (*** val _ = print("\nAbout to call getPropsAndEnv...\n")  ***)
-                  val (props,new_env) = getPropsAndEnv(bindings,[],env,starting_ab)
+                  val (props,new_env,bindings') = getPropsAndEnv(bindings,env,starting_ab,NONE)
               in
                  C(body,new_env)					    
               end                         
@@ -307,7 +324,7 @@ and fa(A.assumeDed({assumption,body,...}),env,ab) =
         end 
   | fa(A.infixAssumeDed({bindings,body,...}),env,ab) =  
           let val (binding_fas,binding_conclusions,new_env) = faLoop(bindings,[],[],env,ab)
-              val (props,new_env') = getPropsAndEnv(bindings,[],env,ab)
+              val (props,new_env',bindings') = getPropsAndEnv(bindings,env,ab,NONE)
               val hyps = rev(props)
               val conjuncts:Prop.prop list = List.concat (map Prop.decomposeConjunctionsStrict hyps)
               val all_hyps = hyps@conjuncts		
@@ -446,5 +463,76 @@ fun makeStrict(D,ab) =
   in
     ms(D)
   end  
+
+fun makeUnaryRuleApp(rule_name,
+		     rule_arg_as_string,
+		     pos) = 
+      (case Parse.parse_from_string(rule_arg_as_string) of
+         [A.phraseInput(proof as A.ded(_))] => A.UMethAppDed({method=A.makeIdExpSimple(rule_name,pos),
+	 			 			      arg=proof,
+	 						      pos=pos})
+       | _ => Basic.fail("A sole deduction was expected here."))
+ 
+fun removeRepetitions(D,env,ab) = 
+  let fun RR(D,already_hold,env) = 
+         let val p = proofConclusion(D,ab)
+         in
+           if Basic.isMemberEq(p,already_hold,Prop.alEq) then  
+              makeUnaryRuleApp("claim",Semantics.prettyValToString(Semantics.propVal(p)),A.posOfDed(D))
+           else
+              (case D of  
+                 A.assumeDed({assumption,body,pos}) =>    
+                        let val hyp = getProp(assumption,env,ab)
+                        in
+                          A.assumeDed({assumption=assumption,body=RR(body,hyp::already_hold,env),pos=pos})
+                        end
+	       | (D as A.beginDed({members,pos})) =>
+                   let fun loop([],so_far,L) = A.beginDed({members=rev(so_far),pos=pos})
+			 | loop(D::more,so_far,L) = 
+                            let val D' = RR(D,L,env)
+                                val p = proofConclusion(D',ab)
+                            in
+                              loop(more,D'::so_far,p::L)
+		            end
+                   in 
+                      loop(members,[],already_hold)
+                   end
+	       | A.letDed({bindings, body, pos}) =>
+                     let val (bindings',conclusions_so_far,env') = bindingsLoop(bindings,[],already_hold,env,ab)
+                         val body' = RR(body,conclusions_so_far,env')
+                     in
+                        A.letDed({bindings=bindings',body=body',pos=pos})
+                     end
+	       | A.infixAssumeDed({bindings,body,pos})  => 
+                     let fun binding_transformer(b:A.binding as {bpat,pos,def},
+						 conclusions_so_far,
+						 env) = 
+                              let val def' = (case def of A.ded(d) => A.ded(RR(d,conclusions_so_far@already_hold,env)) | _ => def)
+                              in
+                                {bpat=bpat,def=def',pos=pos}
+                              end                                  
+                         val (props,env',bindings') = getPropsAndEnv(bindings,env,ab,SOME(binding_transformer))
+                     in
+                        A.infixAssumeDed({bindings=bindings',body=RR(body,props@already_hold,env'),pos=pos})
+                     end
+               | _ => D)
+         end 
+  and bindingsLoop([],optimized_bindings_so_far,conclusions_so_far,env,ab) = (rev(optimized_bindings_so_far),conclusions_so_far,env)
+    | bindingsLoop((b:A.binding as {bpat,pos,def})::more,optimized_bindings_so_far,conclusions_so_far,env,ab) = 
+          let  val (v,env') = getValAndEnv(b,env,ab)
+          in
+            (case def of 
+                A.ded(D) => let val D' = RR(D,conclusions_so_far,env)
+                                val p = proofConclusion(D',ab)                         
+                            in
+                               bindingsLoop(more,{bpat=bpat,pos=pos,def=A.ded(D')}::optimized_bindings_so_far,p::conclusions_so_far,env',ab)
+		 	   end 
+ 	      | _ => bindingsLoop(more,b::optimized_bindings_so_far,conclusions_so_far,env',ab))
+          end
+  in
+    RR(D,[],env)
+  end
+
+
 
 end; (* of structure Simplify_New *)
