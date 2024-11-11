@@ -428,14 +428,26 @@ fun proofConclusion(D,ab) = proofConclusionTop(D,SemanticValues.top_val_env,ab)
 
 fun FA(D,ab) = FATop(D,SemanticValues.top_val_env,ab)
 
+fun getBindingProofs(bindings) = 
+  let fun loop([],so_far) = rev(so_far)
+	| loop((b:A.binding as {bpat,pos,def})::more,so_far) = 
+            (case def of 
+                A.ded(d) => loop(more,d::so_far) 
+              | _ => loop(more,so_far))
+  in
+    loop(bindings,[])
+  end
+
 fun makeStrict(D,ab) = 
   let fun ms(A.assumeDed({assumption,body,pos})) = A.assumeDed({assumption=assumption,body=ms(body),pos=pos})
+        | ms(A.absurdDed({hyp,body,pos})) = A.absurdDed({hyp=hyp,body=ms(body),pos=pos})
 	| ms(D as A.beginDed({members,pos})) = 
                 let val members' = map ms members
                     fun loop([last_proof],retained) = A.beginDed({members=rev(last_proof::retained),pos=pos})
 		      | loop(D::(more as (_::_)),retained) = 
                                let val D_conc = proofConclusion(D,ab)
-                                   val more_fas = FA(A.beginDed({members=more,pos=pos}),ab)
+                                   val rest_proof = A.beginDed({members=more,pos=pos})
+                                   val more_fas = FA(rest_proof,ab)
                                in
                                  if Basic.isMemberEq(D_conc,more_fas,Prop.alEq) then loop(more,D::retained) else loop(more,retained)
                             end
@@ -455,10 +467,34 @@ fun makeStrict(D,ab) =
                A.infixAssumeDed({bindings=bindings',body=body',pos=pos}) 
             end
         | ms(A.letDed({bindings, body, ...})) = 
-             let 
-              in
-                 Basic.fail("")
-              end                         
+             let val bindings' = map (fn (b:A.binding as {bpat,pos,def}) =>
+                                        (case def of
+                                            A.ded(D) => {bpat=bpat,def=A.ded(ms(D)),pos=pos}
+					  | _ => b))
+                                     bindings 
+                 fun loop([],bindings_so_far) = rev(bindings_so_far)
+		   | loop((b:A.binding as {bpat,pos,def})::more,bindings_so_far) = 
+                                        (case def of
+                                            A.ded(D) => 
+                                              let val rest_proof = A.beginDed({members=getBindingProofs(more)@[body],pos=pos})
+                                                  val rest_fas = FA(rest_proof,ab)
+						  val D_conc = proofConclusion(D,ab)
+                                              in
+                                                if Basic.isMemberEq(D_conc,rest_fas,Prop.alEq) then loop(more,b::bindings_so_far) 
+                                                else (**** Keep the binding/naming part only, not the deduction ****)
+                                                    let val D_conc_as_string = Semantics.prettyValToString(Semantics.propVal(D_conc))
+                                                        val D_conc_as_an_expression =       
+                                                               (case Parse.parse_from_string(D_conc_as_string) of 
+                                                                   [A.phraseInput(p as A.exp(_))] => p
+								 | _ => Basic.fail("A sole expression was expected here."))
+                                                    in
+                                                       loop(more,{bpat=bpat,def=D_conc_as_an_expression,pos=pos}::bindings_so_far)
+					            end
+                                              end
+					  | _ => loop(more,b::bindings_so_far))
+             in
+               Basic.fail("")
+             end                         
 	| ms(D) = D
   in
     ms(D)
@@ -515,6 +551,11 @@ fun removeRepetitions(D,env,ab) =
                      in
                         A.infixAssumeDed({bindings=bindings',body=RR(body,props@already_hold,env'),pos=pos})
                      end
+               | A.absurdDed({hyp,body,pos}) =>
+                        let val hyp_prop = getProp(hyp,env,ab)
+                        in
+                           A.absurdDed({hyp=hyp,body=RR(body,hyp_prop::already_hold,env),pos=pos})
+                        end                    
                | _ => D)
          end 
   and bindingsLoop([],optimized_bindings_so_far,conclusions_so_far,env,ab) = (rev(optimized_bindings_so_far),conclusions_so_far,env)
@@ -533,6 +574,68 @@ fun removeRepetitions(D,env,ab) =
     RR(D,[],env)
   end
 
+fun is_claim_ded(A.UMethAppDed({method,arg,...})) = 
+               (case method of 
+                   A.idExp({msym, mods=[],sym,...}) => 
+                      (case Symbol.name(sym) of 
+                           "claim" => true
+		         | _  => false)
+		 | _ => false)
+  | is_claim_ded(A.letDed({bindings, body, ...})) = is_claim_ded(body)
+  | is_claim_ded(A.beginDed({members,...})) = is_claim_ded(List.last(members))
+  | is_claim_ded(_) = false 
+
+fun elimClaims(D,env,ab) = 
+  let fun elim(A.beginDed({members,pos}),env,ab) = 
+                let val members' = map (fn D => elim(D,env,ab)) members
+                    val members'' = Basic.filterOut(Basic.allButLast(members'),is_claim_ded)
+                in
+                  A.beginDed({members=members''@[List.last(members)],pos=pos})
+                end						
+	| elim(A.assumeDed({assumption,body,pos}),env,ab) =  
+              A.assumeDed({assumption=assumption,body=elim(body,env,ab),pos=pos})
+	| elim(A.absurdDed({hyp,body,pos}),env,ab) = 
+	      A.absurdDed({hyp=hyp,body=elim(body,env,ab),pos=pos})
+        | elim(A.infixAssumeDed({bindings,body,pos}),env,ab) = 
+                     let fun binding_transformer(b:A.binding as {bpat,pos,def},
+						 conclusions_so_far,
+						 env) = 
+                                 let val def' = (case def of A.ded(d) => A.ded(elim(d,env,ab)) | _ => def)
+                                 in
+                                    {bpat=bpat,def=def',pos=pos}
+				 end 
+                         val (props,env',bindings') = getPropsAndEnv(bindings,env,ab,SOME(binding_transformer))
+                     in
+                        A.infixAssumeDed({bindings=bindings',body=elim(body,env',ab),pos=pos})
+                     end
+        | elim(A.letDed({bindings, body, pos}),env,ab) = 
+                     let fun binding_transformer(b:A.binding as {bpat,pos,def},
+						 conclusions_so_far,
+						 env) = 
+                                 let val def' = (case def of A.ded(d) => A.ded(elim(d,env,ab)) | _ => def)
+                                 in
+                                    {bpat=bpat,def=def',pos=pos}
+				 end 
+                         val (props,env',bindings') = getPropsAndEnv(bindings,env,ab,SOME(binding_transformer))
+                         val bindings'' = Basic.filterOut(bindings', 
+                                                          fn b:A.binding as {def,...} => 
+                                                                           (case def of
+                                                                               A.ded(proof) => is_claim_ded(proof)
+   								             | _ => false))
+                     in
+                        A.letDed({bindings=bindings'',body=elim(body,env',ab),pos=pos})
+                     end  
+ 	| elim(D,env,ab) = D
+  in
+    elim(D,env,ab)
+  end
+ 
+            
+
+fun fp f = fn D => let val D' = f D
+                    in
+                       if D = D' then D else (fp f) D'
+                    end
 
 
 end; (* of structure Simplify_New *)
