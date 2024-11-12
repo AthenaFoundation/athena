@@ -618,7 +618,7 @@ fun repeat n f =
 val (newline,lparen,rparen,lbrack,rbrack,lbrace,rbrace,
      blank,comma,period,colon,semi_colon,string_quote) = ("\n","(",")","[","]","{","}"," ",",",".",":",";","\"")
 
-fun mark(s) = (print("\n");repeat 3 (fn _ => print(s));print("\n"))
+fun mark(s) = (print("\n");repeat 10 (fn _ => print(s));print("\n"))
 
 fun failLst(messages) = raise FailLst messages
 

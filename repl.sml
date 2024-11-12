@@ -39,7 +39,6 @@ fun printLoadedFiles(loaded_files : (string,bool) HashTable.hash_table) =
   end
 
 fun debugPrint(_) = ()
-
             
 fun showFreeIds(phr,mod_path) = 
  let val (new_phrase,vars,fids) = preProcessPhrase(phr,mod_path)
@@ -818,6 +817,7 @@ fun escape(str) =
      loop(L,[])
   end
        
+(**** qqq PROCESSSTRING DEFINITION ****)
 fun processString(cmd,mod_path,env,eval_env) =
     let val stream = TextIO.openString (cmd)
         val inputs  = Parse.parse_from_stream(stream)
@@ -827,6 +827,13 @@ fun processString(cmd,mod_path,env,eval_env) =
     end
 
 val _ = (Semantics.processString := processString)
+
+fun processAlreadyParsedInputs(inputs,mod_path,env,eval_env) =
+        let val _ = List.app (fn i => (processInput(i,mod_path,env, Semantics.top_val_env, N.top_level_name,top_loaded_files_ht))) inputs
+    in () 
+    end
+
+val _ = (Semantics.processAlreadParsedInputsRef := processAlreadyParsedInputs)
 
 fun makeLibFileName(home,fname) = List.foldl (fn (dir, path) => Paths.makePath(path, dir)) home ["lib", "basic", fname]
 

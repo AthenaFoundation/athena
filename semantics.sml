@@ -34,6 +34,8 @@ val evaluateStringFlexible:((string * value_environment ref) -> value) ref = ref
 
 val processString:((string * (Symbol.symbol list) * value_environment ref * value_environment ref) -> unit) ref = ref (fn _ => ())
 
+val processAlreadParsedInputsRef :((A.user_input list * (Symbol.symbol list) * value_environment ref * value_environment ref) -> unit) ref = ref (fn _ => ())
+
 val (ABaseInsert,ABaseAugment) = (ABase.insert,ABase.augment)
 
 fun putValIntoAB(propVal(P),ab) = ABase.insert(P,ab)
@@ -2220,6 +2222,23 @@ fun liftArg(arg_val,expected_arity,pos_opt) =
             end
          else evError(wrongArgKindExpectationOnly(termLCType,arg_val),pos_opt)
      | _ => evError(wrongArgKindExpectationOnly(termLCType,arg_val),pos_opt))
+
+fun exceptionToString(e) =
+ let fun f(ErrorMsg.ParseError((l,p),str)) = ("\n"^A.posToString({line=l,file=(!Paths.current_file),pos=p})^": Parsing error, "^str^".\n")
+       | f(A.LexError(str,SOME(pos))) = ("\n"^A.posToString(pos)^": Lexical error, "^str^".\n")
+       | f(A.LexError(str,NONE)) = ((!Paths.current_file)^": Lexical error at end of file, "^str^".\n")
+       | f(A.SyntaxError(str,SOME(pos))) = ("\n"^(A.posToString pos)^": Syntax error: "^str^".\n")
+       | f(A.SyntaxError(str,NONE)) = ("\n"^(!Paths.current_file)^": Syntax error: "^str^".\n")
+       | f(AthenaError(msg)) = ("\n"^msg^"\n")
+       | f(EvalError(x)) = makeErrorWithPosInfo(x)
+       | f(Data.GenEx(str)) = str^"\n"
+       | f(GenEx(x as (msg,pos_opt))) = makeErrorWithPosInfo(x)
+       | f(Basic.Fail(str)) = "\n"^str^"\n"
+       | f(Basic.FailLst(strings)) = "\n"^(Basic.printListStr(strings,fn x => x, "\n"))^"\n" 
+       | f(_) = "\nUnknown error: "^(exnMessage e)
+ in
+   f e
+ end
      
 val (lp,rp,space) = ("(",")"," ")
 

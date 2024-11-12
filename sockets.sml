@@ -6,7 +6,7 @@ to implement an Athena server that can be hit by arbitrary TCP clients
 
 =======================================================================*)
 
-structure Socket = struct
+structure SocketImp = struct
 
 open TextIO
 open Posix.Process
