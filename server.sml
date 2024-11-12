@@ -2,6 +2,9 @@
 
 A function (Server.makeServerFun) that creates an Athena TCP server, which
 can be hit by any TCP client (written in any language), local or remote. 
+Note: This is a single-threaded server and its use is not recommended.
+For a robust Athena server, use MLton to generate an executable and then
+start a TCP server on the desired port as described in mlton_main.sml.
 
 =======================================================================*)
 
@@ -25,7 +28,7 @@ fun makeServerFun([termVal(t),cv],env,ab) =
                                                               ".\nThe procedure must take a string and return a string."))
                                          end   
                 fun runServerFun([termVal(pt)],env,ab) = 
-                      let val serverFun = Socket.makeServer(input_buffer_size,processString) 
+                      let val serverFun = SocketImp.makeServer(input_buffer_size,processString) 
                           val port = (case AthTerm.getNumVal(pt) of
                                          SOME(A.int_num(p,_),_) => p
                                        | _ => primError("A port number (numeral) was expected here"))

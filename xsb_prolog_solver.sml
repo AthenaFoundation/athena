@@ -2,10 +2,10 @@ structure PrologSolver =
 
 struct
 
+structure A = AbstractSyntax;
 structure ATV = AthTermVar;
 structure AT = AthTerm;
 structure MS = ModSymbol;
-structure A = AbSyntax;
 structure S = Symbol;
 structure N = Names;
 structure SV = SemanticValues;
@@ -91,7 +91,7 @@ fun prologLegal(str) =
       end
 
 fun makePrologConstant(t) = 
-   (case AT.isNumConstant(t) of
+   (case AT.isNumConstantOpt(t) of
        SOME(A.int_num(i,_)) => if i < 0 then "-" ^ (Int.toString (Int.abs i)) else (Int.toString (Int.abs i))
      | SOME(A.real_num(r,_)) => if r < 0.0 then "-" ^ (A.convertRealStr (Real.fmt (StringCvt.FIX NONE) (Real.abs r))) 
                                 else (A.convertRealStr (Real.fmt (StringCvt.FIX NONE) (Real.abs r)))
@@ -125,7 +125,7 @@ fun makePrologConstant(t) =
 
 
 fun makePrologConstant(t) = 
-   (case AT.isNumConstant(t) of
+   (case AT.isNumConstantOpt(t) of
        SOME(A.int_num(i,_)) => if i < 0 then "-" ^ (Int.toString (Int.abs i)) else (Int.toString (Int.abs i))
      | SOME(A.real_num(r,_)) => if r < 0.0 then "-" ^ (A.convertRealStr (Real.fmt (StringCvt.FIX NONE) (Real.abs r))) 
                                 else (A.convertRealStr (Real.fmt (StringCvt.FIX NONE) (Real.abs r)))
@@ -183,7 +183,7 @@ fun strip(s) =
    end;
 
 fun makePrologTerm(t) = 
-  (case AT.isVar(t) of
+  (case AT.isVarOpt(t) of
       SOME(v) => let val str = ATV.name(v) 
                  in
                     if prologLegal(str) then "X" ^ str
@@ -200,10 +200,10 @@ fun makePrologTerm(t) =
                SOME(root,args) => if S.name(MS.lastName(root)) = "write" andalso length(args) = 1 
                                   then (case AT.isIdeConstant(hd(args)) of
                                             SOME(s) => "write('" ^ (strip s) ^ "')"
-                                          | _ => (makePrologFunctor root) ^ "(" ^ (Basic.printListStr1(map makePrologTerm args,Basic.id, ",")) ^ ")")
+                                          | _ => (makePrologFunctor root) ^ "(" ^ (Basic.printListStr(map makePrologTerm args,Basic.id, ",")) ^ ")")
                                   else (case args of
                                            [] => makePrologConstant(t)
-                                         | _ => (makePrologFunctor root) ^ "(" ^ (Basic.printListStr1(map makePrologTerm args,Basic.id, ",")) ^ ")")
+                                         | _ => (makePrologFunctor root) ^ "(" ^ (Basic.printListStr(map makePrologTerm args,Basic.id, ",")) ^ ")")
               | _ => ((* print("\nThe term to be translated is NOT an app or a variable...\n"); *)
                       makePrologConstant(t))));
 
@@ -211,7 +211,7 @@ fun makePrologTerm(t) =
 val writeOut = SML_With_C_Interaction.copyIntoCBuffer1;
 
 fun writePrologTerm(p,i,t) = 
-  (case AT.isVar(t) of
+  (case AT.isVarOpt(t) of
       SOME(v) => let val str = ATV.name(v) 
                  in
                     if prologLegal(str) then writeOut("X" ^ str,p,i)
@@ -392,7 +392,7 @@ fun writeToStream(str,stream) = TextIO.output(stream,str);
 fun writeToStream'(str,stream) = if str = "" then false else (TextIO.output(stream,str);true)
 
 fun writePrologTermToStream(stream,t) = 
-  (case AT.isVar(t) of 
+  (case AT.isVarOpt(t) of 
       SOME(v) => let val str = ATV.name(v) 
                  in
                     if prologLegal(str) then writeToStream'("X" ^ str,stream)
@@ -437,11 +437,11 @@ fun makePrologProp(p) =
     | _ => (case Prop.isCond(p) of
                SOME(p1,p2) => (makePrologProp p2) ^ " :- " ^ (makePrologProp p1)
              | _ => (case Prop.isConj(p) of
-                        SOME(props) => Basic.printListStr1(props,makePrologProp,", ")
+                        SOME(props) => Basic.printListStr(props,makePrologProp,", ")
                       | _ => (case Prop.isNeg(p) of
                                  SOME(q) => "not(" ^ (makePrologProp q) ^ ")"
                                | _ => (case Prop.isDisj(p) of
-                                          SOME(props) => Basic.printListStr1(props,makePrologProp," ; ")
+                                          SOME(props) => Basic.printListStr(props,makePrologProp," ; ")
                                        | _ => (case Prop.isBiCond(p) of
                                                   SOME(p1,p2) => (case Prop.isAtom(p1) of
                                                                      SOME(_) => makePrologProp(Prop.makeConditional(p2,p1))
@@ -652,7 +652,7 @@ and getTerm(chars) =
                          (args,#"]"::rest') => if null(args) then (AT.makeConstant(!nil_fsym),rest')
                                                else let val fsym = !cons_fsym
 (***
-					                val _ = print("\nHere are the term args: " ^ (Basic.printListStr1(args,AT.toStringDefault," ")))
+					                val _ = print("\nHere are the term args: " ^ (Basic.printListStr(args,AT.toStringDefault," ")))
 					                val _ = print("\nAnd here's the functor to be applied: " ^ (MS.name(fsym)) ^ "\n")
 **)
                                                         val res_term = makePrologList(args)
@@ -694,10 +694,14 @@ and getTerms(chars,terms) =
         | (t,rest) => (rev(t::terms),rest))
 and parseTerms(chars:char list) = getTerms(chars,[]);
 
-(**
-val doXSBCommand = _import "doXSBCommand" public: SML_With_C_Interaction.pointer -> SML_With_C_Interaction.pointer
-val answerQuery = _import "answerQuery" public: SML_With_C_Interaction.pointer * int -> SML_With_C_Interaction.pointer
-**)
+(****)
+
+val doXSBCommand = _import "doXSBCommand" public: SML_With_C_Interaction.pointer -> SML_With_C_Interaction.pointer;
+
+val answerQuery = _import "answerQuery" public: SML_With_C_Interaction.pointer * int -> SML_With_C_Interaction.pointer;
+
+(***)
+
 fun execXSBCommand(str) = 
       let val res = doXSBCommand(SML_With_C_Interaction.SMLString2CString(str))
           val _ = case SML_With_C_Interaction.makeCharList(res) of 
@@ -895,7 +899,7 @@ fun loadFun((v1 as (SV.listVal(vals)))::rest,env,_) =
             let val pred_syms_and_arities = pickSyms(Prop.predSymbolsLst(props))
  	        val file_name = "./athenaPCode" ^ (Int.toString (Basic.returnAndInc file_counter)) ^ ".P"
                 val stream = TextIO.openOut(file_name)
-                val tabled_dec_str = Basic.printListStr1(tabled_syms, fn (p,n) => (makePrologFunctor p) ^ "/" ^ (Int.toString n),", ")
+                val tabled_dec_str = Basic.printListStr(tabled_syms, fn (p,n) => (makePrologFunctor p) ^ "/" ^ (Int.toString n),", ")
 		val dynamic_preds = (case dynamic_syms of
                                          NONE => pred_syms_and_arities
                                        | SOME(L) => L)
@@ -905,12 +909,12 @@ fun loadFun((v1 as (SV.listVal(vals)))::rest,env,_) =
                                           NONE => []
                                         | SOME(L) => L)
                 val dynamic_dec_str = if null(dynamic_preds) then "" else
-                                      let val str = Basic.printListStr1(dynamic_preds, 
+                                      let val str = Basic.printListStr(dynamic_preds, 
                                                                         fn (p,n) => (makePrologFunctor p) ^ "/" ^ (Int.toString n),", ")
                                       in
                                         "\n:- dynamic " ^ str ^ ".\n\n"
                                       end
-		val subsumptive_tabled_dec_str = Basic.printListStr1(subsumptive_tabled_preds, fn (p,n) => (makePrologFunctor p) ^ "/" ^ (Int.toString n),", ")
+		val subsumptive_tabled_dec_str = Basic.printListStr(subsumptive_tabled_preds, fn (p,n) => (makePrologFunctor p) ^ "/" ^ (Int.toString n),", ")
                 val _ = TextIO.output(stream,":- set_prolog_flag(unknown,fail).\n")
                 val _ = if null(tabled_syms) then ()
                         else (TextIO.output(stream,"\n:- table ");TextIO.output(stream,tabled_dec_str);TextIO.output(stream,".\n"))
@@ -942,7 +946,7 @@ fun getQueryVars(p) =
 
 fun getTuple([],terms) = rev(terms)
   | getTuple(chars,terms) = 
-        let val (chunk,rest) = Basic.skipUntil1(chars,fn c => c = #"|")
+        let val (chunk,rest) = Basic.skipUntil(chars,fn c => c = #"|")
             val t = parseTerm(chunk)
             val rest' = if null(rest) then rest else tl(rest)
         in
@@ -952,7 +956,7 @@ fun getTuple([],terms) = rev(terms)
 fun getAnswerTuples(chars) = 
   let fun getAll([],tuples) = tuples
         | getAll(chars,tuples) = 
-             let val (chunk,rest) = Basic.skipUntil1(chars,fn c => c = #"\n")
+             let val (chunk,rest) = Basic.skipUntil(chars,fn c => c = #"\n")
 	         val tuple = getTuple(chunk,[])
 		 val rest' = if null(rest) then rest else tl(rest)
              in
@@ -980,8 +984,8 @@ fun getSubs(query_vars,chars) =
             fun makeSubFromTuple(tuple) = makeSub(Basic.zip(query_vars,tuple))
             val sub_vals = map makeSubFromTuple answer_tuples
 (***
-	    val _ = print("\nQuery vars: " ^ (Basic.printListStr1(query_vars,ATV.toStringDefault,",")) ^ "\n")
-            val _ = print("\nAnswer subs: " ^ (Basic.printListStr1(sub_vals,SV.prettyValToString,"\n")) ^ "\n")
+	    val _ = print("\nQuery vars: " ^ (Basic.printListStr(query_vars,ATV.toStringDefault,",")) ^ "\n")
+            val _ = print("\nAnswer subs: " ^ (Basic.printListStr(sub_vals,SV.prettyValToString,"\n")) ^ "\n")
 ***)
         in
            SV.listVal([SV.true_val,SV.listVal(sub_vals)])
@@ -1131,7 +1135,7 @@ fun prologQueryFun(vals,env,_) =
                      end
         | _ => (case v1 of 
                    SV.listVal(L) => 
-                    (case (SOME(Semantics.getTermsNoPos(L,"query")) handle _ => NONE) of
+                    (case (SOME(Semantics.getTermsNoPos(L,"query",NONE)) handle _ => NONE) of
                       SOME(terms) => let 
 		                        val count = (AT.sizeLst terms) * 30
 		                        val buffer = SML_With_C_Interaction.mallocChars(count)
@@ -1175,7 +1179,7 @@ fun prologQueryFun(vals,env,_) =
                    | _ => let val buffer = SML_With_C_Interaction.mallocChars(1000000)
                               val (i,vars) = writePrologListVal(buffer,0,v1)
 (**
-			      val _ = print("\nQuery vars in order: " ^ (Basic.printListStr1(vars,ATV.toStringDefault,",")) ^ "\n")
+			      val _ = print("\nQuery vars in order: " ^ (Basic.printListStr(vars,ATV.toStringDefault,",")) ^ "\n")
 **)
  			      val i' = writeOut(".",buffer,i)
                               val _ = SML_With_C_Interaction.setChar(buffer,i',SML_With_C_Interaction.null_char)

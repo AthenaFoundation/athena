@@ -5,6 +5,7 @@ local
 	$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
         $(SML_LIB)/cml/cml.mlb
         $(SML_LIB)/basis/mlton.mlb	
+	$(SML_LIB)/smlnj-lib/INet/inet-lib.mlb
 in
 	compat_11072.sml
 	base.sig
@@ -86,11 +87,12 @@ in
 	topenv_part1.sml
 	topenv_part2.sml
 	definition_processor.sml
-	(**
-	prolog_solver.sml
-	**)
 	repl.sml
-	athena.sml
+	mlton_server.sml
 	sml_c_util.sml
+(***
+	xsb_prolog_solver.sml
+***)
+	athena.sml
 	mlton_main.sml
 end
