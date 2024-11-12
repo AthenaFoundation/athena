@@ -25,7 +25,7 @@ fun makeServerFun([termVal(t),cv],env,ab) =
                                                               ".\nThe procedure must take a string and return a string."))
                                          end   
                 fun runServerFun([termVal(pt)],env,ab) = 
-                      let val serverFun = Socket.makeServer(input_buffer_size,processString) 
+                      let val serverFun = SocketImp.makeServer(input_buffer_size,processString) 
                           val port = (case AthTerm.getNumVal(pt) of
                                          SOME(A.int_num(p,_),_) => p
                                        | _ => primError("A port number (numeral) was expected here"))

@@ -3321,13 +3321,10 @@ fun processPhraseAndReturn(p,eval_env,fids) =
 val default_ufv_pa_for_procs = SemanticValues.default_ufv_pa_for_procs
 val default_bfv_pa_for_procs = SemanticValues.default_bfv_pa_for_procs
 
-local
-open Semantics
-in
-fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) = 
-           (case Semantics.isStringValConstructive(v) of
-               SOME(str) => let val stream = TextIO.openString (str)
-                                val input  = hd(Parse.parse_from_stream(stream))
+fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref) = 
+                            let val stream = TextIO.openString (str)
+                                val inputs  = Parse.parse_from_stream(stream)
+                                val input = hd(inputs)
                                 val res_val = (case input of
                                                   A.phraseInput(p) => let val mod_path = (case (!Paths.open_mod_paths) of
                                                                                              [] => []
@@ -3349,7 +3346,51 @@ fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) =
 									          ^ SV.envToString(!env') ^ "\n]]]]]]]]\n")
 										  else ()
                                                                       in processPhraseAndReturn(new_phrase,env',fids) end
-                                                | _ => primError("Incorrect application of "^(Names.evalFun_name)^".\nOnly phrases can be evaluated."))
+					        | _ =>  let val doInputs = !processAlreadParsedInputsRef
+                                                            val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
+                                                        in
+                                                           unitVal
+							end)
+                            in 
+                               res_val
+                            end
+
+
+
+local
+open Semantics
+in
+fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) = 
+           (case Semantics.isStringValConstructive(v) of
+               SOME(str) => let val stream = TextIO.openString (str)
+                                val inputs  = Parse.parse_from_stream(stream)
+                                val input = hd(inputs)
+                                val res_val = (case input of
+                                                  A.phraseInput(p) => let val mod_path = (case (!Paths.open_mod_paths) of
+                                                                                             [] => []
+                                                                                           | mp::_ => mp)
+                                                                          val (new_phrase,vars,fids) = SV.preProcessPhrase(p,mod_path)
+                                                                          val (vmap,mmap) = getValAndModMaps(!env)
+                                                                          val env' = ref(augmentWithBothMaps(!top_val_env,mmap,vmap))
+
+									  val _ = if (false andalso !Options.fundef_mlstyle_option) then
+									           print("\nGiven env in which to evaluate " ^ str ^ "\nIS THIS:[[[[[[[[[[[\n" ^ 
+										        SV.envToString(!env) ^ "\n]]]]]]]]]]]\n")
+									          else ()
+ 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
+									          print("\nAnd here's the TOP_VAL_ENV:[[[[[[[[\n" 
+									          ^ SV.envToString(!top_val_env) ^ "\n]]]]]]]]\n")
+										  else ()
+ 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
+									          print("\nAnd here's the EXTENDED environment, env';:[[[[[[[[\n" 
+									          ^ SV.envToString(!env') ^ "\n]]]]]]]]\n")
+										  else ()
+                                                                      in processPhraseAndReturn(new_phrase,env',fids) end
+					        | _ =>  let val doInputs = !processAlreadParsedInputsRef
+                                                            val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
+                                                        in
+                                                           unitVal
+							end)
                             in 
                                res_val
                             end

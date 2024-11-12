@@ -34,6 +34,8 @@ val evaluateStringFlexible:((string * value_environment ref) -> value) ref = ref
 
 val processString:((string * (Symbol.symbol list) * value_environment ref * value_environment ref) -> unit) ref = ref (fn _ => ())
 
+val processAlreadParsedInputsRef :((A.user_input list * (Symbol.symbol list) * value_environment ref * value_environment ref) -> unit) ref = ref (fn _ => ())
+
 val (ABaseInsert,ABaseAugment) = (ABase.insert,ABase.augment)
 
 fun putValIntoAB(propVal(P),ab) = ABase.insert(P,ab)
