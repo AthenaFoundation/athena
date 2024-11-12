@@ -13,6 +13,9 @@ def extract_response(sock):
         chunks.append(chunk)
     return b''.join(chunks).decode('utf-8')
 
+
+# Note: send_request_to_server_simple should only be used if the corresponding server uses readAllSimple.
+
 def send_request_to_server_simple(request: str, port=10000) -> str:
     server_address = 'localhost'
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -30,6 +33,12 @@ def send_request_to_server_simple(request: str, port=10000) -> str:
         except Exception as e:
             print(f"An error occurred: {e}")
             return ""
+
+# The default implementation of send_request_to_server encodes the size of the 
+# Athena payload into the first 4 bytes of the request (thus allowing payloads up to 4GB). 
+# This must be used in conjunction with readAll on the server side, which first extracts
+# the leading 4 bytes of the client's request, transforms those into the integer value N 
+# they represent, and then reads exactly N bytes from the connection. 
 
 def send_request_to_server(request: str, port=10000) -> str:
     server_address = 'localhost'
@@ -58,7 +67,6 @@ def spaces(i):
     else:
         return " " + spaces(i-1)
 
-# DEBUG: L[7]
 def checkProof(line):
 #
 # This function takes a string representing a line from a .jsonl file like gpt_and_english_proofs_230.jsonl 
@@ -80,10 +88,6 @@ def checkProof(line):
     else:
         return (True,athena_response)
 
-file = "../data/gpt_generated_athena_and_english_proofs_raw_data_230.ath"
-
-#L = getLines(file)
-
 def checkAll(file):
 #
 # This function works with an entire jsonl file like gpt_and_english_proofs_230.jsonl. It basically
@@ -99,9 +103,9 @@ def checkAll(file):
         R.append(response)
     return R
 
-# Example use: 
+# Example use (where file is a path like "../data/gpt_generated_athena_and_english_proofs_raw_data_230.ath"):
 # R = checkAll(file) 
-# This will give you all the successful/valid proofs: 
+# This will give all successful/valid proofs: 
 # T = [r for r in R if r[0]]
-# And this will give you all the incorrect proofs:
+# And this will give all incorrect proofs:
 # F = [r for r in R if not(r[0])]
