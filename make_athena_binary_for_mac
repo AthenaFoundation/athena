@@ -1,0 +1,1 @@
+mlton @MLton gc-summary -- -output ath -verbose 1 -default-ann 'allowFFI true' -drop-pass deepFlatten athena.mlb
