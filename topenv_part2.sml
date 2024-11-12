@@ -3325,7 +3325,8 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                             let val stream = TextIO.openString (str)
                                 val inputs  = Parse.parse_from_stream(stream)
                                 val input = hd(inputs)
-                                val res_val = (case input of
+                                val (res_val, error_msg) = 
+                                            ((case input of
                                                   A.phraseInput(p) => let val mod_path = (case (!Paths.open_mod_paths) of
                                                                                              [] => []
                                                                                            | mp::_ => mp)
@@ -3350,9 +3351,10 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                                                             val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
                                                         in
                                                            unitVal
-							end)
+							end), "")
+                                                  handle e => (unitVal,Semantics.exceptionToString(e))
                             in 
-                               res_val
+                              if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg
                             end
 
 
