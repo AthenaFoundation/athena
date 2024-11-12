@@ -635,7 +635,7 @@ fun elimClaims(D,env,ab) =
     elim(D,env,ab)
   end
  
-fun dedEq(D1,D2) = false
+fun dedEq(D1,D2) = A.unparseDed(D1) = A.unparseDed(D2)
 
 fun contractAux(proof,env,ab) = 
      let fun ms D = makeStrict(D,ab)
