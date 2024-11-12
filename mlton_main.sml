@@ -7,7 +7,7 @@ fun express_main(arg0,args) =
 			    in
 			      if port_spec = "-p" orelse port_spec = "-port" then
   	  		        (case Int.fromString(port_value) of
-                                    SOME(p) => (Thread.spawn(fn () => AthenaServer.cmlMain(p)); Thread.run())
+                                    SOME(p) => (Thread.spawn(fn () => AthenaServer.startServer(p)); Thread.run())
  		                  | _ => Basic.fail("\nInvalid port number, an integer was expected.\n"))
                               else Basic.fail("\nPort option (-p or -port) expected as the first argument")
  			    end)

@@ -3322,41 +3322,39 @@ val default_ufv_pa_for_procs = SemanticValues.default_ufv_pa_for_procs
 val default_bfv_pa_for_procs = SemanticValues.default_bfv_pa_for_procs
 
 fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref) = 
-                            let val stream = TextIO.openString (str)
-                                val inputs  = Parse.parse_from_stream(stream)
-                                val input = hd(inputs)
-                                val (res_val, error_msg) = 
-                                            ((case input of
-                                                  A.phraseInput(p) => let val mod_path = (case (!Paths.open_mod_paths) of
-                                                                                             [] => []
-                                                                                           | mp::_ => mp)
-                                                                          val (new_phrase,vars,fids) = SV.preProcessPhrase(p,mod_path)
-                                                                          val (vmap,mmap) = getValAndModMaps(!env)
-                                                                          val env' = ref(augmentWithBothMaps(!top_val_env,mmap,vmap))
-
-									  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									           print("\nGiven env in which to evaluate " ^ str ^ "\nIS THIS:[[[[[[[[[[[\n" ^ 
-										        SV.envToString(!env) ^ "\n]]]]]]]]]]]\n")
-									          else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the TOP_VAL_ENV:[[[[[[[[\n" 
-									          ^ SV.envToString(!top_val_env) ^ "\n]]]]]]]]\n")
-										  else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the EXTENDED environment, env';:[[[[[[[[\n" 
-									          ^ SV.envToString(!env') ^ "\n]]]]]]]]\n")
-										  else ()
-                                                                      in processPhraseAndReturn(new_phrase,env',fids) end
-					        | _ =>  let val doInputs = !processAlreadParsedInputsRef
-                                                            val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
-                                                        in
-                                                           unitVal
-							end), "")
-                                                  handle e => (unitVal,Semantics.exceptionToString(e))
-                            in 
-                              if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg
-                            end
-
+                           let val stream = TextIO.openString (str)
+                               val (inputs, parse_error)  = ((Parse.parse_from_stream stream),"") handle e => ([],Semantics.exceptionToString(e))
+                           in
+                              (case inputs of 
+                                 [] => if parse_error = "" then 
+                                          "Unable to extract any input from the given text."
+                                       else
+                                          parse_error 
+			       | [A.phraseInput(p)] => 
+                                   let val (res_val,error_msg) = 
+                                        ((let val mod_path = (case (!Paths.open_mod_paths) of
+                                                                 [] => []
+                                                               | mp::_ => mp)
+                                              val (new_phrase,vars,fids) = SV.preProcessPhrase(p,mod_path)
+                                              val (vmap,mmap) = getValAndModMaps(!env)
+                                              val env' = ref(augmentWithBothMaps(!top_val_env,mmap,vmap))
+                                           in 
+                                              processPhraseAndReturn(new_phrase,env',fids) 
+                                           end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
+                                   in
+                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg
+                                   end
+                               | _ => 
+                                   let val (res_val,error_msg) = 
+                                       ((let val doInputs = !processAlreadParsedInputsRef
+                                             val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
+                                         in
+                                            unitVal
+   				          end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
+                                   in
+                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg                                     
+ 				   end)
+                           end
 
 
 local
