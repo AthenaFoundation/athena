@@ -1,13 +1,13 @@
 (*============================================================================================================
 
-Assuming that the executable you've produced by running makeBinaryLinux or makeBinaryMac is named "athena", 
-you can run Athena in a number of ways: 
+Assuming that the executable produced by running make_athena_binary_for_linux or make_athena_binary_for_mac 
+is named "athena", you can run the system in a number of ways: 
 
-./athena                                -> Starts the Athena REPL
-./athena foo.ath                        -> Loads foo.ath first and then starts the Athena REPL
-./athena foo.ath quit          	        -> Loads foo.ath and then quits 
-./athena -port <number>                 -> Starts an Athena TCP server running on port <number>
-./athena -port <number> -file foo.ath   -> Loads foo.ath and then starts an Athena TCP server on port <number>
+./athena                                -> Start the Athena REPL
+./athena foo.ath                        -> Load foo.ath first and then start the Athena REPL
+./athena foo.ath quit          	        -> Load foo.ath and then quit 
+./athena -port <number>                 -> Start an Athena TCP server running on port <number>
+./athena -port <number> -file foo.ath   -> Load foo.ath first and then start an Athena TCP server on port <number>
 
 ============================================================================================================*)
 

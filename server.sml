@@ -2,6 +2,9 @@
 
 A function (Server.makeServerFun) that creates an Athena TCP server, which
 can be hit by any TCP client (written in any language), local or remote. 
+Note: This is a single-threaded server and its use is not recommended.
+For a robust Athena server, use MLton to generate an executable and then
+start a TCP server on the desired port as described in mlton_main.sml.
 
 =======================================================================*)
 
