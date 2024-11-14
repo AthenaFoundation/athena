@@ -28,6 +28,8 @@ def makeEquality(t1,t2) = term_app(symbol("="),list(t1,t2))
 
 def atomicFormula = term * (id + equality_sign * term * semant(fun t2::t1::S => makeEquality(t1,t2)::S))
 
+memoize(atomicFormula)
+
 def conditional = '=' * '>' * push('=>')
 def biconditional = '<' * '=' * '>' * push('<=>')
 
@@ -131,7 +133,7 @@ def formula =
    and T1 = T * (failAt('&') + consumeAndPush('&') * T1 * (fun e::c::t::S => makeBinaryFormula(c,t,e)::S))
    and T = (F * (failAt('|') + consumeAndPush('|') * T * (fun t::c::f::S => makeBinaryFormula(c,f,t)::S)))
    and F = G + '~' * F * (fun f::S => negatedFormula(f)::S) 
-   and G = atomicFormula + lp * E * rp
+   and G = atomicFormula + lp * E * rp 
    in let _ = memoize([E,T1,T,F,G]) in E 
 
 
@@ -145,7 +147,7 @@ def role = consumeAndPushAnyWord * semant(fun w::S => formula_role(w)::S)
 
 def fof_line = 'fof' * lp * name * comma * role * comma * formula * rp * period * semant(fun p::r::n::S => tptp_formula(n,r,formula_ast(p))::S)
 
-def fof_lines = fof_line * semant(fun f::more => list(f)::more) * (failOnFirst(fof_line) + fof_lines * semant(fun l2::l1::more => list(children(l1)++children(l2))::more))
+def fof_lines = fof_line * semant(fun f::more => list(f)::more) * (failAt('fof') + fof_lines * semant(fun l2::l1::more => list(children(l1)++children(l2))::more))
 
 def fof_file_parser = consumeAnyWords * fof_lines * consumeAnyWords
 
