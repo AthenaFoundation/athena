@@ -40,6 +40,7 @@ fun runWithStarterFileAndQuit(file_name) =
 fun run() = let val _ = Options.first_time := true
             in runWithStarterFile(NONE) end 
 
+
 (**
 fun run() = let val _ = Options.first_time := true
             in ExpressServer.startServerOnPort(10000) end 
@@ -85,7 +86,6 @@ fun main(arg0,args) =
 	      OS.Process.success) 
 (**      
       val i = initializeXSB()
-      val _ = 
 **)
   in
     (case args of

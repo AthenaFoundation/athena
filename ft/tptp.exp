@@ -1,0 +1,149 @@
+def concat(lines) = 
+  match lines with 
+    [] =>  ""
+  | l::more => l ++ concat(more)
+
+
+def sym_table = cell({})
+
+declare var: 1, symbol:1, list: *, term_app: 2, atom: 1, binaryFormula: 3, negatedFormula: 1, formula_name:1, formula_role: 1, formula_ast:1, forall: 2, exists: 2, tptp_formula: *
+
+def [lp, lb, comma, rp, rb, blank, newline, tab, equality_sign, colon, period, comment] = ['(', '[', ',', ')', ']', ' ', '\n', '\t', '=', ':', '.', '%']
+
+def tptpTokenizer(s) = tokenize(s,[blank,tab,newline],[lp,lb, comma,rp, rb, period, '!', '?', colon, equality_sign ])
+
+updateGlobalParsingOptions({case_sensitive_parsing=true,tokenizer=tptpTokenizer,flex_parsing=false,include_derivations=false})
+
+def startsWithUpperLetter(s) = isUpperCaseLetter(first(s))
+def startsWithLowerLetter(s) = isLowerCaseLetter(first(s))
+
+def leaf = consumeAndPushAnyWord * semant(fun (s::rest) => if startsWithUpperLetter(s) then (var(s)::rest) else if startsWithLowerLetter(s) then (symbol(s)::rest) else fail())
+
+def [term,terms] = 
+   let T = leaf * (id + lp * Ts * rp * semant(fun arg_list::sym::rest => term_app(sym,arg_list)::rest))
+   and Ts = T * (semant(fun t::more => list(t)::more) + ", " * Ts * semant(fun args::arg::more => list(arg::children(args))::more))
+   in [T,Ts]
+
+def makeEquality(t1,t2) = term_app(symbol("="),list(t1,t2))
+
+def atomicFormula = term * (id + equality_sign * term * semant(fun t2::t1::S => makeEquality(t1,t2)::S))
+
+def connective = consumeAndPush('&') + consumeAndPush('|') + '=' * '>' * push('=>') + '<' * '=' * '>' * push('<=>')
+
+def makeBinaryFormula(connective,p1,p2) = binaryFormula(connective,p1,p2)
+
+def variable = consumeAndPushAnyWord * semant(fun (s::rest) => if startsWithUpperLetter(s) then (var(s)::rest) else fail())
+
+def variables = variable * app(list) * (id + comma * variables * semant(fun (var_list::v::rest) => list(first(children(v))::children(var_list))::rest))
+
+# This simple version works: 
+def formula = atomicFormula 
+            + '~' * formula * semant(fun p::more => negatedFormula(p)::more) 
+            + lp * formula * connective * formula * rp * semant(fun p2::c::p1::more => makeBinaryFormula(c,p1,p2)::more)
+            + '!' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => forall(var_list,body)::rest)
+            + '?' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => exists(var_list,body)::rest)
+
+
+def formula = atomicFormula 
+            + '~' * formula * semant(fun p::more => negatedFormula(p)::more) 
+            + lp * '~' * formula * rp * semant(fun p::more => negatedFormula(p)::more) 
+            + lp * formula * connective * formula * rp * semant(fun p2::c::p1::more => makeBinaryFormula(c,p1,p2)::more)
+            + '!' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => forall(var_list,body)::rest)
+            + lp * '!' * lb * variables * rb * colon * formula * rp * semant(fun (body::var_list::rest) => forall(var_list,body)::rest)
+            + '?' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => exists(var_list,body)::rest)
+            + lp * '?' * lb * variables * rb * colon * formula * rp * semant(fun (body::var_list::rest) => exists(var_list,body)::rest)
+
+def formula = atomicFormula 
+            + '~' * formula * semant(fun p::more => negatedFormula(p)::more) 
+            + lp * formula * connective * formula * rp * semant(fun p2::c::p1::more => makeBinaryFormula(c,p1,p2)::more)
+            + '!' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => forall(var_list,body)::rest)
+            + '?' * lb * variables * rb * colon * formula * semant(fun (body::var_list::rest) => exists(var_list,body)::rest)
+            + lp * formula * rp 
+
+def name = consumeAndPushAnyWord * semant(fun w::S => formula_name(w)::S)
+
+def role = consumeAndPushAnyWord * semant(fun w::S => formula_role(w)::S)
+
+def fof_line = 'fof' * lp * name * comma * role * comma * formula * rp * period * semant(fun p::r::n::S => tptp_formula(n,r,formula_ast(p))::S)
+
+def fof_lines = fof_line * semant(fun f::more => list(f)::more) * (id + fof_lines * semant(fun l2::l1::more => list(children(l1)++children(l2))::more))
+
+def fof_file_parser = consumeAnyWords * fof_lines * consumeAnyWords
+
+def readTPTPFileAsString(file_name) = 
+    let lines = filterOut(readFile(file_name), fun l => let tl = trim(l) 
+                                                         in 
+                                                           (whiteSpace(tl) || (len(tl) > 0 && first(tl) == comment)))
+    in
+       concatAll(lines)
+       
+   
+
+def file = "/mnt/c/athenaGit/athena/ft/data/TPTP/TPTP-v9.0.0/Problems/AGT/AGT001+1.p"
+def file = "/mnt/c/athenaGit/athena/ft/data/TPTP/TPTP-v9.0.0/Axioms/AGT001+1.ax"
+def s = readTPTPFileAsString(file)
+fof_lines(s)
+
+fof_lines(readTPTPFileAsString("foo.p"))
+
+formula('(foo(bar) & foo(X))')
+
+
+def formulaMeaning(formula_string) = let res = formula(formula_string) in first(res.interpretations[0].semantics)
+
+def termMeaning(term_string) = let res = term(term_string) in first(res.interpretations[0].semantics)
+
+def extractSymbolsFromTermAux(t,D) = 
+      match t with 
+         symbol([x]) => extendDict(D,[[x,[0,'D']]])
+       | term_app(symbol(f)::list(args)) => let D' = fold(extractSymbolsFromTermAux,D,args) in extendDict(D', [[f, [len(args),'D']]])
+       | _ => D
+
+def termToAthena(t) = 
+      match t with 
+         symbol([x]) => x
+       | var([x]) => '?' ++ x
+       | term_app(symbol(f)::list(args)) => lp ++ f ++ blank ++ concatAllWithSeparator(map(termToAthena,args),blank) ++ rp
+
+def athenaConnective(c) = match c with '&' => 'and' | '|' => 'or' | '=>' => 'if' | '<=>' => 'iff'
+  
+
+def formulaToAthena(p) = 
+  match p with
+    term_app(_) => termToAthena(p)
+  | negatedFormula(p) => lp ++ 'not ' ++ formulaToAthena(p) ++ rp 
+  | binaryFormula(c::args) => lp ++ athenaConnective(c) ++ blank ++ concatAllWithSeparator(map(formulaToAthena,args)," ") ++ rp 
+  | forall(list(vars),p) => lp ++ 'forall ' ++  concatAllWithSeparator(map(termToAthena,vars),blank) ++ blank ++ formulaToAthena(p) ++ rp
+  | exists(list(vars),p) => lp ++ 'exists ' ++  concatAllWithSeparator(map(termToAthena,vars),blank) ++ blank ++ formulaToAthena(p) ++ rp
+
+def extractSymbolsFromFormulaAux(p,D) = 
+      match p  with 
+        term_app(children as symbol(fsym)::list(args)) => let D' = fold(extractSymbolsFromTermAux,D,args) in extendDict(D',[[fsym, [len(args),'Boolean']]])
+      | negatedFormula(q) => extractSymbolsFromFormulaAux(q,D)
+      | binaryFormula(_::args) => fold(extractSymbolsFromFormulaAux,D,args)
+      | forall(list(_),q) => extractSymbolsFromFormulaAux(q,D)
+      | exists(list(_),q) => extractSymbolsFromFormulaAux(q,D)
+
+
+def extractSymbolsFromFormula(p) = extractSymbolsFromFormulaAux(p,{})
+
+def test(str) = 
+{'signature': extractSymbolsFromFormula(formulaMeaning(str)),
+ 'athena_translation': formulaToAthena(formulaMeaning(str))}
+
+EOF
+load "tptp"
+def f = "/mnt/c/athenaGit/athena/ft/data/TPTP/TPTP-v9.0.0/Problems/AGT/AGT001+1.p"
+      
+def lines = filterOut(readFile(f), fun l => let t = trim(l) in len(t) > 0 && first(t) == '%')
+
+def s = concat(lines);
+
+def test1 = "fof(query_1,conjecture, \n accept_team(countryamedicalorganization,countryacivilorganization,towna,n6) )."
+    
+def test = "fof(left_zero_for_f,hypothesis, left_zero(f,f_left_zero)).\n %------------------------------------------------------------------------------ \n " ++ test1
+    
+fof_file_parser(test)
+
+
+def test2 = "fof(query_1,conjecture,accept_team(countryamedicalorganization,countryacivilorganization,towna,n6))."
