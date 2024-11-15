@@ -9,9 +9,9 @@ open TextIO
 structure SU = SockUtil
 
 fun processString(str) = 
-     let val _ = print("\nInside processString, incoming request:\n" ^ str ^ "\n")
+     let (** val _ = print("\nInside processString, incoming request:\n" ^ str ^ "\n") **)
          val res = TopEnv.processPhraseDirectlyFromString(str,Semantics.top_val_env)
-         val _ = print("\nInside processString, resulting value string:\n" ^ res ^ "\n")
+         (** val _ = print("\nInside processString, resulting value string:\n" ^ res ^ "\n") **)
      in
         res
      end
@@ -77,29 +77,29 @@ one single iteration).
 
 fun readAll(conn) = 
     let val length_vec = readExactly(conn,4)
-        (******)
+        (******
         val _ = print("\nReceived length bytes: ") 
         val _ = Word8Vector.app (fn b => print(Int.toString(Word8.toInt b) ^ " "))
                                 length_vec
-        (******)
+        ******)
         (****** 
         Now do the exact inverse of what the client is expected to do: 
         ******)
 	val expected_length = Word8Vector.foldl (fn (b, acc) => acc * 256 + Word8.toInt b) 
                                                 0 
                                                 length_vec
-        (******)
+        (******
         val _ = print("\nExpected length: " ^ Int.toString expected_length)
-        (******)
+        ******)
         fun loop(vector_list, bytes_read) = 
             if bytes_read >= expected_length 
             then rev(vector_list)
             else 
                 let val in_vector = Socket.recvVec(conn, Int.min(max_bytes_at_once, expected_length - bytes_read))
                     val len = Word8Vector.length(in_vector)
-                    (******) 
+                    (******
                      val _ = print("\nReceived chunk of length: " ^ Int.toString len)  
-                    (******)
+                    ******)
                 in
                   loop(in_vector::vector_list, bytes_read + len)
                 end
