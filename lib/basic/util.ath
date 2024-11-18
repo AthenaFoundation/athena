@@ -5156,3 +5156,31 @@ define lambda-promote :=
                           
 define hol-fun := lambda-promote
 
+# Translate a simple Athena sentence p (propositional logic) to TPTP notation
+
+define (athena->tptp p) :=
+  match p {
+    (some-atom t) => (downcase-string (val->string t))
+  | (not q) => (join "(~ " (athena->tptp q) ")")
+  | (and (some-sent p1) (some-sent p2)) => (join "(" (athena->tptp p1) " & " (athena->tptp p2) ")")
+  | (or p1 p2) => (join "(" (athena->tptp p1) " | " (athena->tptp p2) ")")
+  | (if p1 p2) => (join "(" (athena->tptp p1) " => " (athena->tptp p2) ")")
+  | (iff p1 p2) => (join "(" (athena->tptp p1) " <=> " (athena->tptp p2) ")")
+  | (and ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->tptp (first args)) " & " (athena->tptp (and (tail args))) ")")
+  | (or ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->tptp (first args)) " | " (athena->tptp (or (tail args))) ")")  
+  | (and [arg]) => (athena->tptp arg)
+  | (or [arg]) => (athena->tptp arg)  
+  }
+
+define (nd-tp goal premises out-file) :=
+   let {p := (if (and premises) goal);
+        tptp := (athena->tptp p);
+        prove-goal := (join "prove(" tptp ")");
+        musc_path := (join ATHENA_HOME "/lib/basic/muscadet.pl");
+        program := (join ":- consult('" musc_path "').\n:- assign(display(pr)).");
+        #_ := (print "\nGoal to prove:\n" prove-goal "\nand program:\n" program "\n");
+        res := (Prolog.solve-direct [prove-goal] program)}
+     (write-file out-file res)
+
+        
+         

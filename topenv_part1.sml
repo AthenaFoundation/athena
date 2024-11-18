@@ -707,6 +707,45 @@ fun mergeSortPrimBFun'(v1,v2,env,ab) =
                            listVal(Basic.mergeSortBuiltIn(vals,compare))
                         end))
  
+fun unparseFun([closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref)],env,ab) = 
+      let val proof_str = A.unparseDed(body)
+      in
+         MLStringToAthString(proof_str)
+      end
+  | unparseFun([v],_,{pos_ar,file}) = primError(wrongArgKind(N.unparseFun_name,1,closMethodLCType,v))
+  | unparseFun(vals,_,{pos_ar,file}) = evError(wrongArgNumber(N.unparseFun_name,length(vals),1),SOME(Array.sub(pos_ar,0)))
+                                              
+
+fun unparsePrimUFun(v,env,ab) = 
+   (case v of
+       closUFunVal(e,_,_,{name,...}) => 
+              MLStringToAthString("Unary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closBFunVal(e,_,_,_,{name,...}) => 
+              MLStringToAthString("Binary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closFunVal(e,_,{name,...}) => 
+              MLStringToAthString("Procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closUMethodVal(d,_,_,name) => Basic.fail("Not implemented yet.")
+(***
+          let val conc = Simplify_New.proofConclusion(d,ab)
+              val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
+          in
+              MLStringToAthString("Unary method: " ^ (!name) ^ (A.unparseDed(d)))
+          end
+***)
+    | closBMethodVal(d,_,_,_,name) => 
+              MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
+    | closMethodVal(e as A.methodExp({body,...}),_) => Basic.fail("Not implemented yet.")
+(*******
+          let val conc = Simplify_New.proofConclusion(body,ab) 
+              val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
+              val fas = Simplify_New.FA(body,ab)
+              val _ = print("\n[[[[[[[ FREE ASSUMPTIONS:\n\n" ^ (Basic.printListStr(fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")) ^ "\n\n]]]]]]]\n")
+          in
+              MLStringToAthString("Method: " ^ (A.unparseExp(e)))
+          end
+***)
+    | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
+
 fun rootPrimUFun(v,env,ab) = 
      (case coerceValIntoTerm(v) of
          SOME(t) => (case isGeneralApp(t) of
@@ -2366,11 +2405,10 @@ fun freeVarsPrimUFun(listVal(pvals),env,_) =
 fun satSolve([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
       in 
-        case Prop.satSolveTableau(props) of
-           SOME(props) => listVal(map propVal props)
-         | _ => MLBoolToAth(false)
+        MLBoolToAth(Prop.satSolveTableauNew(props))
       end
   | satSolve(_) = primError("Incorrect invocation of ssat")
+
 
 fun satSolve0([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
@@ -4125,6 +4163,29 @@ fun eGenUniquePrimMethod([v1,v2],env,ab) =
        | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,1,propLCType,v1)))
   | eGenUniquePrimMethod(args,env,ab) = 
         primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
+
+
+fun catchPrimBFun(v1,v2,env,ab) = 
+     (case (v1,v2) of
+        (closFunVal(e1,ref env1,_),closUFunVal(e2,arg_name,ref env2,_)) => 
+           let val _ = (case (getClosureArity(v1),getClosureArity(v2)) of
+                           (0,1) => ()
+                         | (0,n) => primError("The second procedure argument given to "^(N.catchFun_name)^" must take exactly one argument,\n"^
+                                              "but here it takes "^(Int.toString(n)))
+                         | (n,_) =>   primError("The first procedure argument given to "^(N.catchFun_name)^" must take zero arguments,\n"^
+                                                "but here it takes "^(Int.toString(n))))
+           in
+             ((evalClosure(v1,[],ab,NONE))
+                handle e => let val str = MLStringToAthString(Semantics.exceptionToString(e))
+                            in 
+                              evalClosure(v2,[str],ab,NONE)
+                            end)
+           end
+      | (closFunVal(_),v) => 
+           
+              primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
+      | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
+
 
 end;
 
