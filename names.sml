@@ -410,6 +410,10 @@ val constructor_exhaust_name = "constructor-exhaustiveness"
 val constructor_exhaust_symbol = Symbol.symbol constructor_exhaust_name
 val is_atom_name = "atom?"
 val is_atom_symbol = Symbol.symbol is_atom_name
+val is_dir_name = "dir?"
+val is_dir_symbol = Symbol.symbol is_dir_name
+val lineCount_name = "line-count"
+val lineCount_symbol = Symbol.symbol lineCount_name 
 val children_name = "children"
 val children_symbol = Symbol.symbol children_name
 val root_name = "root"
@@ -419,6 +423,12 @@ val readFile_symbol = Symbol.symbol readFile_name
 
 val readFileLines_name = "read-file-lines"
 val readFileLines_symbol = Symbol.symbol readFileLines_name
+
+val listAllDirEntries_name = "list-all-dir-entries"
+val listAllDirEntries_symbol = Symbol.symbol listAllDirEntries_name
+
+val listAllDirEntriesRecursively_name = "list-all-dir-entries-recursively"
+val listAllDirEntriesRecursively_symbol = Symbol.symbol listAllDirEntriesRecursively_name
 
 val writeFile_name = "write-file"
 val writeFile_symbol = Symbol.symbol writeFile_name
