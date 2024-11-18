@@ -5172,15 +5172,3 @@ define (athena->tptp p) :=
   | (or [arg]) => (athena->tptp arg)  
   }
 
-define (nd-tp goal premises out-file) :=
-   let {p := (if (and premises) goal);
-        tptp := (athena->tptp p);
-        prove-goal := (join "prove(" tptp ")");
-        musc_path := (join ATHENA_HOME "/lib/basic/muscadet.pl");
-        program := (join ":- consult('" musc_path "').\n:- assign(display(pr)).");
-        #_ := (print "\nGoal to prove:\n" prove-goal "\nand program:\n" program "\n");
-        res := (Prolog.solve-direct [prove-goal] program)}
-     (write-file out-file res)
-
-        
-         
