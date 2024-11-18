@@ -336,26 +336,6 @@ fun compErrorPrimUFun(v,_,_) =
           SOME(msg) => makeAthenaError(msg)
         | _ => primError(wrongArgKind(N.compErrorFun_name,1,subLCType,v)))
 
-fun catchPrimBFun(v1,v2,env,ab) = 
-     (case (v1,v2) of
-        (closFunVal(e1,ref env1,_),closFunVal(e2,ref env2,_)) => 
-           let val _ = (case (getClosureArity(v1),getClosureArity(v2)) of
-                           (0,1) => ()
-                         | (0,n) => primError("The second procedure argument given to "^(N.catchFun_name)^" must take exactly one argument,\n"^
-                                              "but here it takes "^(Int.toString(n)))
-                         | (n,_) =>   primError("The first procedure argument given to "^(N.catchFun_name)^" must take zero arguments,\n"^
-                                                "but here it takes "^(Int.toString(n))))
-           in
-             ((evalClosure(v1,[],ab,NONE))
-                handle EvalError(msg,_) => 
-                          let val str = MLStringToAthString(msg)
-                          in 
-                            evalClosure(v2,[str],ab,NONE)
-                          end)
-           end
-      | (closFunVal(_),_) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
-      | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
-
 fun getMethodValClosureArity(closUMethodVal(_)) = 1
   | getMethodValClosureArity(closBMethodVal(_)) = 2
   | getMethodValClosureArity(closMethodVal(e,_)) = getMethodClosureArity(e)
@@ -1440,7 +1420,12 @@ fun hashPrimUFun(v,_,_) =
               SOME(P) =>       let val res =  Word.toString(Prop.fastHash(P))
                                in MLStringToAthString(res)
                                end
-           | _ => MLStringToAthString(Word.toString(AT.fastHash(t)))))
+           | _ => MLStringToAthString(Word.toString(AT.fastHash(t))))
+       | _  => let val v_str = valToString(v)
+                   val hash = Basic.hashString(v_str)
+               in
+		   MLStringToAthString(Word.toString(hash))
+	       end)
 
 fun hashIntFun([propVal(P)],_,_) = 
       let val res =  Word.toInt(Prop.hash(P))
@@ -2242,22 +2227,6 @@ fun hasEquality(P) =
   | _ => (case P.isCompound(P) of
              SOME(_,props) => List.exists hasEquality props
            | _ => raise Basic.Never))
-
-fun unparsePrimUFun(v,env,_) = 
-   (case v of
-       closUFunVal(e,_,_,{name,...}) => 
-              MLStringToAthString("Unary procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closBFunVal(e,_,_,_,{name,...}) => 
-              MLStringToAthString("Binary procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closFunVal(e,_,{name,...}) => 
-              MLStringToAthString("Procedure: " ^ (!name) ^ (A.unparseExp(e)))
-    | closUMethodVal(d,_,_,name) => 
-              MLStringToAthString("Unary method: " ^ (!name) ^ (A.unparseDed(d)))
-    | closBMethodVal(d,_,_,_,name) => 
-              MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
-    | closMethodVal(e,_) => 
-              MLStringToAthString("Method: " ^ (A.unparseExp(e)))
-    | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
 
 fun make_CNF_Result(clauses,output_format,inverse_atom_table) = 
  let fun makeAtom(i) = (case (HashTable.find inverse_atom_table i) of
@@ -3372,19 +3341,6 @@ fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) =
                                                                           val (new_phrase,vars,fids) = SV.preProcessPhrase(p,mod_path)
                                                                           val (vmap,mmap) = getValAndModMaps(!env)
                                                                           val env' = ref(augmentWithBothMaps(!top_val_env,mmap,vmap))
-
-									  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									           print("\nGiven env in which to evaluate " ^ str ^ "\nIS THIS:[[[[[[[[[[[\n" ^ 
-										        SV.envToString(!env) ^ "\n]]]]]]]]]]]\n")
-									          else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the TOP_VAL_ENV:[[[[[[[[\n" 
-									          ^ SV.envToString(!top_val_env) ^ "\n]]]]]]]]\n")
-										  else ()
- 							                  val _ = if (false andalso !Options.fundef_mlstyle_option) then
-									          print("\nAnd here's the EXTENDED environment, env';:[[[[[[[[\n" 
-									          ^ SV.envToString(!env') ^ "\n]]]]]]]]\n")
-										  else ()
                                                                       in processPhraseAndReturn(new_phrase,env',fids) end
 					        | _ =>  let val doInputs = !processAlreadParsedInputsRef
                                                             val _ = doInputs(inputs,(!Paths.current_mod_path),ref(!env),env)
@@ -3608,7 +3564,10 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.isPrintableFun_symbol,primUFunVal(isPrintablePrimUFun,default_ufv_pa_for_procs(N.isPrintableFun_name))),
                          (N.readOneChar_symbol,funVal(readOneCharFun,N.readOneChar_name,default_fv_pa_for_procs 0)),
                          (N.readFile_symbol,primUFunVal(readFilePrimUFun,default_ufv_pa_for_procs N.readFile_name)),
+                         (N.lineCount_symbol,primUFunVal(lineCountPrimUFun,default_ufv_pa_for_procs N.lineCount_name)),
                          (N.readFileLines_symbol,primUFunVal(readFileLinesPrimUFun,default_ufv_pa_for_procs N.readFileLines_name)),
+                         (N.listAllDirEntries_symbol,primUFunVal(readDirEntries,default_ufv_pa_for_procs N.listAllDirEntries_name)),
+                         (N.listAllDirEntriesRecursively_symbol,primUFunVal(readDirEntriesRecursively,default_ufv_pa_for_procs N.listAllDirEntriesRecursively_name)),
                          (N.writeFile_symbol,primBFunVal(writeFilePrimBFun,default_bfv_pa_for_procs N.writeFile_name)),
                          (N.varToStringFun_symbol,primUFunVal(varToStringPrimUFun,default_ufv_pa_for_procs N.varToStringFun_name)),
                          (N.compareCharsFun_symbol,primBFunVal(compareCharsPrimBFun,default_bfv_pa_for_procs N.compareCharsFun_name)),
@@ -3675,6 +3634,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.sort_of_var_in_prop_symbol,primBFunVal(sortOfVarInPropPrimBFun,default_bfv_pa_for_procs N.sort_of_var_in_prop_name)),
                          (N.propFun_symbol,primUFunVal(propPrimUFun,default_ufv_pa_for_procs N.propFun_name)),
                          (N.is_atom_symbol,primUFunVal(isAtomPrimUFun,default_ufv_pa_for_procs N.is_atom_name)),
+                         (N.is_dir_symbol,primUFunVal(isDirPrimUFun,default_ufv_pa_for_procs N.is_dir_name)),
                          (N.makeAthenaListFun_symbol,funVal(makeAthenaListFun,N.makeAthenaListFun_name,default_fv_pa_for_procs 1001)),
                          (N.replaceVar_symbol,funVal(replaceVarFun,N.replaceVar_name,default_fv_pa_for_procs 3)),
                          (N.timeFun_symbol,funVal(timeFun,N.timeFun_name,default_fv_pa_for_procs 0)),

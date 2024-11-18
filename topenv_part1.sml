@@ -55,6 +55,22 @@ fun readFileLinesPrimUFun(v,_,_) =
            SOME(str) => ((readFileLines str) handle _ => primError("Unable to read file "^str))
          | _ => primError(wrongArgKind(N.readFileLines_name,1,stringLCType,v)))
 
+fun readDirEntries(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(str) => ((let val athena_entry_names = map MLStringToAthString (Basic.readAllDirFiles(str))
+                          in
+                            listVal(athena_entry_names)
+                          end)  handle _ => primError("Unable to read directory "^str))
+         | _ => primError(wrongArgKind(N.listAllDirEntries_name,1,stringLCType,v)))
+
+fun readDirEntriesRecursively(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(str) => ((let val athena_entry_names = map MLStringToAthString (Basic.listDirFilesRecursively(str))
+                          in
+                            listVal(athena_entry_names)
+                          end)  handle _ => primError("Unable to read directory "^str))
+         | _ => primError(wrongArgKind(N.listAllDirEntriesRecursively_name,1,stringLCType,v)))
+
 fun mapKeyValuesPrimUFun(v,_,_) = 
      (case v of
          mapVal(m) => listVal(map (fn (x,y) => listVal([x,y])) (Maps.listKeyValuePairs m))
@@ -707,6 +723,45 @@ fun mergeSortPrimBFun'(v1,v2,env,ab) =
                            listVal(Basic.mergeSortBuiltIn(vals,compare))
                         end))
  
+fun unparseFun([closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref)],env,ab) = 
+      let val proof_str = A.unparseDed(body)
+      in
+         MLStringToAthString(proof_str)
+      end
+  | unparseFun([v],_,{pos_ar,file}) = primError(wrongArgKind(N.unparseFun_name,1,closMethodLCType,v))
+  | unparseFun(vals,_,{pos_ar,file}) = evError(wrongArgNumber(N.unparseFun_name,length(vals),1),SOME(Array.sub(pos_ar,0)))
+                                              
+
+fun unparsePrimUFun(v,env,ab) = 
+   (case v of
+       closUFunVal(e,_,_,{name,...}) => 
+              MLStringToAthString("Unary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closBFunVal(e,_,_,_,{name,...}) => 
+              MLStringToAthString("Binary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closFunVal(e,_,{name,...}) => 
+              MLStringToAthString("Procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closUMethodVal(d,_,_,name) => Basic.fail("Not implemented yet.")
+(***
+          let val conc = Simplify_New.proofConclusion(d,ab)
+              val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
+          in
+              MLStringToAthString("Unary method: " ^ (!name) ^ (A.unparseDed(d)))
+          end
+***)
+    | closBMethodVal(d,_,_,_,name) => 
+              MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
+    | closMethodVal(e as A.methodExp({body,...}),_) => Basic.fail("Not implemented yet.")
+(*******
+          let val conc = Simplify_New.proofConclusion(body,ab) 
+              val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
+              val fas = Simplify_New.FA(body,ab)
+              val _ = print("\n[[[[[[[ FREE ASSUMPTIONS:\n\n" ^ (Basic.printListStr(fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")) ^ "\n\n]]]]]]]\n")
+          in
+              MLStringToAthString("Method: " ^ (A.unparseExp(e)))
+          end
+***)
+    | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
+
 fun rootPrimUFun(v,env,ab) = 
      (case coerceValIntoTerm(v) of
          SOME(t) => (case isGeneralApp(t) of
@@ -733,6 +788,12 @@ fun isAtomPrimUFun(v,env,ab) =
       (case coerceValIntoProp(v) of
           SOME(P) => (case P.isAtom(P) of SOME(_) => true_val | _ => false_val)
         | _ => false_val)
+
+fun isDirPrimUFun(v,env,ab) = 
+      (case isStringValConstructive(v) of
+          SOME(str) => MLBoolToAth(Basic.isDir(str))
+        | _ => false_val)
+
 
 fun isAssertionFun([v],(env,ab),_) = 
       (case coerceValIntoProp(v) of
@@ -2160,6 +2221,13 @@ fun readFilePrimUFun(v,_,_) =
            SOME(str) => (MLStringToAthString(readFile(str)) 
                             handle _ => primError("Unable to read file "^str))
          | _ => primError(wrongArgKind(N.readFile_name,1,stringLCType,v)))
+
+fun lineCountPrimUFun(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(path) => ((termVal(AthTerm.makeNumTerm(A.int_num(Basic.countLines(path),ref ""))))
+                            handle _ => primError("Unable to read file "^path))
+         | _ => primError(wrongArgKind(N.lineCount_name,1,stringLCType,v)))
+
                                    
 fun writeFileFun([v1,v2],_,{pos_ar,file}) = 
                              (case (isStringValConstructive(v1),isStringValConstructive(v2)) of
@@ -2366,11 +2434,10 @@ fun freeVarsPrimUFun(listVal(pvals),env,_) =
 fun satSolve([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
       in 
-        case Prop.satSolveTableau(props) of
-           SOME(props) => listVal(map propVal props)
-         | _ => MLBoolToAth(false)
+        MLBoolToAth(Prop.satSolveTableauNew(props))
       end
   | satSolve(_) = primError("Incorrect invocation of ssat")
+
 
 fun satSolve0([listVal pvals],env,_) = 
       let val props = Semantics.getProps(pvals,"the argument list given to "^"ssat",env)
@@ -4125,6 +4192,29 @@ fun eGenUniquePrimMethod([v1,v2],env,ab) =
        | _ => primError(wrongArgKind(N.egenUniquePrimMethod_name,1,propLCType,v1)))
   | eGenUniquePrimMethod(args,env,ab) = 
         primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
+
+
+fun catchPrimBFun(v1,v2,env,ab) = 
+     (case (v1,v2) of
+        (closFunVal(e1,ref env1,_),closUFunVal(e2,arg_name,ref env2,_)) => 
+           let val _ = (case (getClosureArity(v1),getClosureArity(v2)) of
+                           (0,1) => ()
+                         | (0,n) => primError("The second procedure argument given to "^(N.catchFun_name)^" must take exactly one argument,\n"^
+                                              "but here it takes "^(Int.toString(n)))
+                         | (n,_) =>   primError("The first procedure argument given to "^(N.catchFun_name)^" must take zero arguments,\n"^
+                                                "but here it takes "^(Int.toString(n))))
+           in
+             ((evalClosure(v1,[],ab,NONE))
+                handle e => let val str = MLStringToAthString(Semantics.exceptionToString(e))
+                            in 
+                              evalClosure(v2,[str],ab,NONE)
+                            end)
+           end
+      | (closFunVal(_),v) => 
+           
+              primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
+      | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
+
 
 end;
 

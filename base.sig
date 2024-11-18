@@ -11,6 +11,10 @@ sig
     val readFileLines: string -> string list
     val writeLinesToFile: string list * string -> unit
     val replaceFile: string * string -> unit
+    val isDir: string -> bool 
+    val listDirFilesRecursively: string -> string list    
+    val readAllDirFiles: string -> string list 				    
+    val countLines: string -> int 
     val allEqual: ''a list -> bool 
     val bool2Str : bool -> string
     val isMember : ''a * ''a list ->bool
