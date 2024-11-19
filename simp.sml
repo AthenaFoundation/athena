@@ -84,6 +84,11 @@ fun getProp(phrase,env,ab) =
          SOME(Semantics.propVal(p)) => p
        | _ => Basic.fail("A sentence was expected here."))
 
+fun getTerm(phrase,env,ab) = 
+     (case Semantics.coerceValIntoTerm(Semantics.evalPhrase(phrase,env,ab)) of 
+         SOME(t) => t
+       | _ => Basic.fail("A term was expected here."))
+
 fun getLeftConjunct(p) = 
    (case Prop.isConj(p) of
        SOME(l::_) => l
@@ -198,6 +203,8 @@ fun getFromComplementsConclusions(args) =
        [p,q1,q2] => p
      | _ => Basic.fail("Invalid use of from-complements."))
 
+fun purelySententialRule(sym) = Basic.isMember(sym,["mp", "by-contradiction","mt","dsyl","both","left-either","right-either","either"])
+
 val (proofConclusionTop,FATop) = 
 let fun conclusion(D,starting_env,starting_ab) = 
   let fun C(A.assumeDed({assumption,body,...}),env) = 
@@ -228,23 +235,36 @@ let fun conclusion(D,starting_env,starting_ab) =
                  C(body,new_env)					    
               end                         
         | C(A.BMethAppDed({method,arg1,arg2,...}),env) = 
-             let val p1 = getProp(arg1,env,starting_ab)
-                 val p2 = getProp(arg2,env,starting_ab)
-             in 
                (case method of 
                    A.idExp({msym, mods=[],sym,...}) => 
-                      (case Symbol.name(sym) of 
-                          "mp" => getMpConclusion(p1,p2)
-                        | "by-contradiction" => p1 
-			| "mt" => getMtConclusion(p1,p2)
-			| "dsyl" => getDsylConclusion(p1,p2)
-			| "both" => Prop.makeConjunction([p1,p2])
-			| "left-either" => Prop.makeDisjunction([p1,p2])
-			| "right-either" => Prop.makeDisjunction([p1,p2])
-			| "either" => Prop.makeDisjunction([p1,p2])
- 	  	        | _ => Basic.fail("Unknown binary method, cannot compute conclusion..."))
+			   if purelySententialRule(Symbol.name(sym)) then 
+                              let val p1 = getProp(arg1,env,starting_ab)
+                                  val p2 = getProp(arg2,env,starting_ab)
+                              in
+                                (case Symbol.name(sym) of  
+                                    "mp" => getMpConclusion(p1,p2)
+				  | "by-contradiction" => p1 
+				  | "mt" => getMtConclusion(p1,p2)
+				  | "dsyl" => getDsylConclusion(p1,p2)
+				  | "both" => Prop.makeConjunction([p1,p2])
+				  | "left-either" => Prop.makeDisjunction([p1,p2])
+				  | "right-either" => Prop.makeDisjunction([p1,p2])
+				  | "either" => Prop.makeDisjunction([p1,p2])
+ 	  			  | _ => Basic.fail("Unknown primitive binary sentential method, cannot compute conclusion..."))
+                              end
+                           else 
+                                (case Symbol.name(sym) of  
+                                   "uspec" => let val (p1,t2) = (getProp(arg1,env,starting_ab),getTerm(arg2,env,starting_ab))
+                                              in
+                                                 (case Prop.isUGen(p1) of
+                                                     SOME(v,body) => Prop.replace(v,t2,body)
+                                                   | _ => Basic.fail("A universal generalization was expected here..."))
+                                              end            
+                                 | "egen" => let val (p1,t2) = (getProp(arg1,env,starting_ab),getTerm(arg2,env,starting_ab))
+                                             in
+                                                p1
+                                             end)
                  | _ => Basic.fail("Cannot compute conclusions for BMethodApps where the operator is not an identifier."))
-             end
         | C(A.UMethAppDed({method,arg,...}),env) = 
              let val p = getProp(arg,env,starting_ab)
              in

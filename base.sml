@@ -207,6 +207,77 @@ fun removeDuplicatesEq(l,eq) =
 
 fun hasDuplicates(l,eq) = List.length(removeDuplicatesEq(l,eq)) < List.length(l)
 
+fun isDir path =
+   let
+   val stat = OS.FileSys.isDir path
+   in
+     stat
+   end handle OS.SysErr _ => false
+
+fun readAllDirEntries dirStream =
+        let
+            fun loop acc =
+                case OS.FileSys.readDir dirStream of
+                     NONE => acc
+                   | SOME entry => loop (entry :: acc)
+        in
+            loop []
+        end
+
+fun readAllDirFiles(dir_name) =
+  let val dirStream = OS.FileSys.openDir dir_name
+      val entries = readAllDirEntries(dirStream)
+      val _ = OS.FileSys.closeDir dirStream
+      val fullPaths = List.map (fn entry => OS.Path.joinDirFile {dir = dir_name, file = entry}) entries
+  in
+    fullPaths
+  end
+
+fun listDirFilesRecursively dir =
+        let
+            fun traverse(path,acc) =
+                if isDir path then
+                    let
+                        val dirStream = OS.FileSys.openDir path
+                        val entries = readAllDirEntries dirStream
+                        val _ = OS.FileSys.closeDir dirStream
+                        (* Construct full paths for entries *)
+                        val fullPaths = List.map (fn entry => OS.Path.joinDirFile {dir = path, file = entry}) entries
+                    in
+                        foldl traverse acc fullPaths
+                    end
+                else
+                    (* If it's a file, add it to the accumulator *)
+                    (path::acc)
+        in
+            traverse(dir,[])
+        end
+
+fun countLines fileName =
+let val inStream = TextIO.openIn fileName
+in
+    (let
+        (* Open the input stream for the file *)        
+
+        (* Recursive function to count lines *)
+        fun count acc =
+              let val line = TextIO.inputLine(inStream)
+              in 
+                if line = "" then acc else count(acc + 1) 
+              end
+    in
+        (* Start counting from 0, then close the stream and return the result *)
+        let
+            val total = count 0
+            val _ = TextIO.closeIn inStream
+        in
+            total
+        end
+    end
+    handle exn => (TextIO.closeIn inStream; raise exn))  (* Ensure resource cleanup in case of exceptions *) 
+end
+
+
 (* The function remove(x,lst) removes all occurences of element x from list lst *)
 (* Note that list order is NOT preserved. Only use for set-like lists.          *)
 (* The same goes for removeEq.                                                  *)

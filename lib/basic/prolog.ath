@@ -8,6 +8,8 @@ define (print-info) := (set! print-info-flag true)
 
 define (dont-print-info) := (set! print-info-flag false)
 
+(define MAX-TIME-LIMIT 10000000)
+
 define (mprint str) := 
   check {(ref print-info-flag) => (print str)
        | else => ()}
@@ -333,7 +335,8 @@ lambda (program query-list time-limit)
         (_ (clear-memory))
         (prolog-program (separate (map (lambda (p) (join (make-prolog-prop p) ".\n")) program) ""))
         (_ (seq (mprint "\nGiven program:\n") (mprint prolog-program) (mprint "\n")))
-        (_ (write-file input-file "\nuse_module(library(time)).\n"))
+        (_ (write-file input-file "use_module(library(time)).\n"))
+        (_ (write-file input-file "\nconsult('musc.p').\n"))
         (_ (write-file input-file prolog-program))
         (_ (write-file input-file "\nverbose_eval(Predicate) :- call(Predicate) -> write(yes) ; write(no)."))
         (goal-string' (join "("
@@ -357,10 +360,6 @@ lambda (program query-list time-limit)
                               (str (join "," str))))
         (_ (mprint (join "\nGoal string: " (val->string goal-string))))
         (all-ground (for-each query-list ground?))
-	#(param-file "prologparams.txt")
-        #(param-string (join " -f " input-file " -g \"" goal-string write-var-strings' "\" -t \"halt\" -q > " output-file " 2> " error-file))
-        #(_ (write-file param-file param-string))
-	#(command (join "swipl  " param-file))
         (command (join "swipl -f " input-file " -g \"" goal-string write-var-strings' "\" -t \"halt\" -q > " output-file " 2> " error-file))
 	(_ (mprint (join "\nTIME UP TILL COMMAND EXECUTION: " (val->string (minus (time) start-time)))))
         (_ (mprint (join "\nCommand: " command)))
@@ -372,6 +371,33 @@ lambda (program query-list time-limit)
                   (else [false empty-sub])))
        (str (process-output str vars))))
 
+define solve-with-time-limit-aux-direct :=
+lambda (program query-list time-limit)
+  (let ((start-time (time))
+        ([input-file output-file error-file] ["a.pl" "o.pl" "e.pl"])
+        (_ (delete-files [input-file output-file]))
+        (_ (clear-memory))
+        (prolog-program program)
+        (_ (seq (mprint "\nGiven program:\n") (mprint prolog-program) (mprint "\n")))
+        (_ (write-file input-file "\nuse_module(library(time)).\n"))
+        ######(_ (write-file input-file "\nconsult('musc.p').\n"))
+        (_ (write-file input-file prolog-program))
+        (_ (write-file input-file "\nverbose_eval(Predicate) :- call(Predicate) -> write(yes) ; write(no)."))
+        (goal-string' (join "("
+                            (separate query-list ",")
+                           ")"))
+        (goal-string (check ((|| true (greater? time-limit 0))
+                               (join "call_with_time_limit(" (val->string time-limit) "," goal-string' ")"))
+                            (else goal-string')))
+        (command (join "swipl -f " input-file " -g \"" goal-string "\" -t \"halt\" -q > " output-file " 2> " error-file))
+      	(_ (mprint (join "\nTIME UP TILL COMMAND EXECUTION: " (val->string (minus (time) start-time)))))
+        (_ (mprint (join "\nCommand: " command)))
+        (_ (exec-command command))
+        (output-data (read-file output-file)))
+    output-data)
+
+define (solve-direct query-list program) := (solve-with-time-limit-aux-direct program query-list MAX-TIME-LIMIT)
+        
 (define (solve-with-time-limit query-list program time-limit)
   (match query-list 
    ((some-list _) (solve-with-time-limit-aux program query-list time-limit))
@@ -479,8 +505,6 @@ lambda (prog goal N time-limit)
   (match goal
      ((some-list _) (solve-N-with-time-limit-aux prog goal N time-limit))
      (_ (solve-N-with-time-limit-aux prog [goal] N time-limit))))
-
-(define MAX-TIME-LIMIT 10000000)
        
 define solve-aux := 
 lambda (prog g) 
@@ -848,6 +872,18 @@ extend-module Prolog {
 
 set-precedence Prolog.solve-goal 50
 set-precedence Prolog.auto-solve 50
+
+define (nd-tp goal premises out-file) :=
+   let {p := (if (and premises) goal);
+        tptp := (athena->tptp p);
+        prove-goal := (join "prove(" tptp ")");
+        musc_path := (join ATHENA_HOME "/lib/basic/muscadet.pl");
+        program := (join ":- consult('" musc_path "').\n:- assign(display(pr)).");
+        #_ := (print "\nGoal to prove:\n" prove-goal "\nand program:\n" program "\n");
+        res := (Prolog.solve-direct [prove-goal] program);
+        _ := match out-file { "" => () | _ => (write-file out-file res)}}
+    res         
+     
 
 EOF
 (load "lib/basic/prolog.ath")

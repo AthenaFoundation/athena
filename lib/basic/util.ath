@@ -5153,7 +5153,6 @@ define lambda-promote :=
     lambda (f)         
       check {(symbol? (val->string f)) => f
        | else => try { (promote-aux f) | f }}
-
                           
 define hol-fun := lambda-promote
 
@@ -5177,12 +5176,28 @@ define (replace-strings pat-replacement-pairs base) :=
 define (silence-on) := (process-input-from-string "(set-flag silent-mode \"on\")")
 define (silence-off) := (process-input-from-string "(set-flag silent-mode \"off\")")
 
-define (start-athena-server port) :=
- let {client-request-size := 122880;
-      _                   := (print "\nStarting an Athena server on port: " port "\n");
-      server              := (make-server client-request-size
-                               lambda (str)
-                                 (catch lambda () (val->string (evaluate str))
-                                        lambda (error_msg)
-                                         error_msg))}
-   (server port)
+# define (start-athena-server port) :=
+#  let {client-request-size := 122880;
+#       _                   := (print "\nStarting an Athena server on port: " port "\n");
+#       server              := (make-server client-request-size
+#                                lambda (str)
+#                                  (catch lambda () (val->string (evaluate str))
+#                                         lambda (error_msg)
+#                                          error_msg))}
+#    (server port)
+
+# Translate a simple Athena sentence p (propositional logic) to TPTP notation
+
+define (athena->tptp p) :=
+  match p {
+    (some-atom t) => (downcase-string (val->string t))
+  | (not q) => (join "(~ " (athena->tptp q) ")")
+  | (and (some-sent p1) (some-sent p2)) => (join "(" (athena->tptp p1) " & " (athena->tptp p2) ")")
+  | (or p1 p2) => (join "(" (athena->tptp p1) " | " (athena->tptp p2) ")")
+  | (if p1 p2) => (join "(" (athena->tptp p1) " => " (athena->tptp p2) ")")
+  | (iff p1 p2) => (join "(" (athena->tptp p1) " <=> " (athena->tptp p2) ")")
+  | (and ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->tptp (first args)) " & " (athena->tptp (and (tail args))) ")")
+  | (or ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->tptp (first args)) " | " (athena->tptp (or (tail args))) ")")  
+  | (and [arg]) => (athena->tptp arg)
+  | (or [arg]) => (athena->tptp arg)  
+  }

@@ -1664,11 +1664,11 @@ fun sat(props,plits,nlits) =
                               end
        fun loop(props,plits,nlits) = 
        let val _ = counter := !counter + 1
-(****)
+(****
            val _ = print("\nIterating on these props: " ^ (Basic.printListStr(props,toString1,"\n"))
                          ^ "\nthese plits: " ^ (Basic.printListStr(getPosLits(plits),toString1,"\n"))
                          ^ "\nand these nlits:\n" ^ (Basic.printListStr(getNegLits(nlits),toString1,"\n")))
-(****)
+****)
        in
             (case props of
                 conj({args=[p1,p2],...})::rest => if literal(p2) then loop(p2::p1::rest,plits,nlits) else loop(p1::p2::rest,plits,nlits)

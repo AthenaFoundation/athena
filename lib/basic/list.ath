@@ -452,9 +452,14 @@ define (list-remove* to-be-removed L) := (list-diff L to-be-removed)
     ([] e)
     ((list-of x rest) (f x (foldr f e rest)))))
 
+define (list-remove* elements L)  :=
+   match elements {
+      [] => L 
+    | (list-of h t) => (list-remove h (list-remove* t L))
+   }
+
 define (flatten L) := (foldl join [] L)
   
-
 (define (nth i l)
   (match [i l]
     ([1 (list-of x _)] x)

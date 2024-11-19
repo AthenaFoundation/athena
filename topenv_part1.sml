@@ -55,6 +55,22 @@ fun readFileLinesPrimUFun(v,_,_) =
            SOME(str) => ((readFileLines str) handle _ => primError("Unable to read file "^str))
          | _ => primError(wrongArgKind(N.readFileLines_name,1,stringLCType,v)))
 
+fun readDirEntries(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(str) => ((let val athena_entry_names = map MLStringToAthString (Basic.readAllDirFiles(str))
+                          in
+                            listVal(athena_entry_names)
+                          end)  handle _ => primError("Unable to read directory "^str))
+         | _ => primError(wrongArgKind(N.listAllDirEntries_name,1,stringLCType,v)))
+
+fun readDirEntriesRecursively(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(str) => ((let val athena_entry_names = map MLStringToAthString (Basic.listDirFilesRecursively(str))
+                          in
+                            listVal(athena_entry_names)
+                          end)  handle _ => primError("Unable to read directory "^str))
+         | _ => primError(wrongArgKind(N.listAllDirEntriesRecursively_name,1,stringLCType,v)))
+
 fun mapKeyValuesPrimUFun(v,_,_) = 
      (case v of
          mapVal(m) => listVal(map (fn (x,y) => listVal([x,y])) (Maps.listKeyValuePairs m))
@@ -768,6 +784,12 @@ fun isAtomPrimUFun(v,env,ab) =
       (case coerceValIntoProp(v) of
           SOME(P) => (case P.isAtom(P) of SOME(_) => true_val | _ => false_val)
         | _ => false_val)
+
+fun isDirPrimUFun(v,env,ab) = 
+      (case isStringValConstructive(v) of
+          SOME(str) => MLBoolToAth(Basic.isDir(str))
+        | _ => false_val)
+
 
 fun isAssertionFun([v],(env,ab),_) = 
       (case coerceValIntoProp(v) of
@@ -2195,6 +2217,13 @@ fun readFilePrimUFun(v,_,_) =
            SOME(str) => (MLStringToAthString(readFile(str)) 
                             handle _ => primError("Unable to read file "^str))
          | _ => primError(wrongArgKind(N.readFile_name,1,stringLCType,v)))
+
+fun lineCountPrimUFun(v,_,_) = 
+       (case isStringValConstructive(v) of
+           SOME(path) => ((termVal(AthTerm.makeNumTerm(A.int_num(Basic.countLines(path),ref ""))))
+                            handle _ => primError("Unable to read file "^path))
+         | _ => primError(wrongArgKind(N.lineCount_name,1,stringLCType,v)))
+
                                    
 fun writeFileFun([v1,v2],_,{pos_ar,file}) = 
                              (case (isStringValConstructive(v1),isStringValConstructive(v2)) of

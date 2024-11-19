@@ -520,7 +520,7 @@ define pick-witness-tactic :=
      }
      
 define (execute-thunk M assumptions) := 
-  let {sole-assumption := check {(null? assumptions) => true | _ => (and assumptions)};
+  let {sole-assumption := check {(null? assumptions) => true | else => (and* assumptions)};
                      p := assume sole-assumption (!M)}
     (consequent p)
 
@@ -570,17 +570,22 @@ define infer-tactic :=
          match args {
            [M] =>
                   let {_ := (print "\nINSIDE INFER-TACTIC...");
-                       lemma := (execute-thunk M (goal-record 'assumptions));
+                       assumptions := (goal-record 'assumptions);
+                       lemma := (execute-thunk M assumptions);
                        _ := (print "\nGOT THIS LEMMA: " lemma);
+                              _ := (mark `1);                       
                        new-goal := (make-child goal-record [['assumptions  (add-all lemma (goal-record 'assumptions))]]);
+                              _ := (mark `2);
                               _ := (set! (goal-record 'tactic) ['infer args]);
-                              _ := (set! (goal-record 'proof) ["let {_ := " (unparse-body M) "}\n  " (marker)])
-                      }
+                              _ := (mark `3);                              
+                              _ := (set! (goal-record 'proof) ["let {_ := " (unparse-body M) "}\n  " (marker)]);
+                              _ := (mark `4);
+                              _ := ()}
                     (add new-goal rest)
          | _ => (print "Invalid argument given to the infer tactic: A nullary method is expected.")
          }
      | _ => (error "Invalid tactic application - there are no open goals currently.")
-     }
+   }
 
 define (get-method-name M) :=
   let {long-name := (val->string M)}
@@ -726,8 +731,10 @@ define (show-tree) :=
                                            goal-line := check {(equals? goal-id current-goal-id) => (join "---> Goal: " (stringify goal))
                                                              | else => (join "Goal: " (stringify goal))};
                                            _ := (print "\n" (spaces level) (stringify (goal-record 'path))
-                                                       goal-line 
-                                                       "Assumptions:" (stringify (goal-record 'assumptions))
+                                                       goal-line
+                                                       "Assumptions:" (stringify (goal-record 'assumptions))                                                       
+                                                       "Eigens:" (stringify (goal-record 'eigenvars))
+                                                       "Witnesses:" (stringify (goal-record 'witnesses))                                                       
                                                        "Tactic:" (join (tac->string (ref (goal-record 'tactic))) leaf-suffix))}
                                        (display-goal-records (ref (goal-record 'children)) (plus level 2));
             display-goal-records := lambda (goal-records level)
@@ -814,6 +821,12 @@ assert p1 := (forall x . P x ==> Q x)
 assert p2 := (exists x . P x)
 (set-goal (exists x . ~ ~ Q x))
 (apply-tactic 'replace<- [(exists x . Q x) [bdn]])
+(apply-tactic 'exists-> [(exists x . P x)])
+(apply-tactic 'exists<- [[?witness1631]])
+(apply-tactic 'extract [])
+(apply-tactic 'infer [(method () (!uspec p1 ?witness1631))])
+
+(unparse (method () (!uspec p1 ?witness835)))
 
 
 assert p1 := (forall x . P x ==> Q x)
