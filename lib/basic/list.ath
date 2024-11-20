@@ -243,6 +243,16 @@ define (list-remove* to-be-removed L) := (list-diff L to-be-removed)
                      ((list-of [x y] rest) (loop rest (add x L1) (add y L2)))))))
     (loop L [] [])))
 
+
+# For thread method, each application of M requires a continuation as its second argument, because it might produce multiple conclusions. 
+
+(define (thread-method M L K)
+  (dletrec ((loop (method (L results-so-far)
+            		    (dmatch L
+           		        ([] (!K (rev results-so-far)))
+     		              ((list-of x more) (!M x (method (new-results) (!loop more (join new-results results-so-far)))))))))
+    (!loop L [])))
+     
 ## Here the input method M is a regular method
 ## that takes an input x (usually a sentence) and produces 
 ## a theorem. We apply M to all elements of the input list L,
@@ -768,6 +778,15 @@ define (first-image L f) :=
                        ((list-of x rest) (check ((pred x) (success x))
                                                 (else (search rest))))))))
      (search L)))
+
+
+(define (find-element* L pred success failure)
+  (letrec ((search (lambda (list)
+                     (match list
+                       ([] (failure))
+                       ((list-of x rest) (check ((pred x) (try (success x) (search rest)))
+                                                (else (search rest))))))))
+     (search L)))     
 
 ##  (find-element' L pred f success failure) finds the first element
 ##  x of L such that (pred (f x)) holds, if such x exists in L.

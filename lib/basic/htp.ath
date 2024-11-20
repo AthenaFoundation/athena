@@ -1,0 +1,90 @@
+(declare (A B C D E F G H I J) Boolean)
+assert p := (and (not (not A)) (iff B C))
+
+define (inconsistent? ab inconsistent-pair-cell) :=
+  match ab {
+    (split _ (list-of (some-sentence p) (split _ ((list-of q _) where (complements? p q))))) => let {_ := (set! inconsistent-pair-cell [p (not p)])} true 
+  | _ => false 
+  }
+
+define MAX-ITERS := 50 
+
+define (transform-forward hyp K) :=
+  match hyp {
+    (if p q) => let {p1 := (!force (or (complement p) q))}
+                  (!K [p1])
+  | (or (not p) q) => let {p1 := (!force (if p q))} (!K [p1])
+  | (and (some-list props)) => (!decompose hyp K)
+  | (iff p q) =>  let {p1 := (!force (and (if p q) (if q p)));
+                       p2 := (!force (or (and p q) (and (not p) (not q))))}
+                   (!K [p1 p2])
+  | (not (and p q)) => let {p1 := (!force (or (complement p) (complement q)))}
+                         (!K [p1])
+  | (not (or p q)) => let {p1 := (!force (and (complement p) (complement q)))}
+                        (!K [p1])
+  | (not (not p)) => let {p1 := (!force p)}
+                       (!K [p1])
+  | _ => let {p1 := (!claim hyp)} (!K [p1])                       
+  }
+
+define (transform-forward* props K) := (!thread-method transform-forward props K)
+
+define K1 := (method (results) let {_ := (print "\nRESULTS:\n" results "\n")} (!true-intro))
+
+(define (process-hyps props K)
+ letrec {loop := (method (props results i)
+                    check {(greater? i 3) => (!K results)
+                         | else => (!transform-forward* props
+                                                        (method (results')
+                                                          (!loop results' (join results' results) (plus i 1))))})}
+    (!loop props [] 0))
+
+define (all-disjunctions) := (merge-sort (filter (ab) disjunction?) (lambda (p1 p2) (less? (size p1) (size p2))))
+
+define (htp goal) :=
+  let {inconsistent-pair-cell := (cell [])}
+     letrec {backward-tp := method (goal iteration)
+                              match goal {
+                                (and (some-list args)) => (!map-method (method (arg)
+                                                                          (!tp arg (plus iteration 1)))
+                                                                       args 
+                                                                       method (_)
+                                                                         match args {
+                                                                           [(some-sentence p)] => (!claim p)
+                                                                            | [p1 p2] => (!both p1 p2)
+                                                                            | _ => (!conj-intro args)
+                                                                          })
+                              | (not (not p)) => let {_ := (!dn goal);
+                                                      _ := (!tp p)}
+                                                  (!bdn p)
+                              | (if p q) => assume p
+                                             (!process-hyps [p] (method (results) (!tp q (plus iteration 1))))
+                              | (iff p q) => let {dir1 := (!tp (if p q) (plus iteration 1));
+                                                  dir2 := (!tp (if q p) (plus iteration 1))}
+                                              (!equiv dir1 dir2)
+                              | (or p q) => try {(!left-either (!tp p (plus iteration 1)) q) | (!right-either p (!tp q (plus iteration 1))) | (!tp (!force (if (complement p) q)) (plus iteration 1))}
+                              };
+             tp := method (goal iteration)
+                     check {(greater? iteration MAX-ITERS) => (!proof-error "Reached max iterations")
+                          | (member? goal (ab)) => (!claim goal)
+                          | (inconsistent? ab inconsistent-pair-cell) => (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
+                          | else => try { (!backward-tp goal (plus 1 iteration))
+                                        | (!find-some (all-disjunctions) (method (d)
+                                                                           (!map-method (method (disjunct)
+                                                                                           (assume disjunct (!process-hyps [disjunct] (method (results) (!tp goal (plus iteration 1))))))
+                                                                                         (get-disjuncts d)
+                                                                                         (method (case-conditionals)
+                                                                                            (!cases d case-conditionals)))))
+                                        | (!by-contradiction goal
+                                             assume h := (complement goal)
+                                                (!process-hyps [h] (method (results) (!tp false (plus iteration 1)))))}}}
+       (!tp goal 1)
+       
+EOF
+load "lib/basic/htp"
+(!process-hyps [p] K1) 
+
+(!htp (if A A))
+
+Every time a hypothesis enters the assumption base, it should not only be decomposed, but every decomposed conjunct should be transformed, potentially to multiple sentences, each of which
+should again be decomposed and transformed etc. up until a fixed point. 

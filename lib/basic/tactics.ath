@@ -368,10 +368,10 @@ define extraction-tactic :=
          match [(goal-record 'goal) args] {
          # We need to extract goal from premise, but first we must verify that the goal is positively embedded in the premise:         
             [goal []] => # If no premise is specified, try to find one: 
-                (find-element (join (ab) (goal-record 'assumptions))
-                              lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ())
-                              lambda (premise) (extraction-tactic goal-stack [premise])
-                              lambda () (error "Invalid application of extraction: the given goal does not have any universally positive parents in the current assumptions."))
+                (find-element* (join (ab) (goal-record 'assumptions))
+                               lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ())
+                               lambda (premise) (extraction-tactic goal-stack [premise])
+                               lambda () (error "Invalid application of extraction: the given goal does not have any universally positive parents in the current assumptions."))
           | [goal [premise]] => check {(premise fails-in goal-record)  => (error (join "Invalid application of the extraction tactic: the given premise does not hold:\n" (val->string premise)))
                                      | else => match (Polarities.find-universally-positive-parent goal premise) {
                                                  () => (error "Invalid application of the extraction tactic: the given premise does not have any universally positive occurrences of a goal parent")
@@ -874,7 +874,7 @@ assert p := (B | (~A ==> C))
 assert p1 := (B ==> A)
 assert p2 := (C ==> A)
 (set-goal A)
-(apply-tactic 'extract [p])
+(apply-tactic 'extract [])
 
 
 assert p1 := (forall x . P x ==> Q x)
