@@ -254,7 +254,9 @@ let fun conclusion(D,starting_env,starting_ab) =
                               end
                            else 
                                 (case Symbol.name(sym) of  
-                                   "uspec" => let val (p1,t2) = (getProp(arg1,env,starting_ab),getTerm(arg2,env,starting_ab))
+                                   "uspec" => let val _ = Basic.mark("AAAAAA")
+                                                  val (p1,t2) = (getProp(arg1,env,starting_ab),getTerm(arg2,env,starting_ab))
+						  val _ = Basic.mark("BBBBBB")
                                               in
                                                  (case Prop.isUGen(p1) of
                                                      SOME(v,body) => Prop.replace(v,t2,body)

@@ -939,6 +939,9 @@ val makeTermHTFun_symbol = Symbol.symbol makeTermHTFun_name
 val unparseFun_name = "unparse"
 val unparseFun_symbol = S.symbol unparseFun_name
 
+val unparsePlainFun_name = "unparse-plain"
+val unparsePlainFun_symbol = S.symbol unparsePlainFun_name
+
 val satFun_name = "sat-solve"
 val satFun_symbol = S.symbol satFun_name 
 

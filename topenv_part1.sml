@@ -751,11 +751,28 @@ fun unparsePrimUFun(v,env,ab) =
     | closMethodVal(e as A.methodExp({body,...}),_) => 
           let val conc = Simplify_New.proofConclusion(body,ab) 
               val _ = print("\nCONCLUSION:\n" ^ (Prop.toPrettyStringDefault(0,conc)) ^ "\n")
+              val _ = print("\nABOUT TO COMPUTE FREE ASSUMPTIONS...\n")
               val fas = Simplify_New.FA(body,ab)
               val _ = print("\n[[[[[[[ FREE ASSUMPTIONS:\n\n" ^ (Basic.printListStr(fas,fn p => Prop.toPrettyStringDefault(0,p),"\n")) ^ "\n\n]]]]]]]\n")
           in
               MLStringToAthString("Method: " ^ (A.unparseExp(e)))
           end
+    | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
+
+fun unparsePlainPrimUFun(v,env,ab) = 
+   (case v of
+       closUFunVal(e,_,_,{name,...}) => 
+              MLStringToAthString("Unary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closBFunVal(e,_,_,_,{name,...}) => 
+              MLStringToAthString("Binary procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closFunVal(e,_,{name,...}) => 
+              MLStringToAthString("Procedure: " ^ (!name) ^ (A.unparseExp(e)))
+    | closUMethodVal(d,_,_,name) => 
+              MLStringToAthString("Unary method: " ^ (!name) ^ (A.unparseDed(d)))
+    | closBMethodVal(d,_,_,_,name) => 
+              MLStringToAthString("Binary method: " ^ (!name) ^ (A.unparseDed(d)))
+    | closMethodVal(e as A.methodExp({body,...}),_) => 
+              MLStringToAthString("Method: " ^ (A.unparseExp(e)))
     | _ =>  primError(wrongArgKind(N.unparseFun_name,1,functionLCType,v)))
 
 fun rootPrimUFun(v,env,ab) = 

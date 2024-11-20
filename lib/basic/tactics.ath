@@ -229,7 +229,12 @@ define (holds-in p goal-record) :=
 define (fails-in p goal-record) := (negate (holds-in p goal-record))
 
 define (hold-in props goal-record) := (for-each props lambda (p) (holds-in p goal-record))
-        
+
+define (get-top-field field-id) :=
+  match (ref goal-stack) {
+   (list-of goal-record _) => (goal-record field-id)
+  }
+
 define set-goal :=
   lambda (goal-sentence)
     check {(holds? goal-sentence) => (print "\nThis sentence already holds.")
@@ -815,20 +820,35 @@ EOF
 
 load "lib/basic/tactics"
 
-
-
 assert p1 := (forall x . P x ==> Q x)
 assert p2 := (exists x . P x)
 (set-goal (exists x . ~ ~ Q x))
 (apply-tactic 'replace<- [(exists x . Q x) [bdn]])
 (apply-tactic 'exists-> [(exists x . P x)])
-(apply-tactic 'exists<- [[?witness1631]])
+let {t := (first (get-top-field 'witnesses))}
+  (apply-tactic 'exists<- [[t]])
+  
 (apply-tactic 'extract [])
-(apply-tactic 'infer [(method () (!uspec p1 ?witness1631))])
+
+let {t :=  (first (get-top-field 'witnesses));
+     method-def := (join "(method () (!uspec p1 " (val->string t) "))")}
+  (apply-tactic 'infer [(evaluate method-def)])
 
 (unparse (method () (!uspec p1 ?witness835)))
 
 
+let {_ :=  let {_ := (!claim (exists ?x:Int  (P ?x:Int)))}
+            pick-witness w for (exists ?x:Int (P ?x:Int))
+              let {_ := let {cond := let {_ := (!uspec p1 (first (get-top-field 'witnesses)))}
+                                      (!claim (if (P w) (Q w)));
+                             ant := (!claim (P w))}
+                        (!mp cond ant)}
+              (!egen* (exists ?x:Int (Q ?x:Int)) [w])
+    }
+  (!transform (exists ?x:Int (Q ?x:Int)) (exists ?x:Int (not (not (Q ?x:Int)))) [bdn])
+  
+
+  
 assert p1 := (forall x . P x ==> Q x)
 assert p2 := (and true (not (exists x (not (P x)))))
 (set-goal (exists x . Q x))

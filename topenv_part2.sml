@@ -3754,6 +3754,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                           primUFunVal(qualifySortNamePrimUFun,default_ufv_pa_for_procs "qualify-sort-name")),
                          (N.satFun_symbol,primUFunVal(satPrimUFun,default_ufv_pa_for_procs N.satFun_name)),
                          (N.unparseFun_symbol,primUFunVal(unparsePrimUFun,default_ufv_pa_for_procs N.unparseFun_name)),
+                         (N.unparsePlainFun_symbol,primUFunVal(unparsePlainPrimUFun,default_ufv_pa_for_procs N.unparsePlainFun_name)),
                          (N.true_intro_PrimMethod_symbol,methodVal(trueIntroPrimMethod,
 			  N.true_intro_PrimMethod_symbol)),                         
                          (N.is_assertion_symbol,primUFunVal(isAssertionPrimUFun,default_ufv_pa_for_procs N.is_assertion_name)),

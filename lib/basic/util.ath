@@ -5157,7 +5157,7 @@ define lambda-promote :=
 define hol-fun := lambda-promote
 
 define (unparse-body method-thunk) :=
-  let {str := (unparse method-thunk)}
+  let {str := (unparse-plain method-thunk)}
     check {(prefix?  "Method:" str) => (trim (all-but-last (drop str 18)) " ")
          | else => (trim (all-but-last (drop str 10)) " ")}
 
