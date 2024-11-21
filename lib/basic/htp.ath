@@ -1,5 +1,7 @@
+load "polarities"
+
 (declare (A B C D E F G H I J) Boolean)
-assert p := (and (not (not A)) (iff B C))
+
 
 define (inconsistent? ab inconsistent-pair-cell) :=
   match ab {
@@ -29,14 +31,42 @@ define (transform-forward hyp K) :=
 
 define (transform-forward* props K) := (!thread-method transform-forward props K)
 
-define K1 := (method (results) let {_ := (print "\nRESULTS:\n" results "\n")} (!true-intro))
+define K1 := (method (results) #let {_ := (print "\nRESULTS:\n" results "\n")}
+                (!true-intro))
 
+define (forward-inference p K) :=
+  letrec {combine := method (premise) 
+                       match premise {
+                         (if p1 p2) => check {(equal? p p1) => (!mp premise p)
+                                            | (equal? p (complement p2)) => (!mt premise p)}
+                       | (or p1 p2) => check {(|| (equal? p (complement p1)) (equal? p (complement p2))) => (!dsyl premise p)}
+                       }}
+    (!map-method-non-strictly combine (ab) K)
+  
+(define (forward-inference* props K)
+   (!thread-method forward-inference props K))
+                   
 (define (process-hyps props K)
  letrec {loop := (method (props results i)
-                    check {(greater? i 3) => (!K results)
+                    check {(greater? i 3) => (!forward-inference* results K)
                          | else => (!transform-forward* props
                                                         (method (results')
                                                           (!loop results' (join results' results) (plus i 1))))})}
+    (!loop props [] 0))
+
+(define (process-hyps props K)
+ letrec {loop := (method (props results i)
+                    check {(greater? i 3) => (!K (dedup results))
+                         | else => (!transform-forward* props
+                                                        (method (results')
+                                                          (!forward-inference* results'
+                                                             (method (results'')
+                                                                    let {#_ := (print "\nNew results:\n" results');
+                                                                         #_ := (print "\nOld results:\n" results);                                                                    
+                                                                         D := (list-diff results'' results');
+                                                                         #_ := (print "\nDIFF:\n" D "\n");
+                                                                         R := (join results' results'')}
+                                                                      (!loop R (join R results) (plus i 1))))))})}
     (!loop props [] 0))
 
 define (all-disjunctions) := (merge-sort (filter (ab) disjunction?) (lambda (p1 p2) (less? (size p1) (size p2))))
@@ -69,6 +99,15 @@ define (htp goal) :=
                           | (member? goal (ab)) => (!claim goal)
                           | (inconsistent? ab inconsistent-pair-cell) => (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
                           | else => try { (!backward-tp goal (plus 1 iteration))
+                                        | (!dfind-element'*
+                                            (ab) 
+                                            lambda (premise) (Polarities.find-universally-positive-parent goal premise)
+                                            method (premise polarity-result)
+                                                match polarity-result {
+                                                  [(some-sentence parent) parent-position-in-premise theta] =>
+                                                    (!proof-error "")
+                                                }
+                                            method () (!proof-error "Failed application of extraction..."))
                                         | (!find-some (all-disjunctions) (method (d)
                                                                            (!map-method (method (disjunct)
                                                                                            (assume disjunct (!process-hyps [disjunct] (method (results) (!tp goal (plus iteration 1))))))
@@ -82,9 +121,16 @@ define (htp goal) :=
        
 EOF
 load "lib/basic/htp"
+
+assert p := (and (not (not A)) (iff B C))
+#assert q := (if A D)
+
+
 (!process-hyps [p] K1) 
 
 (!htp (if A A))
+
+(!htp (if (A ==> B) (if (B ==> C) (if A C))))
 
 Every time a hypothesis enters the assumption base, it should not only be decomposed, but every decomposed conjunct should be transformed, potentially to multiple sentences, each of which
 should again be decomposed and transformed etc. up until a fixed point. 

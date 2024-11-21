@@ -779,14 +779,54 @@ define (first-image L f) :=
                                                 (else (search rest))))))))
      (search L)))
 
-
 (define (find-element* L pred success failure)
   (letrec ((search (lambda (list)
                      (match list
                        ([] (failure))
                        ((list-of x rest) (check ((pred x) (try (success x) (search rest)))
                                                 (else (search rest))))))))
-     (search L)))     
+     (search L)))
+     
+(define (dfind-element L pred success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dcheck ((pred x) (!success x))
+                                                  (else (!search rest))))))))
+     (!search L)))
+
+(define (dfind-element* L pred success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dcheck ((pred x) (dtry (!success x) (!search rest)))
+                                                  (else (!search rest))))))))
+     (!search L)))
+     
+# Find the first x in L such that (f x) returns something other than the unit (). If such an x is found, call (!success x (f x)),
+# i.e. apply the binary method sucess both to x and to the result (f x). Otherwise, if there's no such x, call (!failure):
+
+(define (dfind-element' L f success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dmatch (f x)
+                                            (() (!search rest))
+                                            (res (!success x res))))))))
+
+     (!search L)))
+
+
+(define (dfind-element'* L f success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dmatch (f x)
+                                            (() (!search rest))
+                                            (res (dtry (!success x res) (!search rest)))))))))
+     (!search L)))
+
+          
 
 ##  (find-element' L pred f success failure) finds the first element
 ##  x of L such that (pred (f x)) holds, if such x exists in L.
@@ -838,6 +878,9 @@ define (first-image L f) :=
     ([] (!K))
     ((list-of x rest) (dtry (!M x)
                             (!find-some rest M K)))))
+
+
+                            
 
 
 # (find-in-list L P) takes finds the first element y in L such
