@@ -94,6 +94,52 @@ define (htp goal) :=
                                               (!equiv dir1 dir2)
                               | (or p q) => try {(!left-either (!tp p (plus iteration 1)) q) | (!right-either p (!tp q (plus iteration 1))) | (!tp (!force (if (complement p) q)) (plus iteration 1))}
                               };
+             extract := method (goal premise polarity-result iteration)
+                          match polarity-result {
+                            [(some-sentence parent) parent-position-in-premise theta] =>
+                              let {instantiated-parent := (theta parent);
+                                   parent-polarity-in-premise := (Polarities.get-polarity parent-position-in-premise premise);
+                                   negative-parent-polarity := (Polarities.negative-pol? parent-polarity-in-premise);       
+                                   non-negative-parent-polarity := (negate negative-parent-polarity)}
+                                match instantiated-parent {
+                                  (and (some-list props)) =>
+                                    let {parent-th := (!tp instantiated-parent (plus iteration 1))}
+                                      match parent-th {
+                                        (and (val-of goal) (some-sentence _)) => (!left-and parent-th)
+                                      | (and (some-sentence _) (val-of goal)) => (!right-and parent-th)
+                                      | (and (some-list _)) => (!conj-elim goal instantiated-parent) 
+                                      }
+                                | (or (some-list _))  =>
+                                    let {disjuncts := (get-disjuncts instantiated-parent)}
+                                      check {(member? goal disjuncts) =>
+                                        let {disjunction-theorem := (!tp instantiated-parent (plus iteration 1))}
+                                          (!map-method method (d) (!tp (if d goal) (plus iteration 1))
+                                                       disjuncts
+                                                        method (disjunct-conditionals)
+                                                          (!cases disjunction-theorem
+                                                                  disjunct-conditionals))}
+                                | (if antecedent (val-of goal)) =>
+                                    let {conditional-th := (!tp instantiated-parent (plus iteration 1));
+                                         ant-th := (!tp antecedent  (plus iteration 1))}
+                                      (!mp conditional-th ant-th)
+                                | ((iff  left right) where non-negative-parent-polarity) =>
+                                    let {bi-cond-th  := (!tp instantiated-parent (plus iteration 1))}
+                                      check {(equal? goal left) =>  let {cond-th  := (!left-iff bi-cond-th);
+                                                                         left-ant := (!tp left (plus iteration 1))}
+                                                                      (!mp cond-th left-ant)
+                                           | (equal? goal right) => let {cond-th  := (!right-iff bi-cond-th);
+                                                                         right-ant := (!tp right (plus iteration 1))}
+                                                                      (!mp cond-th right-ant)
+                                      }
+                                | ((|| (not (some-sentence body)) (if (val-of goal) (some-sentence consequent))) where negative-parent-polarity) =>
+                                    let {dn-parent := (!tp (not instantiated-parent) (plus iteration 1))}
+                                      match instantiated-parent {
+                                        (not _)  => (!dn dn-parent)
+                                      | (if _ _) => let {nc-th := (!neg-cond dn-parent)}
+                                                     (!left-and nc-th)
+                                    }
+                                }
+                          };
              tp := method (goal iteration)
                      check {(greater? iteration MAX-ITERS) => (!proof-error "Reached max iterations")
                           | (member? goal (ab)) => (!claim goal)
@@ -102,11 +148,7 @@ define (htp goal) :=
                                         | (!dfind-element'*
                                             (ab) 
                                             lambda (premise) (Polarities.find-universally-positive-parent goal premise)
-                                            method (premise polarity-result)
-                                                match polarity-result {
-                                                  [(some-sentence parent) parent-position-in-premise theta] =>
-                                                    (!proof-error "")
-                                                }
+                                            method (premise polarity-result) (!extract goal premise polarity-result iteration)
                                             method () (!proof-error "Failed application of extraction..."))
                                         | (!find-some (all-disjunctions) (method (d)
                                                                            (!map-method (method (disjunct)
@@ -124,7 +166,6 @@ load "lib/basic/htp"
 
 assert p := (and (not (not A)) (iff B C))
 #assert q := (if A D)
-
 
 (!process-hyps [p] K1) 
 
