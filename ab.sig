@@ -45,6 +45,8 @@ sig
 
     val look_ups: int ref
 
+    val abToString: assum_base -> string
+
     val bucketSizes: unit -> int list 
     val getBucketSizeStatistics: unit -> string
 

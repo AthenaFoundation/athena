@@ -224,6 +224,15 @@ fun insertAlongWithConjuncts(P,ab) = augment(ab,P::(Prop.getConjunctsOnly P))
 
 fun getAll(ab as abase({prop_table,...}):assum_base) = IntBinaryMap.listItems(prop_table)
 
+fun abToString(ab as abase({prop_table,...}):assum_base) = 
+      let val codes = map getPropCode (IntBinaryMap.listItems prop_table)
+          val sorted_codes = Basic.mergeSortBuiltIn(codes,Int.<=)
+      in
+         (foldl (fn (code,str) => str ^ ("#" ^ (Int.toString code)))
+               ""
+               sorted_codes)
+      end          
+
 fun occursFree(v,ab) = List.exists (fn (P) => Prop.occursFree(v,P)) (getAll ab) 
 
 fun occursFreeUpToSubsorting(v,ab) = List.exists (fn (P) => Prop.occursFreeUpToSubsorting(v,P)) (getAll ab) 

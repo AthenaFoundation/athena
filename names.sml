@@ -201,6 +201,9 @@ val dependenciesFun_symbol = Symbol.symbol dependenciesFun_name
 val dependenciesTranFun_name = "dependencies*"
 val dependenciesTranFun_symbol = Symbol.symbol dependenciesTranFun_name
 
+val abToStringFun_name = "ab->string"
+val abToStringFun_symbol = Symbol.symbol abToStringFun_name
+
 val symCodeFun_name = "symbol-code"
 val symCodeFun_symbol = Symbol.symbol symCodeFun_name
 

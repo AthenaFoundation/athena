@@ -3,13 +3,21 @@ load "polarities"
 (declare (A B C D E F G H I J) Boolean)
 
 
-define (inconsistent? ab inconsistent-pair-cell) :=
-  match ab {
-    (split _ (list-of (some-sentence p) (split _ ((list-of q _) where (complements? p q))))) => let {_ := (set! inconsistent-pair-cell [p (not p)])} true 
-  | _ => false 
-  }
+define (inconsistent? abase inconsistent-pair-cell) :=
+  let {#_     := (print "Checking if this is ab inconsistent:\n" abase "\n");
+       is-in := lambda (x x' L) check {(member? x' L) => (seq (set! inconsistent-pair-cell [x x']) true) | else => false}}
+    letrec {loop := lambda (p rest)
+                      match rest {
+                        [] => false
+                      | (list-of h t) => (|| (is-in p (complement p) rest) (loop h t))
+                      }}
+       match abase {
+         [] => false
+       | (list-of p more) => (loop p more)
+       }
 
-define MAX-ITERS := 50 
+
+define MAX-ITERS := (cell 10)
 
 define (transform-forward hyp K) :=
   match hyp {
@@ -20,6 +28,8 @@ define (transform-forward hyp K) :=
   | (iff p q) =>  let {p1 := (!force (and (if p q) (if q p)));
                        p2 := (!force (or (and p q) (and (not p) (not q))))}
                    (!K [p1 p2])
+  | (not (if p q)) => let {th := (!force (and p (not q)))}
+                       (!K [th])
   | (not (and p q)) => let {p1 := (!force (or (complement p) (complement q)))}
                          (!K [p1])
   | (not (or p q)) => let {p1 := (!force (and (complement p) (complement q)))}
@@ -31,7 +41,7 @@ define (transform-forward hyp K) :=
 
 define (transform-forward* props K) := (!thread-method transform-forward props K)
 
-define K1 := (method (results) #let {_ := (print "\nRESULTS:\n" results "\n")}
+define K1 := (method (results) let {_ := (print "\nRESULTS:\n" results "\n")}
                 (!true-intro))
 
 define (forward-inference p K) :=
@@ -71,12 +81,15 @@ define (forward-inference p K) :=
 
 define (all-disjunctions) := (merge-sort (filter (ab) disjunction?) (lambda (p1 p2) (less? (size p1) (size p2))))
 
+define (increment i) := #let {_ := (print "\nIncrementing iteration to: " (plus i 1))}
+                         (plus i 1)
+
 define (htp goal) :=
   let {inconsistent-pair-cell := (cell [])}
      letrec {backward-tp := method (goal iteration)
                               match goal {
                                 (and (some-list args)) => (!map-method (method (arg)
-                                                                          (!tp arg (plus iteration 1)))
+                                                                          (!tp arg (increment iteration)))
                                                                        args 
                                                                        method (_)
                                                                          match args {
@@ -85,14 +98,19 @@ define (htp goal) :=
                                                                             | _ => (!conj-intro args)
                                                                           })
                               | (not (not p)) => let {_ := (!dn goal);
-                                                      _ := (!tp p)}
+                                                      _ := (!tp p (increment iteration))}
                                                   (!bdn p)
                               | (if p q) => assume p
-                                             (!process-hyps [p] (method (results) (!tp q (plus iteration 1))))
-                              | (iff p q) => let {dir1 := (!tp (if p q) (plus iteration 1));
-                                                  dir2 := (!tp (if q p) (plus iteration 1))}
+                                             (!process-hyps [p] (method (results) (!tp q (increment iteration))))
+                              | (iff p q) => let {dir1 := (!tp (if p q) (increment iteration));
+                                                  dir2 := (!tp (if q p) (increment iteration))}
                                               (!equiv dir1 dir2)
-                              | (or p q) => try {(!left-either (!tp p (plus iteration 1)) q) | (!right-either p (!tp q (plus iteration 1))) | (!tp (!force (if (complement p) q)) (plus iteration 1))}
+                              | (or p q) => try {(!left-either (!tp p (increment iteration)) q)
+                                               | (!right-either p (!tp q (increment iteration)))
+                                               | let {transformed    := (if (complement p) q);
+                                                      transformed-th := (!tp transformed (increment iteration))}
+                                                  (!cond-def transformed-th)
+                                            }
                               };
              extract := method (goal premise polarity-result iteration)
                           match polarity-result {
@@ -103,7 +121,7 @@ define (htp goal) :=
                                    non-negative-parent-polarity := (negate negative-parent-polarity)}
                                 match instantiated-parent {
                                   (and (some-list props)) =>
-                                    let {parent-th := (!tp instantiated-parent (plus iteration 1))}
+                                    let {parent-th := (!tp instantiated-parent (increment iteration))}
                                       match parent-th {
                                         (and (val-of goal) (some-sentence _)) => (!left-and parent-th)
                                       | (and (some-sentence _) (val-of goal)) => (!right-and parent-th)
@@ -112,27 +130,27 @@ define (htp goal) :=
                                 | (or (some-list _))  =>
                                     let {disjuncts := (get-disjuncts instantiated-parent)}
                                       check {(member? goal disjuncts) =>
-                                        let {disjunction-theorem := (!tp instantiated-parent (plus iteration 1))}
-                                          (!map-method method (d) (!tp (if d goal) (plus iteration 1))
+                                        let {disjunction-theorem := (!tp instantiated-parent (increment iteration))}
+                                          (!map-method method (d) (!tp (if d goal) (increment iteration))
                                                        disjuncts
                                                         method (disjunct-conditionals)
                                                           (!cases disjunction-theorem
                                                                   disjunct-conditionals))}
                                 | (if antecedent (val-of goal)) =>
-                                    let {conditional-th := (!tp instantiated-parent (plus iteration 1));
-                                         ant-th := (!tp antecedent  (plus iteration 1))}
+                                    let {conditional-th := (!tp instantiated-parent (increment iteration));
+                                         ant-th := (!tp antecedent  (increment iteration))}
                                       (!mp conditional-th ant-th)
                                 | ((iff  left right) where non-negative-parent-polarity) =>
-                                    let {bi-cond-th  := (!tp instantiated-parent (plus iteration 1))}
+                                    let {bi-cond-th  := (!tp instantiated-parent (increment iteration))}
                                       check {(equal? goal left) =>  let {cond-th  := (!left-iff bi-cond-th);
-                                                                         left-ant := (!tp left (plus iteration 1))}
+                                                                         left-ant := (!tp left (increment iteration))}
                                                                       (!mp cond-th left-ant)
                                            | (equal? goal right) => let {cond-th  := (!right-iff bi-cond-th);
-                                                                         right-ant := (!tp right (plus iteration 1))}
+                                                                         right-ant := (!tp right (increment iteration))}
                                                                       (!mp cond-th right-ant)
                                       }
                                 | ((|| (not (some-sentence body)) (if (val-of goal) (some-sentence consequent))) where negative-parent-polarity) =>
-                                    let {dn-parent := (!tp (not instantiated-parent) (plus iteration 1))}
+                                    let {dn-parent := (!tp (not instantiated-parent) (increment iteration))}
                                       match instantiated-parent {
                                         (not _)  => (!dn dn-parent)
                                       | (if _ _) => let {nc-th := (!neg-cond dn-parent)}
@@ -141,37 +159,105 @@ define (htp goal) :=
                                 }
                           };
              tp := method (goal iteration)
-                     check {(greater? iteration MAX-ITERS) => (!proof-error "Reached max iterations")
-                          | (member? goal (ab)) => (!claim goal)
-                          | (inconsistent? ab inconsistent-pair-cell) => (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
-                          | else => try { (!backward-tp goal (plus 1 iteration))
+                     let {abase := (ab);
+                          _ := (print "\nTrying to derive:\n" goal "\nfrom ab tag: " (ab-tag) "\n")}
+                     check {(greater? iteration (ref MAX-ITERS)) =>   #let {_ := (print "\nReached max iterations!\n")}
+                                                                    (!proof-error "Reached max iterations")
+                          | (member? goal abase) => (!claim goal)
+                          | (inconsistent? abase inconsistent-pair-cell) => (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
+                          | else => try { let {b-th := (!backward-tp goal (plus 1 iteration));
+                                               #  _ := (print "\nBackward tactic succeeded on this goal: " goal "\nwith this theorem:\n" b-th "\n")
+                                                  _ := ()
+                                              }
+                                            (!claim b-th)
                                         | (!dfind-element'*
                                             (ab) 
                                             lambda (premise) (Polarities.find-universally-positive-parent goal premise)
-                                            method (premise polarity-result) (!extract goal premise polarity-result iteration)
+                                            method (premise polarity-result) let {_ := (print "\nAbout to try extraction on this goal:\n" goal "\nfrom this premise:\n" premise);
+                                                                                  e-th := (!extract goal premise polarity-result iteration);
+                                                                                     _ := (print "\nExtraction worked...\n")}
+                                                                               (!claim e-th)                                                                                    
                                             method () (!proof-error "Failed application of extraction..."))
-                                        | (!find-some (all-disjunctions) (method (d)
-                                                                           (!map-method (method (disjunct)
-                                                                                           (assume disjunct (!process-hyps [disjunct] (method (results) (!tp goal (plus iteration 1))))))
-                                                                                         (get-disjuncts d)
-                                                                                         (method (case-conditionals)
-                                                                                            (!cases d case-conditionals)))))
-                                        | (!by-contradiction goal
-                                             assume h := (complement goal)
-                                                (!process-hyps [h] (method (results) (!tp false (plus iteration 1)))))}}}
+                                        | let {AD := (all-disjunctions);
+                                               #_ := (print "\nALL DISJUNCTIONS:\n" AD "\n")
+                                                _ := ()
+                                               }
+                                            (!find-some (all-disjunctions)
+                                                        (method (d)
+                                                           let {_ := ()} # (print "\nWill try a case analysis on this goal:\n" goal "\nusing this disjunction:\n" d "\n")}
+                                                             (!map-method (method (disjunct)
+                                                                             (assume disjunct
+                                                                                (!process-hyps
+                                                                                   [disjunct]
+                                                                                   (method (results)
+                                                                                     let {_ := ()} # (print "\nHere's results from processing the disjunct " disjunct ":\n" results "\nWILL now go on to prove:\n" goal "\n")}
+                                                                                     (!tp goal (increment iteration))))))
+                                                                          (get-disjuncts d)
+                                                                          (method (case-conditionals)
+                                                                            (!cases d case-conditionals))))
+                                                        (method () let {_ := ()} # (print "\nNo case analysis succeeded!!!\n")}
+                                                                      (!proof-error "No case analysis succeeded.")))
+                                        | check {(equal? goal false) => (!proof-error "")
+                                                | else => let {_ := ()} # (print "\nTrying by contradiction on this: " goal "\nat iteration: " iteration "\n")}
+                                                            (!by-contradiction goal
+                                                              assume h := (complement goal)
+                                                                (!process-hyps [h] (method (results) (!tp false (increment iteration)))))}}}}
        (!tp goal 1)
-       
+
+(clear-assumption-base)       
 EOF
 load "lib/basic/htp"
 
-assert p := (and (not (not A)) (iff B C))
+(set! MAX-ITERS 10)
+
+(!htp (if B (if (not (if A B)) C)))
+
+
+
+assert [(A ==> B) (B ==> C) (~ C)]
+
+assume  A (!process-hyps [A] K1)
+
+
+#assert p := (and (not (not A)) (iff B C))
 #assert q := (if A D)
 
 (!process-hyps [p] K1) 
 
 (!htp (if A A))
 
+(!htp (or A (not A)))
 (!htp (if (A ==> B) (if (B ==> C) (if A C))))
+
+(!htp (if (A ==> B) (if (A ==> C) (if A (and B C)))))
+
+(!htp (if (and (if A (if B C))
+               (if A (if C D)))
+          (if A (if B D))))
+
+
+
+qqq          
+(!htp (if (and (if A B)
+               (if C D))
+          (if (or A C)
+              (or B D))))
+
+          
+(!htp (iff (and A A) A))
+
+
+(!htp (if (and (if A B)
+               (and (if (not A) C)
+                    (if C D)))
+          (or B D)))                    
+                      
+(set! MAX-ITERS 40)
+
+(!htp (if (and (if A B)
+               (and (if B C)
+                    (not C)))
+          (not (or A B))))                    
 
 Every time a hypothesis enters the assumption base, it should not only be decomposed, but every decomposed conjunct should be transformed, potentially to multiple sentences, each of which
 should again be decomposed and transformed etc. up until a fixed point. 

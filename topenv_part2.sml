@@ -2954,6 +2954,8 @@ fun paradoxProvePrimFun([listVal(vals)],env,ab) =
 
 fun getABFun([],_,ab) = listVal(map propVal (ABase.getAll(ab)))
 
+fun abToStringFun([],_,ab) = MLStringToAthString(ABase.abToString(ab))
+
 fun getBucketSizesFun([],_,ab) = listVal(map (fn i => termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))) (ABase.bucketSizes()))
 
 fun showBucketStatisticsFun([],_,ab) = (print("\n"^(ABase.getBucketSizeStatistics())^"\n\n");unitVal)
@@ -3663,6 +3665,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (Symbol.symbol("tsat0"),funVal(satSolve0,"tsat0",default_fv_pa_for_procs 1)),
                          (N.fastSatFun_symbol,funVal(fastSatFun,N.fastSatFun_name,default_fv_pa_for_procs 2)),
                          (N.getABFun_symbol,funVal(getABFun,N.getABFun_name,default_fv_pa_for_procs 0)),     
+                         (N.abToStringFun_symbol,funVal(abToStringFun,N.abToStringFun_name,default_fv_pa_for_procs 0)),     
                          (Symbol.symbol "get-bucket-sizes",funVal(getBucketSizesFun,"get-bucket-sizes",default_fv_pa_for_procs 0)),
                          (Symbol.symbol "show-bucket-stats",funVal(showBucketStatisticsFun,"show-bucket-stats",default_fv_pa_for_procs 0)),
                          (N.concatFun_symbol,funVal(concatFun,N.concatFun_name,default_fv_pa_for_procs 2)),
