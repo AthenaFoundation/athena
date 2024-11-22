@@ -64,9 +64,10 @@ define (forward-inference p K) :=
                                                           (!loop results' (join results' results) (plus i 1))))})}
     (!loop props [] 0))
 
-(define (process-hyps props K)
+(define (process-hyps given-props K)
  letrec {loop := (method (props results i)
-                    check {(greater? i 3) => (!K (dedup results))
+                    check {(greater? i 3) => let {results' := (list-diff (dedup results) given-props)}                                                 
+                                              (!K results')
                          | else => (!transform-forward* props
                                                         (method (results')
                                                           (!forward-inference* results'
@@ -77,16 +78,33 @@ define (forward-inference p K) :=
                                                                          #_ := (print "\nDIFF:\n" D "\n");
                                                                          R := (join results' results'')}
                                                                       (!loop R (join R results) (plus i 1))))))})}
-    (!loop props [] 0))
+    (!loop given-props [] 0))
 
 define (all-disjunctions) := (merge-sort (filter (ab) disjunction?) (lambda (p1 p2) (less? (size p1) (size p2))))
 
 define (increment i) := #let {_ := (print "\nIncrementing iteration to: " (plus i 1))}
                          (plus i 1)
 
+define (pr x) :=
+  match x {
+    (some-sentence p) => 
+       let {s := (replace-string "\n" " " (athena->tptp p))}
+         (replace-string "  " " " s)
+  | (some-list L) => (join "[" (separate (map pr L) ", ") "]")        
+  }
+
+define (decide L) :=
+  match L {
+     [] => ""
+   | _ => (join " -- namely:" (pr L))
+  }
+  
 define (htp goal) :=
-  let {inconsistent-pair-cell := (cell [])}
+  let {inconsistent-pair-cell := (cell []);
+       _                      := (process-input-from-string "clear-assumption-base")}
      letrec {backward-tp := method (goal iteration)
+                              let {spaces0 := (join (copies "    " iteration));
+                                   spaces := (join "\n" spaces0)}
                               match goal {
                                 (and (some-list args)) => (!map-method (method (arg)
                                                                           (!tp arg (increment iteration)))
@@ -101,7 +119,9 @@ define (htp goal) :=
                                                       _ := (!tp p (increment iteration))}
                                                   (!bdn p)
                               | (if p q) => assume p
-                                             (!process-hyps [p] (method (results) (!tp q (increment iteration))))
+                                             (!process-hyps [p] (method (results)
+                                                                  let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results))}
+                                                                  (!tp q (increment iteration))))
                               | (iff p q) => let {dir1 := (!tp (if p q) (increment iteration));
                                                   dir2 := (!tp (if q p) (increment iteration))}
                                               (!equiv dir1 dir2)
@@ -160,53 +180,74 @@ define (htp goal) :=
                           };
              tp := method (goal iteration)
                      let {abase := (ab);
-                          _ := (print "\nTrying to derive:\n" goal "\nfrom ab tag: " (ab-tag) "\n")}
-                     check {(greater? iteration (ref MAX-ITERS)) =>   #let {_ := (print "\nReached max iterations!\n")}
-                                                                    (!proof-error "Reached max iterations")
+                          #_ := (print "\nITERATION: " iteration);
+                          spaces0 := (join (copies "    " iteration));
+                          spaces := (join "\n" spaces0);
+                          _ := ()}
+                     check {(greater? iteration (ref MAX-ITERS)) => let {_ := (print spaces "Reached max iterations (" (ref MAX-ITERS) ")")}
+                                                                      (!proof-error "Reached max iterations")
                           | (member? goal abase) => (!claim goal)
-                          | (inconsistent? abase inconsistent-pair-cell) => (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
-                          | else => try { let {b-th := (!backward-tp goal (plus 1 iteration));
-                                               #  _ := (print "\nBackward tactic succeeded on this goal: " goal "\nwith this theorem:\n" b-th "\n")
+                          | (inconsistent? abase inconsistent-pair-cell) =>
+                                 let {_ := (print spaces "Inconsistent ab, nice...")}
+                                   (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
+                          | else => try { let {_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
+                                               b-th := (!backward-tp goal (plus 1 iteration));
+                                                  _ := (print spaces "Backward tactic SUCCEDED on this goal:" (pr goal));
                                                   _ := ()
                                               }
                                             (!claim b-th)
                                         | (!dfind-element'*
                                             (ab) 
                                             lambda (premise) (Polarities.find-universally-positive-parent goal premise)
-                                            method (premise polarity-result) let {_ := (print "\nAbout to try extraction on this goal:\n" goal "\nfrom this premise:\n" premise);
+                                            method (premise polarity-result) let {_ := (print spaces "About to try extraction on this goal:" (pr goal) "from this premise:" (pr premise));
                                                                                   e-th := (!extract goal premise polarity-result iteration);
-                                                                                     _ := (print "\nExtraction worked...\n")}
+                                                                                     _ := (print spaces "Extraction worked...\n")}
                                                                                (!claim e-th)                                                                                    
-                                            method () (!proof-error "Failed application of extraction..."))
+                                            method () let {_ := (print spaces "Failed all extraction attempts for this goal: " (pr goal))}
+                                                        (!proof-error "Failed application of extraction..."))
                                         | let {AD := (all-disjunctions);
                                                #_ := (print "\nALL DISJUNCTIONS:\n" AD "\n")
                                                 _ := ()
                                                }
                                             (!find-some (all-disjunctions)
                                                         (method (d)
-                                                           let {_ := ()} # (print "\nWill try a case analysis on this goal:\n" goal "\nusing this disjunction:\n" d "\n")}
+                                                           let {_ := ();
+                                                                _ := (print spaces "Will try a case analysis on this goal:" (pr goal) " using this disjunction:" (pr d));
+                                                                _ := ()
+                                                              }
                                                              (!map-method (method (disjunct)
                                                                              (assume disjunct
                                                                                 (!process-hyps
                                                                                    [disjunct]
                                                                                    (method (results)
-                                                                                     let {_ := ()} # (print "\nHere's results from processing the disjunct " disjunct ":\n" results "\nWILL now go on to prove:\n" goal "\n")}
-                                                                                     (!tp goal (increment iteration))))))
+                                                                                     let {_ := (print spaces "** Derived" (length results) "new results by processing this disjunct:" (pr disjunct) (decide results))}
+                                                                                       (!tp goal (increment iteration))))))
                                                                           (get-disjuncts d)
                                                                           (method (case-conditionals)
                                                                             (!cases d case-conditionals))))
-                                                        (method () let {_ := ()} # (print "\nNo case analysis succeeded!!!\n")}
-                                                                      (!proof-error "No case analysis succeeded.")))
+                                                        (method () let {_ := (print spaces "No case analysis succeeded on this goal:" (pr goal))}
+                                                                      (!proof-error "All case analysis failed.")))
                                         | check {(equal? goal false) => (!proof-error "")
-                                                | else => let {_ := ()} # (print "\nTrying by contradiction on this: " goal "\nat iteration: " iteration "\n")}
+                                                | else => let {_ := (print spaces "Trying a proof by contradiction on this goal: " (pr goal));
+                                                               _ := ()
+                                                              } 
                                                             (!by-contradiction goal
                                                               assume h := (complement goal)
-                                                                (!process-hyps [h] (method (results) (!tp false (increment iteration)))))}}}}
+                                                                (!process-hyps [h] (method (results)
+                                                                                     let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr h) (decide results))}
+                                                                                       (!tp false (increment iteration)))))}}}}
        (!tp goal 1)
 
 (clear-assumption-base)       
 EOF
 load "lib/basic/htp"
+
+#Extraction-relevant examples: 
+
+(!htp (or A (not A)))
+
+
+
 
 (set! MAX-ITERS 10)
 

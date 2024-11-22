@@ -5166,7 +5166,7 @@ define (replace-string pat replacement base) :=
     (split (some-list L1) (val-of pat) (some-list L2)) => (replace-string pat replacement (join L1 replacement L2))
   | _ => base
   }
-
+   
 define (replace-strings pat-replacement-pairs base) :=
   match pat-replacement-pairs {
     (list-of [pat replacement] rest) => (replace-strings rest (replace-string pat replacement base))
@@ -5201,3 +5201,6 @@ define (athena->tptp p) :=
   | (and [arg]) => (athena->tptp arg)
   | (or [arg]) => (athena->tptp arg)  
   }
+
+define (copies L n) := check {(less? n 1) => [] | else => (join L (copies L (minus n 1)))}
+  
