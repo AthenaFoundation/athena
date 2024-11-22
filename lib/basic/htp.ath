@@ -16,7 +16,7 @@ define (inconsistent? abase inconsistent-pair-cell) :=
        | (list-of p more) => (loop p more)
        }
 
-define UPPER-BOUND := 40        
+define UPPER-BOUND := 10000
 define MAX-ITERS := (cell 8)
 
 define (transform-forward hyp K) :=
@@ -76,16 +76,20 @@ define (tsat' L) := (tsat (map replace-atoms-by-vars L))
 
 define (implies? p q) := (negate (tsat' [p (not q)]))
 
+define (equivalent? p q) := (&& (implies? p q) (implies? q p))
+
 define (truncate props) := 
    match props {
      [] => []
    | (list-of p more) =>
-         let {rest := (filter-out more (lambda (q) (implies? q p)));
+         let {rest := (filter-out more (lambda (q) (equivalent? q p)));
              delta := (minus (length props) (length rest));
                  _ := check {(greater? delta 0) => (print "\nEliminated" delta "candidates!") | else => ()}}
         (add p )
    }
-   
+
+define (truncate props) := props
+
 (define (process-hyps given-props K)
  letrec {loop := (method (props results i)
                     check {(greater? i 3) => let {results' := (list-diff (dedup results) given-props)}                                                 
@@ -358,4 +362,15 @@ qqq
 
           
 Every time a hypothesis enters the assumption base, it should not only be decomposed, but every decomposed conjunct should be transformed, potentially to multiple sentences, each of which
-should again be decomposed and transformed etc. up until a fixed point. 
+should again be decomposed and transformed etc. up until a fixed point.
+
+
+
+define p1 := (( A ==> B) & (C ==> D ))
+define p2 := (A | C)
+define p3 := ((A ==> ~D) & (C ==> ~B))
+define p4 := ((~(B & ~D)) | E)
+define p5 := (D ==> (~ ~ B) | F )
+define goal := (~ (~E & ~F))
+
+(!htp ((p1 & p2 & p3 & p4 & p5) ==> goal))
