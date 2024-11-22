@@ -21,20 +21,20 @@ define MAX-ITERS := (cell 8)
 
 define (transform-forward hyp K) :=
   match hyp {
-    (if p q) => let {p1 := (!force (or (complement p) q))}
+    (if p q) => let {p1 := (!cond-def hyp)}
                   (!K [p1])
-  | (or (not p) q) => let {p1 := (!force (if p q))} (!K [p1])
+  | (or (not p) q) => let {p1 := (!cond-def hyp)} (!K [p1])
   | (and (some-list props)) => (!decompose hyp K)
-  | (iff p q) =>  let {p1 := (!force (and (if p q) (if q p)));
-                       p2 := (!force (or (and p q) (and (not p) (not q))))}
+  | (iff p q) =>  let {p1 := (!both (!left-iff hyp) (!right-iff hyp));
+                       p2 := (!bicond-def' hyp)}
                    (!K [p1 p2])
-  | (not (if p q)) => let {th := (!force (and p (not q)))}
+  | (not (if p q)) => let {th := (!neg-cond hyp)}
                        (!K [th])
-  | (not (and p q)) => let {p1 := (!force (or (complement p) (complement q)))}
+  | (not (and p q)) => let {p1 := (!dm hyp)}
                          (!K [p1])
-  | (not (or p q)) => let {p1 := (!force (and (complement p) (complement q)))}
+  | (not (or p q)) => let {p1 := (!dm hyp)}
                         (!K [p1])
-  | (not (not p)) => let {p1 := (!force p)}
+  | (not (not p)) => let {p1 := (!dn hyp)}
                        (!K [p1])
   | _ => let {p1 := (!claim hyp)} (!K [p1])                       
   }
@@ -223,7 +223,7 @@ define (htp goal) :=
                           spaces := (join "\n" spaces0);
                           #_ := (print spaces "Given goal: " (pr goal) " and ab: " abase ", hence (member? goal (ab)) is: " (member? goal abase));
                           _ := ()}
-                     check {(cached? goal) => let {_ := (print "\nCYCLE DETECTED!")}
+                     check {(cached? goal) => #let {_ := (print "\nCYCLE DETECTED!")}
                                                 (!proof-error "")
                           | else => 
                      let {_ := (memoize goal)}                                        
@@ -259,7 +259,6 @@ define (htp goal) :=
                                                         (!proof-error "Failed application of extraction..."))
                                         | let {AD := (all-disjunctions);
                                                    _ := (print spaces "For the goal" (pr goal) ", there are" (length AD) "candidates for case analysis:" (pr AD));                                        
-                                               #_ := (print "\nALL DISJUNCTIONS:\n" AD "\n")
                                                cands := (truncate (merge-sort AD (lambda (p1 p2) (leq? (size p1) (size p2)))));
                                                cands := (take cands 2);
                                                 _ := ()
