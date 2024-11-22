@@ -112,6 +112,7 @@ sig
     val listReplace: 'a list * int * 'a -> 'a list 
     val repeat: int -> (int -> 'a) -> unit
     val timeIt: (unit -> unit) -> Real.real 
+    val timeOut: ('a -> 'b) * int -> (('a -> ('b option)))
     val decomposeList: ('a list * ('a -> bool)) -> ('a list * 'a * 'a list) option
     val decomposeNth: 'a list * int -> ('a option * 'a list)
     val takeAndSplit: 'a list * int -> 'a list * 'a list 

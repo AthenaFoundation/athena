@@ -20,6 +20,14 @@ fun isNumeralValue(v) =
                     | _ => false)
      | _ => false)
 
+fun getIntValue(v) = 
+   (case coerceValIntoTerm(v) of
+       SOME(t) => (case (AthTerm.getNumVal(t)) of
+                      SOME(A.int_num(i,_),neg1) =>  SOME(getSignedInt(i,neg1))
+                    | _ => NONE)
+     | _ => NONE)
+
+
 fun isProp(v) = (case coerceValIntoProp(v) of SOME(_) => true | _ => false)
   
 fun isMetaId(v) = 
@@ -3958,7 +3966,7 @@ fun matchPropsPrimBFun(v1,v2,env,_) =
 
 fun matchFun([v1,v2],env,_) = 
      (case coerceValIntoTerm(v1) of
-         SOME(t1) => 
+        SOME(t1) => 
             (case coerceValIntoTerm(v2) of
                 SOME(t2) => (case AthTerm.match(t1,t2) of
                                 SOME(sub) => subVal(sub)
@@ -4206,6 +4214,31 @@ fun eGenUniquePrimMethod([v1,v2],env,ab) =
   | eGenUniquePrimMethod(args,env,ab) = 
         primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
 
+
+fun timeOutPrimBFun(v1,v2,env,ab) =
+ (case getIntValue(v2) of
+   SOME(max_seconds) => 
+     (case v1 of 
+       closFunVal(A.functionExp({params as [],body,...}),clos_env,{prec,assoc,...}) => 
+          let val max_seconds = 10
+              val capped_fun = Basic.timeOut(fn () => evalClosure(v1,[],ab,SOME(A.posOfExp(body))),max_seconds)
+              val (success,res_val,ex_opt) = 
+                             ((case (capped_fun ()) of 
+                                 SOME(res_val) => (true,res_val,NONE)
+  		               | _ => (false,unitVal,NONE)) handle ex => (false,unitVal,SOME(ex)))
+          in
+             (case ex_opt of 
+                 SOME(ex) => raise ex 
+	       | _ => let val binding1 = (termVal(AthTerm.makeIdeConstant("outcome")),
+                                          termVal(AthTerm.makeIdeConstant(if success then "success" else "timeout")))
+                          val binding2 = (termVal(AthTerm.makeIdeConstant("result")),res_val)
+                          fun addBindings(m,bindings) = Maps.insertLst(m,bindings)
+                      in
+                         SV.mapVal(addBindings(Maps.makeMap(SV.compare),[binding1,binding2]))
+                      end)
+          end
+    |  _ => primError(wrongArgKind(N.timeoutFun_name,0,closFunLCType,v1)))
+ | _ => primError(wrongArgKind(N.timeoutFun_name,1,closFunLCType,v2)))
 
 fun catchPrimBFun(v1,v2,env,ab) = 
      (case (v1,v2) of

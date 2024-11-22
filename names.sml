@@ -966,6 +966,9 @@ val epfPrimMethod_symbol = S.symbol epfPrimMethod_name
 val timeFun_name = "time"
 val timeFun_symbol = Symbol.symbol timeFun_name
 
+val timeoutFun_name = "time-out"
+val timeoutFun_symbol = Symbol.symbol timeoutFun_name
+
 val lenFun_name = "length"
 val lenFun_symbol = Symbol.symbol lenFun_name
 

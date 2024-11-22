@@ -3547,6 +3547,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (S.symbol("clear-tccs"),funVal(clearTCCsFun,"clear-tccs",default_fv_pa_for_procs 0)),
                          (S.symbol("restart-athena"),funVal(restartAthenaFun,"restart-athena",default_fv_pa_for_procs 0)),
                          (N.catchFun_symbol,primBFunVal(catchPrimBFun,default_bfv_pa_for_procs N.catchFun_name)),
+                         (N.timeoutFun_symbol,primBFunVal(timeOutPrimBFun,default_bfv_pa_for_procs N.timeoutFun_name)),
                          (N.catchMethod_symbol,primBMethodVal(catchPrimBMethod,N.catchMethod_symbol)),
                          (Symbol.symbol("lub"),primBFunVal(lubPrimBFun,default_bfv_pa_for_procs "lub")),
                          (Symbol.symbol("glb"),primBFunVal(glbPrimBFun,default_bfv_pa_for_procs "glb")),
