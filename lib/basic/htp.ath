@@ -30,6 +30,8 @@ define (transform-forward hyp K) :=
                    (!K [p1 p2])
   | (not (if p q)) => let {th := (!neg-cond hyp)}
                        (!K [th])
+  | (not (iff p q)) => let {th := (!force (or (and p (complement q)) (and q (complement p))))}
+                         (!K [th])                       
   | (not (and p q)) => let {p1 := (!dm hyp)}
                          (!K [p1])
   | (not (or p q)) => let {p1 := (!dm hyp)}
@@ -437,7 +439,9 @@ define (solve-all random-problem-file) :=
 define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
 
 (solve-all rf)
-  
+
+define l := (if (and (B | A) ((~ (C <==> A)) | (C & B))  C)  B)
+
 define p1 := ((A & (A | C)) ==> (C & (C | B)))
 define p2 := ((~ (B | (~ (B ==> ~A)))) | (A & (B | ~B)))
 define p3 := B
