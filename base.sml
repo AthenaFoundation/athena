@@ -511,7 +511,7 @@ fun timeIt(f) = let val t1:Real.real = Time.toReal(Time.now())
 
 fun timeOut(f:('a -> 'b),max_seconds:int) = 
  let fun g(x:'a) = 
-      let val max_seconds' = Time.fromSeconds (IntInf.fromInt max_seconds)
+      let val max_seconds' = Time.fromMilliseconds (IntInf.fromInt max_seconds)
           val res = (SOME (TimeLimit.timeLimit max_seconds' f x))
               handle TimeLimit.TimeOut => NONE
                    | ex  => raise ex

@@ -4214,14 +4214,12 @@ fun eGenUniquePrimMethod([v1,v2],env,ab) =
   | eGenUniquePrimMethod(args,env,ab) = 
         primError(wrongArgNumber(N.egenUniquePrimMethod_name,length(args),2))
 
-
 fun timeOutPrimBFun(v1,v2,env,ab) =
  (case getIntValue(v2) of
    SOME(max_seconds) => 
      (case v1 of 
        closFunVal(A.functionExp({params as [],body,...}),clos_env,{prec,assoc,...}) => 
-          let val max_seconds = 10
-              val capped_fun = Basic.timeOut(fn () => evalClosure(v1,[],ab,SOME(A.posOfExp(body))),max_seconds)
+          let val capped_fun = Basic.timeOut(fn () => evalClosure(v1,[],ab,SOME(A.posOfExp(body))),max_seconds)
               val (success,res_val,ex_opt) = 
                              ((case (capped_fun ()) of 
                                  SOME(res_val) => (true,res_val,NONE)
@@ -4239,6 +4237,25 @@ fun timeOutPrimBFun(v1,v2,env,ab) =
           end
     |  _ => primError(wrongArgKind(N.timeoutFun_name,0,closFunLCType,v1)))
  | _ => primError(wrongArgKind(N.timeoutFun_name,1,closFunLCType,v2)))
+
+fun timeOutPrimBMethod(v1,v2,env,ab) =
+ (case getIntValue(v2) of
+   SOME(max_seconds) => 
+     (case v1 of 
+        closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref) =>
+          let val capped_method = Basic.timeOut(fn () => evalMethodClosure(v1,[],ab,A.posOfDed(body)),max_seconds)
+              val (success,res_val,ex_opt) = 
+                             ((case (capped_method ()) of 
+                                 SOME(res_val) => (true,res_val,NONE)
+  		               | _ => (false,unitVal,NONE)) handle ex => (false,unitVal,SOME(ex)))
+          in
+             (case ex_opt of 
+                 SOME(ex) => raise ex 
+	       | _ => if success then res_val else primError("Method call timed out: no result produced after " ^ (Int.toString max_seconds) ^ " milliseconds."))
+                           
+          end
+    |  _ => primError(wrongArgKind(N.timeoutMethod_name,0,closFunLCType,v1)))
+ | _ => primError(wrongArgKind(N.timeoutMethod_name,1,closFunLCType,v2)))
 
 fun catchPrimBFun(v1,v2,env,ab) = 
      (case (v1,v2) of

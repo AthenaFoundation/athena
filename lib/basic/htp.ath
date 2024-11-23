@@ -126,14 +126,16 @@ define (decide L) :=
    | _ => (join " -- namely:" (pr L))
   }
 
-
 define (htp goal) :=
   let {inconsistent-pair-cell := (cell []);
        table := (HashTable.table 1000);
        goal->string := lambda (goal) (join (ab->string) "|-" (pr goal)); 
        memoize := lambda (goal) (HashTable.add table [(goal->string goal) true]);
        cached? := lambda (goal) try {(HashTable.lookup table (goal->string goal)) | false };
-       _                      := (process-input-from-string "clear-assumption-base")}
+       _                      := (execute-command "clear-assumption-base");
+       #_ := (print "\nLength of ab after clearing it: " (length (ab)));
+       _ := ()
+       }
      letrec {backward-tp := method (goal iteration)
                               let {spaces0 := (join (copies "    " iteration));
                                    spaces := (join "\n" spaces0)}
@@ -152,7 +154,7 @@ define (htp goal) :=
                                                   (!bdn p)
                               | (if p q) => assume p
                                              (!process-hyps [p] (method (results)
-                                                                  let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results))}
+                                                                  #let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results))}
                                                                   (!tp q (increment iteration))))
                               | (iff p q) => let {dir1 := (!tp (if p q) (increment iteration));
                                                   dir2 := (!tp (if q p) (increment iteration))}
@@ -213,7 +215,9 @@ define (htp goal) :=
              prove := method (goal limit) 
                        check {(greater? limit UPPER-BOUND) => (!dhalt) 
                             | else => let {_ := (set! MAX-ITERS limit);
-                                           _ := (print "\nWill try with MAX-ITERS: " limit)}
+                                          # _ := (print "\nWill try with MAX-ITERS: " limit)
+                                           _ := ()
+                                          }
                                         try {(!tp goal 1)
                                            | (!prove goal (times limit 2))}};
              tp := method (goal iteration)
@@ -227,13 +231,13 @@ define (htp goal) :=
                                                 (!proof-error "")
                           | else => 
                      let {_ := (memoize goal)}                                        
-                     check {(greater? iteration (ref MAX-ITERS)) => let {_ := (print spaces "Reached max iterations:" (ref MAX-ITERS))}
+                     check {(greater? iteration (ref MAX-ITERS)) => #let {_ := (print spaces "Reached max iterations:" (ref MAX-ITERS))}
                                                                       (!proof-error "Reached max iterations")
                           | (member? goal abase) => (!claim goal)
                           | (inconsistent? abase inconsistent-pair-cell) =>
-                                 let {_ := (print spaces "Inconsistent ab, nice...")}
+                                 #let {_ := (print spaces "Inconsistent ab, nice...")} 
                                    (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
-                          | else => try { let {_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
+                          | else => try { let {#_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
                                                 res := (cell false);
                                               b-th  := try {let {th := (!backward-tp goal (plus 1 iteration));
                                                                   _ := (set! res true)}
@@ -241,24 +245,28 @@ define (htp goal) :=
                                                             let {_ := (set! res false)}
                                                               (!true-intro)}}
                                              match (ref res) {
-                                                 true => let {_ := (print spaces "Backward tactic SUCCEDED on this goal:" (pr goal))} (!claim b-th)
-                                               | _ => let {_ := (print spaces "Backward tactic failed...")} (!proof-error "")
+                                                 true => #let {_ := (print spaces "Backward tactic SUCCEDED on this goal:" (pr goal))}
+                                                           (!claim b-th)
+                                               | _ => #let {_ := (print spaces "Backward tactic failed...")}
+                                                        (!proof-error "")
                                              }
                                         | let {cands := (filter (ab) lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ()));
                                                cands := (truncate (merge-sort cands (lambda (p1 p2) (leq? (size p1) (size p2)))));
-                                                   _ := (print spaces "For the goal" (pr goal) "there are" (length cands) "extraction candidates:" (pr cands));
+                                                   #_ := (print spaces "For the goal" (pr goal) "there are" (length cands) "extraction candidates:" (pr cands));
                                                    _ := ()}
                                           (!dfind-element'*
                                             cands 
                                             lambda (premise) (Polarities.find-universally-positive-parent goal premise)
-                                            method (premise polarity-result) let {_ := (print spaces "{About to try extraction on this goal:" (pr goal) "from this premise:" (pr premise));
+                                            method (premise polarity-result) let {#_ := (print spaces "{About to try extraction on this goal:" (pr goal) "from this premise:" (pr premise));
                                                                                   e-th := (!extract goal premise polarity-result iteration);
-                                                                                     _ := (print spaces "Extraction worked...\n")}
+                                                                                  #   _ := (print spaces "Extraction worked...\n")
+                                                                                      _ := ()
+                                                                                  }
                                                                                (!claim e-th)                                                                                    
-                                            method () let {_ := (print spaces "Failed all extraction attempts for this goal: " (pr goal) "}")}
+                                            method () # let {_ := (print spaces "Failed all extraction attempts for this goal: " (pr goal) "}")}
                                                         (!proof-error "Failed application of extraction..."))
                                         | let {AD := (all-disjunctions);
-                                                   _ := (print spaces "For the goal" (pr goal) ", there are" (length AD) "candidates for case analysis:" (pr AD));                                        
+                                              #     _ := (print spaces "For the goal" (pr goal) ", there are" (length AD) "candidates for case analysis:" (pr AD));                                        
                                                cands := (truncate (merge-sort AD (lambda (p1 p2) (leq? (size p1) (size p2)))));
                                                cands := (take cands 2);
                                                 _ := ()
@@ -266,7 +274,7 @@ define (htp goal) :=
                                             (!find-some AD 
                                                         (method (d)
                                                            let {_ := ();
-                                                                _ := (print spaces "Will try a case analysis on this goal:" (pr goal) " using this disjunction:" (pr d));
+                                                               # _ := (print spaces "Will try a case analysis on this goal:" (pr goal) " using this disjunction:" (pr d));
                                                                 _ := ()
                                                               }
                                                              (!map-method (method (disjunct)
@@ -274,31 +282,59 @@ define (htp goal) :=
                                                                                 (!process-hyps
                                                                                    [disjunct]
                                                                                    (method (results)
-                                                                                     let {_ := (print spaces "** Derived" (length results) "new results by processing this disjunct:" (pr disjunct) (decide results))}
-                                                                                       (!tp goal (increment iteration))))))
+                                                                                      #let {_ := (print spaces "** Derived" (length results) "new results by processing this disjunct:" (pr disjunct) (decide results))}
+                                                                                        (!tp goal (increment iteration))))))
                                                                           (get-disjuncts d)
                                                                           (method (case-conditionals)
                                                                             (!cases d case-conditionals))))
-                                                        (method () let {_ := (print spaces "No case analysis succeeded on this goal:" (pr goal))}
+                                                        (method () #let {_ := (print spaces "No case analysis succeeded on this goal:" (pr goal))}
                                                                       (!proof-error "All case analysis failed.")))
                                         | check {(equal? goal false) => (!proof-error "")
-                                                | else => let {_ := (print spaces "Trying a proof by contradiction on this goal: " (pr goal));
+                                                | else => let {#_ := (print spaces "Trying a proof by contradiction on this goal: " (pr goal));
                                                                _ := ()
                                                               } 
                                                             (!by-contradiction goal
                                                               assume h := (complement goal)
                                                                 (!process-hyps [h] (method (results)
-                                                                                     let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr h) (decide results))}
+                                                                                     #let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr h) (decide results))}
                                                                                        (!tp false (increment iteration)))))}}}}}
        (!prove goal 8)
 
-(clear-assumption-base)       
+clear-assumption-base
+
+define (solve-problem random-line) :=
+  let {toks := (map trim-ws (tokenize random-line "#"));
+       goal := (evaluate (last toks));
+       premises := (map evaluate (all-but-last toks));
+       _ := (execute-command "clear-assumption-base");
+       success := (cell false);
+       res := try { let {_ := (!dtime-out (method () (!htp (if (and* premises) goal))) 30000); _ := (set! success true)} (!true-intro) | let {_ := (print "\nFailed on this problem: " random-line)} (!true-intro)}}
+    (ref success)
+    
+       
+define (solve-all random-problem-file) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-problem line) => ()
+                              | else => (inc failures)})
+                      lines)}
+    (print "\nTotal number of failures: " (ref failures))                       
+
+define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
 
 
 
 EOF
-
 load "lib/basic/htp"
+
+(solve-all rf)
+
+1K problems in 10 minutes
+10K problems in about 1.5 hours 
 
 #Extraction-relevant examples: 
 
@@ -324,7 +360,6 @@ assume  A (!process-hyps [A] K1)
 (!process-hyps [p] K1) 
 
 (!htp (if A A))
-
 (!htp (or A (not A)))
 (!htp (if (A ==> B) (if (B ==> C) (if A C))))
 
@@ -372,4 +407,41 @@ define p4 := ((~(B & ~D)) | E)
 define p5 := (D ==> (~ ~ B) | F )
 define goal := (~ (~E & ~F))
 
-(!htp ((p1 & p2 & p3 & p4 & p5) ==> goal))
+
+(!dtime-out (method () (!htp ((p1 & p2 & p3 & p4 & p5) ==> goal))) 30000)
+
+
+define (solve-problem random-line) :=
+  let {toks := (map trim-ws (tokenize random-line "#"));
+       goal := (evaluate (last toks));
+       premises := (map evaluate (all-but-last toks));
+       _ := (execute-command "clear-assumption-base");
+       success := (cell false);
+       res := try { let {_ := (!dtime-out (method () (!htp (if (and* premises) goal))) 50000); _ := (set! success true)} (!true-intro) | let {_ := (print "\nFailed on this problem: " random-line)} (!true-intro)}}
+    (ref success)
+    
+       
+define (solve-all random-problem-file) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n")
+       failures := (cell 0);
+       counter := (cell 0);
+       _ := (map-proc (lambda (line)
+                         let {_ := check {(equal? (mod (inc counter) 100) 0) => (print "\nProcessed " (ref counter) " problems so far...") | else => ()}}
+                         check {(solve-problem line) => ()
+                              | else => (inc failures)})
+                      lines)}
+    (print "\nTotal number of failures: " (ref failures))                       
+
+
+  
+define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
+
+(solve-all rf)
+  
+define p1 := ((A & (A | C)) ==> (C & (C | B)))
+define p2 := ((~ (B | (~ (B ==> ~A)))) | (A & (B | ~B)))
+define p3 := B
+define goal := (B & C)
+(clear-assumption-base)
+
+(!dtime-out (method () (!htp ((p1 & p2 & p3) ==> goal))) 30000)

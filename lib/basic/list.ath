@@ -1111,6 +1111,8 @@ define (list->counts L) :=
    (loop L (Map.make []))
 
 
+define white-space-chars := (map char [9 10 11 12 13 32])
+
 define (white-space-character? c) := (member? (char-ord c) [9 10 11 12 13 32 133 160])
 
 define (white-space? str) := (for-each str white-space-character?)
@@ -1120,3 +1122,7 @@ define (trim str chars-to-be-trimmed) :=
         | (member? (first str) chars-to-be-trimmed) => (trim (tail str) chars-to-be-trimmed)
         | (member? (last str) chars-to-be-trimmed)  => (trim (all-but-last str) chars-to-be-trimmed)
         | else => str}
+
+define (trim-ws str) := (trim str white-space-chars)
+
+

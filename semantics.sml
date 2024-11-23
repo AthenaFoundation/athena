@@ -4763,6 +4763,7 @@ and
        (case head_val of
           propConVal(con) => evalPropConApp(con,args,env,ab,pos)
         | funVal(f,name,_) =>
+                            
                             (let fun doArgs([],_,res) = rev(res)
                                   | doArgs(a::more,i,res) = doArgs(more,i+1,evPhrase(a,env,ab,premises)::res)
                                 val arg_vals = doArgs(args,2,[])
