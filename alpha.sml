@@ -8,13 +8,27 @@ structure Alpha =
 
 struct
 
+structure S = Symbol
+structure A = AbstractSyntax
+type prop = Prop.prop
+type symbol = S.symbol
+type variable = AthTerm.variable 
+
 open Semantics
 
-structure A = AbstractSyntax
+datatype hypothesis = hyp of symbol option * prop 
+datatype alpha_val = term of AthTerm.term | sent of prop 
 
-type alpha_ded_info = {proof: A.deduction, conc: Prop.prop, fa: Prop.prop list};
+datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
+                     | assumeProof of {hyp: hypothesis, body: certificate}
+                     | supAbProof of {hyp: hypothesis, body: certificate}
+                     | composition of {left: certificate, right: certificate}
+                     | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate}
+                     | conclude of {expected_conc: prop, body: certificate}
 
-fun makeAlphaDed() = let val res: alpha_ded_info = {proof=A.tryDed({choices=[],pos=A.dum_pos}), conc=Prop.true_prop, fa = []}
+type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
+
+fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[]}),conc=Prop.true_prop, fa = []}
                      in
                        res
                      end
@@ -23,6 +37,11 @@ val evalDedAlpha =
 let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
     fun initCallStack() = call_stack := LStack.empty 
+    fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
+    fun getAlphaVal(v) = (case coerceValIntoTerm(v) of 
+                             SOME(t) => term(t)
+			   | _ => (case coerceValIntoProp(v) of
+                                      SOME(p) => sent(p)))
     fun evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) = 
     ((let val head_val = evalExp(method,env,ab) 
       in
@@ -33,10 +52,9 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab
                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab'
                      val res_val = M(v1,v2,env,ab'')
-                     val conclusion = (case coerceValIntoProp(res_val) of 
-                                          SOME(p) => p)
+                     val certificate = Basic.fail("")
                  in
-                    (res_val,{conc=conclusion,fa=[],proof=method_app})
+                    (res_val,{conc=getProp(res_val),fa=[],proof=ruleApp({rule=method_sym,args=[getAlphaVal(v1),getAlphaVal(v2)]})})
                  end handle PrimError(msg) => evError(msg,SOME(pos))
                           | AthenaError(msg) => let val (_,right_pos) = chooseAthenaErrorPosition()
                                                 in
@@ -61,10 +79,14 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
      ((let val head_val = evalExp(method,env,ab)
        in
          (case head_val of
-              primUMethodVal(f,_) => (let val arg_val = evalPhrase(arg,env,ab)
+              primUMethodVal(f,method_sym) => 
+                                     (let val arg_val = evalPhrase(arg,env,ab)
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
+                                          val conclusion_val = f(arg_val,env,ab')
+                                          val ded_info = {conc=getProp(conclusion_val),fa=[],
+							  proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})}
                                       in
-                                         (f(arg_val,env,ab'),makeAlphaDed())
+                                         (conclusion_val,ded_info)
                                       end handle PrimError(msg) => evError(msg,SOME(pos))                                      
                                                | AthenaError(msg) => let val (_,right_pos) = chooseAthenaErrorPosition()
                                                                      in
@@ -77,18 +99,15 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                        val _ = addPos(!clos_name,pos)
                    in
                       evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
-                   end
-            | _ => let val conclusion = evalMethodApp(method,[arg],env,ab,pos)
-                   in
-                      (conclusion,makeAlphaDed())
                    end)
        end))
+(*******************************************************************************************************************************************************************************
   | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = 
          let val conclusion = evalMethodApp(method,args,env,ab,app_pos)
          in
            (conclusion,makeAlphaDed())
          end
-(*******************************************************************************************************************************************************************************
+
   | evDed(A.letDed({bindings,body,pos}),env,ab) = 
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
              | doLetDed({bpat,def=A.ded(d),pos}::more,env1,ab1) = 
