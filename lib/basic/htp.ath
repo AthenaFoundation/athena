@@ -16,7 +16,7 @@ define (inconsistent? abase inconsistent-pair-cell) :=
        | (list-of p more) => (loop p more)
        }
 
-define UPPER-BOUND := 10000
+define UPPER-BOUND := 100000
 define MAX-ITERS := (cell 8)
 
 define (transform-forward hyp K) :=
@@ -217,7 +217,7 @@ define (htp goal) :=
              prove := method (goal limit) 
                        check {(greater? limit UPPER-BOUND) => (!dhalt) 
                             | else => let {_ := (set! MAX-ITERS limit);
-                                          # _ := (print "\nWill try with MAX-ITERS: " limit)
+                                           _ := (print "\nWill try with MAX-ITERS: " limit);
                                            _ := ()
                                           }
                                         try {(!tp goal 1)
@@ -328,10 +328,50 @@ define (solve-all random-problem-file) :=
 
 define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
 
+define random-line := "((A & C) | (C <==> (~ (B | A)))) # (C ==> A) # ((~A & B) ==> (~ (A ==> C))) # A"
+define toks := (map trim-ws (tokenize random-line "#"))
+define goal := (evaluate (last toks))
+define premises := (map evaluate (all-but-last toks))
+define g := (if (and* premises) goal)
 
+define (make-problem line) := 
+ let {toks := (map trim-ws (tokenize line "#"));
+      goal := (evaluate (last toks));
+      premises := (map evaluate (all-but-last toks))}
+    (if (and* premises) goal)
+
+
+define (solve line) :=
+ let {toks := (map trim-ws (tokenize line "#"));
+      goal := (evaluate (last toks));
+      premises := (map evaluate (all-but-last toks));
+      g := (if (and* premises) goal)}
+   (!htp g)      
+
+   
+# (!solve "((E | (B ==> ~A)) ==> (C ==> (~ (C & D)))) # D # (C | E) # ((A ==> E) & (D | B)) # (E | (B & E))")
 
 EOF
 load "lib/basic/htp"
+(!solve "(A ==> (B & ~A)) # ((~A ==> C) | (B & ~A)) # ((C ==> A) | (~C & (C | A))) # B")
+
+(clear-assumption-base)
+(!solve "((A & C) ==> (C <==> B)) # ((B ==> C) <==> (B | C)) # ((~ (C & B)) | (A & C)) # ((B | A) ==> (B & A))")
+(clear-assumption-base)
+(!solve "(A ==> (B & ~A)) # ((~A ==> C) | (B & ~A)) # ((C ==> A) | (~C & (C | A))) # B")
+(clear-assumption-base)
+(!solve "((~ (C ==> D)) ==> (A & ~C)) # (~D <==> B) # (D ==> B) # (B <==> ~C)")
+(clear-assumption-base)
+(!solve "(A ==> (B & A)) # ((A ==> ~B) & (A | C)) # ((C & ~B) <==> (A & C)) # B")
+(clear-assumption-base)
+(!solve "((A <==> (A & C)) & (A | (~ (B | C)))) # ((~ (B & (A ==> B))) ==> (~C ==> (A | B))) # (A <==> (B & C)) # B")
+(clear-assumption-base)
+
+(solve-problem random-line)
+
+
+
+
 
 (solve-all rf)
 
