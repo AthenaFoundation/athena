@@ -69,8 +69,7 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
       in
         (case head_val of
            primBMethodVal(M,method_sym) => 
-                (let 
-                     val (v1,ded_1_info_opt) = (case arg1 of 
+                (let val (v1,ded_1_info_opt) = (case arg1 of 
                                                   A.ded(d1) => (case evDed(d1,env,ab) of (a,b) => (a,SOME(b)))
 					        | A.exp(e1) => (evalExp(e1,env,ab),NONE))
                      val (v2,ded_2_info_opt) = (case arg2 of 
@@ -132,12 +131,22 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
        in
          (case head_val of
               primUMethodVal(f,method_sym) => 
-                                     (let val arg_val = evalPhrase(arg,env,ab)
+                                     (let val (arg_val,ded_1_info_opt) = (case arg of 
+                                                                             A.ded(d1) => (case evDed(d1,env,ab) of (a,b) => (a,SOME(b)))
+					                                   | A.exp(e1) => (evalExp(e1,env,ab),NONE))
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
-                                          val ded_info = {conc=getProp(conclusion_val),
-							  fa=getFA(method_sym,[arg_val],ab'),
-							  proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})}
+                                          val ded_info = (case ded_1_info_opt of
+                                                             NONE => {conc=getProp(conclusion_val),
+ 								      fa=getFA(method_sym,[arg_val],ab'),
+								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})}
+						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
+                           				       let val final_fas = propUnion(fa1,propDiff(getFA(method_sym,[arg_val],ab'),[conc1]))
+							       in
+								   {conc=getProp(conclusion_val),
+								    fa=final_fas,
+								    proof=composition({left=proof1,right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})})}
+							       end)
                                       in
                                          (conclusion_val,ded_info)
                                       end handle PrimError(msg) => evError(msg,SOME(pos))                                      
