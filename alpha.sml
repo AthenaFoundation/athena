@@ -33,11 +33,33 @@ fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol
                        res
                      end
 
+fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
+
+fun getFA(method_sym,vals: value list,ab) = 
+  let val method_name = S.name(method_sym)
+      val props = Basic.mapSelect(getProp,vals,fn _ => true)
+  in  
+     case method_name of 
+        "left-either"  => [(Basic.first props)]
+      | "right-either" => [(Basic.second props)]
+      | "either" => let val [p1,p2] = props
+                        val fas = ref([])
+                        val _ = if not(ABase.isMember(p1,ab)) then fas := [p1] else ()
+                        val _ = if not(ABase.isMember(p2,ab)) then fas := p1::(!fas) else ()
+                    in
+                      !fas
+                    end
+      | _ => props        
+  end
+
+fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
+fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
+          
+
 val evalDedAlpha = 
 let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
-    fun initCallStack() = call_stack := LStack.empty 
-    fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
+    fun initCallStack() = call_stack := LStack.empty     
     fun getAlphaVal(v) = (case coerceValIntoTerm(v) of 
                              SOME(t) => term(t)
 			   | _ => (case coerceValIntoProp(v) of
@@ -47,14 +69,47 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
       in
         (case head_val of
            primBMethodVal(M,method_sym) => 
-                (let val v1 = evalPhrase(arg1,env,ab)
-                     val v2 = evalPhrase(arg2,env,ab)
-                     val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab
-                     val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab'
+                (let 
+                     val (v1,ded_1_info_opt) = (case arg1 of 
+                                                  A.ded(d1) => (case evDed(d1,env,ab) of (a,b) => (a,SOME(b)))
+					        | A.exp(e1) => (evalExp(e1,env,ab),NONE))
+                     val (v2,ded_2_info_opt) = (case arg2 of 
+                                                  A.ded(d2) => (case evDed(d2,env,ab) of (a,b) => (a,SOME(b)))
+					        | A.exp(e2) => (evalExp(e2,env,ab),NONE))
+                     val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab 
+                     val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab' 
                      val res_val = M(v1,v2,env,ab'')
-                     val certificate = Basic.fail("")
+                     val (av1, av2) = (getAlphaVal(v1), getAlphaVal(v2))                      
+                     val ded_info = (case (ded_1_info_opt,ded_2_info_opt) of
+                                       (SOME({conc=conc1,fa=fa1,proof=proof1,...}),NONE) => 
+				          let val final_fas = propUnion(fa1,propDiff(getFA(method_sym,[v1,v2],ab''),[conc1]))
+                                          in
+                                            {conc=getProp(res_val),
+					     fa=final_fas,
+					     proof=composition({left=proof1,right=ruleApp({rule=method_sym,args=[av1,av2]})})}
+					  end
+                                     | (NONE,SOME({conc=conc2,fa=fa2,proof=proof2,...})) => 
+				          let val final_fas = propUnion(fa2,propDiff(getFA(method_sym,[v1,v2],ab''),[conc2]))
+                                          in
+                                            {conc=getProp(res_val),
+					     fa=final_fas,
+					     proof=composition({left=proof2,right=ruleApp({rule=method_sym,args=[av1,av2]})})}
+					  end
+				     | (SOME({conc=conc1,fa=fa1,proof=proof1,...}), 
+					SOME({conc=conc2,fa=fa2,proof=proof2,...})) => 
+				          let val final_fas = propUnion(fa1,propUnion(fa2,propDiff(getFA(method_sym,[v1,v2],ab''),[conc1,conc2])))
+                                          in
+                                            {conc=getProp(res_val),
+					     fa=final_fas,
+					     proof=composition({left=proof1,
+								right=composition({left=proof2,
+										  right=ruleApp({rule=method_sym,args=[av1,av2]})})})}
+					  end
+                                     | (NONE,NONE) => {conc=getProp(res_val),
+						       fa=getFA(method_sym,[v1,v2],ab''),
+						       proof=ruleApp({rule=method_sym,args=[av1,av2]})})
                  in
-                    (res_val,{conc=getProp(res_val),fa=[],proof=ruleApp({rule=method_sym,args=[getAlphaVal(v1),getAlphaVal(v2)]})})
+                    (res_val,ded_info)
                  end handle PrimError(msg) => evError(msg,SOME(pos))
                           | AthenaError(msg) => let val (_,right_pos) = chooseAthenaErrorPosition()
                                                 in
@@ -70,10 +125,7 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                   in
                      evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab'')
                   end
-        | _ =>  let val conclusion = evalMethodApp(method,[arg1,arg2],env,ab,pos)
-                in
-                  (conclusion,makeAlphaDed())
-                end)
+        | _ =>  evalMethodApp(method,[arg1,arg2],env,ab,pos))
       end))
   | evDed(A.UMethAppDed({method,arg,pos}),env,ab) = 
      ((let val head_val = evalExp(method,env,ab)
@@ -83,7 +135,8 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                                      (let val arg_val = evalPhrase(arg,env,ab)
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
-                                          val ded_info = {conc=getProp(conclusion_val),fa=[],
+                                          val ded_info = {conc=getProp(conclusion_val),
+							  fa=getFA(method_sym,[arg_val],ab'),
 							  proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})}
                                       in
                                          (conclusion_val,ded_info)
@@ -101,13 +154,8 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                       evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
                    end)
        end))
+  | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = evalMethodApp(method,args,env,ab,app_pos)
 (*******************************************************************************************************************************************************************************
-  | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = 
-         let val conclusion = evalMethodApp(method,args,env,ab,app_pos)
-         in
-           (conclusion,makeAlphaDed())
-         end
-
   | evDed(A.letDed({bindings,body,pos}),env,ab) = 
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
              | doLetDed({bpat,def=A.ded(d),pos}::more,env1,ab1) = 
@@ -990,6 +1038,119 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                               "the deduction did not produce a sentence",SOME(A.posOfDed(body))))
 	   end
 *******************************************************************************************************************************************************************************)
+and 
+    evalMethodApp(method,args:A.phrase list,env:SemanticValues.value_environment ref,ab:ABase.assum_base,pos:A.position) = 
+     (let val app_pos = pos 
+           fun getArgVals([],arg_vals,ded_vals) = (rev(arg_vals),ded_vals)
+             | getArgVals(A.exp(e)::rest,arg_vals,ded_vals) = 
+                        getArgVals(rest,evalExp(e,env,ab)::arg_vals,ded_vals)
+             | getArgVals(A.ded(d)::rest,arg_vals,ded_vals) = 
+                       (case evDed(d,env,ab) of
+                           (propVal(dprop),{proof,conc,fa,...}) => 
+                              getArgVals(rest,propVal(dprop)::arg_vals,dprop::ded_vals)
+                         | _ => evError("Impossibile error encountered in evaluating a deduction "^
+                                        "argument of a method application---the deduction did not "^
+                                        "produce a sentence!",SOME(A.posOfDed(d))))
+           fun getArgValsAndPositions() = 
+                let val pos_ar = Array.array(length(args)+2,A.dum_pos)
+                    val _ = Array.update(pos_ar,0,app_pos)
+                    val _ = Array.update(pos_ar,1,A.posOfExp(method))
+                    fun doArgs([],arg_vals,ded_vals,i) = (rev(arg_vals),ded_vals,pos_ar)
+                      | doArgs(A.exp(e)::rest,arg_vals,ded_vals,i) = 
+                          (Array.update(pos_ar,i,A.posOfExp(e));
+                           doArgs(rest,evalExp(e,env,ab)::arg_vals,ded_vals,i+1))
+                      | doArgs(A.ded(d)::rest,arg_vals,ded_vals,i) = 
+                          (Array.update(pos_ar,i,A.posOfDed(d));
+                           (case evDed(d,env,ab) of
+                               (propVal(dprop),{proof,conc,fa,...}) => 
+                                 doArgs(rest,propVal(dprop)::arg_vals,dprop::ded_vals,i+1)
+                             | _ => evError("Impossibile error encountered in evaluating a deduction "^
+                                             "argument of a method application---the deduction did not "^
+                                             "produce a sentence",SOME(A.posOfDed(d)))))
+                in
+                   doArgs(args,[],[],2)
+                end
+       in
+          (case evalExp(method,env,ab) of 
+               closMethodVal(A.methodExp({params,body,pos=mexp_pos,name=rname,...}),clos_env) =>
+                       let val (arg_vals,ded_vals) = getArgVals(args,[],[])
+                           val str_msg = if (!rname) = "" then "in method call" else "to "^(!rname)
+                           val (vmap,mmap) = getValAndModMaps(!clos_env)
+                           val new_env = ref(valEnv({val_map=enterParamValLstWithPositionalErrorChecking(vmap,params,arg_vals,str_msg,app_pos),mod_map=mmap}))
+                           val new_ab = ABaseAugment(ab,ded_vals) 
+                           val _ = if !Options.stack_trace then  
+                                       addFrame(frame({call_pos=app_pos,call_file="",
+                                                       lambda=MethClos({clos_name=(!rname),
+                                                                        def_pos=mexp_pos,
+                                                                        def_file=""})}))
+                                   else
+                                       if !Options.detailed_stack_trace then  
+                                          addFrame(detailedFrame({call_pos=app_pos,call_file="",
+                                                                 lambda=MethClos({clos_name=(!rname),
+                                                                                  def_pos=mexp_pos,
+                                                                                  def_file=""}),
+                                                                 arg_vals=arg_vals}))
+                                       else ()
+                           val _ = addPos(!rname,app_pos)
+                       in
+                         evDed(body,new_env,new_ab)
+                       end  
+               | methodVal(f,string) => 
+                    (let val (arg_vals,ded_vals,pos_array) = getArgValsAndPositions()
+                          val new_ab = ABaseAugment(ab,ded_vals) 
+                          val _ = if !Options.stack_trace then 
+                                     addFrame(frame({call_pos=app_pos,call_file="",
+                                                     lambda=MethVal({name=""})}))
+                                  else
+                                     if !Options.detailed_stack_trace then 
+                                        addFrame(detailedFrame({call_pos=app_pos,call_file="",
+                                                                lambda=MethVal({name=""}),
+                                                                arg_vals=arg_vals}))
+                                     else ()
+                      in 
+                         (f(arg_vals,env,new_ab),makeAlphaDed())
+                      end handle PrimError(msg) => evError(msg,SOME(app_pos)))
+               | primUMethodVal(f,code) => 
+                                      let val (arg_vals,ded_vals,pos_array) = getArgValsAndPositions()
+                                      in 
+                                        if not(length(arg_vals)  = 1) then 
+                                           evError(wrongArgNumber(S.name(code),length(arg_vals),1),getPosOpt(pos_array,0))
+                                        else ((f(hd(arg_vals),env,ab),makeAlphaDed()) handle EvalError(str,_) => evError(str,SOME(pos)))
+                                      end
+               | primBMethodVal(f,code) => 
+                                      let val (arg_vals,ded_vals,pos_array) = getArgValsAndPositions()
+                                      in 
+                                        if not(length(arg_vals)  = 2) then 
+                                           evError(wrongArgNumber((S.name code),length(arg_vals),2),getPosOpt(pos_array,0))
+                                        else ((f(hd(arg_vals),hd(tl(arg_vals)),env,ab),makeAlphaDed()) handle EvalError(str,_) => evError(str,SOME(pos)))
+                                      end
+               | closBMethodVal(d,s1,s2,clos_env as ref(valEnv({val_map,mod_map,...})),name) =>
+                       let val (arg_vals,ded_vals,pos_array) = getArgValsAndPositions()
+                           val _ =  if not(length(arg_vals)  = 2) then 
+                                       evError(wrongArgNumber(!name,length(arg_vals),2),getPosOpt(pos_array,0))
+                                    else ()
+                           val vm = Symbol.enter(val_map,s1,hd(arg_vals))
+                           val vm' = Symbol.enter(vm,s2,hd(tl(arg_vals)))
+                           val new_env = ref(valEnv({val_map=vm',mod_map=mod_map}))
+                           val new_ab = ABaseAugment(ab,ded_vals) 
+                       in
+                          evDed(d,new_env,new_ab)
+                       end  
+               | closUMethodVal(d,s,clos_env as ref(valEnv({val_map,mod_map,...})),name) =>
+                       let val (arg_vals,ded_vals,pos_array) = getArgValsAndPositions()
+                           val _ =  if not(length(arg_vals)  = 1) then 
+                                       evError(wrongArgNumber(!name,length(arg_vals),1),getPosOpt(pos_array,0))
+                                    else ()
+                           val vm = Symbol.enter(val_map,s,hd(arg_vals))
+                           val new_env = ref(valEnv({val_map=vm,mod_map=mod_map}))
+                           val new_ab = ABaseAugment(ab,ded_vals) 
+                       in
+                          evDed(d,new_env,new_ab)
+                       end  
+               | v => evError("The leftmost expression of a method application "^
+                              "must produce a method---here it produced a "^valLCTypeAndString(v),
+                              SOME(A.posOfExp(method))))
+       end)
 in
     fn (d,env,ab) => (evDed(d,env,ab))
 end
