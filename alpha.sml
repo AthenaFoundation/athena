@@ -73,7 +73,7 @@ fun getFA(method_sym,vals: value list,ab) =
       | _ => props        
   end
 
-fun extractHypothesisName(map,env,pval,hypothesis_name) = 
+fun extractHypothesisName(map,pval,hypothesis_name) = 
   let val symbol_and_value_pairs = Symbol.listSymbolsAndImages(map)
   in
      (case Basic.constructiveExists(symbol_and_value_pairs,fn (symbol,value) => valEq(value,pval)) of
@@ -277,6 +277,12 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                              SOME(A.posOfPhrase(assumption)))))
                      end)
             end
+  | evDed(A.absurdDed({hyp,body,pos}),env,ab) = doSupposeAbsurd(hyp,NONE,body,pos,env,ab)
+  | evDed(A.absurdLetDed({named_hyp,body,pos}),env,ab) = 
+          let val (hyp_name_pat,hyp) = (#bpat(named_hyp),#def(named_hyp))
+              in
+                doSupposeAbsurd(hyp,SOME(hyp_name_pat),body,pos,env,ab)
+          end
   | evDed(A.letRecDed({bindings,body,pos}),env,ab) = 
        let val rec_env = ref(!env)
            fun getVals([],map) = map 
@@ -328,10 +334,12 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      end
                   | doBindings({bpat,def,...}::more,assumptions,env1) = 
                         let val new_assumption = getProp(def,false,env1,ab)
+                            val hyp_name = ref("")
                             val res as (pval,ded_info as {conc=rest_conc,proof=rest_proof,fa=rest_fa}) = 
                                   (case matchPat(propVal(new_assumption),bpat,makeEvalExpFunction (env1,ab)) of 
                                       SOME(map,_) => let val (vmap,mmap) = getValAndModMaps(!env1)
                                                          val env1' = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mmap}))
+                                                         val _ = extractHypothesisName(map,propVal(new_assumption),hyp_name)
                                                      in
                                                         doBindings(more,new_assumption::assumptions,env1')
                                                      end
@@ -341,9 +349,10 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                             val (new_conclusion,body_conclusion) = 
                                   (case coerceValIntoProp(pval) of
                                       SOME(p) => (Prop.makeConditional(new_assumption,p),p))
+                            val hyp_name_opt = if (!hyp_name) = "" then NONE else SOME(S.symbol(!hyp_name))
                         in
                            (propVal(new_conclusion),{conc=new_conclusion,
-   				                     proof=assumeProof({hyp=hypothesis(NONE,new_assumption), body=rest_proof}),
+   				                     proof=assumeProof({hyp=hypothesis(hyp_name_opt,new_assumption), body=rest_proof}),
 						     fa=propDiff(rest_fa,new_assumption::(Prop.decomposeConjunctions new_assumption))})
                         end 
            in
@@ -1219,7 +1228,7 @@ and
                   val new_env = 
                          (case hyp_name_pat of
                              SOME(bpat) => (case matchPat(pval,bpat,makeEvalExpFunction (env,ab)) of 
-                                              SOME(map,_) => let val _ = extractHypothesisName(map,env,pval,hypothesis_name)
+                                              SOME(map,_) => let val _ = extractHypothesisName(map,pval,hypothesis_name)
                                                              in
                                                                 ref(augmentWithMap(!env,map))
                                                              end
