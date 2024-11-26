@@ -2042,19 +2042,23 @@ fun splitVars(P as uGen(_)) =
 	end
   |splitVars(P) = (NONE,[],P)
 
-fun makeTPTPProp(P) = 
+fun makeTPTPPropAux(P,simple_only) = 
   let val P' = alphaRename(P)
       val (lp,rp,comma,blank) = ("(",")",","," ")
       val fvars = freeVars(P')
+      val var_prefix = if simple_only then "" else "X"
+      val bc_prefix = if simple_only then "" else "$"
+      val constant_prefix = if simple_only then "" else "c"
+      val fsym_prefix = if simple_only then "" else "f"
       fun f(P_in as atom({term=t,...})) = 
             let val bc = isBooleanConstant(P_in)
 		val is_bc = not(bc = "") 
             in
-	       if is_bc then "$"^bc else 
+	       if is_bc then bc_prefix^bc else 
 	       (case AthTerm.isApp(t) of
-                  SOME(g,[]) => "c"^(Basic.fsymRenamer(MS.name(g)))
+                  SOME(g,[]) => constant_prefix^(Basic.fsymRenamer(MS.name(g)))
                 | SOME(g,args) => let val is_eq = msymEq(g,N.mequal_logical_symbol)
-				      val gname = if is_eq then "=" else "f"^(Basic.fsymRenamer(MS.name(g)))
+				      val gname = if is_eq then "=" else fsym_prefix^(Basic.fsymRenamer(MS.name(g)))
                                       val arg_strings = map (fn t => AT.makeTPTPTerm(t,fvars)) args 
                                       val str = if is_eq then 
                                                    (case arg_strings of 
@@ -2065,7 +2069,7 @@ fun makeTPTPProp(P) =
 		                  end
                 | _ => (case AT.isVarOpt(t) of
                            SOME(v) => if Basic.isMemberEq(v,fvars,ATV.athTermVarEq) then
-                                         "c"^(Basic.varRenamer(ATV.name(v)))
+                                         constant_prefix^(Basic.varRenamer(ATV.name(v)))
                                        else Basic.failLst(["Quantified Boolean variables are not allowed in TPTP formulas."])
                         | _ => raise Basic.Never))
             end
@@ -2074,8 +2078,8 @@ fun makeTPTPProp(P) =
         | f(disj({args,...})) = fLst(args," | ")
         | f(cond({ant=P1,con=P2,...})) =  "("^f(P1)^" => "^f(P2)^")"
         | f(biCond({left=P1,right=P2,...})) = "("^f(P1)^" <=> "^f(P2)^")"
-        | f(uGen({qvar,body,...})) = "! [ X"^(AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
-        | f(eGen({qvar,body,...})) = "? [ X"^(AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
+        | f(uGen({qvar,body,...})) = "! [ "^ var_prefix ^ (AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
+        | f(eGen({qvar,body,...})) = "? [ "^ var_prefix ^ (AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
         | f(eGenUnique({qvar,body,...})) = 
 		Basic.failLst(["Translation to TPTP failed on exists-unique sentence."])
       and fLst([],_) = ""
@@ -2085,49 +2089,8 @@ fun makeTPTPProp(P) =
      f P'
   end
 
-fun makeTPTPPropSimple(P) = 
-  let val P' = alphaRename(P)
-      val (lp,rp,comma,blank) = ("(",")",","," ")
-      val fvars = freeVars(P')
-      fun f(P_in as atom({term=t,...})) = 
-            let val bc = isBooleanConstant(P_in)
-		val is_bc = not(bc = "") 
-            in
-	       if is_bc then bc else 
-	       (case AthTerm.isApp(t) of
-                  SOME(g,[]) => (Basic.fsymRenamer(MS.name(g)))
-                | SOME(g,args) => let val is_eq = msymEq(g,N.mequal_logical_symbol)
-				      val gname = if is_eq then "=" else (Basic.fsymRenamer(MS.name(g)))
-                                      val arg_strings = map (fn t => AT.makeTPTPTerm(t,fvars)) args 
-                                      val str = if is_eq then 
-                                                   (case arg_strings of 
-                                                       [s1,s2] => lp^s1^blank^gname^blank^s2^rp)
-                                                else gname^lp^(Basic.printListStr(arg_strings,fn x => x,comma))^rp 
-			          in
-                                    str 
-		                  end
-                | _ => (case AT.isVarOpt(t) of
-                           SOME(v) => if Basic.isMemberEq(v,fvars,ATV.athTermVarEq) then
-                                         (Basic.varRenamer(ATV.name(v)))
-                                       else Basic.failLst(["Quantified Boolean variables are not allowed in TPTP formulas."])
-                        | _ => raise Basic.Never))
-            end
-        | f(neg({arg,...})) = " ~ ("^f(arg)^")"
-        | f(conj({args,...})) = fLst(args," & ")
-        | f(disj({args,...})) = fLst(args," | ")
-        | f(cond({ant=P1,con=P2,...})) =  "("^f(P1)^" => "^f(P2)^")"
-        | f(biCond({left=P1,right=P2,...})) = "("^f(P1)^" <=> "^f(P2)^")"
-        | f(uGen({qvar,body,...})) = "! [ " ^ (AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
-        | f(eGen({qvar,body,...})) = "? [ " ^ (AthTerm.makeConservativeName(ATV.name(qvar)))^" ] : ( "^f(body)^")"
-        | f(eGenUnique({qvar,body,...})) = 
-		Basic.failLst(["Translation to TPTP failed on exists-unique sentence."])
-      and fLst([],_) = ""
-        | fLst([P],_) = f(P)
-        | fLst(P1::(rest as (_::_)),sep) = "("^(f P1)^sep^(fLst(rest,sep))^")"
-  in
-     f P'
-  end
-
+fun makeTPTPProp(P) = makeTPTPPropAux(P,false)
+fun makeTPTPPropSimple(P) = makeTPTPPropAux(P,true)
 
 fun makeTPTPPropList(props) = List.map makeTPTPProp props
 
