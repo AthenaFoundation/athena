@@ -10,13 +10,14 @@ struct
 
 structure S = Symbol
 structure A = AbstractSyntax
+structure AT = AthTerm
 type prop = Prop.prop
 type symbol = S.symbol
 type variable = AthTerm.variable 
 
 open Semantics
 
-datatype hypothesis = hyp of symbol option * prop 
+datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop 
 
 datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
@@ -25,6 +26,27 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
                      | composition of {left: certificate, right: certificate}
                      | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate}
                      | conclude of {expected_conc: prop, body: certificate}
+
+fun simpleCert(ruleApp(_)) = true
+  | simpleCert(_) = false 
+
+fun certToString(D) = 
+  let val spaces = Basic.spaces
+      fun argToString(term(t)) = AT.toStringDefault(t)
+        | argToString(sent(p)) = Prop.makeTPTPProp(p)
+      fun argsToString(args) = Basic.printListStr(args,argToString,", ")
+      fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (S.name rule) ^ " on " ^ (argsToString args)
+	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body}),offset) = 
+	      (spaces offset) ^ "assume " ^ (Prop.makeTPTPProp p) ^ "\n" ^ (c2s(body,offset+2))
+	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body}),offset) = 
+	      (spaces offset) ^ "suppose-absurd " ^ (Prop.makeTPTPProp p) ^ "\n" ^ (c2s(body,offset+2))
+	| c2s(composition({left,right}),offset) = (c2s(left,offset)) ^ "\n" ^ (c2s(right,offset))
+	| c2s(conclude({expected_conc,body}),offset) = 
+             (spaces offset) ^ (Prop.makeTPTPProp expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+  in
+    "\n" ^ (c2s(D,0))
+  end              
+
 
 type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
 
