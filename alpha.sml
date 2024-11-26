@@ -87,7 +87,6 @@ fun getRuleName(rule_sym_name) =
 
 fun certToString(D) = 
   let val spaces = Basic.spaces
-      val _ = Basic.mark("AAAAAAA")
       fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = (P.toStringInfix p)
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
@@ -246,7 +245,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 						 fa=propUnion(lemma_fa,propDiff(body_fa,[lemma_conc])),
 						 proof=composition({left=lemma_proof,right=body_proof})}))
                    end
-	    | _ => let val _ = Basic.mark("HHHHHHHHHHH") in Basic.fail("") end)
+	    | _ => evalMethodApp(method,[arg],env,ab,pos))
        end))
   | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = evalMethodApp(method,args,env,ab,app_pos)
   | evDed(A.matchDed({discriminant,clauses,pos}),env,ab) =
