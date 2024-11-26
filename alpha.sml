@@ -26,25 +26,80 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
                      | composition of {left: certificate, right: certificate}
                      | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate}
                      | conclude of {expected_conc: prop, body: certificate}
+                     | block of certificate list 
+
+val trivial_cert = ruleApp({rule=S.symbol("BOGUS_RULE"),args=[]})
 
 fun simpleCert(ruleApp(_)) = true
   | simpleCert(_) = false 
 
+fun compsToBlocks(D) = 
+  let fun B(composition({left,right})) = (B left)@(B right)
+	| B(D) = [D] 
+      fun c2b(D as composition(_)) = block(map c2b (B D))
+	| c2b(assumeProof({hyp,body})) = assumeProof({hyp=hyp,body=c2b(body)})
+	| c2b(supAbProof({hyp,body})) = supAbProof({hyp=hyp,body=c2b(body)})
+	| c2b(pickAny({eigen_var,actual_fresh,body})) = pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=c2b(body)})
+	| c2b(conclude({expected_conc,body})) = conclude({expected_conc=expected_conc,body=c2b(body)})
+	| c2b(block(Ds)) = block(map c2b Ds)
+	| c2b(D) = D
+  in
+     c2b(D)
+  end
+
+fun certToStringNaive(D) = 
+  let fun argToString(term(t)) = AT.toStringDefault(t)
+        | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
+      fun argsToString(args) = Basic.printListStr(args,argToString,", ")
+      fun f(ruleApp({rule,args,...})) = "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
+	| f(assumeProof({hyp as hypothesis(name_opt,p),body})) = "assume " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
+        | f(supAbProof({hyp as hypothesis(name_opt,p),body})) = "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
+        | f(block(proofs)) = " BLOCK_START " ^ Basic.printListStr(proofs,f," || ") ^ " BLOCK_END "
+	| f(composition({left,right})) = (f left) ^ " ;; " ^ (f right)
+        | f(D) = "NOT IMPLEMENTED YET"
+  in
+     f(D)
+  end
+
+fun hasSubproof(D,pred) = 
+   let fun find(D) = 
+             if pred(D) then let val _ = print("\nFOUND TARGET PROOF: " ^ (certToStringNaive D) ^ "\n") in true end else 
+             (case D of 
+                 composition({left,right}) => find(left) orelse find(right)
+  	       | assumeProof({body,...}) => find(body)
+  	       | supAbProof({body,...}) => find(body)
+  	       | pickAny({body,...}) => find(body)
+  	       | conclude({body,...}) => find(body)
+               | block(certs) => Basic.exists(certs,find)
+	       | _ => false)
+   in 
+      find D 
+   end
+  
+fun compFree(D) = 
+     if hasSubproof(D,fn D' => (case D' of composition(_) => true | _ => false))
+     then false else true 
+
 fun certToString(D) = 
   let val spaces = Basic.spaces
       fun argToString(term(t)) = AT.toStringDefault(t)
-        | argToString(sent(p)) = Prop.makeTPTPProp(p)
+        | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (S.name rule) ^ " on " ^ (argsToString args)
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body}),offset) = 
-	      (spaces offset) ^ "assume " ^ (Prop.makeTPTPProp p) ^ "\n" ^ (c2s(body,offset+2))
+	      (spaces offset) ^ "assume " ^ (Prop.makeTPTPPropSimple p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body}),offset) = 
-	      (spaces offset) ^ "suppose-absurd " ^ (Prop.makeTPTPProp p) ^ "\n" ^ (c2s(body,offset+2))
-	| c2s(composition({left,right}),offset) = (c2s(left,offset)) ^ "\n" ^ (c2s(right,offset))
+	      (spaces offset) ^ "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ "\n" ^ (c2s(body,offset+2))
+	| c2s(composition({left,right}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
+	| c2s(block([D]),offset) = c2s(D,offset) 
+	| c2s(block(D1::(more as (_::_))),offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block(more),offset))
 	| c2s(conclude({expected_conc,body}),offset) = 
-             (spaces offset) ^ (Prop.makeTPTPProp expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+             (spaces offset) ^ (Prop.makeTPTPPropSimple expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+      val D' = compsToBlocks(D)
   in
-    "\n" ^ (c2s(D,0))
+    (case D' of 
+        block(_)  => "{\n" ^ (c2s(D',2)) ^ "\n}"
+      | _ => (c2s(D',0)))
   end              
 
 type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
@@ -358,6 +413,11 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
            in
               doBindings(bindings,[],env)
            end
+  | evDed(D,env,ab) = 
+          let val _ = print("\n***************************************** UNHANDLED CERT CASE: " ^ (A.unparseDed(D)) ^ "\n")
+          in
+             (evalDed(D,env,ab),{proof=trivial_cert,conc=Prop.true_prop,fa=[]})
+          end
 (*******************************************************************************************************************************************************************************
   | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)

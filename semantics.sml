@@ -3232,7 +3232,6 @@ and
                      val v2 = evPhrase(arg2,env,ab)
                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab
                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab'
-                     val _ = print("\nEXECUTING THIS PRIM BINARY METHOD: " ^ (Symbol.name method_code))
                  in
                     M(v1,v2,env,ab'') 
                  end handle PrimError(msg) => evError(msg,SOME(pos))

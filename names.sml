@@ -176,6 +176,9 @@ val applyExtractedSortSubFun_symbol = Symbol.symbol applyExtractedSortSubFun_nam
 val fsymsInFunDefTableFun_name = "defined-fsyms"
 val fsymsInFunDefTableFun_symbol = Symbol.symbol fsymsInFunDefTableFun_name
 
+val getAlphaCertFun_name = "get-alpha-cert"
+val getAlphaCertFun_symbol = Symbol.symbol getAlphaCertFun_name
+
 val subtermsFun_name = "subterms"
 val subtermsFun_symbol = Symbol.symbol subtermsFun_name
 
