@@ -196,6 +196,8 @@ sig
    val size: prop -> int 
    val sizeLst: prop list -> int 
 
+   val toStringInfix: prop -> string 
+
    val makeTPTPProp: prop -> string 
    val makeTPTPPropSimple: prop -> string 
    val makeTPTPPropList: prop list -> string list 

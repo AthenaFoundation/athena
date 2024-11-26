@@ -80,21 +80,27 @@ fun compFree(D) =
      if hasSubproof(D,fn D' => (case D' of composition(_) => true | _ => false))
      then false else true 
 
+fun getRuleName(rule_sym_name) = 
+  if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
+
+
+
 fun certToString(D) = 
   let val spaces = Basic.spaces
+      val _ = Basic.mark("AAAAAAA")
       fun argToString(term(t)) = AT.toStringDefault(t)
-        | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
+        | argToString(sent(p)) = (P.toStringInfix p)
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (S.name rule) ^ " on " ^ (argsToString args)
+      fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body}),offset) = 
-	      (spaces offset) ^ "assume " ^ (Prop.makeTPTPPropSimple p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body}),offset) = 
-	      (spaces offset) ^ "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ "\n" ^ (c2s(body,offset+2))
+	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body}),offset) =
+	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
 	| c2s(block([D]),offset) = c2s(D,offset) 
 	| c2s(block(D1::(more as (_::_))),offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block(more),offset))
 	| c2s(conclude({expected_conc,body}),offset) = 
-             (spaces offset) ^ (Prop.makeTPTPPropSimple expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+             (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
   in
     (case D' of 
@@ -198,17 +204,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                                 in
                                                   evError(msg,SOME(right_pos))
                                                 end)
-         | closBMethodVal(d,s1,s2,clos_env as ref(valEnv({val_map,mod_map,...})),name) => 
-                  let val v1 = evalPhrase(arg1,env,ab)
-                      val v2 = evalPhrase(arg2,env,ab) 
-                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab
-                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab'
-                      val vm = Symbol.enter(Symbol.enter(val_map,s1,v1),s2,v2)
-                      val _ = addPos(!name,pos)
-                  in
-                     evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab'')
-                  end
-        | _ =>  evalMethodApp(method,[arg1,arg2],env,ab,pos))
+	  | _ => evalMethodApp(method,[arg1,arg2],env,ab,pos))
       end))
   | evDed(A.UMethAppDed({method,arg,pos}),env,ab) = 
      ((let val head_val = evalExp(method,env,ab)
@@ -237,13 +233,20 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                                                         evError(msg,SOME(right_pos))
                                                                      end)
             | closUMethodVal(d,s,clos_env as ref(valEnv({val_map,mod_map,...})),clos_name) => 
-                   let val arg_val = evalPhrase(arg,env,ab)
+                   let val (arg_val,ded_1_info_opt) = evPhrase(arg,env,ab)
                        val vm = Symbol.enter(val_map,s,arg_val)
                        val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                        val _ = addPos(!clos_name,pos)
+                       val body_res as (body_conclusion_val,body_ded_info as {conc=body_conc,fa=body_fa,proof=body_proof}) = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
                    in
-                      evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
-                   end)
+                     (case ded_1_info_opt of 
+                        NONE => body_res
+		      | SOME({conc=lemma_conc,fa=lemma_fa,proof=lemma_proof}) => 
+                           (body_conclusion_val,{conc=body_conc,
+						 fa=propUnion(lemma_fa,propDiff(body_fa,[lemma_conc])),
+						 proof=composition({left=lemma_proof,right=body_proof})}))
+                   end
+	    | _ => let val _ = Basic.mark("HHHHHHHHHHH") in Basic.fail("") end)
        end))
   | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = evalMethodApp(method,args,env,ab,app_pos)
   | evDed(A.matchDed({discriminant,clauses,pos}),env,ab) =
@@ -417,6 +420,47 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
            in
               doBindings(bindings,[],env)
            end
+  | evDed(A.byDed({wanted_res,body,pos,conc_name}),env,ab) =  
+      let fun msg(P,Q) = "Failed conclusion annotation.\nThe expected conclusion was:\n"^ 
+                          P.toPrettyString(0,P,makeVarSortPrinter())^"\nbut the obtained result was:\n"^
+                          P.toPrettyString(0,Q,makeVarSortPrinter())
+          fun msg2(v) = "In a deduction of the form (E BY D), the value of E must be a sentence,\n"^
+                        "but here it was a "^valLCTypeAndString(v)
+          fun indent(level, s) = if level = 0 then () else (print(s); indent(level - 1, s))
+	  fun tracemsg1(level) = (A.posToString pos)^":Proving at level "^Int.toString(level)^":\n"
+	  fun tracemsg2(level) = "Done at level "^Int.toString(level)^".\n"
+	  fun pprint(n, P) = P.toPrettyString(n,P,makeVarSortPrinter())
+          fun openTracing(P,level) = if (!Options.conclude_trace) then
+                                     (level := !level + 1; 
+                                      print((A.posToString pos)^":Proving at level "^Int.toString(!level)^":\n");
+                                      indent(!level,"    "); 
+                                      print("  "^pprint(4*(!level)+2,P)^"\n"))
+                                     else ()
+          fun closeTracing(level,success) = if (!Options.conclude_trace) then 
+                                                 (level := !level - 1;
+                                                   indent(!level+1,"    ");
+                                                   if success then print("Done at level "^Int.toString(!level+1)^".\n")
+                                                         else print("Failed at level "^Int.toString(!level+1)^".\n"
+                                                                    ^"in dtry clause at "^(A.posToString pos)^".\n"))
+                                              else ()
+          val wv = evalExp(wanted_res,env,ab)
+          val env' = (case conc_name of 
+                         SOME({name,...}) => let val (vmap,mmap) = getValAndModMaps(!env)
+                                             in
+                                                ref(valEnv({val_map=Symbol.enter(vmap,name,wv),mod_map=mmap}))
+                                              end
+                       | _ => env)
+      in
+         (case coerceValIntoProp(wv) of 
+             SOME(P) => (openTracing(P,level);
+                         case (evDed(body,env',ab) 
+                               handle ex => (closeTracing(level,false);raise ex)) of
+                            res as (body_val,body_ded_info)  => 
+                              (case coerceValIntoProp(body_val) of
+                                 SOME(Q) => if Prop.alEq(P,Q) then (closeTracing(level,true);res)
+                                            else (closeTracing(level,false);evError(msg(P,Q),SOME(pos)))))
+           | _ => evError(msg2(wv),SOME(A.posOfExp(wanted_res))))
+      end
   | evDed(D,env,ab) = 
           let val _ = print("\n***************************************** UNHANDLED CERT CASE: " ^ (A.unparseDed(D)) ^ "\n")
           in

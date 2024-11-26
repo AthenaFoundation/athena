@@ -217,7 +217,7 @@ define (htp goal) :=
              prove := method (goal limit) 
                        check {(greater? limit UPPER-BOUND) => (!dhalt) 
                             | else => let {_ := (set! MAX-ITERS limit);
-                                           _ := (print "\nWill try with MAX-ITERS: " limit);
+                                           #_ := (print "\nWill try with MAX-ITERS: " limit);
                                            _ := ()
                                           }
                                         try {(!tp goal 1)

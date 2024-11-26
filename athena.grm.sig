@@ -18,6 +18,7 @@ val SUBSORT:  'a * 'a -> (svalue,'a) token
 val DATATYPE_CASES_ON_TERM:  'a * 'a -> (svalue,'a) token
 val DATATYPE_CASES:  'a * 'a -> (svalue,'a) token
 val EX_GENERALIZE:  'a * 'a -> (svalue,'a) token
+val TRUE_INTRODUCTION:  'a * 'a -> (svalue,'a) token
 val SET_FLAG:  'a * 'a -> (svalue,'a) token
 val SPECIALIZE:  'a * 'a -> (svalue,'a) token
 val END:  'a * 'a -> (svalue,'a) token

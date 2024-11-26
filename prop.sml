@@ -2042,6 +2042,21 @@ fun splitVars(P as uGen(_)) =
 	end
   |splitVars(P) = (NONE,[],P)
 
+
+fun toStringInfix(p) = 
+  let fun f(atom({term=t,...})) = (AT.toStringDefault t)
+	| f(neg({arg=p,...})) = "(~ " ^ (f p) ^ ")"
+	| f(conj({args,...})) = "(" ^ (Basic.printListStr(args,f," & ")) ^ ")"
+	| f(disj({args,...})) = "(" ^ (Basic.printListStr(args,f," | ")) ^ ")"
+	| f(cond({ant,con,...})) = "(" ^ (f ant) ^ " ==> " ^ (f con) ^ ")"
+	| f(biCond({left,right,...})) = "(" ^ (f left) ^ " <==> " ^ (f right) ^ ")"
+        | f(uGen({qvar,body,...})) = "(forall "^ (AthTermVar.toStringDefault qvar) ^ " . " ^ (f body) ^ ")"
+        | f(eGen({qvar,body,...})) = "(exists "^ (AthTermVar.toStringDefault qvar) ^ " . " ^ (f body) ^ ")"
+        | f(eGenUnique({qvar,body,...})) = "(exists-unique "^ (AthTermVar.toStringDefault qvar) ^ " . " ^ (f body) ^ ")"
+  in
+     f(p)
+  end
+
 fun makeTPTPPropAux(P,simple_only) = 
   let val P' = alphaRename(P)
       val (lp,rp,comma,blank) = ("(",")",","," ")
@@ -2073,7 +2088,7 @@ fun makeTPTPPropAux(P,simple_only) =
                                        else Basic.failLst(["Quantified Boolean variables are not allowed in TPTP formulas."])
                         | _ => raise Basic.Never))
             end
-        | f(neg({arg,...})) = " ~ ("^f(arg)^")"
+        | f(neg({arg,...})) = "(~ "^f(arg)^")"
         | f(conj({args,...})) = fLst(args," & ")
         | f(disj({args,...})) = fLst(args," | ")
         | f(cond({ant=P1,con=P2,...})) =  "("^f(P1)^" => "^f(P2)^")"

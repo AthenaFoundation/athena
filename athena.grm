@@ -29,7 +29,7 @@ fun getPos((l,p)) = {line=l,pos=p,file=(!Paths.current_file)}
        DECLARE | DDECLARE | DIRECTIVE_PREFIX | EGEN | BEGIN | WHILE | CLEAR | THE | DEFINE_SYMBOL | DOMAINS | OVER  | 
        EGEN_UNIQUE  | LEIBNIZ | EQ_REFLEX  | SOME_QUANT | USPEC | FETCH  | RETRACT | DEFINE_FUN | ADD_DEMON | ADD_DEMONS | 
        SOME_PROP_CON | UNEQUAL_TERMS | INDUCTION | STRUCTURE_CASES | LIST | CELL | RULE  | GEN_OVER | WITH_PREDICATE | WITH_KEYS | 
-       WITH_WITNESS | MAKE_CELL | REF  | USE_TERM_PARSER | USE_PROP_PARSER | END | SPECIALIZE | SET_FLAG | 
+       WITH_WITNESS | MAKE_CELL | REF  | USE_TERM_PARSER | USE_PROP_PARSER | END | SPECIALIZE | SET_FLAG |  TRUE_INTRODUCTION | 
        EX_GENERALIZE | DATATYPE_CASES | DATATYPE_CASES_ON_TERM | SUBSORT  | SUBSORTS | VECTOR_INIT | VECTOR_SUB | VECTOR_SET | 
        SET_CNF_CONVERTER | GET_CNF_CONVERTER | ANY_PAT | SET_PRECEDENCE | LEFT_ASSOC | RIGHT_ASSOC | BIN_OP | ADD_PATH
 
@@ -904,6 +904,7 @@ comma_separated_phrase_list: phrase ([phrase])
                                | phrase COMMA comma_separated_phrase_list 
                                    (phrase::comma_separated_phrase_list)
 
+
 opt_comma_separated_phrase_list: phrase ([phrase])
                                 | phrase COMMA opt_comma_separated_phrase_list
                                        (phrase::opt_comma_separated_phrase_list)
@@ -919,6 +920,8 @@ inference: expression FROM comma_separated_phrase_list
          |  expression BY expression ON comma_separated_phrase_list  
                (A.byDed({wanted_res=expression1,conc_name=NONE,body=A.methodAppDed({method=expression2,
                          args=comma_separated_phrase_list,pos=A.posOfExp(expression)}),pos=getPos BYleft}))
+
+         | TRUE_INTRODUCTION (A.methodAppDed({method=A.makeIdExpSimple("true-intro",getPos TRUE_INTRODUCTIONleft),args=[],pos=getPos TRUE_INTRODUCTIONleft}))
 
          |  expression ON comma_separated_phrase_list 
                (A.methodAppDed({method=expression,args=comma_separated_phrase_list,pos=A.posOfExp(expression)}))

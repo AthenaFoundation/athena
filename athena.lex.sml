@@ -187,6 +187,7 @@ fun isReserved(str,leftp:pos as (l,p)) =
             doReserved "domains" = (true,Tokens.DOMAINS(getPos(7))) | 
             doReserved "subsort" = (true,Tokens.SUBSORT(getPos(7))) | 
             doReserved "subsorts" = (true,Tokens.SUBSORTS(getPos(8))) | 
+            doReserved "true-introduction" = (true,Tokens.TRUE_INTRODUCTION(getPos(17))) | 
             doReserved "declare" = (true,Tokens.DECLARE(getPos(7))) | 
             doReserved "ddeclare" = (true,Tokens.DDECLARE(getPos(8))) | 
             doReserved "val-of" = (true,Tokens.VAL_OF(getPos(6))) | 

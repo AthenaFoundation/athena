@@ -73,23 +73,6 @@ fun builtIn(file) =
 fun makeErrorWithPosInfo(msg,SOME(pos)) = A.posToString(pos)^": Error: "^msg^"."
   | makeErrorWithPosInfo(msg,_) = msg 
 
-fun exceptionToString(e) =
- let fun f(ErrorMsg.ParseError((l,p),str)) = ("\n"^A.posToString({line=l,file=(!Paths.current_file),pos=p})^": Parsing error, "^str^".\n")
-       | f(A.LexError(str,SOME(pos))) = ("\n"^A.posToString(pos)^": Lexical error, "^str^".\n")
-       | f(A.LexError(str,NONE)) = ((!Paths.current_file)^": Lexical error at end of file, "^str^".\n")
-       | f(A.SyntaxError(str,SOME(pos))) = ("\n"^(A.posToString pos)^": Syntax error: "^str^".\n")
-       | f(A.SyntaxError(str,NONE)) = ("\n"^(!Paths.current_file)^": Syntax error: "^str^".\n")
-       | f(AthenaError(msg)) = ("\n"^msg^"\n")
-       | f(EvalError(x)) = makeErrorWithPosInfo(x)
-       | f(Data.GenEx(str)) = str^"\n"
-       | f(SemanticValues.GenEx(x as (msg,pos_opt))) = makeErrorWithPosInfo(x)
-       | f(Basic.Fail(str)) = "\n"^str^"\n"
-       | f(Basic.FailLst(strings)) = "\n"^(Basic.printListStr(strings,fn x => x, "\n"))^"\n" 
-       | f(_) = "\nUnknown error: "^(exnMessage e)
- in
-   f e
- end
-
 fun evError(msg,pos_opt) = raise EvalError(msg,pos_opt)
 fun primError(str) = raise PrimError(str)
 

@@ -690,7 +690,9 @@ fun getAlphaCertFun(v1,v2,env,ab) =
   (case (v1,v2) of 
      (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
       closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
-         let val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
+         let val _ = Basic.mark("111111111111111111")
+             val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
+             val _ = Basic.mark("2222222222222222222")
              val proof_str = Alpha.certToString(proof)
              val proof_ath_str = MLStringToAthString(proof_str)
              val res = evalClosure(v2,[proof_ath_str],ab,NONE)
