@@ -296,6 +296,59 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        in
          evDed(body,ref(new_env),ab)
        end
+  | evDed(A.tryDed({choices,pos}),env,ab) =
+       let fun tryDeds([]) = NONE
+             | tryDeds(d::more) = 
+                   (case (SOME(evDed(d,env,ab)) handle _ => NONE) of 
+                       NONE => tryDeds(more)
+                     | r =>  r)
+           in
+             (case tryDeds(choices) of
+                NONE => evError("Try deduction error; all "^ 
+                                " alternatives failed.\n",SOME(pos))
+               | (SOME v) => v)
+       end
+  | evDed(A.assumeLetDed({bindings,body,pos}),env,ab) = 
+           let fun getProp(F,is_ded,env,ab) = 
+                  let val Fval = evalPhrase(F,env,ab)
+                  in
+                     (case coerceValIntoProp(Fval) of
+                         SOME(P) => P
+                       | _ => let val Fkind = if is_ded then "body" else "hypothesis" 
+                              in
+                                 evError("assume-let "^Fkind^" failed to result in a sentence. Instead, it "^
+                                         "produced a "^valLCTypeAndString(Fval),SOME(A.posOfPhrase(F)))
+                              end)
+                  end
+               fun doBindings([]:A.binding list,assumptions,env1) = 
+                     let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
+                         val new_ab = ABaseAugment(ab,asms')
+                     in
+                        evDed(body,env1,new_ab)
+                     end
+                  | doBindings({bpat,def,...}::more,assumptions,env1) = 
+                        let val new_assumption = getProp(def,false,env1,ab)
+                            val res as (pval,ded_info as {conc=rest_conc,proof=rest_proof,fa=rest_fa}) = 
+                                  (case matchPat(propVal(new_assumption),bpat,makeEvalExpFunction (env1,ab)) of 
+                                      SOME(map,_) => let val (vmap,mmap) = getValAndModMaps(!env1)
+                                                         val env1' = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mmap}))
+                                                     in
+                                                        doBindings(more,new_assumption::assumptions,env1')
+                                                     end
+                                    | _ => evError("Assume pattern failed to match the corresponding value, the\n "^
+                                                   (valLCTypeAndStringNoColon (propVal new_assumption)),
+                                                   SOME(A.posOfPat(bpat))))
+                            val (new_conclusion,body_conclusion) = 
+                                  (case coerceValIntoProp(pval) of
+                                      SOME(p) => (Prop.makeConditional(new_assumption,p),p))
+                        in
+                           (propVal(new_conclusion),{conc=new_conclusion,
+   				                     proof=assumeProof({hyp=hypothesis(NONE,new_assumption), body=rest_proof}),
+						     fa=propDiff(rest_fa,new_assumption::(Prop.decomposeConjunctions new_assumption))})
+                        end 
+           in
+              doBindings(bindings,[],env)
+           end
 (*******************************************************************************************************************************************************************************
   | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
@@ -364,7 +417,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
                      in
                        propVal(Prop.foldConditionals(rev(assumptions),
-                               getProp(A.ded(body),true,env1,ABaseAugment(ab,asms'))))
+                                                     getProp(A.ded(body),true,env1,ABaseAugment(ab,asms'))))
                      end
                   | doBindings({bpat,def,...}::more,assumptions,env1) = 
                        let val new_assumption = getProp(def,false,env1,ab)
@@ -1161,6 +1214,8 @@ and
       (case coerceValIntoPropVal(hypv) of
           SOME(pval as propVal(antecedent)) => 
               let val hypothesis_name = ref("")
+                  val asms = Prop.decomposeConjunctions(antecedent)
+                  val new_ab = ABase.augment(ab,asms)
                   val new_env = 
                          (case hyp_name_pat of
                              SOME(bpat) => (case matchPat(pval,bpat,makeEvalExpFunction (env,ab)) of 
@@ -1173,7 +1228,7 @@ and
                                                            (valLCTypeAndStringNoColon pval),
                                                            SOME(A.posOfPat(bpat))))
                           | _ => env)
-                  val body_res = evDed(body,new_env,ABaseAugment(ab,[antecedent]))
+                  val body_res = evDed(body,new_env,new_ab)
               in
                 (case body_res of
                    (body_val,body_ded_info as {proof=body_proof,conc=body_conc,fa=body_fa}) =>
