@@ -73,6 +73,14 @@ fun getFA(method_sym,vals: value list,ab) =
       | _ => props        
   end
 
+fun extractHypothesisName(map,env,pval,hypothesis_name) = 
+  let val symbol_and_value_pairs = Symbol.listSymbolsAndImages(map)
+  in
+     (case Basic.constructiveExists(symbol_and_value_pairs,fn (symbol,value) => valEq(value,pval)) of
+         SOME((symbol,_)) => hypothesis_name := S.name(symbol)
+       | _ => ())
+  end 
+
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
           
@@ -263,13 +271,31 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 									    fa=propDiff(body_fa,[antecedent])}
                                                   in
                                                     (propVal(conditional_conclusion),final_ded_info)
-                                                  end)
-                         | _ => evError("In a deduction of the form (assume F D), the value of F"^ 
-                                        " must\nbe a sentence, but here it was a "^valLCTypeAndString(aval),
-                                        SOME(A.posOfPhrase(assumption))))
+                                                  end
+                             | _ => evError("In a deduction of the form (assume F D), the value of F"^ 
+                                             " must\nbe a sentence, but here it was a "^valLCTypeAndString(aval),
+                                             SOME(A.posOfPhrase(assumption)))))
                      end)
             end
-
+  | evDed(A.letRecDed({bindings,body,pos}),env,ab) = 
+       let val rec_env = ref(!env)
+           fun getVals([],map) = map 
+             | getVals((b:A.binding as {bpat,def,pos})::more,map) = 
+                let val mv = evalPhrase(def,rec_env,ab)
+                in
+                  (case matchPat(mv,bpat,makeEvalExpFunction (rec_env,ab)) of 
+                      SOME(map',_) => getVals(more,Symbol.augment(map,map'))
+                    | _ => evError("dletrec pattern failed to match the corresponding value, the\n "^
+                                   (valLCTypeAndStringNoColon mv),
+                                   SOME(A.posOfPat(bpat))))
+                end
+           val pmap = getVals(bindings,S.empty_mapping)
+           val (vmap,mod_map) = getValAndModMaps(!env)
+           val new_env = valEnv({val_map=Symbol.augment(vmap,pmap),mod_map=mod_map})
+           val _ = rec_env := new_env
+       in
+         evDed(body,ref(new_env),ab)
+       end
 (*******************************************************************************************************************************************************************************
   | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
@@ -1128,6 +1154,47 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                               "the deduction did not produce a sentence",SOME(A.posOfDed(body))))
 	   end
 *******************************************************************************************************************************************************************************)
+and
+   doSupposeAbsurd(hyp:A.phrase,hyp_name_pat:A.pattern option,body:A.deduction,pos:A.position,env,ab) = 
+    let val hypv = evalPhrase(hyp,env,ab)
+    in
+      (case coerceValIntoPropVal(hypv) of
+          SOME(pval as propVal(antecedent)) => 
+              let val hypothesis_name = ref("")
+                  val new_env = 
+                         (case hyp_name_pat of
+                             SOME(bpat) => (case matchPat(pval,bpat,makeEvalExpFunction (env,ab)) of 
+                                              SOME(map,_) => let val _ = extractHypothesisName(map,env,pval,hypothesis_name)
+                                                             in
+                                                                ref(augmentWithMap(!env,map))
+                                                             end
+                                            | _ => evError("Suppose-absurd pattern failed to match "^ 
+                                                           "the corresponding value, the\n"^
+                                                           (valLCTypeAndStringNoColon pval),
+                                                           SOME(A.posOfPat(bpat))))
+                          | _ => env)
+                  val body_res = evDed(body,new_env,ABaseAugment(ab,[antecedent]))
+              in
+                (case body_res of
+                   (body_val,body_ded_info as {proof=body_proof,conc=body_conc,fa=body_fa}) =>
+                      (case coerceValIntoProp(body_val) of
+                         SOME(p') => if Prop.isBooleanFalse(p') then 
+                                        let val negated_conclusion = Prop.makeNegation(antecedent)
+                                            val hyp_name_option = if (!hypothesis_name) = "" then NONE else SOME(S.symbol(!hypothesis_name))
+                                            val final_ded_info = {proof=supAbProof({hyp=hypothesis(hyp_name_option,antecedent), body=body_proof}),
+	 					                  conc=negated_conclusion,
+							          fa=propDiff(body_fa,[antecedent])}
+                                        in
+                                           (propVal(negated_conclusion),final_ded_info)
+                                        end 
+                                     else evError("The body of a suppose-absurd deduction"
+                                                 ^" must derive the sentence false---but here the " 
+                                                 ^"result was the sentence\n"^pprintProp(p'),
+                                                  SOME(A.posOfDed(body)))))
+              end
+        | _ => evError("The hypothesis of a suppose-absurd deduction must be a sentence---"^
+                       "but here it is a "^valLCTypeAndString(hypv),SOME(A.posOfPhrase(hyp))))
+    end
 and 
     evalMethodApp(method,args:A.phrase list,env:SemanticValues.value_environment ref,ab:ABase.assum_base,pos:A.position) = 
      (let val app_pos = pos 
