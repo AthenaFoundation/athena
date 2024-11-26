@@ -47,7 +47,6 @@ fun certToString(D) =
     "\n" ^ (c2s(D,0))
   end              
 
-
 type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
 
 fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[]}),conc=Prop.true_prop, fa = []}
@@ -95,17 +94,17 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                              SOME(t) => term(t)
 			   | _ => (case coerceValIntoProp(v) of
                                       SOME(p) => sent(p)))
-    fun evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) = 
+    fun evPhrase(phr,env,ab) = 
+            (case phr of 
+                A.ded(d) => (case evDed(d,env,ab) of (x,y) => (x,SOME(y)))
+	      | A.exp(e) => (evalExp(e,env,ab),NONE))
+and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) = 
     ((let val head_val = evalExp(method,env,ab) 
       in
         (case head_val of
            primBMethodVal(M,method_sym) => 
-                (let val (v1,ded_1_info_opt) = (case arg1 of 
-                                                  A.ded(d1) => (case evDed(d1,env,ab) of (a,b) => (a,SOME(b)))
-					        | A.exp(e1) => (evalExp(e1,env,ab),NONE))
-                     val (v2,ded_2_info_opt) = (case arg2 of 
-                                                  A.ded(d2) => (case evDed(d2,env,ab) of (a,b) => (a,SOME(b)))
-					        | A.exp(e2) => (evalExp(e2,env,ab),NONE))
+                (let val (v1,ded_1_info_opt) = evPhrase(arg1,env,ab)
+                     val (v2,ded_2_info_opt) = evPhrase(arg2,env,ab)
                      val arg_ded_infos = Basic.mapSelect(fn SOME(ded_info) => ded_info,[ded_1_info_opt,ded_2_info_opt],fn _ => true)
                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab 
                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab' 
@@ -139,9 +138,7 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
        in
          (case head_val of
               primUMethodVal(f,method_sym) => 
-                                     (let val (arg_val,ded_1_info_opt) = (case arg of 
-                                                                             A.ded(d1) => (case evDed(d1,env,ab) of (a,b) => (a,SOME(b)))
-					                                   | A.exp(e1) => (evalExp(e1,env,ab),NONE))
+                                     (let val (arg_val,ded_1_info_opt) = evPhrase(arg,env,ab)
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
                                           val ded_info = (case ded_1_info_opt of
@@ -172,6 +169,47 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
                    end)
        end))
   | evDed(method_app as A.methodAppDed({method,args,pos=app_pos}),env,ab) = evalMethodApp(method,args,env,ab,app_pos)
+  | evDed(A.matchDed({discriminant,clauses,pos}),env,ab) =
+      let val (discrim_value,ded_info_opt) = evPhrase(discriminant,env,ab)
+          val disc_ded_infos = Basic.mapSelect(fn SOME(ded_info) => ded_info,[ded_info_opt],fn _ => true)
+          val e_fun = makeEvalExpFunction (env,ab)
+          val new_ab = if A.isDeduction(discriminant) then
+                          (case coerceValIntoProp(discrim_value) of
+                              SOME(P) => ABase.insert(P,ab)
+                            | _ => evError("Impossible error encountered in dmatch"^
+                                      "---the discriminant is a deduction and yet it "^
+                                      "did not produce a sentence",
+                                      SOME(A.posOfPhrase(discriminant))))
+                       else ab
+          fun tryClauses([]:A.dmatch_clause list) =  
+                  evError("dmatch failed---the "^valLCTypeAndStringNoColon(discrim_value)^
+                          "\ndid not match any of the given patterns",SOME(pos))
+            | tryClauses({pat,ded}::more) = 
+               (case matchPat(discrim_value,pat,e_fun) of
+                   SOME(map,_) => 
+                      let val new_env = ref(augmentWithMap(!env,map))
+                          val result as (res_val,body_ded_info) = evDed(ded,new_env,new_ab)                          
+                          val final_ded_info = reconcile(body_ded_info,disc_ded_infos)
+                      in
+                         (res_val,final_ded_info)
+                      end
+                 | _ => tryClauses(more))
+          in
+            tryClauses(clauses)
+      end                         
+  | evDed(A.beginDed({members,pos}),env,ab) = 
+     let fun doAll([d],ab') = evDed(d,env,ab')
+           | doAll(d1::rest,ab) = 
+               (case evDed(d1,env,ab) of
+                   (propVal(p),{proof=proof1,conc=conc1,fa=fa1})  =>
+                      (case doAll(rest,ABaseInsert(p,ab)) of 
+                         (res_val,{proof=proof_rest,conc=conc_rest,fa=fa_rest}) => 
+                           (res_val,{proof=composition({left=proof1,right=proof_rest}),
+				     fa=propUnion(fa1,propDiff(fa_rest,[conc1])),
+				     conc=conc_rest})))
+         in  
+           doAll(members,ab)
+     end           
 (*******************************************************************************************************************************************************************************
   | evDed(A.letDed({bindings,body,pos}),env,ab) = 
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
@@ -207,31 +245,6 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
            in
               doLetDed(bindings,env,ab)
        end
-  | evDed(A.matchDed({discriminant,clauses,pos}),env,ab) =
-      let val discrim_value = evalPhrase(discriminant,env,ab)
-          val e_fun = makeEvalExpFunction (env,ab)
-          val new_ab = if A.isDeduction(discriminant) then
-                          (case coerceValIntoProp(discrim_value) of
-                              SOME(P) => ABase.insert(P,ab)
-                            | _ => evError("Impossible error encountered in dmatch"^
-                                      "---the discriminant is a deduction and yet it "^
-                                      "did not produce a sentence",
-                                      SOME(A.posOfPhrase(discriminant))))
-                       else ab
-          fun tryClauses([]:A.dmatch_clause list) =  
-                  evError("dmatch failed---the "^valLCTypeAndStringNoColon(discrim_value)^
-                          "\ndid not match any of the given patterns",SOME(pos))
-            | tryClauses({pat,ded}::more) = 
-               (case matchPat(discrim_value,pat,e_fun) of
-                   SOME(map,_) => 
-                      let val new_env = ref(augmentWithMap(!env,map))
-                          in
-                            evDed(ded,new_env,new_ab)
-                      end
-                 | _ => tryClauses(more))
-          in
-            tryClauses(clauses)
-      end                         
   | evDed(A.assumeDed({assumption,body,pos}),env,ab) = 
             let val aval = evalPhrase(assumption,env,ab)
             in
