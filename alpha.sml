@@ -246,6 +246,30 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        in
           doBindings(bindings,env,ab,[])
        end
+  | evDed(A.assumeDed({assumption,body,pos}),env,ab) = 
+            let val aval = evalPhrase(assumption,env,ab)
+            in
+               (case coerceValIntoProp(aval) of
+                   SOME(antecedent) => 
+                     let val asms = Prop.decomposeConjunctions(antecedent)
+                         val ab' = ABase.augment(ab,asms)
+                     in 
+                       (case evDed(body,env,ab') of 
+                         (body_val,body_ded_info as {proof=body_proof,conc=body_conc,fa=body_fa})  => 
+                           (case coerceValIntoProp(body_val) of 
+                              SOME(consequent) => let val conditional_conclusion = Prop.makeConditional(antecedent,consequent)
+                                                      val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,antecedent), body=body_proof}),
+			 					            conc=conditional_conclusion,
+									    fa=propDiff(body_fa,[antecedent])}
+                                                  in
+                                                    (propVal(conditional_conclusion),final_ded_info)
+                                                  end)
+                         | _ => evError("In a deduction of the form (assume F D), the value of F"^ 
+                                        " must\nbe a sentence, but here it was a "^valLCTypeAndString(aval),
+                                        SOME(A.posOfPhrase(assumption))))
+                     end)
+            end
+
 (*******************************************************************************************************************************************************************************
   | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
