@@ -98,7 +98,7 @@ fun certToString(D) =
       val D' = compsToBlocks(D)
   in
     (case D' of 
-        block(_)  => "{\n" ^ (c2s(D',2)) ^ "\n}"
+        block(_)  => "\n{\n" ^ (c2s(D',2)) ^ "\n}"
       | _ => (c2s(D',0)))
   end              
 
