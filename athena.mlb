@@ -82,6 +82,7 @@ in
 	state_search.sml
 	search.sml
 	semantics.sml
+        alpha.sml
 	smt_output.sml
 	compiler.sml
 	server.sml 

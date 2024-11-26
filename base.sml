@@ -204,6 +204,9 @@ fun removeDuplicatesEq(l,eq) =
         in
            remove([],l)
     end
+fun listDiff(l1,l2,eq) = List.filter (fn x => not(isMemberEq(x,l2,eq))) l1
+      
+fun listUnion(l1,l2,eq) = removeDuplicatesEq(l1@l2,eq)
 
 fun hasDuplicates(l,eq) = List.length(removeDuplicatesEq(l,eq)) < List.length(l)
 

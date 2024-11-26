@@ -3743,6 +3743,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.unifiable_sort_fun_symbol,primBFunVal(unifiableSortsPrimBFun,default_bfv_pa_for_procs N.unifiable_sort_fun_name)),
                          (N.built_in_merge_sort_symbol',primBFunVal(mergeSortPrimBFun,default_bfv_pa_for_procs N.built_in_merge_sort_name')),
                          (N.built_in_merge_sort_symbol,primBFunVal(mergeSortPrimBFun',default_bfv_pa_for_procs N.built_in_merge_sort_name)),
+                         (N.getAlphaCertFun_symbol,primBFunVal(getAlphaCertFun,default_bfv_pa_for_procs N.getAlphaCertFun_name)),
                          (N.uspecPrimMethod_symbol,SV.primBMethodVal(uSpecPrimBMethod,N.uspecPrimMethod_symbol)),
                          (N.proofErrorMethod_symbol,SV.primUMethodVal(proofErrorPrimUMethod,N.proofErrorMethod_symbol)),
                          (N.compErrorFun_symbol,primUFunVal(compErrorPrimUFun,default_ufv_pa_for_procs N.compErrorFun_name)),

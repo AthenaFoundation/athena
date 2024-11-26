@@ -522,6 +522,8 @@ fun makeIdExpSimple'(sym,pos) =
         idExp({msym=msym(s),mods=[],sym=s,no_mods=true,pos=pos})
     end
 
+fun makeIdExpSimpleNP(s) = idExp({msym=msym(s),mods=[],sym=s,no_mods=true,pos=dum_pos})
+
 fun makeMapExp(bindings,map_pos) = 
     let val proc = makeIdExp(N.addMapFun_name,map_pos)
         val empty_mapping = makeIdExp(N.empty_mapping_name,map_pos)
