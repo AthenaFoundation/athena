@@ -28,7 +28,7 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
                      | conclude of {expected_conc: prop, body: certificate}
                      | block of certificate list 
 
-val trivial_cert = ruleApp({rule=S.symbol("BOGUS_RULE"),args=[]})
+val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[]})
 
 fun simpleCert(ruleApp(_)) = true
   | simpleCert(_) = false 
