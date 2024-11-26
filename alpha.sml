@@ -287,6 +287,10 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
          in  
            doAll(members,ab)
      end           
+  | evDed(A.checkDed({clauses,pos}),env,ab) = 
+       (case evalDCheckClauses(clauses,env,ab) of
+           SOME(d) => evDed(d,env,ab)
+         | _ => evError("dcheck failed: no alternative holds",SOME(pos)))
   | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doBindings([],env1,ab1,ded_infos) = 
                    let val result as (res_val,body_ded_info) = evDed(body,env1,ab1)
@@ -1319,6 +1323,21 @@ and
         | _ => evError("The hypothesis of a suppose-absurd deduction must be a sentence---"^
                        "but here it is a "^valLCTypeAndString(hypv),SOME(A.posOfPhrase(hyp))))
     end
+and evalDCheckClauses(clauses,env,ab) = 
+     let fun f([]) = NONE
+           | f({test=A.boolCond(phr),result}::more) =
+                  (case evalPhrase(phr,env,ab) of 
+                                 propVal(P) =>
+				   (case P.isAtom(P) of
+				       SOME(t) => if AT.isTrueTerm(t) then SOME(result) else f(more)
+				     | _ => f(more))
+                                 | termVal(t) => if AT.isTrueTerm(t) then SOME(result)
+	 					 else f(more)
+	      		         | _ => f(more))
+           | f({test=A.elseCond,result}::more) = SOME(result)
+     in
+        f(clauses)
+     end     
 and 
     evalMethodApp(method,args:A.phrase list,env:SemanticValues.value_environment ref,ab:ABase.assum_base,pos:A.position) = 
      (let val app_pos = pos 
