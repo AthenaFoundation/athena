@@ -86,6 +86,20 @@ fun reconcile(tail_ded_info,[]) = tail_ded_info
            {conc=tail_conc,fa=final_fas,proof=final_proof}
         end 
 
+fun getNewEnvAndAb(dval,bpat,env1,ab1,ab) = 
+    (case matchPat(dval,bpat,makeEvalExpFunction (env1,ab)) of 
+        SOME(map,_) => let val (vmap,mod_map) = getValAndModMaps(!env1)
+                           val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
+                           val new_ab = (case dval of
+                                            propVal(p) => ABaseAugment(ab1,Prop.decomposeConjunctions p)
+                                          | _ => ab1)
+                       in
+                         (new_env,new_ab)
+                       end 
+      | _ => evError("Dlet pattern failed to match the corresponding value, the\n "^
+                    (valLCTypeAndStringNoColon dval),
+                    SOME(A.posOfPat(bpat))))
+                   
 val evalDedAlpha = 
 let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
@@ -198,7 +212,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
             tryClauses(clauses)
       end                         
   | evDed(A.beginDed({members,pos}),env,ab) = 
-     let fun doAll([d],ab') = evDed(d,env,ab')
+     let fun doAll([d],ab) = evDed(d,env,ab)
            | doAll(d1::rest,ab) = 
                (case evDed(d1,env,ab) of
                    (propVal(p),{proof=proof1,conc=conc1,fa=fa1})  =>
@@ -210,8 +224,30 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
          in  
            doAll(members,ab)
      end           
+  | evDed(A.letDed({bindings,body,pos}),env,ab) =       
+       let fun doBindings([],env1,ab1,ded_infos) = 
+                   let val result as (res_val,body_ded_info) = evDed(body,env1,ab1)
+                       val final_ded_info = reconcile(body_ded_info,rev(ded_infos))
+                   in
+                       (res_val,final_ded_info)
+                   end
+	     | doBindings({bpat,def=A.ded(d),pos}::more,env1,ab1,ded_infos) = 
+                  let val (ded_val,ded_info as {proof,conc,fa}) = evDed(d,env1,ab1)
+                      val (env2,ab2) = getNewEnvAndAb(ded_val,bpat,env1,ab1,ab)                   
+                  in
+                     doBindings(more,env2,ab2,ded_info::ded_infos)
+                  end 
+	     | doBindings({bpat,def=A.exp(e),pos}::more,env1,ab1,ded_infos) = 
+                 let val exp_val = evalExp(e,env1,ab1)
+                     val (env2,_) = getNewEnvAndAb(exp_val,bpat,env1,ab1,ab)
+                 in
+                    doBindings(more,env2,ab1,ded_infos) 
+                 end 
+       in
+          doBindings(bindings,env,ab,[])
+       end
 (*******************************************************************************************************************************************************************************
-  | evDed(A.letDed({bindings,body,pos}),env,ab) = 
+  | evDed(A.letDed({bindings,body,pos}),env,ab) =       
        let fun doLetDed([]:A.binding list,env1,ab1) = evDed(body,env1,ab1)
              | doLetDed({bpat,def=A.ded(d),pos}::more,env1,ab1) = 
                   let val dval = evDed(d,env1,ab1)
