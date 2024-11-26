@@ -197,6 +197,7 @@ sig
    val sizeLst: prop list -> int 
 
    val makeTPTPProp: prop -> string 
+   val makeTPTPPropSimple: prop -> string 
    val makeTPTPPropList: prop list -> string list 
    val makePolyTPTPProp: prop -> string 
    val makeTSTPProp: prop -> string 

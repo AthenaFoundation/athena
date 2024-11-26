@@ -2243,6 +2243,10 @@ val (evalExp,
      evalPhrase,
      evalClosure,
      evalMethodClosure,
+     evalMethodApp,
+     makeEvalExpFunction,
+     doSupposeAbsurd,
+     evalDCheckClauses,
      coercePositionlessValsIntoProps,
      coercePositionedValsIntoProps,
      coercePositionedValsIntoPropsAndPositionCopies) =
@@ -2787,7 +2791,7 @@ and
                                                                   NONE => evExp(e,env,ab)
                                                                 | SOME(map) => evExp(e,ref(augmentWithMap(!env,map)),ab)))
 and 
-    evalMethodApp(method,args,env,ab,pos) = 
+    evalMethodApp(method,args:A.phrase list,env:SemanticValues.value_environment ref,ab:ABase.assum_base,pos:A.position) = 
      (let val app_pos = pos 
            fun getArgVals([],arg_vals,ded_vals) = (rev(arg_vals),ded_vals)
              | getArgVals(A.exp(e)::rest,arg_vals,ded_vals) = 
@@ -3223,7 +3227,7 @@ and
     ((let val head_val = evExp(method,env,ab) 
       in
         (case head_val of
-           primBMethodVal(M,_) => 
+           primBMethodVal(M,method_code) => 
                 (let val v1 = evPhrase(arg1,env,ab)
                      val v2 = evPhrase(arg2,env,ab)
                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab
@@ -4154,7 +4158,7 @@ and
                               "the deduction did not produce a sentence",SOME(A.posOfDed(body))))
 	   end
 and
-   doSupposeAbsurd(hyp,hyp_name_pat,body,pos,env,ab) = 
+   doSupposeAbsurd(hyp:A.phrase,hyp_name_pat:A.pattern option,body:A.deduction,pos:A.position,env,ab) = 
     let val hypv = evPhrase(hyp,env,ab)
     in
       (case coerceValIntoPropVal(hypv) of
@@ -4265,6 +4269,10 @@ in
                     end),
     fn x => (evalClosure(x)),
     fn x => (evalMethodClosure(x)),
+    fn x => (evalMethodApp(x)),
+    fn x => (makeEvalExpFunction(x)),
+    fn x => (doSupposeAbsurd(x)),
+    fn x => (evalDCheckClauses(x)),
     fn x => coercePositionlessValsIntoProps(x),
     fn x => coercePositionedValsIntoProps(x),
     fn x => coercePositionedValsIntoPropsAndPositionCopies(x))

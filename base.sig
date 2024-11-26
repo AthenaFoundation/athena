@@ -20,6 +20,8 @@ sig
     val isMember : ''a * ''a list ->bool
     val isMemberEq : 'a * 'a list * ('a * 'a -> bool)  ->bool
     val subsetEq: ('a list * 'a list * ('a * 'a -> bool)) -> bool
+    val listDiff: ('a list * 'a list * ('a * 'a -> bool)) -> 'a list 
+    val listUnion: ('a list * 'a list * ('a * 'a -> bool)) -> 'a list 
     val removeDuplicatesEq: 'a list * ('a * 'a -> bool) -> 'a list
     val removeStringDuplicates: string list -> string list
     val hasDuplicates: 'a list * ('a * 'a -> bool) -> bool 
