@@ -18,7 +18,7 @@ type variable = AthTerm.variable
 open Semantics
 
 datatype hypothesis = hypothesis of symbol option * prop 
-datatype alpha_val = term of AthTerm.term | sent of prop 
+datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
 datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
                      | assumeProof of {hyp: hypothesis, body: certificate}
@@ -50,6 +50,7 @@ fun compsToBlocks(D) =
 fun certToStringNaive(D) = 
   let fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
+        | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun f(ruleApp({rule,args,...})) = "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
 	| f(assumeProof({hyp as hypothesis(name_opt,p),body})) = "assume " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
@@ -89,6 +90,7 @@ fun certToString(D) =
   let val spaces = Basic.spaces
       fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = (P.toStringInfix p)
+        | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body}),offset) = 
@@ -175,7 +177,14 @@ let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun getAlphaVal(v) = (case coerceValIntoTerm(v) of 
                              SOME(t) => term(t)
 			   | _ => (case coerceValIntoProp(v) of
-                                      SOME(p) => sent(p)))
+                                      SOME(p) => sent(p)
+		  	            | _ => (case v of 
+                                              listVal(vals) => alpha_list(map getAlphaVal vals)
+					     | _ => let val _ = print("\nUnexpected value type found as an argument to an elementary method call: "^
+								      "a term or sentence was expected, but this was found instead:\n" ^ (valToString v) ^ "\n")
+                                                    in
+                                                       Basic.fail("")
+                                                    end)))
     fun evPhrase(phr,env,ab) = 
             (case phr of 
                 A.ded(d) => (case evDed(d,env,ab) of (x,y) => (x,SOME(y)))
@@ -460,6 +469,45 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                             else (closeTracing(level,false);evError(msg(P,Q),SOME(pos)))))
            | _ => evError(msg2(wv),SOME(A.posOfExp(wanted_res))))
       end
+  | evDed(A.infixAssumeDed({bindings,body,pos}),env,ab) = 
+	let fun getPropsAndEnv([],props,env) = (props,env)
+	      | getPropsAndEnv((b:A.binding as {bpat,pos,def,...})::rest,props,env) = 
+	                let val pval = evalPhrase(def,env,ab)
+			in
+			  (case coerceValIntoProp(pval) of
+	                      SOME(p) => 
+                                 (case matchPat(pval,bpat,makeEvalExpFunction (env,ab)) of 
+                                     SOME(map,_) => let val (vmap,mmap) = getValAndModMaps(!env)
+                                                      val env' = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mmap}))
+                                                  in
+                                                     getPropsAndEnv(rest,p::props,env')
+                                                  end
+                                   | _ => evError("Assume pattern failed to match the corresponding value, the\n "^
+                                                  (valLCTypeAndStringNoColon pval),
+                                                  SOME(A.posOfPat(bpat))))
+	                    | _ => evError("A sentence (hypothesis) was expected here. Instead, a\n"^
+					   "value of type "^valLCTypeAndString(pval)^" was found.",
+                	                   SOME(A.posOfPhrase(def))))
+			end
+            val (props,new_env) = getPropsAndEnv(bindings,[],env)
+	    val hyps = rev(props)
+            val hyps' = Basic.flatten (map Prop.decomposeConjunctions hyps)
+	    val body_res as (body_val,body_ded_info as {proof=body_proof,conc=body_conc,fa=body_fa}) = evDed(body,new_env,ABase.augment(ab,hyps'))
+            in
+	      (case coerceValIntoProp(body_val) of
+	         SOME(q) => let val conj = (case hyps of
+					      [P] => P
+					    |  _  => Prop.makeConjunction(hyps))
+                                val conditional_conclusion = Prop.makeConditional(conj,q)
+                                val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,conj), body=body_proof}),
+       				                      conc=conditional_conclusion,
+			                              fa=propDiff(body_fa,[conj])}
+			    in
+			       (propVal(conditional_conclusion),final_ded_info)
+			    end
+               | _ => evError("Impossible error encountered in assume deduction: the body of "^
+                              "the deduction did not produce a sentence",SOME(A.posOfDed(body))))
+	   end
   | evDed(D,env,ab) = 
           let val _ = print("\n***************************************** UNHANDLED CERT CASE: " ^ (A.unparseDed(D)) ^ "\n")
           in
