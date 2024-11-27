@@ -125,13 +125,13 @@ fun getFA(method_sym,vals: value list,ab) =
      case method_name of 
         "left-either"  => [(Basic.first props)]
       | "right-either" => [(Basic.second props)]
-      | "either" => let val [p1,p2] = props
-                        val fas = ref([])
-                        val _ = if not(ABase.isMember(p1,ab)) then fas := [p1] else ()
-                        val _ = if not(ABase.isMember(p2,ab)) then fas := p1::(!fas) else ()
-                    in
-                      !fas
-                    end
+      | "either" => let val disjuncts = (case props of 
+                                           [disjunction] => Prop.getDisjunctsWithoutDups(disjunction) 
+					 | _ => props)
+                        val fas = Basic.filter(disjuncts,fn d => not(ABase.isMember(d,ab)))
+                     in
+                        fas
+        	     end
       | _ => props        
   end
 
@@ -245,7 +245,9 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                        val vm = Symbol.enter(val_map,s,arg_val)
                        val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                        val _ = addPos(!clos_name,pos)
-                       val body_res as (body_conclusion_val,body_ded_info as {conc=body_conc,fa=body_fa,proof=body_proof}) = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
+                       (* val _ = print("\nclos_name: " ^ (!clos_name) ^ "\n") *)				     
+                       val body_res = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
+                       val body_res as (body_conclusion_val,{conc=body_conc,fa=body_fa,proof=body_proof}) = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
                    in
                      (case ded_1_info_opt of 
                         NONE => body_res
