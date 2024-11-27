@@ -716,14 +716,18 @@ fun bothPrimBMethod(v1,v2,env,ab) =
            plst as [P1,P2] => (checkAbMembersNoPos(plst,ab,N.bothPrimMethod_name);
                                propVal(Prop.makeConjunction(plst))))
 
-fun conjIntroPrimMethod([listVal(vals)],(env,ab),{pos_ar,file}) = 
-       let val pplst = rev(coercePositionedValsIntoPropsAndPositionCopies(vals,Array.sub(pos_ar,0),N.conjIntroPrimMethod_name))
+fun conjIntroPrimMethod([listVal(vals)],env,ab) = 
+       let val pplst = rev(coercePositionlessValsIntoProps(vals,N.conjIntroPrimMethod_name))
        in 
-         (checkAbMembers(pplst,ab,N.conjIntroPrimMethod_name);
-                     propVal(Prop.makeConjunction(#1(Basic.unZip(pplst)))))
+         (checkAbMembersNoPos(pplst,ab,N.conjIntroPrimMethod_name);
+          propVal(Prop.makeConjunction(pplst)))
        end
-  | conjIntroPrimMethod(args,(env,ab),{pos_ar,file}) = 
-       evError(wrongArgNumber(N.conjIntroPrimMethod_name,length(args),1),getPosOpt(pos_ar,0))
+  | conjIntroPrimMethod(vals,env,ab) = 
+       let val pplst = rev(coercePositionlessValsIntoProps(vals,N.conjIntroPrimMethod_name))
+       in 
+         (checkAbMembersNoPos(pplst,ab,N.conjIntroPrimMethod_name);
+          propVal(Prop.makeConjunction(pplst)))
+       end
 
 fun conjIntroPrimUMethod(listVal(vals),env,ab) = 
       (case getAProps(vals,N.conjIntroPrimMethod_name,env) of
@@ -3726,7 +3730,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.bothPrimMethod_symbol,SV.primBMethodVal(bothPrimBMethod,N.bothPrimMethod_symbol)),
                          (N.leftAndPrimMethod_symbol,primUMethodVal(leftAndPrimUMethod,N.leftAndPrimMethod_symbol)),
                          (N.rightAndPrimMethod_symbol,primUMethodVal(rightAndPrimUMethod,N.rightAndPrimMethod_symbol)),
-                         (N.conjIntroPrimMethod_symbol,primUMethodVal(conjIntroPrimUMethod,N.conjIntroPrimMethod_symbol)),
+                         (N.conjIntroPrimMethod_symbol,methodVal(conjIntroPrimMethod,N.conjIntroPrimMethod_symbol)),
                          (N.dnPrimMethod_symbol,primUMethodVal(dnPrimUMethod,N.dnPrimMethod_symbol)),
                          (N.eitherPrimMethod_symbol,methodVal(eitherPrimMethod,N.eitherPrimMethod_symbol)),
                          (N.leftEitherPrimMethod_symbol,primBMethodVal(leftEitherPrimBMethod,N.leftEitherPrimMethod_symbol)),

@@ -156,7 +156,8 @@ define (htp goal) :=
                                                   (!bdn p)
                               | (if p q) => assume p
                                              (!process-hyps [p] (method (results)
-                                                                  #let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results))}
+                                                                  let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results));
+                                                                       _ := (print spaces "\nWill now go on to prove the consequent: " (pr q))}
                                                                   (!tp q (increment iteration))))
                               | (iff p q) => let {dir1 := (!tp (if p q) (increment iteration));
                                                   dir2 := (!tp (if q p) (increment iteration))}
@@ -221,25 +222,31 @@ define (htp goal) :=
                                            _ := ()
                                           }
                                         try {(!tp goal 1)
+                                          | (!dcatch (method () (dlet ((_ (print "\nWILL NOW TRY THIS ARM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"))
+                                                                        (res (!tp goal 1))
+                                                                        (_ (print "\nTP WORKED HERE TOO!\n")))
+                                                                   (!claim res)))
+                                                      (method (s) (dlet ((_ (print "\nERROR: " s "\n"))) (!proof-error ""))))
                                            | (!prove goal (times limit 2))}};
              tp := method (goal iteration)
                      let {abase := (ab);
-                          #_ := (print "\nITERATION: " iteration);
+                          _ := (print "\nITERATION: " iteration);
                           spaces0 := (join (copies "    " iteration));
                           spaces := (join "\n" spaces0);
-                          #_ := (print spaces "Given goal: " (pr goal) " and ab: " abase ", hence (member? goal (ab)) is: " (member? goal abase));
+                          _ := (print spaces "Given goal: " (pr goal) " and ab:\n" abase ", hence (member? goal (ab)) is: " (member? goal abase));
                           _ := ()}
-                     check {(cached? goal) => #let {_ := (print "\nCYCLE DETECTED!")}
+                     check {(cached? goal) => let {_ := (print "\nCYCLE DETECTED!")}
                                                 (!proof-error "")
                           | else => 
                      let {_ := (memoize goal)}                                        
                      check {(greater? iteration (ref MAX-ITERS)) => #let {_ := (print spaces "Reached max iterations:" (ref MAX-ITERS))}
                                                                       (!proof-error "Reached max iterations")
-                          | (member? goal abase) => (!claim goal)
+                          | (member? goal abase) => let {_ := (print "\nSUCCESSFUL CLAIM!\n")}
+                                                      (!claim goal)
                           | (inconsistent? abase inconsistent-pair-cell) =>
                                  #let {_ := (print spaces "Inconsistent ab, nice...")} 
                                    (!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
-                          | else => try { let {#_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
+                          | else => try { let {_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
                                                 res := (cell false);
                                               b-th  := try {let {th := (!backward-tp goal (plus 1 iteration));
                                                                   _ := (set! res true)}
@@ -247,9 +254,12 @@ define (htp goal) :=
                                                             let {_ := (set! res false)}
                                                               (!true-intro)}}
                                              match (ref res) {
-                                                 true => #let {_ := (print spaces "Backward tactic SUCCEDED on this goal:" (pr goal))}
+                                                 true => let {_ := (print spaces "Backward tactic SUCCEDED on this goal:" (pr goal));
+                                                              _ := check {(holds? b-th) => (print "\nAND b-th holds!\n") | else => (print "\nBUT b-th FAILS!\n")};
+                                                              _ := ()
+                                                             }
                                                            (!claim b-th)
-                                               | _ => #let {_ := (print spaces "Backward tactic failed...")}
+                                               | _ => let {_ := (print spaces "Backward tactic failed...")}
                                                         (!proof-error "")
                                              }
                                         | let {cands := (filter (ab) lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ()));

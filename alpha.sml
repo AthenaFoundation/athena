@@ -174,14 +174,15 @@ val evalDedAlpha =
 let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
     fun initCallStack() = call_stack := LStack.empty     
-    fun getAlphaVal(v) = (case coerceValIntoTerm(v) of 
+    fun getAlphaVal(v,method_name) = 
+                        (case coerceValIntoTerm(v) of 
                              SOME(t) => term(t)
 			   | _ => (case coerceValIntoProp(v) of
                                       SOME(p) => sent(p)
 		  	            | _ => (case v of 
-                                              listVal(vals) => alpha_list(map getAlphaVal vals)
-					     | _ => let val _ = print("\nUnexpected value type found as an argument to an elementary method call: "^
-								      "a term or sentence was expected, but this was found instead:\n" ^ (valToString v) ^ "\n")
+                                              listVal(vals) => alpha_list(map (fn v => getAlphaVal(v,method_name)) vals)
+					     | _ => let val _ = print("\nUnexpected value type found as an argument to a call of this method: " ^ method_name ^ "; " ^ 
+								      "a term or sentence was expected, but this was found instead:\n" ^ (valLCTypeAndStringNoColon v) ^ "\n")
                                                     in
                                                        Basic.fail("")
                                                     end)))
@@ -194,13 +195,14 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
       in
         (case head_val of
            primBMethodVal(M,method_sym) => 
-                (let val (v1,ded_1_info_opt) = evPhrase(arg1,env,ab)
+                (let val method_name = S.name method_sym
+                     val (v1,ded_1_info_opt) = evPhrase(arg1,env,ab)
                      val (v2,ded_2_info_opt) = evPhrase(arg2,env,ab)
                      val arg_ded_infos = Basic.mapSelect(fn SOME(ded_info) => ded_info,[ded_1_info_opt,ded_2_info_opt],fn _ => true)
                      val ab' = if A.isDeduction(arg1) then putValIntoAB(v1,ab) else ab 
                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab' 
                      val res_val = M(v1,v2,env,ab'')
-                     val (av1, av2) = (getAlphaVal(v1), getAlphaVal(v2))                      
+                     val (av1, av2) = (getAlphaVal(v1,method_name), getAlphaVal(v2,method_name))                      
                      val tail_ded_info = {conc=getProp(res_val),
 					  fa=getFA(method_sym,[v1,v2],ab''),
 					  proof=ruleApp({rule=method_sym,args=[av1,av2]})}
@@ -219,19 +221,20 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        in
          (case head_val of
               primUMethodVal(f,method_sym) => 
-                                     (let val (arg_val,ded_1_info_opt) = evPhrase(arg,env,ab)
+                                     (let val method_name = S.name method_sym
+                                          val (arg_val,ded_1_info_opt) = evPhrase(arg,env,ab)
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
                                           val ded_info = (case ded_1_info_opt of
                                                              NONE => {conc=getProp(conclusion_val),
  								      fa=getFA(method_sym,[arg_val],ab'),
-								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})}
+								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)]})}
 						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
                            				       let val final_fas = propUnion(fa1,propDiff(getFA(method_sym,[arg_val],ab'),[conc1]))
 							       in
 								   {conc=getProp(conclusion_val),
 								    fa=final_fas,
-								    proof=composition({left=proof1,right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val)]})})}
+								    proof=composition({left=proof1,right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)]})})}
 							       end)
                                       in
                                          (conclusion_val,ded_info)
@@ -280,6 +283,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                       let val new_env = ref(augmentWithMap(!env,map))
                           val result as (res_val,body_ded_info) = evDed(ded,new_env,new_ab)                          
                           val final_ded_info = reconcile(body_ded_info,disc_ded_infos)
+                          (** val _ = print("\nFINAL MATCH RESULT OBTAINED: " ^ (valToString res_val) ^ "\n") **)
                       in
                          (res_val,final_ded_info)
                       end
@@ -1491,7 +1495,8 @@ and
                           (res_val,final_ded_info)
                        end  
                | methodVal(f,method_code) => 
-                     (let val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
+                     (let val method_name = S.name method_code 
+                          val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
                           val new_ab = ABaseAugment(ab,ded_vals) 
                           val _ = if !Options.stack_trace then 
                                      addFrame(frame({call_pos=app_pos,call_file="",
@@ -1503,7 +1508,7 @@ and
                                                                 arg_vals=arg_vals}))
                                      else ()
                           val res_val = f(arg_vals,env,new_ab) 		
-                          val avs = map getAlphaVal arg_vals 			      
+                          val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals 			      
                           val tail_ded_info = {conc=getProp(res_val),
 					       fa=getFA(method_code,arg_vals,new_ab),
 					       proof=ruleApp({rule=method_code,args=avs})}
@@ -1512,10 +1517,11 @@ and
                          (res_val,ded_info)
                       end handle PrimError(msg) => evError(msg,SOME(app_pos)))
                | primUMethodVal(f,method_code) => 
-                                      let val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
+                                      let val method_name = S.name method_code 
+					  val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
                                           val new_ab = ABaseAugment(ab,ded_vals) 
                                           val res_val = f(hd(arg_vals),env,new_ab)
-                                          val avs = map getAlphaVal arg_vals 			      
+                                          val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals 			      
                                           val tail_ded_info = {conc=getProp(res_val),
 		   			                       fa=getFA(method_code,arg_vals,new_ab),
 					                       proof=ruleApp({rule=method_code,args=avs})}
@@ -1526,10 +1532,11 @@ and
                                         else ((res_val,ded_info) handle EvalError(str,_) => evError(str,SOME(pos)))
                                       end
                | primBMethodVal(f,method_code) => 
-                                      let val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
+                                      let val method_name = S.name method_code 
+                                          val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
                                           val new_ab = ABaseAugment(ab,ded_vals) 
                                           val res_val = f(hd(arg_vals),hd(tl(arg_vals)),env,new_ab)
-                                          val avs = map getAlphaVal arg_vals 			      
+                                          val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals 			      
                                           val tail_ded_info = {conc=getProp(res_val),
 		   			                       fa=getFA(method_code,arg_vals,new_ab),
 					                       proof=ruleApp({rule=method_code,args=avs})}
@@ -1571,7 +1578,12 @@ and
                               SOME(A.posOfExp(method))))
        end)
 in
-    fn (d,env,ab) => (evDed(d,env,ab))
+    fn (d,env,ab) => let val _ = Basic.mark("1")
+                         val res = evDed(d,env,ab)
+                         val _ = Basic.mark("2")
+                     in
+                       res
+	             end
 end
  
 end (* of structure Alpha *) 
