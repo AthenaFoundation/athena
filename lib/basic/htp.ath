@@ -463,7 +463,17 @@ define goal := (~ (~E & ~F))
 
 (!dtime-out (method () (!htp ((p1 & p2 & p3 & p4 & p5) ==> goal))) 30000)
 
+define (line->problem random-line) := 
+  let {toks := (map trim-ws (tokenize random-line "#"));
+       goal := (evaluate (last toks));
+       premises := (map evaluate (all-but-last toks))}
+    (if (and* premises) goal)
 
+
+define (t line) :=
+  (get-alpha-cert (method () (!htp (line->problem line)))
+                  (lambda (s) (write-file "/mnt/c/athenaGit/athena/alpha.ath" s)))
+       
 define (solve-problem random-line) :=
   let {toks := (map trim-ws (tokenize random-line "#"));
        goal := (evaluate (last toks));
