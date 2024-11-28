@@ -1277,7 +1277,7 @@ define cond-def-2 :=
                            (lambda (p) 
                               (for-some negation-list 
                                         (lambda (q) (complements? p q))))))
-             (goal (check ((null? remaining-disjuncts) false) (else (or remaining-disjuncts))))
+             (goal (match remaining-disjuncts ([] false) ([(some-sentence r)] r) (_ (or remaining-disjuncts))))
              (_ (!by-contradiction goal
                    (assume -goal := (not goal)
                      (!decompose (dtry (!dm' -goal) (!claim -goal))

@@ -4262,7 +4262,10 @@ in
                       in
                         res
                       end),
-    fn (d,env,ab) => (evDed(d,env,ab)),
+    fn (d,env,ab) => let (** val _ = print("\nOLD-FASHIONED DEDUCTION EVALUATION!\n") **)
+                     in
+                        (evDed(d,env,ab))
+                     end,
     fn (p,env,ab) => (let val res = evPhrase(p,env,ab)
                     in
                        res
