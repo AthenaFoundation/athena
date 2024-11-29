@@ -20,15 +20,23 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
-datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
-                     | assumeProof of {hyp: hypothesis, body: certificate}
-                     | supAbProof of {hyp: hypothesis, body: certificate}
-                     | composition of {left: certificate, right: certificate}
-                     | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate}
-                     | conclude of {expected_conc: prop, body: certificate}
-                     | block of certificate list 
+datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion: prop}
+                     | assumeProof of {hyp: hypothesis, body: certificate, conclusion: prop}
+                     | supAbProof of {hyp: hypothesis, body: certificate, conclusion: prop}
+                     | composition of {left: certificate, right: certificate,conclusion: prop}
+                     | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate, conclusion: prop}
+                     | conclude of {expected_conc: prop, body: certificate,conclusion:prop}
+                     | block of {certs: certificate list, conclusion: prop}
 
-val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[]})
+fun getConclusion(ruleApp({conclusion,...})) = conclusion
+  | getConclusion(assumeProof({conclusion,...})) = conclusion
+  | getConclusion(supAbProof({conclusion,...})) = conclusion
+  | getConclusion(composition({conclusion,...})) = conclusion
+  | getConclusion(pickAny({conclusion,...})) = conclusion
+  | getConclusion(conclude({conclusion,...})) = conclusion
+  | getConclusion(block({conclusion,...})) = conclusion
+
+val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop})
 val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
 
 fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
@@ -39,6 +47,8 @@ fun isRuleApp(rule_name,ruleApp({rule,...})) = rule_name = (S.name rule)
 
 fun simpleCert(ruleApp(_)) = true
   | simpleCert(_) = false 
+
+type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
 
 fun getAlphaVal(v,method_name) = 
                         (case coerceValIntoTerm(v) of 
@@ -53,11 +63,11 @@ fun getAlphaVal(v,method_name) =
                                                        Basic.fail("")
                                                     end)))
 
-fun possiblyPrimitivizeCertificate(closure_name,arg_vals,full_certificate) = 
+fun possiblyPrimitivizeCertificate(closure_name,arg_vals,conclusion,full_certificate) = 
      if Basic.isMember(closure_name,!treat_as_primitives) then 
        let (**  val _ = print("\nTurning a certificate application of " ^ closure_name ^ " into a primitive!\n") **)
        in
-          ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals})
+          ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,conclusion=conclusion})
        end 
      else
         full_certificate 
@@ -66,20 +76,26 @@ fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,p
      if Basic.isMember(closure_name,!treat_as_primitives) then 
        let (** val _ = print("\nTurning a ded_info application of " ^ closure_name ^ " into a primitive!\n") **)
        in
-          {conc=conc,fa=fa,proof=ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals})}
+          {conc=conc,fa=fa,proof=ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,conclusion=conc})}
        end
      else
         full_ded_info
 
 fun compsToBlocks(D) = 
-  let fun B(composition({left,right})) = (B left)@(B right)
+  let fun B(composition({left,right,...})) = (B left)@(B right)
 	| B(D) = [D] 
-      fun c2b(D as composition(_)) = block(map c2b (B D))
-	| c2b(assumeProof({hyp,body})) = assumeProof({hyp=hyp,body=c2b(body)})
-	| c2b(supAbProof({hyp,body})) = supAbProof({hyp=hyp,body=c2b(body)})
-	| c2b(pickAny({eigen_var,actual_fresh,body})) = pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=c2b(body)})
-	| c2b(conclude({expected_conc,body})) = conclude({expected_conc=expected_conc,body=c2b(body)})
-	| c2b(block(Ds)) = block(map c2b Ds)
+      fun c2b(D as composition({right,...})) = block({certs=(map c2b (B D)),
+						      conclusion=getConclusion(right)})
+	| c2b(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=c2b(body),conclusion=conclusion})
+	| c2b(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=c2b(body),conclusion=conclusion})
+	| c2b(pickAny({eigen_var,actual_fresh,body,conclusion,...})) = pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,conclusion=conclusion,body=c2b(body)})
+	| c2b(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,conclusion=conclusion,body=c2b(body)})
+	| c2b(block({certs=Ds,...})) = 
+                           let val blocks = (map c2b Ds)
+                           in
+                               block({certs=blocks,
+				      conclusion=getConclusion(List.last blocks)})
+                           end 
 	| c2b(D) = D
   in
      c2b(D)
@@ -91,10 +107,10 @@ fun certToStringNaive(D) =
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun f(ruleApp({rule,args,...})) = "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
-	| f(assumeProof({hyp as hypothesis(name_opt,p),body})) = "assume " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
-        | f(supAbProof({hyp as hypothesis(name_opt,p),body})) = "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
-        | f(block(proofs)) = " BLOCK_START " ^ Basic.printListStr(proofs,f," || ") ^ " BLOCK_END "
-	| f(composition({left,right})) = (f left) ^ " ;; " ^ (f right)
+	| f(assumeProof({hyp as hypothesis(name_opt,p),body,...})) = "assume " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
+        | f(supAbProof({hyp as hypothesis(name_opt,p),body,...})) = "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
+        | f(block({certs=proofs,...})) = " BLOCK_START " ^ Basic.printListStr(proofs,f," || ") ^ " BLOCK_END "
+	| f(composition({left,right,...})) = (f left) ^ " ;; " ^ (f right)
         | f(D) = "NOT IMPLEMENTED YET"
   in
      f(D)
@@ -104,12 +120,12 @@ fun hasSubproof(D,pred) =
    let fun find(D) = 
              if pred(D) then true else 
              (case D of 
-                 composition({left,right}) => find(left) orelse find(right)
+                 composition({left,right,...}) => find(left) orelse find(right)
   	       | assumeProof({body,...}) => find(body)
   	       | supAbProof({body,...}) => find(body)
   	       | pickAny({body,...}) => find(body)
   	       | conclude({body,...}) => find(body)
-               | block(certs) => Basic.exists(certs,find)
+               | block({certs,...}) => Basic.exists(certs,find)
 	       | _ => false)
    in 
       find D 
@@ -129,14 +145,15 @@ fun certToString(D) =
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
-	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body}),offset) = 
+	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
 	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body}),offset) =
+	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
 	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(composition({left,right}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
-	| c2s(block([D]),offset) = c2s(D,offset) 
-	| c2s(block(D1::(more as (_::_))),offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block(more),offset))
-	| c2s(conclude({expected_conc,body}),offset) = 
+	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
+	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
+	| c2s(block({certs=D1::(more as (_::_)),conclusion}),
+	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
+	| c2s(conclude({expected_conc,body,...}),offset) = 
              (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
   in
@@ -145,9 +162,7 @@ fun certToString(D) =
       | _ => (c2s(D',0)))
   end              
 
-type alpha_ded_info = {proof: certificate, conc: Prop.prop, fa: Prop.prop list} 
-
-fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[]}),conc=Prop.true_prop, fa = []}
+fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop}),conc=Prop.true_prop, fa = []}
                      in
                        res
                      end
@@ -190,7 +205,7 @@ fun reconcile(tail_ded_info,[]) = tail_ded_info
             else 										  	
                let val final_fas = propUnion(fa1,propDiff(tail_fa,[conc1]))
                    val final_conc = tail_conc
-                   val final_proof = composition({left=proof1,right=tail_proof})
+                   val final_proof = composition({left=proof1,right=tail_proof,conclusion=tail_conc})
                in
                   {conc=tail_conc,fa=final_fas,proof=final_proof}
                end 
@@ -234,9 +249,10 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      val ab'' = if A.isDeduction(arg2) then putValIntoAB(v2,ab') else ab' 
                      val res_val = M(v1,v2,env,ab'')
                      val (av1, av2) = (getAlphaVal(v1,method_name), getAlphaVal(v2,method_name))                      
-                     val tail_ded_info = {conc=getProp(res_val),
+                     val res_conc = getProp(res_val)
+                     val tail_ded_info = {conc=res_conc,
 					  fa=getFA(method_sym,[v1,v2],ab''),
-					  proof=ruleApp({rule=method_sym,args=[av1,av2]})}
+					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc})}
                      val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                  in
                     (res_val,ded_info)
@@ -259,16 +275,20 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 ***)
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
+ 				          val res_conc = getProp(conclusion_val)
                                           val ded_info = (case ded_1_info_opt of
-                                                             NONE => {conc=getProp(conclusion_val),
+                                                             NONE => {conc=res_conc,
  								      fa=getFA(method_sym,[arg_val],ab'),
-								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)]})}
+								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc})}
 						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
                            				       let val final_fas = propUnion(fa1,propDiff(getFA(method_sym,[arg_val],ab'),[conc1]))
 							       in
 								   {conc=getProp(conclusion_val),
 								    fa=final_fas,
-								    proof=composition({left=proof1,right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)]})})}
+								    proof=composition({left=proof1,
+										       right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],
+												      conclusion=res_conc}),
+								                       conclusion=res_conc})}
 							       end)
                                       in
                                          (conclusion_val,ded_info)
@@ -291,7 +311,9 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 		      | SOME({conc=lemma_conc,fa=lemma_fa,proof=lemma_proof}) => 
                            (body_conclusion_val,{conc=body_conc,
 						 fa=propUnion(lemma_fa,propDiff(body_fa,[lemma_conc])),
-						 proof=composition({left=lemma_proof,right=possiblyPrimitivizeCertificate(closure_name,[arg_val],body_proof)})}))
+						 proof=composition({left=lemma_proof,
+								    right=possiblyPrimitivizeCertificate(closure_name,[arg_val],body_conc,body_proof),
+		                                                    conclusion=body_conc})}))
                    end
 	    | _ => evalMethodApp(method,[arg],env,ab,pos))
        end))
@@ -334,7 +356,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                    (propVal(p),{proof=proof1,conc=conc1,fa=fa1})  =>
                       (case doAll(rest,ABaseInsert(p,ab)) of 
                          (res_val,{proof=proof_rest,conc=conc_rest,fa=fa_rest}) => 
-                           (res_val,{proof=composition({left=proof1,right=proof_rest}),
+                           (res_val,{proof=composition({left=proof1,right=proof_rest,conclusion=conc_rest}),
 				     fa=propUnion(fa1,propDiff(fa_rest,[conc1])),
 				     conc=conc_rest})))
          in  
@@ -378,7 +400,9 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                          (body_val,body_ded_info as {proof=body_proof,conc=body_conc,fa=body_fa})  => 
                            (case coerceValIntoProp(body_val) of 
                               SOME(consequent) => let val conditional_conclusion = Prop.makeConditional(antecedent,consequent)
-                                                      val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,antecedent), body=body_proof}),
+                                                      val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,antecedent), 
+											       body=body_proof,
+											       conclusion=conditional_conclusion}),
 			 					            conc=conditional_conclusion,
 									    fa=propDiff(body_fa,[antecedent])}
                                                   in
@@ -465,7 +489,9 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                             val hyp_name_opt = if (!hyp_name) = "" then NONE else SOME(S.symbol(!hyp_name))
                         in
                            (propVal(new_conclusion),{conc=new_conclusion,
-   				                     proof=assumeProof({hyp=hypothesis(hyp_name_opt,new_assumption), body=rest_proof}),
+   				                     proof=assumeProof({hyp=hypothesis(hyp_name_opt,new_assumption), 
+									body=rest_proof,
+								        conclusion=new_conclusion}),
 						     fa=propDiff(rest_fa,new_assumption::(Prop.decomposeConjunctions new_assumption))})
                         end 
            in
@@ -542,7 +568,9 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 					      [P] => P
 					    |  _  => Prop.makeConjunction(hyps))
                                 val conditional_conclusion = Prop.makeConditional(conj,q)
-                                val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,conj), body=body_proof}),
+                                val final_ded_info = {proof=assumeProof({hyp=hypothesis(NONE,conj), 
+									 body=body_proof,
+								         conclusion=conditional_conclusion}),
        				                      conc=conditional_conclusion,
 			                              fa=propDiff(body_fa,[conj])}
 			    in
@@ -585,7 +613,7 @@ and
                          SOME(p') => if Prop.isBooleanFalse(p') then 
                                         let val negated_conclusion = Prop.makeNegation(antecedent)
                                             val hyp_name_option = if (!hypothesis_name) = "" then NONE else SOME(S.symbol(!hypothesis_name))
-                                            val final_ded_info = {proof=supAbProof({hyp=hypothesis(hyp_name_option,antecedent), body=body_proof}),
+                                            val final_ded_info = {proof=supAbProof({hyp=hypothesis(hyp_name_option,antecedent), body=body_proof, conclusion=negated_conclusion}),
 	 					                  conc=negated_conclusion,
 							          fa=propDiff(body_fa,[antecedent])}
                                         in
@@ -692,9 +720,10 @@ and
                                      else ()
                           val res_val = f(arg_vals,env,new_ab)
                           val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals
-                          val tail_ded_info = {conc=getProp(res_val),
+                          val tail_conc = getProp(res_val)
+                          val tail_ded_info = {conc=tail_conc,
 					       fa=getFA(method_code,arg_vals,new_ab),
-					       proof=ruleApp({rule=method_code,args=avs})}
+					       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_conc})}
                           val ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,tail_ded_info),arg_ded_infos)
                       in
                          (res_val,ded_info)
@@ -705,9 +734,10 @@ and
                                           val new_ab = ABaseAugment(ab,ded_vals)
                                           val res_val = f(hd(arg_vals),env,new_ab)
                                           val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals
-                                          val tail_ded_info = {conc=getProp(res_val),
+                                          val tail_ded_conc = getProp(res_val)
+                                          val tail_ded_info = {conc=tail_ded_conc,
 		   			                       fa=getFA(method_code,arg_vals,new_ab),
-					                       proof=ruleApp({rule=method_code,args=avs})}
+					                       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_ded_conc})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 1) then
@@ -720,9 +750,10 @@ and
                                           val new_ab = ABaseAugment(ab,ded_vals)
                                           val res_val = f(hd(arg_vals),hd(tl(arg_vals)),env,new_ab)
                                           val avs = map (fn v => getAlphaVal(v,method_name)) arg_vals
-                                          val tail_ded_info = {conc=getProp(res_val),
+                                          val tail_ded_conc = getProp(res_val)							
+                                          val tail_ded_info = {conc=tail_ded_conc,
 		   			                       fa=getFA(method_code,arg_vals,new_ab),
-					                       proof=ruleApp({rule=method_code,args=avs})}
+					                       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_ded_conc})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 2) then
@@ -740,7 +771,7 @@ and
                            val vm' = Symbol.enter(vm,s2,hd(tl(arg_vals)))
                            val new_env = ref(valEnv({val_map=vm',mod_map=mod_map}))
                            val new_ab = ABaseAugment(ab,ded_vals)
-                           val result as (res_val,body_ded_info as {proof,conc,fa,...}) = evDed(d,new_env,new_ab)
+                           val result as (res_val,body_ded_info as {proof,conc,fa,...}) = evDed(d,new_env,new_ab)                           
                            val final_ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,body_ded_info),arg_ded_infos)
                        in
                           (res_val,final_ded_info)
