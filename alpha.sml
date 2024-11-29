@@ -28,10 +28,6 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
                      | conclude of {expected_conc: prop, body: certificate,conclusion:prop, index: int}
                      | block of {certs: certificate list, conclusion: prop, index: int}
 
-val global_index = ref(0)
-
-fun index() = Basic.incAndReturn(global_index)
-
 val fa_table : (int,Prop.prop list) HashTable.hash_table = HashTable.mkTable(Basic.hashInt, op=) (500,Basic.Never)
 
 fun lookupFAs(i:int) = (case (HashTable.find fa_table i) of 
@@ -39,6 +35,17 @@ fun lookupFAs(i:int) = (case (HashTable.find fa_table i) of
        	                 | _ => let val _ = print("\nUnable to locate a certificate with index " ^ (Int.toString i) ^"\n") in Basic.fail("") end)
 
 fun storeFAs(i,fas) = (HashTable.insert fa_table (i,fas))
+
+val global_index = ref(0)
+
+fun index() = Basic.incAndReturn(global_index)
+
+fun newIndex(fas) = 
+      let val new_index = Basic.incAndReturn(global_index)
+          val _ = storeFAs(new_index,fas)
+      in
+         new_index 
+      end
 
 fun getConclusion(ruleApp({conclusion,...})) = conclusion
   | getConclusion(assumeProof({conclusion,...})) = conclusion
@@ -232,7 +239,7 @@ fun reconcile(tail_ded_info,[]) = tail_ded_info
                    val final_proof = composition({left=proof1,
 						  right=tail_proof,
 						  conclusion=tail_conc,
-						  index=index()})
+						  index=newIndex(final_fas)})
                in
                   {conc=tail_conc,fa=final_fas,proof=final_proof}
                end 
@@ -253,7 +260,9 @@ fun getNewEnvAndAb(dval,bpat,env1,ab1,ab) =
                     SOME(A.posOfPat(bpat))))
 
 val evalDedAlpha = 
-let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
+let val _ = (global_index := 0)
+    val _ = (HashTable.clear fa_table)
+    val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
     fun initCallStack() = call_stack := LStack.empty     
     fun evPhrase(phr,env,ab) = 
@@ -277,9 +286,10 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      val res_val = M(v1,v2,env,ab'')
                      val (av1, av2) = (getAlphaVal(v1,method_name), getAlphaVal(v2,method_name))                      
                      val res_conc = getProp(res_val)
+                     val rule_fas = getRuleFA(method_sym,[v1,v2],ab'')				   
                      val tail_ded_info = {conc=res_conc,
-					  fa=getRuleFA(method_sym,[v1,v2],ab''),					  
-					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc,index=index()})}
+					  fa=rule_fas,
+					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc,index=newIndex(rule_fas)})}
                      val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                  in
                     (res_val,ded_info)
@@ -303,12 +313,13 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                           val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                                           val conclusion_val = f(arg_val,env,ab')
  				          val res_conc = getProp(conclusion_val)
+                                          val rule_app_fas = getRuleFA(method_sym,[arg_val],ab')
                                           val ded_info = (case ded_1_info_opt of
                                                              NONE => {conc=res_conc,
- 								      fa=getRuleFA(method_sym,[arg_val],ab'),
-								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=index()})}
+ 								      fa=rule_app_fas,
+								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=newIndex(rule_app_fas)})}
 						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
-                           				       let val final_fas = propUnion(fa1,propDiff(getRuleFA(method_sym,[arg_val],ab'),[conc1]))
+                           				       let val final_fas = propUnion(fa1,propDiff(rule_app_fas,[conc1]))
 							       in
 								   {conc=getProp(conclusion_val),
 								    fa=final_fas,
@@ -317,7 +328,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 												      conclusion=res_conc,
 												      index=index()}),
 								                       conclusion=res_conc,
-								                       index=index()})}
+								                       index=newIndex(rule_app_fas)})}
 							       end)
                                       in
                                          (conclusion_val,ded_info)
