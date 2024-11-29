@@ -29,12 +29,47 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list}
                      | block of certificate list 
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[]})
+val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
+
+fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
+  | isRuleAppOneOf(_) = false
 
 fun isRuleApp(rule_name,ruleApp({rule,...})) = rule_name = (S.name rule)
   | isRuleApp(_) = false 
 
 fun simpleCert(ruleApp(_)) = true
   | simpleCert(_) = false 
+
+fun getAlphaVal(v,method_name) = 
+                        (case coerceValIntoTerm(v) of 
+                             SOME(t) => term(t)
+			   | _ => (case coerceValIntoProp(v) of
+                                      SOME(p) => sent(p)
+		  	            | _ => (case v of 
+                                              listVal(vals) => alpha_list(map (fn v => getAlphaVal(v,method_name)) vals)
+					     | _ => let val _ = print("\nUnexpected value type found as an argument to a call of this method: " ^ method_name ^ "; " ^ 
+								      "a term or sentence was expected, but this was found instead:\n" ^ (valLCTypeAndStringNoColon v) ^ "\n")
+                                                    in
+                                                       Basic.fail("")
+                                                    end)))
+
+fun possiblyPrimitivizeCertificate(closure_name,arg_vals,full_certificate) = 
+     if Basic.isMember(closure_name,!treat_as_primitives) then 
+       let (**  val _ = print("\nTurning a certificate application of " ^ closure_name ^ " into a primitive!\n") **)
+       in
+          ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals})
+       end 
+     else
+        full_certificate 
+
+fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,proof,...}) = 
+     if Basic.isMember(closure_name,!treat_as_primitives) then 
+       let (** val _ = print("\nTurning a ded_info application of " ^ closure_name ^ " into a primitive!\n") **)
+       in
+          {conc=conc,fa=fa,proof=ruleApp({rule=S.symbol(closure_name),args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals})}
+       end
+     else
+        full_ded_info
 
 fun compsToBlocks(D) = 
   let fun B(composition({left,right})) = (B left)@(B right)
@@ -67,7 +102,7 @@ fun certToStringNaive(D) =
 
 fun hasSubproof(D,pred) = 
    let fun find(D) = 
-             if pred(D) then let val _ = print("\nFOUND TARGET PROOF: " ^ (certToStringNaive D) ^ "\n") in true end else 
+             if pred(D) then true else 
              (case D of 
                  composition({left,right}) => find(left) orelse find(right)
   	       | assumeProof({body,...}) => find(body)
@@ -150,16 +185,15 @@ fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,P
 fun reconcile(tail_ded_info,[]) = tail_ded_info
   | reconcile(tail_ded_info,(ded_info_1 as {conc=conc1,fa=fa1,proof=proof1}:alpha_ded_info)::more) = 
         let val tail_res as {conc=tail_conc,fa=tail_fa,proof=tail_proof}:alpha_ded_info = reconcile(tail_ded_info,more)
-        in
-            if not(isRuleApp("claim",proof1)) andalso not(isRuleApp("true-intro",proof1)) then 
+        in 				     
+            if isRuleAppOneOf(["claim","true-intro"],proof1) then tail_res
+            else 										  	
                let val final_fas = propUnion(fa1,propDiff(tail_fa,[conc1]))
                    val final_conc = tail_conc
                    val final_proof = composition({left=proof1,right=tail_proof})
                in
                   {conc=tail_conc,fa=final_fas,proof=final_proof}
                end 
-           else
-               tail_res
         end 
 
 fun getNewEnvAndAb(dval,bpat,env1,ab1,ab) = 
@@ -175,23 +209,11 @@ fun getNewEnvAndAb(dval,bpat,env1,ab1,ab) =
       | _ => evError("Dlet pattern failed to match the corresponding value, the\n "^
                     (valLCTypeAndStringNoColon dval),
                     SOME(A.posOfPat(bpat))))
-                   
+
 val evalDedAlpha = 
 let val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
     fun initCallStack() = call_stack := LStack.empty     
-    fun getAlphaVal(v,method_name) = 
-                        (case coerceValIntoTerm(v) of 
-                             SOME(t) => term(t)
-			   | _ => (case coerceValIntoProp(v) of
-                                      SOME(p) => sent(p)
-		  	            | _ => (case v of 
-                                              listVal(vals) => alpha_list(map (fn v => getAlphaVal(v,method_name)) vals)
-					     | _ => let val _ = print("\nUnexpected value type found as an argument to a call of this method: " ^ method_name ^ "; " ^ 
-								      "a term or sentence was expected, but this was found instead:\n" ^ (valLCTypeAndStringNoColon v) ^ "\n")
-                                                    in
-                                                       Basic.fail("")
-                                                    end)))
     fun evPhrase(phr,env,ab) = 
             (case phr of 
                 A.ded(d) => (case evDed(d,env,ab) of (x,y) => (x,SOME(y)))
@@ -257,19 +279,19 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                                                      end)
             | closUMethodVal(d,s,clos_env as ref(valEnv({val_map,mod_map,...})),clos_name) => 
                    let val (arg_val,ded_1_info_opt) = evPhrase(arg,env,ab)
-                       (** val _ = print("\nAbout to execute a unary closure named " ^ (!clos_name) ^ " with this body:\n" ^ (A.unparseDed(d)) ^ "\nto this arg: " ^ (valToString arg_val) ^ "\n") **)
+                       val closure_name = if (!clos_name) = "" then "unknown" else  (!clos_name)
+                       (** val _ = print("\n1111 About to execute a unary closure named " ^ "'" ^ closure_name ^ "'" ^ " with this body:\n" ^ (A.unparseDed(d)) ^ "\nto this arg: " ^ (valToString arg_val) ^ "\n")  **)
                        val vm = Symbol.enter(val_map,s,arg_val)
                        val ab' = if A.isDeduction(arg) then putValIntoAB(arg_val,ab) else ab
                        val _ = addPos(!clos_name,pos)
-                       (* val _ = print("\nclos_name: " ^ (!clos_name) ^ "\n") *)				     
-                       val body_res as (body_conclusion_val,{conc=body_conc,fa=body_fa,proof=body_proof}) = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
+                       val (body_conclusion_val,body_ded_info as {conc=body_conc,fa=body_fa,proof=body_proof}) = evDed(d,ref(valEnv({val_map=vm,mod_map=mod_map})),ab')
                    in
                      (case ded_1_info_opt of 
-                        NONE => body_res
+                        NONE => (body_conclusion_val,possiblyPrimitivizeDedInfo(closure_name,[arg_val],body_ded_info))
 		      | SOME({conc=lemma_conc,fa=lemma_fa,proof=lemma_proof}) => 
                            (body_conclusion_val,{conc=body_conc,
 						 fa=propUnion(lemma_fa,propDiff(body_fa,[lemma_conc])),
-						 proof=composition({left=lemma_proof,right=body_proof})}))
+						 proof=composition({left=lemma_proof,right=possiblyPrimitivizeCertificate(closure_name,[arg_val],body_proof)})}))
                    end
 	    | _ => evalMethodApp(method,[arg],env,ab,pos))
        end))
@@ -298,7 +320,6 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                       let val new_env = ref(augmentWithMap(!env,map))
                           val result as (res_val,body_ded_info) = evDed(ded,new_env,new_ab)                          
                           val final_ded_info = reconcile(body_ded_info,disc_ded_infos)
-                          (** val _ = print("\nFINAL MATCH RESULT OBTAINED: " ^ (valToString res_val) ^ "\n") **)
                       in
                          (res_val,final_ded_info)
                       end
@@ -323,7 +344,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        (case evalDCheckClauses(clauses,env,ab) of
            SOME(d) => evDed(d,env,ab)
          | _ => evError("dcheck failed: no alternative holds",SOME(pos)))
-  | evDed(D as A.letDed({bindings,body,pos}),env,ab) =
+  | evDed(A.letDed({bindings,body,pos}),env,ab) =
        let fun doBindings([],env1,ab1,ded_infos) = 
                    let val result as (res_val,body_ded_info) = evDed(body,env1,ab1)
                        val final_ded_info = reconcile(body_ded_info,rev(ded_infos))
@@ -345,8 +366,8 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        in
           doBindings(bindings,env,ab,[])
        end
-  | evDed(D as A.assumeDed({assumption,body,pos}),env,ab) = 
-            let val (aval,_) = evPhrase(assumption,env,ab)
+  | evDed(A.assumeDed({assumption,body,pos}),env,ab) = 
+            let val aval = evalPhrase(assumption,env,ab)
             in
                (case coerceValIntoProp(aval) of
                    SOME(antecedent) => 
@@ -379,7 +400,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        let val rec_env = ref(!env)
            fun getVals([],map) = map 
              | getVals((b:A.binding as {bpat,def,pos})::more,map) = 
-                let val (mv,_) = evPhrase(def,rec_env,ab)
+                let val mv = evalPhrase(def,rec_env,ab)
                 in
                   (case matchPat(mv,bpat,makeEvalExpFunction (rec_env,ab)) of 
                       SOME(map',_) => getVals(more,Symbol.augment(map,map'))
@@ -408,7 +429,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
        end
   | evDed(A.assumeLetDed({bindings,body,pos}),env,ab) = 
            let fun getProp(F,is_ded,env,ab) = 
-                  let val (Fval,_) = evPhrase(F,env,ab)
+                  let val Fval = evalPhrase(F,env,ab)
                   in
                      (case coerceValIntoProp(Fval) of
                          SOME(P) => P
@@ -494,7 +515,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
   | evDed(A.infixAssumeDed({bindings,body,pos}),env,ab) = 
 	let fun getPropsAndEnv([],props,env) = (props,env)
 	      | getPropsAndEnv((b:A.binding as {bpat,pos,def,...})::rest,props,env) = 
-	                let val (pval,_) = evPhrase(def,env,ab)
+	                let val pval = evalPhrase(def,env,ab)
 			in
 			  (case coerceValIntoProp(pval) of
 	                      SOME(p) => 
@@ -537,7 +558,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
           end
 and
    doSupposeAbsurd(hyp:A.phrase,hyp_name_pat:A.pattern option,body:A.deduction,pos:A.position,env,ab) = 
-    let val (hypv,_) = evPhrase(hyp,env,ab)
+    let val hypv = evalPhrase(hyp,env,ab)
     in
       (case coerceValIntoPropVal(hypv) of
           SOME(pval as propVal(antecedent)) => 
@@ -581,12 +602,12 @@ and
 and evalDCheckClauses(clauses,env,ab) = 
      let fun f([]) = NONE
            | f({test=A.boolCond(phr),result}::more) =
-                  (case evPhrase(phr,env,ab) of
-                                 (propVal(P),_) =>
+                  (case evalPhrase(phr,env,ab) of
+                                 propVal(P) =>
 				   (case P.isAtom(P) of
 				       SOME(t) => if AT.isTrueTerm(t) then SOME(result) else f(more)
 				     | _ => f(more))
-                                 | (termVal(t),_) => if AT.isTrueTerm(t) then SOME(result)
+                                 | termVal(t) => if AT.isTrueTerm(t) then SOME(result)
 	 					     else f(more)
 	      		         | _ => f(more))
            | f({test=A.elseCond,result}::more) = SOME(result)
@@ -628,7 +649,8 @@ and
        in
           (case evalExp(method,env,ab) of
                closMethodVal(A.methodExp({params,body,pos=mexp_pos,name=rname,...}),clos_env) =>
-                       let (** val _ = print("\nAbout to execute a general closure named " ^ (!rname) ^ ", of " ^ (Int.toString (length params)) ^ " arguments...\n")  **)
+                       let val closure_name = if (!rname) = "" then "unknown" else (!rname) 
+                       (** val _ = print("\n2222 About to execute a general closure named " ^ "'" ^ closure_name ^ "'" ^ ", of " ^ (Int.toString (length params)) ^ " arguments...\n")   **)
                            val (arg_vals,ded_vals,arg_ded_infos) = getArgVals(args,[],[],[])
                            val str_msg = if (!rname) = "" then "in method call" else "to "^(!rname)
                            val (vmap,mmap) = getValAndModMaps(!clos_env)
@@ -649,14 +671,15 @@ and
                                        else ()
                            val _ = addPos(!rname,app_pos)
                            val result as (res_val,body_ded_info as {proof,conc,fa,...}) = evDed(body,new_env,new_ab)
-                           val final_ded_info = reconcile(body_ded_info,arg_ded_infos)
+                           val final_ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,body_ded_info),arg_ded_infos)
                        in
                           (res_val,final_ded_info)
                        end
                | methodVal(f,method_code) =>
                      (let val method_name = S.name method_code
                           val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
-                        (* val _ = print("\nApplication of " ^ method_name ^ " to " ^ (Int.toString (length arg_vals)) ^ " arguments: " ^ (Basic.printListStr(arg_vals,valToString,"  || ")) ^ "\n")  *)
+                          val closure_name = if method_name = "" then "unknown" else method_name 
+                      (** val _ = print("\n3333 Application of " ^ "'" ^ closure_name ^ "'" ^ " to " ^ (Int.toString (length arg_vals)) ^ " arguments: " ^ (Basic.printListStr(arg_vals,valToString,"  || ")) ^ "\n")   **)
                           val new_ab = ABaseAugment(ab,ded_vals)
                           val _ = if !Options.stack_trace then
                                      addFrame(frame({call_pos=app_pos,call_file="",
@@ -672,7 +695,7 @@ and
                           val tail_ded_info = {conc=getProp(res_val),
 					       fa=getFA(method_code,arg_vals,new_ab),
 					       proof=ruleApp({rule=method_code,args=avs})}
-                          val ded_info = reconcile(tail_ded_info,arg_ded_infos)
+                          val ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,tail_ded_info),arg_ded_infos)
                       in
                          (res_val,ded_info)
                       end handle PrimError(msg) => evError(msg,SOME(app_pos)))
@@ -708,7 +731,8 @@ and
                                       end
                | closBMethodVal(d,s1,s2,clos_env as ref(valEnv({val_map,mod_map,...})),name) =>
                        let val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
-			 (* val _ = print("\nAbout to execute a binary closure named " ^ (!name) ^ " to these args: " ^ (Basic.printListStr(arg_vals,valToString, " !! ")) ^ "\n") *)
+                           val closure_name = if (!name) = "" then "unknown" else  (!name) 
+   		       (** val _ = print("\n4444 About to execute a binary closure named " ^ "'" ^ closure_name ^ "'" ^ " to these args: " ^ (Basic.printListStr(arg_vals,valToString, " !! ")) ^ "\n")  **)
                            val _ =  if not(length(arg_vals)  = 2) then
                                        evError(wrongArgNumber(!name,length(arg_vals),2),getPosOpt(pos_array,0))
                                     else ()
@@ -717,13 +741,14 @@ and
                            val new_env = ref(valEnv({val_map=vm',mod_map=mod_map}))
                            val new_ab = ABaseAugment(ab,ded_vals)
                            val result as (res_val,body_ded_info as {proof,conc,fa,...}) = evDed(d,new_env,new_ab)
-                           val final_ded_info = reconcile(body_ded_info,arg_ded_infos)
+                           val final_ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,body_ded_info),arg_ded_infos)
                        in
                           (res_val,final_ded_info)
                        end
                | closUMethodVal(d,s,clos_env as ref(valEnv({val_map,mod_map,...})),name) =>
                        let val (arg_vals,ded_vals,arg_ded_infos,pos_array) = getArgValsAndPositions()
-			   (* val _ = print("\nAbout to execute a unary closure named " ^ (!name) ^ " to this arg: " ^ (valToString (hd arg_vals)) ^ "\n") *)
+                           val closure_name = if (!name) = "" then "unknown" else (!name) 
+ 		       (** val _ = print("\n555 About to execute a unary closure named " ^ "'" ^ closure_name ^ "'" ^ " to this arg: " ^ (valToString (hd arg_vals)) ^ "\n") **)
                            val _ =  if not(length(arg_vals)  = 1) then
                                        evError(wrongArgNumber(!name,length(arg_vals),1),getPosOpt(pos_array,0))
                                     else ()
@@ -731,21 +756,16 @@ and
                            val new_env = ref(valEnv({val_map=vm,mod_map=mod_map}))
                            val new_ab = ABaseAugment(ab,ded_vals)
                            val result as (res_val,body_ded_info as {proof,conc,fa,...}) = evDed(d,new_env,new_ab)
-                           val final_ded_info = reconcile(body_ded_info,arg_ded_infos)
+                           val final_ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,body_ded_info),arg_ded_infos)
                        in
                           (res_val,final_ded_info)
                        end
-               | v => let val _ = Basic.mark("E") in evError("The leftmost expression of a method application "^
+               | v => evError("The leftmost expression of a method application "^
                               "must produce a method---here it produced a "^valLCTypeAndString(v),
-                              SOME(A.posOfExp(method))) end)
+                              SOME(A.posOfExp(method))))
        end)
 in
-    fn (d,env,ab) => let val _ = Basic.mark("1")
-                         val res = evDed(d,env,ab)
-                         val _ = Basic.mark("2")
-                     in
-                       res
-	             end
+    fn (d,env,ab) => evDed(d,env,ab)
 end
  
 end (* of structure Alpha *) 

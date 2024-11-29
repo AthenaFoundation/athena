@@ -17,7 +17,7 @@ sig
     val countLines: string -> int 
     val allEqual: ''a list -> bool 
     val bool2Str : bool -> string
-    val isMember : ''a * ''a list ->bool
+    val isMember : ''a * ''a list -> bool
     val isMemberEq : 'a * 'a list * ('a * 'a -> bool)  ->bool
     val subsetEq: ('a list * 'a list * ('a * 'a -> bool)) -> bool
     val listDiff: ('a list * 'a list * ('a * 'a -> bool)) -> 'a list 

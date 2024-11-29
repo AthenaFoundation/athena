@@ -2,7 +2,6 @@ load "polarities"
 
 (declare (A B C D E F G H I J) Boolean)
 
-
 define (inconsistent? abase inconsistent-pair-cell) :=
   let {#_     := (print "Checking if this is ab inconsistent:\n" abase "\n");
        is-in := lambda (x x' L) check {(member? x' L) => (seq (set! inconsistent-pair-cell [x x']) true) | else => false}}
@@ -219,15 +218,10 @@ define (htp goal) :=
              prove := method (goal limit) 
                        check {(greater? limit UPPER-BOUND) => (!dhalt) 
                             | else => let {_ := (set! MAX-ITERS limit);
-                                           _ := (print "\nWill try with MAX-ITERS: " limit);
+                                           #_ := (print "\nTheorem-proving attempt with max iterations set at: " limit "... \n");
                                            _ := ()
                                           }
                                         try {(!tp goal 1)
-                                          | (!dcatch (method () (dlet ((_ (print "\nWILL NOW TRY THIS ARM!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n"))
-                                                                        (res (!tp goal 1))
-                                                                        (_ (print "\nTP WORKED HERE TOO!\n")))
-                                                                   (!claim res)))
-                                                      (method (s) (dlet ((_ (print "\nERROR: " s "\n"))) (!proof-error ""))))
                                            | (!prove goal (times limit 2))}};
              tp := method (goal iteration)
                      let {abase := (ab);
@@ -236,15 +230,14 @@ define (htp goal) :=
                           spaces := (join "\n" spaces0);
                           #_ := (print spaces "Given goal: " (pr goal) " and ab:\n" abase ", hence (member? goal (ab)) is: " (member? goal abase));
                           _ := ()}
-                     check {(member? goal abase) => (!claim goal) 
-                          | (cached? goal) => #let {_ := (print "\nCYCLE DETECTED!")}
+                     check {(cached? goal) => # let {_ := (print "\nCYCLE DETECTED!")}
                                                 (!proof-error "")
                           | else => 
                      let {#_ := (print "\nNo cycle detected...");
                           _ := (memoize goal)}                                        
                      check {(greater? iteration (ref MAX-ITERS)) => #let {_ := (print spaces "Reached max iterations:" (ref MAX-ITERS))}
                                                                       (!proof-error "Reached max iterations")
-                          | (member? goal abase) => let {_ := (print "\nSUCCESSFUL CLAIM!\n")}
+                          | (member? goal abase) => #let {_ := (print "\nSUCCESSFUL CLAIM!\n")}
                                                       (!claim goal)
                           | (inconsistent? abase inconsistent-pair-cell) =>
                                  #let {_ := (print spaces "Inconsistent ab, nice...")} 
@@ -315,198 +308,95 @@ define (htp goal) :=
                                                                                        (!tp false (increment iteration)))))}}}}}
        (!prove goal 8)
 
-define (solve-problem random-line) :=
-  let {toks := (map trim-ws (tokenize random-line "#"));
-       goal := (evaluate (last toks));
-       premises := (map evaluate (all-but-last toks));
-       _ := (execute-command "clear-assumption-base");
-       success := (cell false);
-       res := try { let {_ := (!dtime-out (method () (!htp (if (and* premises) goal))) 30000); _ := (set! success true)} (!true-intro) | let {_ := (print "\nFailed on this problem: " random-line)} (!true-intro)}}
-    (ref success)
-    
-       
-define (solve-all random-problem-file) :=
-  let {lines := (tokenize (read-file random-problem-file) "\n");
-       failures := (cell 0);
-       counter := (cell 1);
-       _ := (map-proc (lambda (line)
-                         let {_ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
-                              _ := (inc counter)}
-                         check {(solve-problem line) => ()
-                              | else => (inc failures)})
-                      lines)}
-    (print "\nTotal number of failures: " (ref failures))                       
-
-define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
-
-define random-line := "((A & C) | (C <==> (~ (B | A)))) # (C ==> A) # ((~A & B) ==> (~ (A ==> C))) # A"
-define toks := (map trim-ws (tokenize random-line "#"))
-define goal := (evaluate (last toks))
-define premises := (map evaluate (all-but-last toks))
-define g := (if (and* premises) goal)
-
 define (make-problem line) := 
  let {toks := (map trim-ws (tokenize line "#"));
       goal := (evaluate (last toks));
       premises := (map evaluate (all-but-last toks))}
     (if (and* premises) goal)
 
-
 define (solve line) :=
- let {toks := (map trim-ws (tokenize line "#"));
-      goal := (evaluate (last toks));
-      premises := (map evaluate (all-but-last toks));
-      g := (if (and* premises) goal)}
-   (!htp g)      
+ let {problem := (make-problem line)}
+   (!htp problem)
 
-   
 # (!solve "((E | (B ==> ~A)) ==> (C ==> (~ (C & D)))) # D # (C | E) # ((A ==> E) & (D | B)) # (E | (B & E))")
 
+define (solve-and-report-outcome random-line) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       res := try { let {_ := (!dtime-out (method () (!htp problem)) 30000);
+                        _ := (set! success true)}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+
+define (solve-with-certificate-and-report-outcome random-line) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       res := try { let {_ := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) (lambda (_) ())))  30000);
+                        _ := (set! success true)}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+
+define problem-counter := (cell 1);
+
+define (solve-and-save-certificate-and-report-outcome random-line cert-out-file) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       continuation := lambda (s)
+                         let {output := (join "\n#" (copies "*" 120) "\n# -- Problem " (val->string (inc problem-counter)) ": " random-line "\n# Proof:" s)}
+                           (write-file cert-out-file output);
+       res := try { let {_ := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) continuation))  30000);
+                        _ := (set! success true)}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+        
+define (solve-all random-problem-file N) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-and-report-outcome line) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+
+define (solve-all-with-certificates random-problem-file N) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-with-certificate-and-report-outcome line) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+
+define (solve-all-and-store-certificates random-problem-file N cert-out-file) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (set! problem-counter 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-and-save-certificate-and-report-outcome line cert-out-file) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+    
 EOF
 load "lib/basic/htp"
-(!solve "(A ==> (B & ~A)) # ((~A ==> C) | (B & ~A)) # ((C ==> A) | (~C & (C | A))) # B")
-
-(clear-assumption-base)
-(!solve "((A & C) ==> (C <==> B)) # ((B ==> C) <==> (B | C)) # ((~ (C & B)) | (A & C)) # ((B | A) ==> (B & A))")
-(clear-assumption-base)
-(!solve "(A ==> (B & ~A)) # ((~A ==> C) | (B & ~A)) # ((C ==> A) | (~C & (C | A))) # B")
-(clear-assumption-base)
-(!solve "((~ (C ==> D)) ==> (A & ~C)) # (~D <==> B) # (D ==> B) # (B <==> ~C)")
-(clear-assumption-base)
-(!solve "(A ==> (B & A)) # ((A ==> ~B) & (A | C)) # ((C & ~B) <==> (A & C)) # B")
-(clear-assumption-base)
-(!solve "((A <==> (A & C)) & (A | (~ (B | C)))) # ((~ (B & (A ==> B))) ==> (~C ==> (A | B))) # (A <==> (B & C)) # B")
-(clear-assumption-base)
-
-(solve-problem random-line)
-
-
-
-
-
-(solve-all rf)
-
-1K problems in 10 minutes
-10K problems in about 1.5 hours 
-
-#Extraction-relevant examples: 
-
-(!htp (or A (not A)))
-
-
-
-
-(set! MAX-ITERS 10)
-
-(!htp (if B (if (not (if A B)) C)))
-
-
-
-assert [(A ==> B) (B ==> C) (~ C)]
-
-assume  A (!process-hyps [A] K1)
-
-
-#assert p := (and (not (not A)) (iff B C))
-#assert q := (if A D)
-
-(!process-hyps [p] K1) 
-
-(!htp (if A A))
-(!htp (or A (not A)))
-(!htp (if (A ==> B) (if (B ==> C) (if A C))))
-
-(!htp (if (A ==> B) (if (A ==> C) (if A (and B C)))))
-
-(!htp (if (and (if A (if B C))
-               (if A (if C D)))
-          (if A (if B D))))
-
-
-
-qqq          
-(!htp (if (and (if A B)
-               (if C D))
-          (if (or A C)
-              (or B D))))
-
-          
-(!htp (iff (and A A) A))
-
-
-(!htp (if (and (if A B)
-               (and (if (not A) C)
-                    (if C D)))
-          (or B D)))                    
-                      
-(set! MAX-ITERS 40)
-
-(!htp (if (and (if A B)
-               (and (if B C)
-                    (not C)))
-          (not (or A B))))                    
-
-
-          
-Every time a hypothesis enters the assumption base, it should not only be decomposed, but every decomposed conjunct should be transformed, potentially to multiple sentences, each of which
-should again be decomposed and transformed etc. up until a fixed point.
-
-
-
-define p1 := (( A ==> B) & (C ==> D ))
-define p2 := (A | C)
-define p3 := ((A ==> ~D) & (C ==> ~B))
-define p4 := ((~(B & ~D)) | E)
-define p5 := (D ==> (~ ~ B) | F )
-define goal := (~ (~E & ~F))
-
-
-(!dtime-out (method () (!htp ((p1 & p2 & p3 & p4 & p5) ==> goal))) 30000)
-
-define (line->problem random-line) := 
-  let {toks := (map trim-ws (tokenize random-line "#"));
-       goal := (evaluate (last toks));
-       premises := (map evaluate (all-but-last toks))}
-    (if (and* premises) goal)
-
-
-define (t line) :=
-  (get-alpha-cert (method () (!htp (line->problem line)))
-                  (lambda (s) (write-file "/mnt/c/athenaGit/athena/alpha.ath" s)))
-       
-define (solve-problem random-line) :=
-  let {toks := (map trim-ws (tokenize random-line "#"));
-       goal := (evaluate (last toks));
-       premises := (map evaluate (all-but-last toks));
-       _ := (execute-command "clear-assumption-base");
-       success := (cell false);
-       res := try { let {_ := (!dtime-out (method () (!htp (if (and* premises) goal))) 50000); _ := (set! success true)} (!true-intro) | let {_ := (print "\nFailed on this problem: " random-line)} (!true-intro)}}
-    (ref success)
-    
-       
-define (solve-all random-problem-file) :=
-  let {lines := (tokenize (read-file random-problem-file) "\n")
-       failures := (cell 0);
-       counter := (cell 0);
-       _ := (map-proc (lambda (line)
-                         let {_ := check {(equal? (mod (inc counter) 100) 0) => (print "\nProcessed " (ref counter) " problems so far...") | else => ()}}
-                         check {(solve-problem line) => ()
-                              | else => (inc failures)})
-                      lines)}
-    (print "\nTotal number of failures: " (ref failures))                       
-
-
-  
-define rf := "/mnt/c/athenaGit/athena/lib/basic/random.txt"
-
-(solve-all rf)
-
-define l := (if (and (B | A) ((~ (C <==> A)) | (C & B))  C)  B)
-
-define p1 := ((A & (A | C)) ==> (C & (C | B)))
-define p2 := ((~ (B | (~ (B ==> ~A)))) | (A & (B | ~B)))
-define p3 := B
-define goal := (B & C)
-(clear-assumption-base)
-
-(!dtime-out (method () (!htp ((p1 & p2 & p3) ==> goal))) 30000)
