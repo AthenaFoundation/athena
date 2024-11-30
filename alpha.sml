@@ -20,6 +20,10 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
+fun alpha_val_to_val(term(t)) = termVal(t)
+  | alpha_val_to_val(sent(p)) = propVal(p)
+  | alpha_val_to_val(alpha_list(avals)) = listVal(map alpha_val_to_val avals)
+
 datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion: prop, index: int}
                      | assumeProof of {hyp: hypothesis, body: certificate, conclusion: prop}
                      | supAbProof of {hyp: hypothesis, body: certificate, conclusion: prop}
@@ -41,11 +45,17 @@ fun storeFAs(i,fas) = (HashTable.insert fa_table (i,fas))
 
 val global_index = ref(0)
 
+fun resetGlobalIndex() = global_index := 0
+
+fun reset() = 
+      (HashTable.clear(fa_table);
+       resetGlobalIndex())
+
 fun index() = Basic.incAndReturn(global_index)
 
-fun newIndex(fas) = 
+fun newIndex(fas,method_name) = 
       let val new_index = Basic.incAndReturn(global_index)
-          val _ = storeFAs(new_index,fas)
+          val _ = if method_name = "either" then storeFAs(new_index,fas) else ()
       in
          new_index 
       end
@@ -60,7 +70,30 @@ fun getConclusion(ruleApp({conclusion,...})) = conclusion
 
 exception FAError of unit 
 
-fun getFAs(ruleApp({index,...})) = lookupFAs(index)
+fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
+
+fun getRuleFA(method_name,vals: value list,ab) = 
+  let val props = Basic.mapSelect(getProp,vals,fn _ => true)
+  in  
+     case method_name of 
+        "left-either"  => [(Basic.first props)]
+      | "right-either" => [(Basic.second props)]
+      | "either" => let val disjuncts = (case props of 
+                                           [disjunction] => Prop.getDisjunctsWithoutDups(disjunction) 
+					 | _ => props)
+                        val fas = Basic.filter(disjuncts,fn d => not(ABase.isMember(d,ab)))
+                     in
+                        fas
+        	     end
+      | _ => props        
+  end
+
+fun getFAs(ruleApp({rule,args,index,...})) = 
+        let val method_name = S.name(rule)
+        in
+           if method_name = "either" then lookupFAs(index) 
+           else getRuleFA(method_name,map alpha_val_to_val args,ABase.empty_ab)
+        end
   | getFAs(assumeProof({hyp=hypothesis(_,antecedent),body,...})) = propDiff(getFAs(body),[antecedent])
   | getFAs(supAbProof({hyp=hypothesis(_,antecedent),body,...})) = propDiff(getFAs(body),[antecedent])
   | getFAs(composition({left,right,...})) = 
@@ -85,6 +118,29 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
 			propUnion(D_fas',fas_so_far),
 			(getConclusion D)::conclusions_so_far)
          end
+
+
+fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(composition({left,right,conclusion,...})) = 
+         let val (left',right') = (makeStrict(left),makeStrict(right))
+         in
+           if Basic.isMemberEq(getConclusion(left'),getFAs(right'),Prop.alEq) 
+	   then composition({left=left',right=right',conclusion=conclusion})
+	   else right'
+         end 
+  | makeStrict(pickAny({eigen_var,actual_fresh, body, conclusion,...})) = 
+      pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh, body=makeStrict(body), conclusion=conclusion})
+  | makeStrict(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(block(_)) = 
+        let val _ = print("\n******************************* Block proof found during simplifcation, this should not happen!\n")
+        in
+            Basic.fail("")
+	end
+  | makeStrict(D) = D
+
+fun simplifyProof(proof) = 
+      makeStrict(proof)
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
 val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
@@ -113,35 +169,13 @@ fun getAlphaVal(v,method_name) =
                                                        Basic.fail("")
                                                     end)))
 
-fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
-
-fun getRuleFA(method_name,vals: value list,ab) = 
-  let val props = Basic.mapSelect(getProp,vals,fn _ => true)
-  in  
-     case method_name of 
-        "left-either"  => [(Basic.first props)]
-      | "right-either" => [(Basic.second props)]
-      | "either" => let val disjuncts = (case props of 
-                                           [disjunction] => Prop.getDisjunctsWithoutDups(disjunction) 
-					 | _ => props)
-                        val fas = Basic.filter(disjuncts,fn d => not(ABase.isMember(d,ab)))
-                     in
-                        fas
-        	     end
-      | _ => props        
-  end
-
 fun possiblyPrimitivizeCertificate(closure_name,arg_vals,conclusion,full_certificate) = 
      if Basic.isMember(closure_name,!treat_as_primitives) then 
        let (**  val _ = print("\nTurning a certificate application of " ^ closure_name ^ " into a primitive!\n") **)
-           val new_index = index()
            val rule_cert = ruleApp({rule=S.symbol(closure_name),
 				    args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,
 				    conclusion=conclusion,
-				    index=new_index})
-(*** Note: The only reason why we can pass the empty_ab here as the value of the ab argument is bc we know that closure_name will not be "either": *********)
-           val fa = getRuleFA(closure_name,arg_vals,ABase.empty_ab)
-           val _ = storeFAs(new_index,fa) 
+				    index=index()})
        in
           rule_cert 
        end 
@@ -151,14 +185,10 @@ fun possiblyPrimitivizeCertificate(closure_name,arg_vals,conclusion,full_certifi
 fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,proof,...}) = 
      if Basic.isMember(closure_name,!treat_as_primitives) then 
        let (** val _ = print("\nTurning a ded_info application of " ^ closure_name ^ " into a primitive!\n") **)
-	   val new_index = index()
            val rule_cert = ruleApp({rule=S.symbol(closure_name),
 			 	    args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,
 				    conclusion=conc,
-				    index=new_index})
-(*** Note: Likewise, the only reason why we can pass the empty_ab here as the value of the ab argument is bc we know that closure_name will not be "either": *********)
-           val fa = getRuleFA(closure_name,arg_vals,ABase.empty_ab)
-           val _ = storeFAs(new_index,fa) 
+				    index=index()})
        in
           {conc=conc,
 	   fa=fa,
@@ -293,7 +323,6 @@ fun getNewEnvAndAb(dval,bpat,env1,ab1,ab) =
 
 val evalDedAlpha = 
 let val _ = (global_index := 0)
-    val _ = (HashTable.clear fa_table)
     val iarm_stack:iarm_type LStack.stack ref = ref(LStack.empty)
     fun initIndStack() = iarm_stack := LStack.empty
     fun initCallStack() = call_stack := LStack.empty     
@@ -321,7 +350,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      val rule_fas = getRuleFA(method_name,[v1,v2],ab'')				   
                      val tail_ded_info = {conc=res_conc,
 					  fa=rule_fas,
-					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc,index=newIndex(rule_fas)})}
+					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc,index=newIndex(rule_fas,method_name)})}
                      val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                  in
                     (res_val,ded_info)
@@ -349,7 +378,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                           val ded_info = (case ded_1_info_opt of
                                                              NONE => {conc=res_conc,
  								      fa=rule_app_fas,
-								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=newIndex(rule_app_fas)})}
+								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=newIndex(rule_app_fas,method_name)})}
 						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
                            				       let val final_fas = propUnion(fa1,propDiff(rule_app_fas,[conc1]))
 							       in
@@ -358,7 +387,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 								    proof=composition({left=proof1,
 										       right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],
 												      conclusion=res_conc,
-												      index=newIndex(rule_app_fas)}),
+												      index=newIndex(rule_app_fas,method_name)}),
 								                       conclusion=res_conc})}
 							       end)
                                       in
@@ -795,7 +824,7 @@ and
                           val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                           val tail_ded_info = {conc=tail_conc,
 					       fa=rule_fas,
-					       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas),conclusion=tail_conc})}
+					       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_conc})}
                           val ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,tail_ded_info),arg_ded_infos)
                       in
                          (res_val,ded_info)
@@ -810,7 +839,7 @@ and
                                           val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                                           val tail_ded_info = {conc=tail_ded_conc,
 		   			                       fa=rule_fas,
-					                       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas),conclusion=tail_ded_conc})}
+					                       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_ded_conc})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 1) then
@@ -827,7 +856,7 @@ and
 					  val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                                           val tail_ded_info = {conc=tail_ded_conc,
 		   			                       fa=rule_fas,
-					                       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_ded_conc,index=newIndex(rule_fas)})}
+					                       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_ded_conc,index=newIndex(rule_fas,method_name)})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 2) then
@@ -870,7 +899,24 @@ and
                               SOME(A.posOfExp(method))))
        end)
 in
-    fn (d,env,ab) => evDed(d,env,ab)
+    fn (d,env,ab) => 
+        let val _ = reset() 
+            val (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
+            val _ = print("\nAbout to simplify the generated certificate...\n")
+            val t1 = Time.toReal(Time.now())
+            val proof' = simplifyProof(proof) handle _ => let val _ = print("\nSIMPLIFICATION FAILED!!\n") 
+                                                          in
+                                                            proof 
+							  end
+            val t2 = Time.toReal(Time.now())
+            val elapsed = Real.toString(Real.-(t2,t1))
+            val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds...\n")
+            val _ = print("\nHashtable size: " ^ (Int.toString (HashTable.numItems(fa_table))))
+            val res = (res_val,{proof=proof',conc=conc,fa=fa})
+            val _ = reset()
+        in 
+           res 
+        end 
 end
  
 end (* of structure Alpha *) 

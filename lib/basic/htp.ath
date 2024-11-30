@@ -17,6 +17,7 @@ define (inconsistent? abase inconsistent-pair-cell) :=
 
 define UPPER-BOUND := 100000
 define MAX-ITERS := (cell 8)
+define TIMEOUT_LIMIT := 60000 # 60 seconds (60K milliseconds) timeout limit
 
 define (transform-forward hyp K) :=
   match hyp {
@@ -320,10 +321,18 @@ define (solve line) :=
 
 # (!solve "((E | (B ==> ~A)) ==> (C ==> (~ (C & D)))) # D # (C | E) # ((A ==> E) & (D | B)) # (E | (B & E))")
 
+define (sleep N) :=
+  letrec {loop := lambda (x i)
+                   check {(greater? i 10000000) => ()
+                        | else =>
+                                  let {y := (div (x times x) x)}
+                                   (loop y (plus i 1))}}
+     (repeat (lambda () (loop 10483 0)) N)
+
 define (solve-and-report-outcome random-line) :=
   let {problem := (make-problem random-line);
        success := (cell false);
-       res := try { let {_ := (!dtime-out (method () (!htp problem)) 30000);
+       res := try { let {_ := (!dtime-out (method () (!htp problem)) TIMEOUT_LIMIT);
                         _ := (set! success true)}
                       (!true-intro)
                   | let {_ := (print "\nFailed on this problem: " random-line "\n")}
@@ -333,8 +342,12 @@ define (solve-and-report-outcome random-line) :=
 define (solve-with-certificate-and-report-outcome random-line) :=
   let {problem := (make-problem random-line);
        success := (cell false);
-       res := try { let {_ := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) (lambda (_) ())))  30000);
-                        _ := (set! success true)}
+       res := try { let {res := (time-out (lambda () (get-alpha-cert (method () (!htp problem))
+                                                                     (lambda (s) (print "\nCertificate size: " (length s)))))
+                                          TIMEOUT_LIMIT);
+                         _ := check {(equal? (res 'outcome) 'timeout) => (print "\nTIMEOUT on this problem: " random-line "\n")
+                                   | else => let {_ := (set! success true)}
+                                               (print "\nSuccessful outcome: " res "\n")}}
                       (!true-intro)
                   | let {_ := (print "\nFailed on this problem: " random-line "\n")}
                       (!true-intro)}}
@@ -348,7 +361,7 @@ define (solve-and-save-certificate-and-report-outcome random-line cert-out-file)
        continuation := lambda (s)
                          let {output := (join "\n#" (copies "*" 120) "\n# -- Problem " (val->string (inc problem-counter)) ": " random-line "\n# Proof:" s)}
                            (write-file cert-out-file output);
-       res := try { let {_ := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) continuation))  30000);
+       res := try { let {_ := (get-alpha-cert (method () (!dtime-out (method () (!htp problem)) TIMEOUT_LIMIT)) continuation);
                         _ := (set! success true)}
                       (!true-intro)
                   | let {_ := (print "\nFailed on this problem: " random-line "\n")}
@@ -361,7 +374,7 @@ define (solve-all random-problem-file N) :=
        counter := (cell 1);
        _ := (map-proc (lambda (line)
                          let {_ := (execute-command "clear-assumption-base"); 
-                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
                               _ := (inc counter)}
                          check {(solve-and-report-outcome line) => ()
                               | else => (inc failures)})
@@ -375,7 +388,7 @@ define (solve-all-with-certificates random-problem-file N) :=
        counter := (cell 1);
        _ := (map-proc (lambda (line)
                          let {_ := (execute-command "clear-assumption-base"); 
-                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
                               _ := (inc counter)}
                          check {(solve-with-certificate-and-report-outcome line) => ()
                               | else => (inc failures)})
@@ -390,7 +403,7 @@ define (solve-all-and-store-certificates random-problem-file N cert-out-file) :=
        _ := (set! problem-counter 1);
        _ := (map-proc (lambda (line)
                          let {_ := (execute-command "clear-assumption-base"); 
-                              _ := check {(equal? (mod (ref counter) 100) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
                               _ := (inc counter)}
                          check {(solve-and-save-certificate-and-report-outcome line cert-out-file) => ()
                               | else => (inc failures)})
