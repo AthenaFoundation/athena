@@ -28,6 +28,9 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
                      | conclude of {expected_conc: prop, body: certificate,conclusion:prop}
                      | block of {certs: certificate list, conclusion: prop}
 
+fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
+fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
+
 val fa_table : (int,Prop.prop list) HashTable.hash_table = HashTable.mkTable(Basic.hashInt, op=) (500,Basic.Never)
 
 fun lookupFAs(i:int) = (case (HashTable.find fa_table i) of 
@@ -54,6 +57,34 @@ fun getConclusion(ruleApp({conclusion,...})) = conclusion
   | getConclusion(pickAny({conclusion,...})) = conclusion
   | getConclusion(conclude({conclusion,...})) = conclusion
   | getConclusion(block({conclusion,...})) = conclusion
+
+exception FAError of unit 
+
+fun getFAs(ruleApp({index,...})) = lookupFAs(index)
+  | getFAs(assumeProof({hyp=hypothesis(_,antecedent),body,...})) = propDiff(getFAs(body),[antecedent])
+  | getFAs(supAbProof({hyp=hypothesis(_,antecedent),body,...})) = propDiff(getFAs(body),[antecedent])
+  | getFAs(composition({left,right,...})) = 
+           let val (fa_left,fa_right) = (getFAs(left),getFAs(right))
+           in
+              propUnion(fa_left,propDiff(fa_right,[getConclusion(left)]))
+           end 
+  | getFAs(pickAny({conclusion,body,actual_fresh,...})) = 
+       let val body_fas = getFAs(body)
+           val fa_fvs = Prop.freeVarsLst(body_fas)
+       in
+	   if Basic.isMemberEq(actual_fresh,fa_fvs,AthTermVar.athTermVarEq) then raise FAError() else body_fas
+       end
+  | getFAs(conclude({body,...})) = getFAs(body)
+  | getFAs(block({certs,...})) = blockFALoop(certs,[],[])
+and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
+  | blockFALoop(D::rest,fas_so_far,conclusions_so_far) = 
+         let val D_fas = getFAs(D)
+             val D_fas' = propDiff(D_fas,conclusions_so_far)
+         in
+            blockFALoop(rest,
+			propUnion(D_fas',fas_so_far),
+			(getConclusion D)::conclusions_so_far)
+         end
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
 val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
@@ -229,9 +260,6 @@ fun extractHypothesisName(map,pval,hypothesis_name) =
          SOME((symbol,_)) => hypothesis_name := S.name(symbol)
        | _ => ())
   end 
-
-fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
-fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
           
 fun reconcile(tail_ded_info,[]) = tail_ded_info
   | reconcile(tail_ded_info,(ded_info_1 as {conc=conc1,fa=fa1,proof=proof1}:alpha_ded_info)::more) = 
