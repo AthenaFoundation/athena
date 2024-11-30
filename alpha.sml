@@ -59,7 +59,6 @@ fun newIndex(fas,method_name) =
       in
          new_index 
       end
-
 fun getConclusion(ruleApp({conclusion,...})) = conclusion
   | getConclusion(assumeProof({conclusion,...})) = conclusion
   | getConclusion(supAbProof({conclusion,...})) = conclusion
@@ -119,69 +118,6 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
 			(getConclusion D)::conclusions_so_far)
          end
 
-
-fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
-  | makeStrict(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
-  | makeStrict(composition({left,right,conclusion,...})) = 
-         let val (left',right') = (makeStrict(left),makeStrict(right))
-         in
-           if Basic.isMemberEq(getConclusion(left'),getFAs(right'),Prop.alEq) 
-	   then composition({left=left',right=right',conclusion=conclusion})
-	   else right'
-         end 
-  | makeStrict(pickAny({eigen_var,actual_fresh, body, conclusion,...})) = 
-      pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh, body=makeStrict(body), conclusion=conclusion})
-  | makeStrict(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,body=makeStrict(body),conclusion=conclusion})
-  | makeStrict(block(_)) = 
-        let val _ = print("\n******************************* Block proof found during simplifcation, this should not happen!\n")
-        in
-            Basic.fail("")
-	end
-  | makeStrict(D) = D
-
-fun removeReps(D) = 
-  let fun RR(D,already_derived:Prop.prop list) = 
-             let val D_conc = getConclusion(D)
-             in 
-                if Basic.isMemberEq(D_conc,already_derived,Prop.alEq)
-    	        then ruleApp({rule=S.symbol("claim"), 
-			      args=[sent(D_conc)],
-			      conclusion=D_conc,
-			      index=index()}) 
-                else analyzeStructure(D,already_derived)
-             end 
-and analyzeStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
-        let val body' = RR(body,antecedent::already_derived)
-        in
-           assumeProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
-        end 
-  | analyzeStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
-        let val body' = RR(body,antecedent::already_derived)
-        in
-           supAbProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
-        end 
-  | analyzeStructure(composition({left,right,conclusion,...}),already_derived) = 
-          let val left' = RR(left,already_derived)
-              val right' = RR(right,(getConclusion left')::already_derived)
-          in
-             composition({left=left',right=right',conclusion=conclusion})
-          end 
-  | analyzeStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
-         pickAny({conclusion=conclusion,body=RR(body,already_derived),eigen_var=eigen_var,actual_fresh=actual_fresh})
-  | analyzeStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
-         conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion})
-  | analyzeStructure(block(_),_) = 
-        let val _ = print("\n******************************* Block proof found during RR analysis, this should not happen!\n")
-        in
-           Basic.fail("")
-        end
-  | analyzeStructure(D,already_derived) = D
-  in
-    RR(D,[])
-  end
-
-fun simplifyProof(proof) = 
-      makeStrict(proof)
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
 val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
@@ -272,6 +208,99 @@ fun certToStringNaive(D) =
   in
      f(D)
   end
+
+fun fixedPoint f = fn D => let val D' = f D
+                    in
+                       if certToStringNaive(D) = certToStringNaive(D') then D else (fixedPoint f) D'
+                    end
+
+fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(composition({left,right,conclusion,...})) = 
+         let val (left',right') = (makeStrict(left),makeStrict(right))
+         in
+           if Basic.isMemberEq(getConclusion(left'),getFAs(right'),Prop.alEq) 
+	   then composition({left=left',right=right',conclusion=conclusion})
+	   else right'
+         end 
+  | makeStrict(pickAny({eigen_var,actual_fresh, body, conclusion,...})) = 
+      pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh, body=makeStrict(body), conclusion=conclusion})
+  | makeStrict(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(block(_)) = 
+        let val _ = print("\n******************************* Block proof found during simplifcation, this should not happen!\n")
+        in
+            Basic.fail("")
+	end
+  | makeStrict(D) = D
+
+fun removeReps(D) = 
+  let fun RR(D,already_derived:Prop.prop list) = 
+             let val D_conc = getConclusion(D)
+             in 
+                if Basic.isMemberEq(D_conc,already_derived,Prop.alEq)
+    	        then ruleApp({rule=S.symbol("claim"), 
+			      args=[sent(D_conc)],
+			      conclusion=D_conc,
+			      index=index()}) 
+                else analyzeStructure(D,already_derived)
+             end 
+and analyzeStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+        let val body' = RR(body,antecedent::already_derived)
+        in
+           assumeProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+        end 
+  | analyzeStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+        let val body' = RR(body,antecedent::already_derived)
+        in
+           supAbProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+        end 
+  | analyzeStructure(composition({left,right,conclusion,...}),already_derived) = 
+          let val left' = RR(left,already_derived)
+              val right' = RR(right,(getConclusion left')::already_derived)
+          in
+             composition({left=left',right=right',conclusion=conclusion})
+          end 
+  | analyzeStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
+         pickAny({conclusion=conclusion,body=RR(body,already_derived),eigen_var=eigen_var,actual_fresh=actual_fresh})
+  | analyzeStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
+         conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion})
+  | analyzeStructure(block(_),_) = 
+        let val _ = print("\n******************************* Block proof found during RR analysis, this should not happen!\n")
+        in
+           Basic.fail("")
+        end
+  | analyzeStructure(D,already_derived) = D
+  in
+    RR(D,[])
+  end
+
+fun elimClaims(D) = 
+  let fun ec(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...})) = 
+             assumeProof({hyp=hyp,body=ec(body),conclusion=conclusion})
+	| ec(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...})) = 
+             supAbProof({hyp=hyp,body=ec(body),conclusion=conclusion})
+	| ec(composition({left,right,conclusion,...})) = 
+	     let val (left',right') = (ec(left),ec(right))
+             in
+                if isRuleApp("claim",left') then right'
+                else if isRuleApp("claim",right') andalso Prop.alEq(getConclusion(right'),getConclusion(left')) then left'
+                else composition({left=left',right=right',conclusion=conclusion})
+             end
+	| ec(pickAny({conclusion,body,actual_fresh,eigen_var})) = 
+             pickAny({conclusion=conclusion,body=ec(body),actual_fresh=actual_fresh,eigen_var=eigen_var})
+	| ec(conclude({expected_conc,body,conclusion})) = 
+               conclude({expected_conc=expected_conc,body=ec(body),conclusion=conclusion})
+	| ec(block(_)) = 
+        let val _ = print("\n******************************* Block proof found during EC analysis, this should not happen!\n")
+        in
+           Basic.fail("")
+        end
+	| ec(D) = D
+  in
+     ec(D)
+  end
+   
+val simplifyProof = fixedPoint (elimClaims o removeReps o makeStrict)
 
 fun hasSubproof(D,pred) = 
    let fun find(D) = 
