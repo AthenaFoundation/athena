@@ -139,6 +139,47 @@ fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,bo
 	end
   | makeStrict(D) = D
 
+fun removeReps(D) = 
+  let fun RR(D,already_derived:Prop.prop list) = 
+             let val D_conc = getConclusion(D)
+             in 
+                if Basic.isMemberEq(D_conc,already_derived,Prop.alEq)
+    	        then ruleApp({rule=S.symbol("claim"), 
+			      args=[sent(D_conc)],
+			      conclusion=D_conc,
+			      index=index()}) 
+                else analyzeStructure(D,already_derived)
+             end 
+and analyzeStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+        let val body' = RR(body,antecedent::already_derived)
+        in
+           assumeProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+        end 
+  | analyzeStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+        let val body' = RR(body,antecedent::already_derived)
+        in
+           supAbProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+        end 
+  | analyzeStructure(composition({left,right,conclusion,...}),already_derived) = 
+          let val left' = RR(left,already_derived)
+              val right' = RR(right,(getConclusion left')::already_derived)
+          in
+             composition({left=left',right=right',conclusion=conclusion})
+          end 
+  | analyzeStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
+         pickAny({conclusion=conclusion,body=RR(body,already_derived),eigen_var=eigen_var,actual_fresh=actual_fresh})
+  | analyzeStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
+         conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion})
+  | analyzeStructure(block(_),_) = 
+        let val _ = print("\n******************************* Block proof found during RR analysis, this should not happen!\n")
+        in
+           Basic.fail("")
+        end
+  | analyzeStructure(D,already_derived) = D
+  in
+    RR(D,[])
+  end
+
 fun simplifyProof(proof) = 
       makeStrict(proof)
 
@@ -903,6 +944,7 @@ in
         let val _ = reset() 
             val (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
             val _ = print("\nAbout to simplify the generated certificate...\n")
+            val size1 = String.size(certToStringNaive(proof))
             val t1 = Time.toReal(Time.now())
             val proof' = simplifyProof(proof) handle _ => let val _ = print("\nSIMPLIFICATION FAILED!!\n") 
                                                           in
@@ -910,7 +952,8 @@ in
 							  end
             val t2 = Time.toReal(Time.now())
             val elapsed = Real.toString(Real.-(t2,t1))
-            val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds...\n")
+            val size2 = String.size(certToStringNaive(proof'))
+            val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds, starting size: " ^ (Int.toString size1) ^ ", simplified size: " ^ (Int.toString size2))
             val _ = print("\nHashtable size: " ^ (Int.toString (HashTable.numItems(fa_table))))
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
             val _ = reset()
