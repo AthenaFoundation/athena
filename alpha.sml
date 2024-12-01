@@ -222,22 +222,38 @@ fun getRuleName(rule_sym_name) =
   if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
 
 fun certToString(D) = 
-  let val spaces = Basic.spaces
+  let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
+      val (lemma_counter,hyp_counter) = (ref 0, ref 0)
+      fun makeNewName(is_assumption) = 
+             if is_assumption then "h" ^ (Int.toString (Basic.incAndReturn hyp_counter))
+             else "p" ^ (Int.toString (Basic.incAndReturn lemma_counter))
+      fun sentToString(p) = (case (HashTable.find name_table p) of 
+                                SOME(name) => name
+ 			      | _ => P.toStringInfix(p))
+      fun decideNaming(p,is_assumption) = 
+             if String.size(P.toStringInfix(p)) > 10 then 
+                let val new_name = makeNewName(is_assumption)
+                    val _ = (HashTable.insert name_table (p,new_name))
+                in
+                   new_name ^ " := " ^ (P.toStringInfix p)
+                end
+             else (P.toStringInfix p)
+      val spaces = Basic.spaces
       fun argToString(term(t)) = AT.toStringDefault(t)
-        | argToString(sent(p)) = (P.toStringInfix p)
+        | argToString(sent(p)) = (sentToString p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = (spaces offset) ^ (P.toStringInfix conclusion) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
-	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	      (spaces offset) ^ "assume " ^ (decideNaming(p,true)) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
-	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
 	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
 	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
 	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
 	| c2s(conclude({expected_conc,body,...}),offset) = 
-             (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+             (spaces offset) ^ (sentToString expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
   in
     (case D' of 
