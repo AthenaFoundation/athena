@@ -223,7 +223,14 @@ fun getRuleName(rule_sym_name) =
 
 fun certToString(D) = 
   let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
-      val (lemma_counter,hyp_counter) = (ref 0, ref 0)
+      val (lemma_counter,hyp_counter,assume_counter) = (ref 0, ref 0, ref 0)
+      val spaces = Basic.spaces
+      fun makeAssumeComment(conditional_conclusion,offset) = 
+                  if Basic.incAndReturn(assume_counter) < 2 then "" 
+                  else let val comment = "# We now derive the conditional " ^ (P.toStringInfix conditional_conclusion) ^ ": "
+                       in
+                          comment ^ "\n" ^ (spaces offset)
+                       end 
       fun makeNewName(is_assumption) = 
              if is_assumption then "h" ^ (Int.toString (Basic.incAndReturn hyp_counter))
              else "p" ^ (Int.toString (Basic.incAndReturn lemma_counter))
@@ -238,16 +245,16 @@ fun certToString(D) =
                    new_name ^ " := " ^ (P.toStringInfix p)
                 end
              else (P.toStringInfix p)
-      val spaces = Basic.spaces
       fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = (sentToString p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun c2s(ruleApp({rule,args,conclusion,...}),offset) = (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
-	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
-	      (spaces offset) ^ "assume " ^ (decideNaming(p,true)) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...}),offset) = 
+	      (spaces offset) ^ (makeAssumeComment(conclusion,offset))  ^ 
+              "assume " ^ (decideNaming(p,true)) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
-	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
 	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
 	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
