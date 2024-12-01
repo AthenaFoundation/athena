@@ -326,7 +326,7 @@ fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,bo
          in
            if Basic.isMemberEq(left_conc,right_fas,Prop.alEq) 
 	   then composition({left=left',right=right',conclusion=conclusion})
-	   else let val _ = print("\nThe conclusion of left' is: " ^ (P.toStringInfix left_conc) ^ " and is not a free assumption of right': " ^ (certToString right'))
+	   else let (*** val _ = print("\nThe conclusion of left' is: " ^ (P.toStringInfix left_conc) ^ " and is not a free assumption of right': " ^ (certToString right'))  ***)
                 in
                    right'
                 end 
@@ -423,18 +423,27 @@ fun simplifyProofOnce(D) =
      let fun mprint(s) = ()
          (** val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) **)
          val p = evaluateCert(D)
+
          val D1 = rightLinearize(D)
-         (** val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) ***)
-         val _ = checkSemantics(p,D1,"right-linearize")          			      
+         (** val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) 
+         val _ = checkSemantics(p,D1,"right-linearize")          			  
+         **)    
          val D2 = makeStrict(D1)
+         (**
          val _ = print("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2)))
          val _ = checkSemantics(p,D2,"makeStrict")
+         **)
          val D3 = removeReps(D2)
+         (** 
          val _ = print("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3)))
          val _ = checkSemantics(p,D3,"removeReps")
+         **)
          val D4 = elimClaims(elimClaims(D3))
+         (** 
          val _ = print("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4)))
          val _ = checkSemantics(p,D4,"elimClaims")
+         **)
+         val _ = checkSemantics(p,D4,"The entire simplification")
      in
         D4 
      end
