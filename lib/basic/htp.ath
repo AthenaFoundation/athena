@@ -343,7 +343,7 @@ define (solve-with-certificate-and-report-outcome random-line) :=
   let {problem := (make-problem random-line);
        success := (cell false);
        res := try { let {res := (time-out (lambda () (get-alpha-cert (method () (!htp problem))
-                                                                     (lambda (s) (print "\nCertificate size: " (length s)))))
+                                                                     (lambda (s) (print "\nCertificate\n" s))))
                                           TIMEOUT_LIMIT);
                          _ := check {(equal? (res 'outcome) 'timeout) => (print "\nTIMEOUT on this problem: " random-line "\n")
                                    | else => let {_ := (set! success true)}

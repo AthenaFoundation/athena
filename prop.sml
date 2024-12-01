@@ -2045,7 +2045,9 @@ fun splitVars(P as uGen(_)) =
 
 fun toStringInfix(p) = 
   let fun f(atom({term=t,...})) = (AT.toStringDefault t)
-	| f(neg({arg=p,...})) = "(~ " ^ (f p) ^ ")"
+	| f(neg({arg=p,...})) = (case isAtom(p) of 
+                                   SOME(_) => "~" ^ (f p)
+				 | _ =>  "(~ " ^ (f p) ^ ")")
 	| f(conj({args,...})) = "(" ^ (Basic.printListStr(args,f," & ")) ^ ")"
 	| f(disj({args,...})) = "(" ^ (Basic.printListStr(args,f," | ")) ^ ")"
 	| f(cond({ant,con,...})) = "(" ^ (f ant) ^ " ==> " ^ (f con) ^ ")"
@@ -2054,7 +2056,9 @@ fun toStringInfix(p) =
         | f(eGen({qvar,body,...})) = "(exists "^ (AthTermVar.toStringDefault qvar) ^ " . " ^ (f body) ^ ")"
         | f(eGenUnique({qvar,body,...})) = "(exists-unique "^ (AthTermVar.toStringDefault qvar) ^ " . " ^ (f body) ^ ")"
   in
-     f(p)
+     (case p of 
+        neg({arg=p,...}) => "(~ " ^ (f p) ^ ")" 
+      | _ => (f p))
   end
 
 fun makeTPTPPropAux(P,simple_only) = 

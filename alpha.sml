@@ -20,6 +20,8 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
+
+
 fun alpha_val_to_val(term(t)) = termVal(t)
   | alpha_val_to_val(sent(p)) = propVal(p)
   | alpha_val_to_val(alpha_list(avals)) = listVal(map alpha_val_to_val avals)
@@ -71,8 +73,15 @@ exception FAError of unit
 
 fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
 
+fun getPropsRecursively(v) = 
+   (case coerceValIntoProp(v) of 
+       SOME(p) => [p]
+     | _ => (case v of
+                listVal(vals) => Basic.flatten(map getPropsRecursively vals)
+              | _ => []))
+
 fun getRuleFA(method_name,vals: value list,ab) = 
-  let val props = Basic.mapSelect(getProp,vals,fn _ => true)
+  let val props = Basic.flatten(Basic.mapSelect(getPropsRecursively,vals,fn _ => true))
   in  
      case method_name of 
         "left-either"  => [(Basic.first props)]
@@ -209,19 +218,118 @@ fun certToStringNaive(D) =
      f(D)
   end
 
+fun getRuleName(rule_sym_name) = 
+  if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
+
+fun certToString(D) = 
+  let val spaces = Basic.spaces
+      fun argToString(term(t)) = AT.toStringDefault(t)
+        | argToString(sent(p)) = (P.toStringInfix p)
+        | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
+      fun argsToString(args) = Basic.printListStr(args,argToString,", ")
+      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = (spaces offset) ^ (P.toStringInfix conclusion) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
+	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
+	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+3)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
+	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
+	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
+	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
+	| c2s(conclude({expected_conc,body,...}),offset) = 
+             (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+      val D' = compsToBlocks(D)
+  in
+    (case D' of 
+        block(_)  => "\n{\n" ^ (c2s(D',2)) ^ "\n}"
+      | _ => (c2s(D',0)))
+  end              
+
+fun certToStringNoBlocks(D) = 
+  let val spaces = Basic.spaces
+      fun argToString(term(t)) = AT.toStringDefault(t)
+        | argToString(sent(p)) = (P.toStringInfix p)
+        | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
+      fun argsToString(args) = Basic.printListStr(args,argToString,", ")
+      fun c2s(ruleApp({rule,conclusion,args,...}),offset) = (spaces offset) ^ (P.toStringInfix conclusion) ^ " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
+	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
+	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	| c2s(composition({left,right,...}),offset) = " { " ^ (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) ^ " } "
+	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
+	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
+	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
+	| c2s(conclude({expected_conc,body,...}),offset) = 
+             (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+      val D' = D 
+  in
+    (case D' of 
+        block(_)  => "\n{\n" ^ (c2s(D',2)) ^ "\n}"
+      | _ => (c2s(D',0)))
+  end              
+
+fun evaluateCert(D:certificate) = 
+   let val str = certToStringNoBlocks(D) 
+       val res_val = (!evaluateString)(str)
+   in 
+      (case coerceValIntoProp(res_val) of 
+          SOME(p) => p
+	| _ => Basic.fail(""))
+   end 
+
+fun checkSemantics(p,D,transformation_name) = 
+ ((if Prop.alEq(evaluateCert(D),p) then 
+      print("\nSimplification " ^ transformation_name ^ " preserved semantics..\n")
+   else 
+      print("\nSimplification " ^ transformation_name ^ " changed semantics!\n")) 
+  handle _ => print("\nSimplification " ^ transformation_name ^ " resulted in an incorrect proof that could not be evaluted...\n"))
+
+
 fun fixedPoint f = fn D => let val D' = f D
                     in
                        if certToStringNaive(D) = certToStringNaive(D') then D else (fixedPoint f) D'
                     end
 
+fun rightLinearize(D) = 
+  let fun rl(assumeProof({hyp,body,conclusion,...})) = 
+            let val body' = rl(body)
+            in
+               assumeProof({hyp=hyp,body=body',conclusion=conclusion})
+            end 
+	| rl(supAbProof({hyp,body,conclusion,...})) = 
+            let val body' = rl(body)
+            in
+               supAbProof({hyp=hyp,body=body',conclusion=conclusion})
+            end 
+	| rl(composition({left=top_left,right=top_right,conclusion=top_conclusion})) = 
+             (case top_left of 
+                 composition({left=left1,right=right1,conclusion=conclusion1}) => 
+                    let val new_right = composition({left=right1,right=top_right,conclusion=getConclusion(top_right)})
+                    in
+                       rl(composition({left=left1,
+		  	  	       right=new_right,
+				       conclusion=top_conclusion}))
+                    end 
+	       | _  => composition({left=rl(top_left),right=rl(top_right),conclusion=top_conclusion}))
+	| rl(D) = D
+  in
+     rl(D)
+  end
+
 fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
   | makeStrict(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=makeStrict(body),conclusion=conclusion})
   | makeStrict(composition({left,right,conclusion,...})) = 
          let val (left',right') = (makeStrict(left),makeStrict(right))
+             val left_conc = getConclusion(left')
+             val right_fas = getFAs(right')
          in
-           if Basic.isMemberEq(getConclusion(left'),getFAs(right'),Prop.alEq) 
+           if Basic.isMemberEq(left_conc,right_fas,Prop.alEq) 
 	   then composition({left=left',right=right',conclusion=conclusion})
-	   else right'
+	   else let val _ = print("\nThe conclusion of left' is: " ^ (P.toStringInfix left_conc) ^ " and is not a free assumption of right': " ^ (certToString right'))
+                in
+                   right'
+                end 
          end 
   | makeStrict(pickAny({eigen_var,actual_fresh, body, conclusion,...})) = 
       pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh, body=makeStrict(body), conclusion=conclusion})
@@ -247,12 +355,12 @@ fun removeReps(D) =
 and analyzeStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
         let val body' = RR(body,antecedent::already_derived)
         in
-           assumeProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+           assumeProof({hyp=hyp,body=body',conclusion=conclusion})
         end 
   | analyzeStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
         let val body' = RR(body,antecedent::already_derived)
         in
-           supAbProof({hyp=hyp,body=body',conclusion=getConclusion(body')})
+           supAbProof({hyp=hyp,body=body',conclusion=conclusion})
         end 
   | analyzeStructure(composition({left,right,conclusion,...}),already_derived) = 
           let val left' = RR(left,already_derived)
@@ -283,25 +391,68 @@ fun elimClaims(D) =
 	     let val (left',right') = (ec(left),ec(right))
              in
                 if isRuleApp("claim",left') then right'
-                else if isRuleApp("claim",right') andalso Prop.alEq(getConclusion(right'),getConclusion(left')) then left'
-                else composition({left=left',right=right',conclusion=conclusion})
+                else if isRuleApp("claim",right') 
+                     then 
+                      let val left_conc = getConclusion(left')
+                          val right_conc = getConclusion(right')
+                      (** val _ = print("\nClaim found on the right, with conclusion: " ^ (Prop.makeTPTPPropSimple right_conc) ^ ", and conclusion on the left: " ^ (Prop.makeTPTPPropSimple left_conc)) **)
+                      in 
+                          (if Prop.alEq(right_conc,left_conc) then left'
+                           else composition({left=left',right=right',conclusion=getConclusion(right')}))
+                      end 
+                     else composition({left=left',right=right',conclusion=getConclusion(right')})
              end
 	| ec(pickAny({conclusion,body,actual_fresh,eigen_var})) = 
              pickAny({conclusion=conclusion,body=ec(body),actual_fresh=actual_fresh,eigen_var=eigen_var})
 	| ec(conclude({expected_conc,body,conclusion})) = 
-               conclude({expected_conc=expected_conc,body=ec(body),conclusion=conclusion})
+               let val body' = ec(body)
+               in
+                 conclude({expected_conc=expected_conc,body=body',conclusion=getConclusion(body')})
+               end 
 	| ec(block(_)) = 
-        let val _ = print("\n******************************* Block proof found during EC analysis, this should not happen!\n")
-        in
-           Basic.fail("")
-        end
+             let val _ = print("\n******************************* Block proof found during EC analysis, this should not happen!\n")
+             in
+                Basic.fail("")
+             end
 	| ec(D) = D
   in
      ec(D)
   end
    
-val simplifyProof = fixedPoint (elimClaims o removeReps o makeStrict)
+fun simplifyProofOnce(D) = 
+     let fun mprint(s) = ()
+         (** val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) **)
+         val p = evaluateCert(D)
+         val D1 = rightLinearize(D)
+         (** val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) ***)
+         val _ = checkSemantics(p,D1,"right-linearize")          			      
+         val D2 = makeStrict(D1)
+         val _ = print("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2)))
+         val _ = checkSemantics(p,D2,"makeStrict")
+         val D3 = removeReps(D2)
+         val _ = print("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3)))
+         val _ = checkSemantics(p,D3,"removeReps")
+         val D4 = elimClaims(elimClaims(D3))
+         val _ = print("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4)))
+         val _ = checkSemantics(p,D4,"elimClaims")
+     in
+        D4 
+     end
 
+(*********
+fun simplifyProof(D) = 
+     let val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D)))
+         val D1 = simplifyProofOnce(D)
+         val D2 = simplifyProofOnce(D1)
+     in
+        D2
+     end
+*********)
+
+val simplifyProof = fixedPoint simplifyProofOnce 
+(***
+fixedPoint (removeReps o (makeStrict o rightLinearize))
+***)
 fun hasSubproof(D,pred) = 
    let fun find(D) = 
              if pred(D) then true else 
@@ -320,33 +471,6 @@ fun hasSubproof(D,pred) =
 fun compFree(D) = 
      if hasSubproof(D,fn D' => (case D' of composition(_) => true | _ => false))
      then false else true 
-
-fun getRuleName(rule_sym_name) = 
-  if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
-
-fun certToString(D) = 
-  let val spaces = Basic.spaces
-      fun argToString(term(t)) = AT.toStringDefault(t)
-        | argToString(sent(p)) = (P.toStringInfix p)
-        | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
-      fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun c2s(ruleApp({rule,args,...}),offset) = (spaces offset) ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
-	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
-	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
-	      (spaces offset) ^ "suppose-absurd " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
-	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
-	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
-	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
-	| c2s(conclude({expected_conc,body,...}),offset) = 
-             (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
-      val D' = compsToBlocks(D)
-  in
-    (case D' of 
-        block(_)  => "\n{\n" ^ (c2s(D',2)) ^ "\n}"
-      | _ => (c2s(D',0)))
-  end              
 
 fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,index=0}),conc=Prop.true_prop, fa = []}
                      in
@@ -983,7 +1107,6 @@ in
             val elapsed = Real.toString(Real.-(t2,t1))
             val size2 = String.size(certToStringNaive(proof'))
             val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds, starting size: " ^ (Int.toString size1) ^ ", simplified size: " ^ (Int.toString size2))
-            val _ = print("\nHashtable size: " ^ (Int.toString (HashTable.numItems(fa_table))))
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
             val _ = reset()
         in 
