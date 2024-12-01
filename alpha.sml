@@ -305,9 +305,8 @@ fun checkSemantics(p,D,transformation_name) =
  ((if Prop.alEq(evaluateCert(D),p) then 
       print("\nSimplification " ^ transformation_name ^ " preserved semantics..\n")
    else 
-      print("\nSimplification " ^ transformation_name ^ " changed semantics!\n")) 
-  handle _ => print("\nSimplification " ^ transformation_name ^ " resulted in an incorrect proof that could not be evaluted...\n"))
-
+      print("\nError: Simplification " ^ transformation_name ^ " changed semantics!\n")) 
+  handle _ => print("\nError: Simplification " ^ transformation_name ^ " resulted in an incorrect proof that could not be evaluated...\n"))
 
 fun fixedPoint f = fn D => let val D' = f D
                     in

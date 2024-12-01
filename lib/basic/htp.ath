@@ -359,10 +359,13 @@ define (solve-and-save-certificate-and-report-outcome random-line cert-out-file)
   let {problem := (make-problem random-line);
        success := (cell false);
        continuation := lambda (s)
-                         let {output := (join "\n#" (copies "*" 120) "\n# -- Problem " (val->string (inc problem-counter)) ": " random-line "\n# Proof:" s)}
+                         let {output := (join "\n#" (copies "*" 120) "\n# -- Problem " (val->string (inc problem-counter)) ": " random-line "\n# Proof:\n" s)}
                            (write-file cert-out-file output);
-       res := try { let {_ := (get-alpha-cert (method () (!dtime-out (method () (!htp problem)) TIMEOUT_LIMIT)) continuation);
-                        _ := (set! success true)}
+       res := try { let {resp := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) continuation))
+                                         TIMEOUT_LIMIT);
+                         _ :=  check {(equal? (resp 'outcome) 'timeout) => (print "\nTIMEOUT on this problem: " random-line "\n")
+                                   | else => let {_ := (set! success true)}
+                                               (print "\nSuccessful outcome: " resp "\n")}}
                       (!true-intro)
                   | let {_ := (print "\nFailed on this problem: " random-line "\n")}
                       (!true-intro)}}
