@@ -6421,6 +6421,18 @@ fun getTermsNoPos(val_lst,list_name,NONE) =
 (* It's important that the above coercion function take term *values* as inputs
 and not just terms. A term value is guaranteed to be well-typed, whereas an arbitrary
 term might not be. *)
+
+fun isMetaId(v) = 
+      (case coerceValIntoTerm(v) of 
+          SOME(term) => 
+               (case AthTerm.isIdeConstant(term) of 
+                  NONE => false | _ => true)
+        | _ => false)
+
+fun isMetaIdConstructive(v) = 
+      (case coerceValIntoTerm(v) of 
+          SOME(term) => AthTerm.isIdeConstant(term)
+        | _ => NONE)
  
 end (* of structure Semantics *) 
 

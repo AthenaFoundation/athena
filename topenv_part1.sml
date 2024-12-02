@@ -30,12 +30,6 @@ fun getIntValue(v) =
 
 fun isProp(v) = (case coerceValIntoProp(v) of SOME(_) => true | _ => false)
   
-fun isMetaId(v) = 
-      (case coerceValIntoTerm(v) of 
-          SOME(term) => 
-               (case AthTerm.isIdeConstant(term) of 
-                  NONE => false | _ => true)
-        | _ => false)
 
 fun readFile(fname) = 
       let val s = TextIO.openIn(fname)
@@ -691,8 +685,11 @@ fun getAlphaCertFun(v1,v2,env,ab) =
      (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
       closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
          let val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
+             val _ = Basic.mark("3")
              val proof_str = Alpha.certToString(proof)
+             val _ = Basic.mark("4")
              val proof_ath_str = MLStringToAthString(proof_str)
+             val _ = Basic.mark("5")
              val res = evalClosure(v2,[proof_ath_str],ab,NONE)
          in
             res 

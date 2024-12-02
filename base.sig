@@ -12,6 +12,8 @@ sig
     val writeLinesToFile: string list * string -> unit
     val replaceFile: string * string -> unit
     val isDir: string -> bool 
+    val tokenize: string * char list -> string list 
+    val replaceSubstring: string * string * string -> string 
     val listDirFilesRecursively: string -> string list    
     val readAllDirFiles: string -> string list 				    
     val countLines: string -> int 

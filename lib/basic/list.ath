@@ -252,6 +252,13 @@ define (list-remove* to-be-removed L) := (list-diff L to-be-removed)
            		        ([] (!K (rev results-so-far)))
      		              ((list-of x more) (!M x (method (new-results) (!loop more (join new-results results-so-far)))))))))
     (!loop L [])))
+
+
+define (try-all L) :=
+  match L {
+      [(some-method M)] => (!M)
+    | (list-of (some-method M) (rest as (list-of _ _))) => try { (!M) | (!try-all rest) }
+  }
      
 ## Here the input method M is a regular method
 ## that takes an input x (usually a sentence) and produces 

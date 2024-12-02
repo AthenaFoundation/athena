@@ -641,6 +641,9 @@ val moption_structure_symbol = ModSymbol.makeModSymbol([],option_structure_symbo
 val mpPrimMethod_name = "mp"
 val mpPrimMethod_symbol = Symbol.symbol mpPrimMethod_name
 
+val commentPrimMethod_name = "comment"
+val commentPrimMethod_symbol = Symbol.symbol commentPrimMethod_name
+
 val pfPrimMethod_name = "prove-from"
 val pfPrimMethod_symbol = Symbol.symbol pfPrimMethod_name
 

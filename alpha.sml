@@ -127,7 +127,6 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
 			(getConclusion D)::conclusions_so_far)
          end
 
-
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
 val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
 
@@ -208,7 +207,8 @@ fun certToStringNaive(D) =
         | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun f(ruleApp({rule,args,...})) = "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
+      fun f(ruleApp({rule,args,...})) = 
+             "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
 	| f(assumeProof({hyp as hypothesis(name_opt,p),body,...})) = "assume " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
         | f(supAbProof({hyp as hypothesis(name_opt,p),body,...})) = "suppose-absurd " ^ (Prop.makeTPTPPropSimple p) ^ " { " ^ (f body) ^ " } "
         | f(block({certs=proofs,...})) = " BLOCK_START " ^ Basic.printListStr(proofs,f," || ") ^ " BLOCK_END "
@@ -245,20 +245,45 @@ fun certToString(D) =
                    new_name ^ " := " ^ (P.toStringInfix p)
                 end
              else (P.toStringInfix p)
+      fun getCommentPayload([alpha_list(args)]) =  
+        (* Every arg is a meta-id separated by @ or a sentence *)
+
+          let fun argToString(sent(p)) = (P.toStringInfix p)
+		| argToString(term(t)) = (case isMetaIdConstructive(termVal(t)) of 
+                                             SOME(str) => Basic.replaceSubstring("@"," ",str)
+					   | _ => let val _ = print("\nCOMMENT ERROR: FOUND A Non-metaid term: " ^ (AT.toStringDefault t))
+                                                  in 
+                                                      (case coerceValIntoProp(termVal(t)) of 
+                                                          SOME(p) => (P.toStringInfix p)
+							| _ => Basic.fail(""))
+                                                  end)
+		| argToString(alpha_list(_)) = let val _ = print("\nCOMMENT ERROR 2: FOUND A NESTED LIST!\n")
+                                                  in 
+                                                      Basic.fail("")
+                                                  end
+              val strings = map argToString args
+          in
+             Basic.printListStr(strings, fn x => x, " ")
+          end
+
       fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = (sentToString p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+      fun includeSemicolon(left_proof) = if isRuleApp("comment",left_proof) then "" else ";\n"
+      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = 
+             if Symbol.symEq(rule,Names.commentPrimMethod_symbol) 
+             then (spaces offset) ^ "# " ^ (getCommentPayload args) ^ "\n" 
+             else (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...}),offset) = 
 	      (spaces offset) ^ (makeAssumeComment(conclusion,offset))  ^ 
               "assume " ^ (decideNaming(p,true)) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
 	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
-	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ ";\n" ^ (c2s(right,offset+2)) 
+	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ (includeSemicolon left) ^ (c2s(right,offset+2)) 
 	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
 	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
-	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
+	      offset) = c2s(D1,offset) ^ (includeSemicolon D1) ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
 	| c2s(conclude({expected_conc,body,...}),offset) = 
              (spaces offset) ^ (sentToString expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
@@ -274,7 +299,12 @@ fun certToStringNoBlocks(D) =
         | argToString(sent(p)) = (P.toStringInfix p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
-      fun c2s(ruleApp({rule,conclusion,args,...}),offset) = (spaces offset) ^ (P.toStringInfix conclusion) ^ " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+      fun c2s(ruleApp({rule,conclusion,args,...}),offset) = 
+              let val rule_name = (getRuleName rule)
+              in
+                 if rule_name = "comment" then "true-introduction"
+                 else (spaces offset) ^ (P.toStringInfix conclusion) ^ " BY " ^ rule_name ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+              end 
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,...}),offset) = 
 	      (spaces offset) ^ "assume " ^ (P.toStringInfix p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
@@ -346,7 +376,7 @@ fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,bo
              val left_conc = getConclusion(left')
              val right_fas = getFAs(right')
          in
-           if Basic.isMemberEq(left_conc,right_fas,Prop.alEq) 
+           if Basic.isMemberEq(left_conc,right_fas,Prop.alEq) orelse isRuleApp("comment",left')
 	   then composition({left=left',right=right',conclusion=conclusion})
 	   else let (*** val _ = print("\nThe conclusion of left' is: " ^ (P.toStringInfix left_conc) ^ " and is not a free assumption of right': " ^ (certToString right'))  ***)
                 in
@@ -367,7 +397,7 @@ fun removeReps(D) =
   let fun RR(D,already_derived:Prop.prop list) = 
              let val D_conc = getConclusion(D)
              in 
-                if Basic.isMemberEq(D_conc,already_derived,Prop.alEq)
+                if Basic.isMemberEq(D_conc,already_derived,Prop.alEq) andalso not(isRuleApp("comment",D))
     	        then ruleApp({rule=S.symbol("claim"), 
 			      args=[sent(D_conc)],
 			      conclusion=D_conc,
@@ -443,28 +473,30 @@ fun elimClaims(D) =
    
 fun simplifyProofOnce(D) = 
      let fun mprint(s) = ()
-         (** val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) **)
+         val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) 
+         val _ = print("\nWe'll now evaluate this certificate to get the semantics...")
          val p = evaluateCert(D)
 
+         val _ = print("\nAbout to right-linearize...")
          val D1 = rightLinearize(D)
-         (** val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) 
+          val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) 
          val _ = checkSemantics(p,D1,"right-linearize")          			  
-         **)    
+             
          val D2 = makeStrict(D1)
-         (**
+
          val _ = print("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2)))
          val _ = checkSemantics(p,D2,"makeStrict")
-         **)
+
          val D3 = removeReps(D2)
-         (** 
+
          val _ = print("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3)))
          val _ = checkSemantics(p,D3,"removeReps")
-         **)
+
          val D4 = elimClaims(elimClaims(D3))
-         (** 
+
          val _ = print("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4)))
          val _ = checkSemantics(p,D4,"elimClaims")
-         **)
+
          val _ = checkSemantics(p,D4,"The entire simplification")
      in
         D4 
@@ -1139,7 +1171,9 @@ in
             val size2 = String.size(certToStringNaive(proof'))
             val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds, starting size: " ^ (Int.toString size1) ^ ", simplified size: " ^ (Int.toString size2))
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
+            val _ = Basic.mark("1")			  
             val _ = reset()
+            val _ = Basic.mark("2")
         in 
            res 
         end 

@@ -5201,6 +5201,27 @@ define (athena->tptp p) :=
   | (and [arg]) => (athena->tptp arg)
   | (or [arg]) => (athena->tptp arg)  
   }
+  
+# define (athena->infix-aux p) :=
+#   match p {
+#     (some-atom t) => (val->string t) 
+#   | (not q) => check {(atom? q) => (join "~" (athena->infix-aux q)) | else => (join "(~ " (athena->infix-aux q) ")")}
+#   | (and (some-sent p1) (some-sent p2)) => (join "(" (athena->infix-aux p1) " & " (athena->infix-aux p2) ")")
+#   | (or p1 p2) => (join "(" (athena->infix-aux p1) " | " (athena->infix-aux p2) ")")
+#   | (if p1 p2) => (join "(" (athena->infix-aux p1) " ==> " (athena->infix-aux p2) ")")
+#   | (iff p1 p2) => (join "(" (athena->infix-aux p1) " <==> " (athena->infix-aux p2) ")")
+#   | (and ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->infix-aux (first args)) " & " (athena->infix-aux (and (tail args))) ")")
+#   | (or ((some-list args) where (greater? (length args) 2))) => (join "(" (athena->infix-aux (first args)) " | " (athena->infix-aux (or (tail args))) ")")  
+#   | (and [arg]) => (athena->infix-aux arg)
+#   | (or [arg]) => (athena->infix-aux arg)  
+# }
+
+# define (athena->infix p) :=
+#   match p {
+#     (not q) => (join "(~ " (athena->infix-aux q) ")")
+#   | _ => (athena->infix-aux p)
+#   }
+
 
 define (copies L n) := check {(less? n 1) => [] | else => (join L (copies L (minus n 1)))}
   

@@ -26,6 +26,24 @@ fun unZip [] = ([],[])
 
 fun bool2Str(b) = if b then "true" else "false"
 
+fun is_delim c delims =
+    List.exists (fn d => c = d) delims;
+
+fun tokenize(str:string, delims: char list) =
+    let
+        (* Helper function to build tokens recursively *)
+        fun tokenize_rec [] current_token acc =
+            if current_token = "" then List.rev acc
+            else List.rev (current_token :: acc)
+          | tokenize_rec (c :: cs) current_token acc =
+                if is_delim c delims then
+                    if current_token = "" then tokenize_rec cs "" acc
+                    else tokenize_rec cs "" (current_token :: acc)
+                    else (tokenize_rec cs (current_token ^ String.str c) acc)
+    in
+        tokenize_rec (String.explode str) "" []
+    end 
+
 exception Never
 
 fun never() = raise Never
@@ -909,5 +927,20 @@ fun downcaseChar(c:char) =
   end
 
 fun downcaseString(str:string) = implode(List.map downcaseChar (explode str))
+
+fun replaceSubstring(s1, s2, base) =
+    let
+        (* Helper function that processes the string from left to right *)
+        fun replace(str, acc) =
+            if String.size str = 0 then
+                acc
+            else if String.isPrefix s1 (str) then
+                replace(String.extract(str, String.size s1, NONE), acc ^ s2)
+            else
+                replace(String.extract(str, 1, NONE), acc ^ String.str(String.sub(str, 0)))
+    in
+        (* Start with empty accumulator *)
+        replace(base, "")
+    end
 
 end
