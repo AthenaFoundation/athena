@@ -679,23 +679,33 @@ fun rootFun([v],(env,ab),{pos_ar,file}) =
   | rootFun(vals,_,{pos_ar,file}) = evError(wrongArgNumber(N.root_name,length(vals),1),
                                             SOME(Array.sub(pos_ar,0)))
 
-
 fun getAlphaCertFun(v1,v2,env,ab) = 
   (case (v1,v2) of 
      (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
       closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
          let val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
-             val _ = Basic.mark("3")
              val proof_str = Alpha.certToString(proof)
-             val _ = Basic.mark("4")
              val proof_ath_str = MLStringToAthString(proof_str)
-             val _ = Basic.mark("5")
              val res = evalClosure(v2,[proof_ath_str],ab,NONE)
          in
             res 
          end
    | (v1,closUFunVal(_)) => primError(wrongArgKind(N.getAlphaCertFun_name,1,closMethodLCType,v1))
    | (_,v2) => primError(wrongArgKind(N.getAlphaCertFun_name,2,closUFunType,v2)))
+
+fun analyzeAlphaCertFun(v1,v2,env,ab) = 
+  (case (v1,v2) of 
+     (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
+      closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
+         let val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
+             val analysis_results_as_string = Alpha.analyzeCertificate(proof)
+             val res = evalClosure(v2,[MLStringToAthString(analysis_results_as_string)],ab,NONE)
+         in
+            res 
+         end
+   | (v1,closUFunVal(_)) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,1,closMethodLCType,v1))
+   | (_,v2) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,2,closUFunType,v2)))
+
 
 fun mergeSortPrimBFun(v1,v2,env,ab) =  
       (case v1 of 

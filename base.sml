@@ -24,6 +24,20 @@ fun unZip [] = ([],[])
           (a::tail1,b::tail2)
        end
 
+(** 
+Starting with the n^th element, inclusive, remove how_many_to_remove elements from L and return the result. 
+Note that the n^th element is determined by counting from 1, not 0. 
+**)
+
+fun removeListChunk(L,start,how_many_to_remove,replacement_option) = 
+   let val suffix1 = List.drop(L,start-1)
+       val suffix2 = List.drop(suffix1,how_many_to_remove)
+   in
+     (List.take(L,start-1)) @ (case replacement_option of SOME(x) => [x] 
+						       |  _ => []) @ suffix2
+   end 
+
+
 fun bool2Str(b) = if b then "true" else "false"
 
 fun is_delim c delims =

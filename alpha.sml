@@ -37,6 +37,23 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
 
+fun certSize(ruleApp(_)) = 1
+  | certSize(assumeProof({body,...})) = 1 + certSize(body)
+  | certSize(supAbProof({body,...})) = 1 + certSize(body)
+  | certSize(composition({left,right,...})) = certSize(left) + certSize(right)
+  | certSize(pickAny({body,...})) = 1 + certSize(body)
+  | certSize(conclude({body,...})) = 1 + certSize(body)
+  | certSize(block({certs,...})) = List.foldl Int.+ 0 (map certSize certs)
+
+fun properSubproofs(ruleApp(_)) = []
+  | properSubproofs(assumeProof({body,...})) = body::(properSubproofs body)
+  | properSubproofs(supAbProof({body,...})) = body::(properSubproofs body)
+  | properSubproofs(composition({left,right,...})) = [left,right] @ (properSubproofs left) @ (properSubproofs right)
+  | properSubproofs(pickAny({body,...}))= body::(properSubproofs body)
+  | properSubproofs(conclude({body,...})) = body::(properSubproofs body)
+  | properSubproofs(block({certs,...})) = certs @ (List.foldl op@ [] (map properSubproofs certs))
+   
+
 val fa_table : (int,Prop.prop list) HashTable.hash_table = HashTable.mkTable(Basic.hashInt, op=) (500,Basic.Never)
 
 fun lookupFAs(i:int) = (case (HashTable.find fa_table i) of 
@@ -69,7 +86,11 @@ fun getConclusion(ruleApp({conclusion,...})) = conclusion
   | getConclusion(conclude({conclusion,...})) = conclusion
   | getConclusion(block({conclusion,...})) = conclusion
 
+type Path = int list 
 exception FAError of unit 
+exception PathError of certificate * Path 
+
+fun pathToString(numbers)  = "[" ^ (Basic.printListStr(numbers,Int.toString,", ")) ^ "]"
 
 fun getProp(v) = (case coerceValIntoProp(v) of SOME(p) => p)
 
@@ -128,7 +149,7 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
          end
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
-val treat_as_primitives = ref(["dsyl", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
+val treat_as_primitives = ref(["dsyl", "gap", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
 
 fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
   | isRuleAppOneOf(_) = false
@@ -274,6 +295,9 @@ fun certToString(D) =
       fun c2s(ruleApp({rule,args,conclusion,...}),offset) = 
              if Symbol.symEq(rule,Names.commentPrimMethod_symbol) 
              then (spaces offset) ^ "# " ^ (getCommentPayload args) ^ "\n" 
+             else 
+             if Symbol.name(rule) = "gap" 
+             then  (spaces offset) ^  ("GAP(" ^ (argsToString args) ^ ")")
              else (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...}),offset) = 
 	      (spaces offset) ^ (makeAssumeComment(conclusion,offset))  ^ 
@@ -330,6 +354,7 @@ fun evaluateCert(D:certificate) =
           SOME(p) => p
 	| _ => Basic.fail(""))
    end 
+
 
 fun checkSemantics(p,D,transformation_name) = 
  ((if Prop.alEq(evaluateCert(D),p) then 
@@ -473,29 +498,32 @@ fun elimClaims(D) =
    
 fun simplifyProofOnce(D) = 
      let fun mprint(s) = ()
+(**
          val _ = print("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) 
          val _ = print("\nWe'll now evaluate this certificate to get the semantics...")
+**)
          val p = evaluateCert(D)
 
-         val _ = print("\nAbout to right-linearize...")
+         (**** val _ = print("\nAbout to right-linearize...") *****)
          val D1 = rightLinearize(D)
-          val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) 
-         val _ = checkSemantics(p,D1,"right-linearize")          			  
+         (**** val _ = print("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1)))  ***)
+      (** val _ = checkSemantics(p,D1,"right-linearize") **)          			   
              
          val D2 = makeStrict(D1)
 
-         val _ = print("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2)))
-         val _ = checkSemantics(p,D2,"makeStrict")
+         (**** val _ = print("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2))) ****)
+       (** val _ = checkSemantics(p,D2,"makeStrict") **)
 
          val D3 = removeReps(D2)
 
-         val _ = print("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3)))
-         val _ = checkSemantics(p,D3,"removeReps")
+      (*** val _ = print("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3))) ***)
+      (**** val _ = checkSemantics(p,D3,"removeReps") ***)
 
          val D4 = elimClaims(elimClaims(D3))
 
-         val _ = print("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4)))
+     (*** val _ = print("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4))) 
          val _ = checkSemantics(p,D4,"elimClaims")
+***)
 
          val _ = checkSemantics(p,D4,"The entire simplification")
      in
@@ -534,6 +562,198 @@ fun hasSubproof(D,pred) =
 fun compFree(D) = 
      if hasSubproof(D,fn D' => (case D' of composition(_) => true | _ => false))
      then false else true 
+
+fun pathError(D,path) = 
+  let val _ = print("\nPath " ^ (pathToString path) ^ " is invalid for this certificate:\n" ^ (certToString D) ^ "\n")  
+  in
+    raise PathError(D,path)
+  end 
+
+fun navigate(cert,path) = 
+  let fun nav(D,[]) = D
+	| nav(composition({left,right,...}),h::more) = 
+	    if h = 1 then nav(left,more) 
+	    else if h = 2 then nav(right,more) 
+ 	    else pathError(cert,path)
+	| nav(assumeProof({body,...}),h::more) = 
+                 if h = 2 then nav(body,more) else pathError(cert,path)
+	| nav(supAbProof({body,...}),h::more) = 
+                 if h = 2 then nav(body,more) else pathError(cert,path)
+	| nav(pickAny({body,...}),h::more) = 
+                 if h = 2 then nav(body,more) else pathError(cert,path)
+	| nav(conclude({body,...}),h::more) = 
+                 if h = 2 then nav(body,more) else pathError(cert,path)
+	| nav(block({certs,...}),h::more) = 
+	         if (h > 0 andalso h <= length(certs)) then nav(Basic.nth(certs,h-1),more) else pathError(cert,path)
+	| nav(_) = pathError(cert,path)
+  in 
+     nav(cert,path)
+  end
+
+fun replace(D_base,target_path,D_replacement) = 
+(***
+Return the certificate obtained from D by replacing the subproof at path by D'
+***)
+let val _ = print("\nEntering replace with base proof:\n" ^(certToString D_base) ^ " and D_replacement:\n" ^ (certToString D_replacement) ^ "\n")
+    fun rep(D_in,current_path) = 
+         if null(current_path) then D_replacement
+	 else (case (D_in,current_path) of
+                 (composition({left,right,conclusion}),h::more) =>
+                   if h = 1 then composition({left=rep(left,more),right=right,conclusion=conclusion})
+		   else if h = 2 then 
+                    let val right' = rep(right,more)
+                    in 
+                      composition({left=left,right=right',conclusion=getConclusion(right')})
+                    end
+		   else pathError(D_base,target_path)
+	       | (assumeProof({hyp as hypothesis(_,antecedent),body,conclusion}),h::more) => 
+		   if h = 2 then 
+                      let val body' = rep(body,more) 
+                      in
+                        assumeProof({hyp=hyp,body=body',conclusion=Prop.makeConditional(antecedent,getConclusion(body'))})
+                      end
+		   else pathError(D_base,target_path)
+	       | (supAbProof({body,hyp as hypothesis(_,antecedent),conclusion}),h::more) =>
+		   if h = 2 then 
+                      let val body' = rep(body,more) 
+                      in
+                         supAbProof({hyp=hyp,body=body',conclusion=Prop.makeNegation(antecedent)})
+                      end
+		   else pathError(D_base,target_path)
+	       | (pickAny({eigen_var,actual_fresh,body,conclusion}),h::more) =>
+		   if h = 2 then 
+                      let val body' = rep(body,more) 
+                      in
+			  pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=body',conclusion=Prop.makeUGen([actual_fresh],getConclusion(body'))})
+                      end
+		   else pathError(D_base,target_path)
+	       | (conclude({expected_conc,body,conclusion}),h::more) =>
+		   if h = 2 then
+                      let val body' = rep(body,more) 
+                      in
+    		         conclude({body=body',expected_conc=expected_conc,conclusion=getConclusion(body')})
+                      end
+		   else pathError(D_base,target_path)
+	       | (block({certs,conclusion}),h::more) =>
+	         if (h > 0 andalso h <= length(certs)) then
+		     let val cert_i = rep(Basic.nth(certs,h-1),more)
+                         val certs' = (Basic.take(certs,h-1)) @ [cert_i] @ (List.drop(certs,h))
+                     in
+                        block({certs=certs',conclusion=getConclusion(List. last certs')})
+	             end
+		 else pathError(D_base,target_path)
+	       | _ => pathError(D_base,target_path))
+in
+   rep(D_base,target_path)
+end 
+
+fun findAllProofs(D,pred) = 
+(***
+Return a list of all and only those paths in D that contain proofs satisfying pred. 
+***)
+   let fun examine(D,path,results) = if pred(D) then (rev(path),D)::results else results 
+       fun loop(D as composition({left,right,...}),current_path,paths) = loopLst([left,right],1,current_path,examine(D,current_path,paths))
+	 | loop(D as assumeProof({body,...}),current_path,paths) = loop(body,2::current_path,examine(D,current_path,paths))
+	 | loop(D as supAbProof({body,...}),current_path,paths) = loop(body,2::current_path,examine(D,current_path,paths))
+	 | loop(D as pickAny({body,...}),current_path,paths) = loop(body,2::current_path,examine(D,current_path,paths))
+	 | loop(D as conclude({body,...}),current_path,paths) = loop(body,2::current_path,examine(D,current_path,paths))
+         | loop(D as block({certs,...}),current_path,paths) = loopLst(certs,1,current_path,examine(D,current_path,paths))
+	 | loop(D,_,paths) = paths 
+       and loopLst([],_,_,paths) = paths
+	 | loopLst(D::more,i,current_path,paths) = 
+             let val results = loop(D,i::current_path,paths)
+             in 
+               loopLst(more,i+1,current_path,results)
+             end 
+       val results:(Path * certificate) list = loop(D,[],[])
+   in  
+      rev(results)
+   end
+
+fun reduceSize(sz:int,p:int) = 
+   let val sz_real = Real.fromInt(sz)
+       val p_real = Real.fromInt(p)/100.0
+       val res = Real.floor(sz_real - (p_real * sz_real))
+   in
+      if res < 1 then 1 else res 
+   end
+
+fun shrinkBlock(certs,percentage) = 
+     let val block_size = length(certs)
+         val new_block_size = reduceSize(block_size,percentage)
+         val how_many_to_remove = block_size - new_block_size 
+         val where_to_start = MT.getRandomInt(1+block_size-how_many_to_remove)
+         val replacement = ruleApp({rule=Symbol.symbol("gap"), args=[term(AthTerm.makeNumTerm(A.int_num(how_many_to_remove,ref "")))],conclusion=Prop.true_prop,index=index()})
+         val certs' = Basic.removeListChunk(certs,where_to_start,how_many_to_remove,SOME(replacement))
+     in
+        certs'
+     end          					 
+
+
+fun isBlock(block(_)) = true
+  | isBlock(_) = false
+
+
+fun choosePercentage() = 
+      MT.getRandomInt(80)
+
+fun chooseBlockAndShrink(D) = 
+   let val paths_and_subblocks = findAllProofs(D,isBlock)
+       val _ = Basic.mark("A")
+   in
+      if null(paths_and_subblocks) then 
+         let val _ = print("\nNo blocks found!\n")
+         in 
+           D
+         end 
+      else 
+         let val index = MT.getRandomInt(length(paths_and_subblocks))
+             val _ = Basic.mark("B")
+             val (path,block_subproof as block({certs,...})) = Basic.nth(paths_and_subblocks,index-1)
+             val _ = Basic.mark("C")
+             val _ = print("\nChoosing to shrink the " ^ (Int.toString index) ^ "th block, at path " ^ (pathToString path) ^ ", which has " ^ (Int.toString (length certs)) ^ " elements ...\n")
+             val _ = Basic.mark("D")
+         in
+            (case block_subproof of
+                block({certs,conclusion}) => 
+                    let val percentage = choosePercentage()
+                        val _ = print("\nWill be shrinking the size of that block by " ^ (Int.toString percentage) ^ " percent.\n")
+                        val certs' = shrinkBlock(certs,percentage)
+                        val new_block = block({certs=certs',conclusion=getConclusion(List.last certs')})						
+                        val _ = print("\nHere's the original non-shrunk block proof:\n" ^ (certToString block_subproof) ^ "\n")
+                        val _ = print("\nAnd Here's the new shrunk block proof:\n" ^ (certToString new_block) ^ "\n")
+                        val res = replace(D,path,new_block)
+                    in
+		       res 
+                    end 
+	      | _ => let val _ = print("\nError: A block subproof was expected to be found here!\n")
+		     in
+			Basic.fail("")
+		     end)
+         end
+   end
+
+fun analyzeCertificate(D) = 
+  let val D' = compsToBlocks(D)
+      val subproofs = properSubproofs(D')
+      val paths_and_subblocks = findAllProofs(D',isBlock)
+      val counter = ref(0)				     
+      val separator = "\n------------------------------------------------------\n"
+      val subproof_str = "\nThere are " ^ (Int.toString (length subproofs)) ^ " subproofs:\n" 
+			 ^ (Basic.printListStr(subproofs,fn D_sub => "Subproof #" ^ (Int.toString (Basic.incAndReturn counter)) ^ ":\n" 
+                         ^ (certToString D_sub),separator)) ^ "\n"
+      val sz_str = "\nThe certificate has size: " ^ (Int.toString (certSize D')) ^"\n"
+      val is_comp_free_str = if compFree(D') then "has NO compositions" else "DOES have compositions"
+      val comp_free_info = "\nThe certificate " ^is_comp_free_str^"...\n"
+      val block_counter = ref(0)				     
+      val subblock_info = "\n******* This certificate contains " ^ (Int.toString (length paths_and_subblocks)) ^ " subproofs that are blocks, namely:\n"
+                        ^ (Basic.printListStr(paths_and_subblocks,fn (path,bl) => "Sub-block #" ^ (Int.toString (Basic.incAndReturn block_counter)) ^ " at path " 
+                                                                                ^ (pathToString path) ^ ":\n" ^ (certToString bl),separator)) ^ "\n" 
+      val shrunk = chooseBlockAndShrink(D')
+      val shrunk_info = "\n!!!!!!!!!!!!!!!!!!! And here's the shrunk proof:\n" ^ (certToString shrunk) ^ "\n\n"
+  in 
+     "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Here's the certificate produced for the given proof:\n" ^ (certToString D') ^ "\n" ^ sz_str ^ comp_free_info ^ subproof_str ^ subblock_info ^ shrunk_info 
+  end 
 
 fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,index=0}),conc=Prop.true_prop, fa = []}
                      in

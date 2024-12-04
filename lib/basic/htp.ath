@@ -207,7 +207,7 @@ define (htp goal) :=
              backward-attempt := method (goal iteration spaces)
                                    let {#_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
                                         res := (cell false);
-                                        b-th  := try {let {th := let {_ := (!comment (encode-comment ["We tackle " goal " backwards..."]))}
+                                        b-th  := try {let {th := #let {_ := (!comment (encode-comment ["We tackle " goal " backwards..."]))}
                                                                   (!backward-tp goal (plus 1 iteration));
                                                             _ := (set! res true)}
                                                         (!claim th) 

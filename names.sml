@@ -179,6 +179,9 @@ val fsymsInFunDefTableFun_symbol = Symbol.symbol fsymsInFunDefTableFun_name
 val getAlphaCertFun_name = "get-alpha-cert"
 val getAlphaCertFun_symbol = Symbol.symbol getAlphaCertFun_name
 
+val analyzeAlphaCertFun_name = "analyze-alpha-cert"
+val analyzeAlphaCertFun_symbol = Symbol.symbol analyzeAlphaCertFun_name
+
 val subtermsFun_name = "subterms"
 val subtermsFun_symbol = Symbol.symbol subtermsFun_name
 
