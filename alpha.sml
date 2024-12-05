@@ -300,7 +300,8 @@ fun certToString(D) =
              else 
              if Symbol.name(rule) = "gap" 
              then  (spaces offset) ^  ("GAP(" ^ (argsToString args) ^ ")")
-             else let val res = (spaces offset) ^ (decideNaming(conclusion,false,rule_name)) ^  " BY " ^ rule_name ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+             else let val argument_part =  " on " ^ (argsToString args) 
+                      val res = (spaces offset) ^ (decideNaming(conclusion,false,rule_name)) ^  " BY " ^ rule_name ^ (if null(args) then "" else argument_part)
                   in
                      res 
                   end 
