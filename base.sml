@@ -29,12 +29,12 @@ Starting with the n^th element, inclusive, remove how_many_to_remove elements fr
 Note that the n^th element is determined by counting from 1, not 0. 
 **)
 
-fun removeListChunk(L,start,how_many_to_remove,replacement_option) = 
+fun removeListChunk(L,start,how_many_to_remove) = 
    let val suffix1 = List.drop(L,start-1)
+       val to_be_removed = List.take(suffix1,how_many_to_remove)
        val suffix2 = List.drop(suffix1,how_many_to_remove)
    in
-     (List.take(L,start-1)) @ (case replacement_option of SOME(x) => [x] 
-						       |  _ => []) @ suffix2
+     ((List.take(L,start-1)),suffix2,to_be_removed)
    end 
 
 
@@ -838,6 +838,19 @@ fun mapSelect(f,l,pred) =
              end
   in loop(l,[])
   end
+
+fun mapTry(f,l) = 
+  let fun loop([],accum) = rev accum
+	| loop(x::more,accum) = 
+	     let val res_opt = ((SOME(f x)) handle _ => NONE)
+             in
+                (case res_opt of
+                    SOME(y) => loop(more,y::accum)
+		  | _ => loop(more,accum))
+             end 
+  in
+     loop(l,[])       
+  end 
 
 fun mapWithIndex(f,L) = 
  let fun loop([],_,res) = rev(res)

@@ -20,7 +20,7 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
-
+fun mprint(s) = ()
 
 fun alpha_val_to_val(term(t)) = termVal(t)
   | alpha_val_to_val(sent(p)) = propVal(p)
@@ -149,7 +149,7 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
          end
 
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
-val treat_as_primitives = ref(["dsyl", "gap", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
+val treat_as_primitives = ref(["dsyl", "gap", "elide", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
 
 fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
   | isRuleAppOneOf(_) = false
@@ -242,7 +242,7 @@ fun certToStringNaive(D) =
 fun getRuleName(rule_sym_name) = 
   if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
 
-fun certToString(D) = 
+fun certToString(D) =  
   let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
       val (lemma_counter,hyp_counter,assume_counter) = (ref 0, ref 0, ref 0)
       val spaces = Basic.spaces
@@ -258,8 +258,8 @@ fun certToString(D) =
       fun sentToString(p) = (case (HashTable.find name_table p) of 
                                 SOME(name) => name
  			      | _ => P.toStringInfix(p))
-      fun decideNaming(p,is_assumption) = 
-             if String.size(P.toStringInfix(p)) > 10 then 
+      fun decideNaming(p,is_assumption,rule_name) = 
+             if String.size(P.toStringInfix(p)) > 10 andalso not(rule_name = "elide") then 
                 let val new_name = makeNewName(is_assumption)
                     val _ = (HashTable.insert name_table (p,new_name))
                 in
@@ -293,15 +293,21 @@ fun certToString(D) =
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun includeSemicolon(left_proof) = if isRuleApp("comment",left_proof) then "" else ";\n"
       fun c2s(ruleApp({rule,args,conclusion,...}),offset) = 
+        let val rule_name = getRuleName(rule)
+        in
              if Symbol.symEq(rule,Names.commentPrimMethod_symbol) 
              then (spaces offset) ^ "# " ^ (getCommentPayload args) ^ "\n" 
              else 
              if Symbol.name(rule) = "gap" 
              then  (spaces offset) ^  ("GAP(" ^ (argsToString args) ^ ")")
-             else (spaces offset) ^ (decideNaming(conclusion,false)) ^  " BY " ^ (getRuleName rule) ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+             else let val res = (spaces offset) ^ (decideNaming(conclusion,false,rule_name)) ^  " BY " ^ rule_name ^ (if null(args) then "" else (" on " ^ (argsToString args)))
+                  in
+                     res 
+                  end 
+        end 
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...}),offset) = 
 	      (spaces offset) ^ (makeAssumeComment(conclusion,offset))  ^ 
-              "assume " ^ (decideNaming(p,true)) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+              "assume " ^ (decideNaming(p,true,"")) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
 	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ (includeSemicolon left) ^ (c2s(right,offset+2)) 
@@ -427,34 +433,34 @@ fun removeReps(D) =
 			      args=[sent(D_conc)],
 			      conclusion=D_conc,
 			      index=index()}) 
-                else analyzeStructure(D,already_derived)
+                else inspectStructure(D,already_derived)
              end 
-and analyzeStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+and inspectStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
         let val body' = RR(body,antecedent::already_derived)
         in
            assumeProof({hyp=hyp,body=body',conclusion=conclusion})
         end 
-  | analyzeStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
+  | inspectStructure(supAbProof({hyp as hypothesis(_,antecedent),body,conclusion,...}),already_derived) = 
         let val body' = RR(body,antecedent::already_derived)
         in
            supAbProof({hyp=hyp,body=body',conclusion=conclusion})
         end 
-  | analyzeStructure(composition({left,right,conclusion,...}),already_derived) = 
+  | inspectStructure(composition({left,right,conclusion,...}),already_derived) = 
           let val left' = RR(left,already_derived)
               val right' = RR(right,(getConclusion left')::already_derived)
           in
              composition({left=left',right=right',conclusion=conclusion})
           end 
-  | analyzeStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
+  | inspectStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
          pickAny({conclusion=conclusion,body=RR(body,already_derived),eigen_var=eigen_var,actual_fresh=actual_fresh})
-  | analyzeStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
+  | inspectStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
          conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion})
-  | analyzeStructure(block(_),_) = 
+  | inspectStructure(block(_),_) = 
         let val _ = print("\n******************************* Block proof found during RR analysis, this should not happen!\n")
         in
            Basic.fail("")
         end
-  | analyzeStructure(D,already_derived) = D
+  | inspectStructure(D,already_derived) = D
   in
     RR(D,[])
   end
@@ -564,7 +570,7 @@ fun compFree(D) =
      then false else true 
 
 fun pathError(D,path) = 
-  let val _ = print("\nPath " ^ (pathToString path) ^ " is invalid for this certificate:\n" ^ (certToString D) ^ "\n")  
+  let val _ = print("\nPath " ^ (pathToString path) ^ " is invalid for this certificate:\n" ^ (certToString(D)) ^ "\n")  
   in
     raise PathError(D,path)
   end 
@@ -594,7 +600,8 @@ fun replace(D_base,target_path,D_replacement) =
 (***
 Return the certificate obtained from D by replacing the subproof at path by D'
 ***)
-let val _ = print("\nEntering replace with base proof:\n" ^(certToString D_base) ^ " and D_replacement:\n" ^ (certToString D_replacement) ^ "\n")
+let (** val _ = print("\nEntering replace with base proof:\n" ^(certToString(D_base)) ^ " and D_replacement:\n" ^ (certToString(D_replacement)) ^ "\n")
+     ***)
     fun rep(D_in,current_path) = 
          if null(current_path) then D_replacement
 	 else (case (D_in,current_path) of
@@ -678,55 +685,76 @@ fun reduceSize(sz:int,p:int) =
       if res < 1 then 1 else res 
    end
 
-fun shrinkBlock(certs,percentage) = 
-     let val block_size = length(certs)
+fun computeBlockEliminations(certs) = 
+      let fun loop([],i) = i
+	    | loop((D as ruleApp(_))::more,i) = if isRuleAppOneOf(["left-and","right-and"],D) then loop(more,i+1) else loop(more,i)
+	    | loop(_,i) = i
+      in
+         loop(certs,0)
+      end			     
+
+fun shrinkBlock(certs,percentage,block_path) = 
+     let val and_eliminations = if block_path = [2] then computeBlockEliminations(certs) else 0 
+	 val block_size = length(certs) - and_eliminations
+         val _ = mprint("\nFOUND " ^ (Int.toString and_eliminations) ^ " initial and eliminations... Effective block size: " ^ (Int.toString block_size) ^ "\n")
          val new_block_size = reduceSize(block_size,percentage)
          val how_many_to_remove = block_size - new_block_size 
-         val where_to_start = MT.getRandomInt(1+block_size-how_many_to_remove)
-         val replacement = ruleApp({rule=Symbol.symbol("gap"), args=[term(AthTerm.makeNumTerm(A.int_num(how_many_to_remove,ref "")))],conclusion=Prop.true_prop,index=index()})
-         val certs' = Basic.removeListChunk(certs,where_to_start,how_many_to_remove,SOME(replacement))
+         val where_to_start = and_eliminations + MT.getRandomInt(1+block_size-how_many_to_remove)
+         val _ = mprint("\nWill be removing " ^ (Int.toString how_many_to_remove) ^ " elements, which is " ^ (Int.toString percentage) ^ " percent ... Where_to_start: " ^ (Int.toString where_to_start) ^ "\n")
+         val (prefix,suffix,to_be_removed) = Basic.removeListChunk(certs,where_to_start,how_many_to_remove)
+         val replacements = Basic.mapTry((fn previous_proof => let val previous_conc = getConclusion(previous_proof)
+                                                                   val _ = if isRuleApp("comment",previous_proof) then Basic.fail("") else ()
+                                                                   val _ = mprint("\n&&&&& Here's a previous_conc: " ^ (P.toStringInfix previous_conc) ^ " from this previous step: " ^ (certToString(previous_proof)) ^"\n")
+                         				       in
+                                                                  ruleApp({rule=Symbol.symbol("elide"), args=[sent(previous_conc)],conclusion=previous_conc,index=index()})
+                                                               end),to_be_removed)
+         val certs_with_elisions = prefix @ replacements @ suffix 
+         val certs_without_elisions = prefix @ suffix 
      in
-        certs'
+        (certs_with_elisions,certs_without_elisions)
      end          					 
-
 
 fun isBlock(block(_)) = true
   | isBlock(_) = false
 
 
-fun choosePercentage() = 
-      MT.getRandomInt(80)
+fun choosePercentage() = MT.getRandomInt(100)
+      
+fun chooseBlockToShrink(paths_and_subblocks) = 
+  let val paths_and_subblocks' = Basic.mergeSortBuiltIn(paths_and_subblocks,fn ((path1,block1),(path2,block2)) => certSize(block1) < certSize(block2))
+  in
+     hd(paths_and_subblocks')
+  end 
 
 fun chooseBlockAndShrink(D) = 
    let val paths_and_subblocks = findAllProofs(D,isBlock)
-       val _ = Basic.mark("A")
+       fun mprint(s) = ()					      
    in
       if null(paths_and_subblocks) then 
          let val _ = print("\nNo blocks found!\n")
          in 
-           D
+           (D,D)
          end 
       else 
          let val index = MT.getRandomInt(length(paths_and_subblocks))
-             val _ = Basic.mark("B")
-             val (path,block_subproof as block({certs,...})) = Basic.nth(paths_and_subblocks,index-1)
-             val _ = Basic.mark("C")
-             val _ = print("\nChoosing to shrink the " ^ (Int.toString index) ^ "th block, at path " ^ (pathToString path) ^ ", which has " ^ (Int.toString (length certs)) ^ " elements ...\n")
-             val _ = Basic.mark("D")
+             val (block_path,block_subproof as block({certs,...})) = chooseBlockToShrink(paths_and_subblocks)
+             val _ = mprint("\nChoosing to shrink the block at path " ^ (pathToString block_path) ^ ", which has size " ^ (Int.toString (certSize block_subproof)))
          in
             (case block_subproof of
                 block({certs,conclusion}) => 
                     let val percentage = choosePercentage()
-                        val _ = print("\nWill be shrinking the size of that block by " ^ (Int.toString percentage) ^ " percent.\n")
-                        val certs' = shrinkBlock(certs,percentage)
+                        val _ = mprint("\nWill be shrinking the size of that block by " ^ (Int.toString percentage) ^ " percent.\n")
+                        val (certs',certs'') = shrinkBlock(certs,percentage,block_path)
                         val new_block = block({certs=certs',conclusion=getConclusion(List.last certs')})						
-                        val _ = print("\nHere's the original non-shrunk block proof:\n" ^ (certToString block_subproof) ^ "\n")
-                        val _ = print("\nAnd Here's the new shrunk block proof:\n" ^ (certToString new_block) ^ "\n")
-                        val res = replace(D,path,new_block)
+                        val new_block' = block({certs=certs'',conclusion=getConclusion(List.last certs'')})						
+                        val _ = mprint("\nHere's the original non-shrunk block proof:\n" ^ (certToString(block_subproof)) ^ "\n")
+                        val _ = mprint("\nAnd Here's the new shrunk block proof:\n" ^ (certToString(new_block)) ^ "\n")
+                        val res_with_elisions = replace(D,block_path,new_block)
+                        val res_without_elisions = replace(D,block_path,new_block')
                     in
-		       res 
+		       (res_with_elisions,res_without_elisions) 
                     end 
-	      | _ => let val _ = print("\nError: A block subproof was expected to be found here!\n")
+	      | _ => let val _ = mprint("\nError: A block subproof was expected to be found here!\n")
 		     in
 			Basic.fail("")
 		     end)
@@ -739,20 +767,35 @@ fun analyzeCertificate(D) =
       val paths_and_subblocks = findAllProofs(D',isBlock)
       val counter = ref(0)				     
       val separator = "\n------------------------------------------------------\n"
+(****
       val subproof_str = "\nThere are " ^ (Int.toString (length subproofs)) ^ " subproofs:\n" 
 			 ^ (Basic.printListStr(subproofs,fn D_sub => "Subproof #" ^ (Int.toString (Basic.incAndReturn counter)) ^ ":\n" 
                          ^ (certToString D_sub),separator)) ^ "\n"
+*****)
+      val subproof_str = ""
       val sz_str = "\nThe certificate has size: " ^ (Int.toString (certSize D')) ^"\n"
       val is_comp_free_str = if compFree(D') then "has NO compositions" else "DOES have compositions"
       val comp_free_info = "\nThe certificate " ^is_comp_free_str^"...\n"
-      val block_counter = ref(0)				     
+      val block_counter = ref(0)
+(***				     
       val subblock_info = "\n******* This certificate contains " ^ (Int.toString (length paths_and_subblocks)) ^ " subproofs that are blocks, namely:\n"
                         ^ (Basic.printListStr(paths_and_subblocks,fn (path,bl) => "Sub-block #" ^ (Int.toString (Basic.incAndReturn block_counter)) ^ " at path " 
-                                                                                ^ (pathToString path) ^ ":\n" ^ (certToString bl),separator)) ^ "\n" 
-      val shrunk = chooseBlockAndShrink(D')
-      val shrunk_info = "\n!!!!!!!!!!!!!!!!!!! And here's the shrunk proof:\n" ^ (certToString shrunk) ^ "\n\n"
+                                                                                ^ (pathToString path) ^ ":\n" ^ (certToString(bl)),separator)) ^ "\n" 
+***)
+      val (shrunk_with_elisions,shrunk_completely) = chooseBlockAndShrink(D')
+      (*** val shrunk_info = "\n!!!!!!!!!!!!!!!!!!! And here's the shrunk proof:\n" ^ (certToString(shrunk,false)) ^ "\n\n" ***)
   in 
-     "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Here's the certificate produced for the given proof:\n" ^ (certToString D') ^ "\n" ^ sz_str ^ comp_free_info ^ subproof_str ^ subblock_info ^ shrunk_info 
+     (**** 
+        "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Here's the certificate produced for the given proof:\n" ^ (certToString D') ^ "\n" ^ sz_str ^ comp_free_info ^ subproof_str ^ subblock_info ^ shrunk_info 
+      ****)
+     (certToString(shrunk_with_elisions)) ^ "\n@\n" ^ (certToString(shrunk_completely))
+  end 
+
+fun introduceGaps(D) = 
+  let val D' = compsToBlocks(D)
+      val (D'',D''') = chooseBlockAndShrink(D')
+  in
+     certToString(D'')
   end 
 
 fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,index=0}),conc=Prop.true_prop, fa = []}
@@ -1391,9 +1434,7 @@ in
             val size2 = String.size(certToStringNaive(proof'))
             val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds, starting size: " ^ (Int.toString size1) ^ ", simplified size: " ^ (Int.toString size2))
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
-            val _ = Basic.mark("1")			  
             val _ = reset()
-            val _ = Basic.mark("2")
         in 
            res 
         end 

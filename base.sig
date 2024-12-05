@@ -63,11 +63,12 @@ sig
     val findAndSplit: 'a list * ('a -> bool) * ('a * 'a -> bool) -> ('a option * 'a list)
     val countAll: 'a list * ('a -> bool) -> int 
     val forall: 'a list * ('a -> bool) ->bool
-    val removeListChunk: 'a list * int * int * 'a option -> 'a list 
+    val removeListChunk: 'a list * int * int -> ('a list * 'a list * 'a list)
     val id: ('a -> 'a) 
     val flatten: 'a list list -> 'a list
     val doubleMap:  ('b -> 'c) * ('a -> 'b) * 'a list -> 'c list
     val mapSelect:  ('a -> 'b) * 'a list * ('b -> bool) -> 'b list 
+    val mapTry:  ('a -> 'b) * 'a list -> 'b list 
     val mapWithIndex:  ((('a * int) -> 'b) * 'a list) -> 'b list
     val appWithIndex: (('a * int) -> unit) * ('a list) -> unit 
     val firstNumbersFast: int * int -> int list 

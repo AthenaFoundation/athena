@@ -1,5 +1,7 @@
 load "polarities"
 
+define (elide p) := (!force p)
+
 (declare (A B C D E F G H I J) Boolean)
 define proof-error-0 := proof-error
 
