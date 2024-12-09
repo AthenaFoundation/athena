@@ -18,6 +18,8 @@ Group is
 	ord_map.sml
 	inf_num.sig
 	inf_num.sml
+	mt.sig
+	mt.sml
 	base.sig
 	base.sml
 	sockets.sml
@@ -78,20 +80,18 @@ Group is
 	parse.sml
 	infix_parser.sml
 	structure_analysis.sml
-	mt.sig
-	mt.sml
 	state_space.sig
 	state_search.sig
 	state_search.sml
 	search.sml
 	semantics.sml
-        alpha.sml
 	smt_output.sml
 	compiler.sml
 	server.sml
 	topenv_part1.sml
 	topenv_part2.sml
 	simp.sml
+        alpha.sml
 	definition_processor.sml
 	repl.sml
 	athena.sml

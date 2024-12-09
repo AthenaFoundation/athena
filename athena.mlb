@@ -9,6 +9,8 @@ local
 	$(SML_LIB)/smlnj-lib/Util/time-limit.mlb
 in
 	compat_11072.sml
+	mt.sig
+	mt.sml
 	base.sig
 	base.sml
 	ord_map.sig
@@ -75,8 +77,6 @@ in
 	parse.sml
 	infix_parser.sml
 	structure_analysis.sml
-	mt.sig
-	mt.sml
 	state_space.sig
 	state_search.sig
 	state_search.sml

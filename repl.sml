@@ -875,6 +875,7 @@ fun init(file_name_option) =
 	 val _ = Paths.addPath (OS.FileSys.getDir())
 	 val _ = Paths.createTempDir ()
 	 val util_ath = makeLibFileName(athena_home,"util.ath")
+	 val random_sentences_ath = makeLibFileName(athena_home,"make_random_problems.ath")
 	 val rewriting_ath = makeLibFileName(athena_home,"rewriting.ath")
 	 val pairs_ath = makeLibFileName(athena_home,"pairs.ath")
 	 val options_ath = makeLibFileName(athena_home,"options.ath")
@@ -895,7 +896,7 @@ fun init(file_name_option) =
 	                            "auto-induction-definition",
 	 	                    "dcompile-symbol", "string->symbol","get-defined-prop", "-->", N.mapApplyFun_name,
                                     N.empty_mapping_name, N.addMapFun_name, N.makeMapFun_name, N.addTableFun_name, N.makeTableFun_name, N.findTableFun_name])
-         val top_files2 = [dt_model_check_ath ,property_management_ath]
+         val top_files2 = [dt_model_check_ath ,property_management_ath, random_sentences_ath]
          val _ = auxLoadFiles(top_files2, [],Semantics.top_val_env,Semantics.top_val_env,top_loaded_files_ht)
              handle e => (print("\nEvaluation error encountered during the loading of the initial files:\n");
                           handleException(e))	     	          

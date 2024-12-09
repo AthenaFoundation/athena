@@ -24,6 +24,13 @@ fun unZip [] = ([],[])
           (a::tail1,b::tail2)
        end
 
+fun mean(int_lst) = 
+  let fun loop([],sum,length) = Int.div(sum,length)
+	| loop(x::more,sum,length) = loop(more,sum+x,length+1)
+  in
+     loop(int_lst,0,0)
+  end 
+
 (** 
 Starting with the n^th element, inclusive, remove how_many_to_remove elements from L and return the result. 
 Note that the n^th element is determined by counting from 1, not 0. 
@@ -128,6 +135,14 @@ fun takeAndSplit(L,n) =
          loop(L,0,[],L)
       end
 
+fun randomSplit(L) = 
+  if null(L) then ([],[])
+  else 
+     let val how_many = MT.getRandomInt(1+length(L))
+     in
+        takeAndSplit(L,how_many-1)
+     end
+ 
 val findInList = constructiveExists   
 
 fun findInListCont(L,pred,success,failure) = 
@@ -969,5 +984,15 @@ fun replaceSubstring(s1, s2, base) =
         (* Start with empty accumulator *)
         replace(base, "")
     end
+
+fun flipCoin() = if MT.getRandomInt(2) < 2 then true else false
+
+fun randomListChoice(L) = 
+     if null(L) then fail("")
+     else let val index = MT.getRandomInt(length(L))
+          in
+             nth(L,index-1)
+          end 
+
 
 end

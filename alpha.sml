@@ -20,11 +20,19 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
+fun meanAlphaSize(term(t)) = AT.size(t)
+  | meanAlphaSize(sent(p)) = Prop.size(p)
+  | meanAlphaSize(alpha_list(args)) = Basic.mean(map meanAlphaSize args)
+
 fun mprint(s) = ()
 
 fun alpha_val_to_val(term(t)) = termVal(t)
   | alpha_val_to_val(sent(p)) = propVal(p)
   | alpha_val_to_val(alpha_list(avals)) = listVal(map alpha_val_to_val avals)
+
+val prim_rule_names = ["dsyl", "gap", "elide", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"]
+
+fun randomRuleName() = Basic.randomListChoice(prim_rule_names@["mp", "mt", "left-and", "right-and", "both", "left-iff", "right-iff", "equiv"])
 
 datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion: prop, index: int}
                      | assumeProof of {hyp: hypothesis, body: certificate, conclusion: prop}
@@ -34,6 +42,95 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
                      | conclude of {expected_conc: prop, body: certificate,conclusion:prop}
                      | block of {certs: certificate list, conclusion: prop}
 
+
+val random = (!Semantics.evaluateString)("(Random_Sentences.sc->string and)")
+
+fun makeRandomSentence(sz_bound,atom_number) = 
+   let val atom_number_str = Int.toString(atom_number)
+       val sz_bound_str = Int.toString(sz_bound)
+       val phrase_str = "(Random_Sentences.make-random-sentence-with-fsyms " ^ sz_bound_str ^ " " ^ atom_number_str ^ ")"
+       val sentence_val = (!Semantics.evaluateString)(phrase_str)
+   in
+      (case coerceValIntoProp(sentence_val) of
+          SOME(p) => p
+	| _ => let val _ = print("\nFAILED to get a random sentence from the Athena code!\n") in Basic.fail("") end)
+   end 
+
+fun chooseCorruptionMethodForRuleApps() = 
+  let val choises = ["add_arg", "remove_arg", "change_arg", "change_rule_name"]
+  in
+     Basic.randomListChoice(choises)
+  end 
+
+fun addArg(args) =
+  let val sz = Basic.mean(map meanAlphaSize args)
+      val random_sentence = makeRandomSentence(sz,3)
+      val (L1,L2) = Basic.randomSplit(args)
+  in
+     L1 @ [sent(random_sentence)] @ L2 
+  end 
+
+fun removeArg(args) =
+  if null(args) then [] 
+  else 
+    let val (L1,L2) = Basic.randomSplit(args)
+    in 
+      if null(L1) then tl(L2)
+      else if null(L2) then tl(L1)
+      else L1 @ (tl L2)				 
+    end 				       
+
+fun changeArg(args) =
+  if null(args) then [] 
+  else 
+    let val (L1,L2) = Basic.randomSplit(args)
+        val sz = Basic.mean(map meanAlphaSize args)
+        val p = sent(makeRandomSentence(sz,3))
+    in
+       if null(L1) then p::(tl L2)
+       else if null(L2) then p::(tl L1)
+       else L1 @ [p] @ (tl L2)				 
+    end  
+
+fun corruptRuleApp(ruleApp({rule,args,conclusion,index,...})) = 
+    (case chooseCorruptionMethodForRuleApps() of 
+       "add_arg" => ruleApp({rule=rule,args=addArg(args),conclusion=conclusion,index=index})
+     | "remove_arg" => let val args' = removeArg(args) 
+                       in 
+			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index})
+                       end 
+     | "change_arg" => let val args' = changeArg(args) 
+                       in 
+			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index})
+                       end
+     | "change_rule_name" => ruleApp({rule=S.symbol(randomRuleName()),args=args,conclusion=conclusion,index=index}))
+  | corruptRuleApp(D) = D
+
+fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
+  | corruptCertificate(assumeProof({hyp as hypothesis(name_opt,hyp_prop),body,conclusion,...})) =   
+         if Basic.flipCoin() then assumeProof({hyp=hypothesis(name_opt,makeRandomSentence(5,3)),body=body,conclusion=conclusion})
+         else assumeProof({hyp=hyp,body=corruptCertificate(body),conclusion=conclusion})
+  | corruptCertificate(composition({left,right,conclusion,...})) = 
+          if Basic.flipCoin() then composition({left=corruptCertificate(left),right=right,conclusion=conclusion})
+          else composition({left=left,right=corruptCertificate(right),conclusion=conclusion})
+  | corruptCertificate(supAbProof(({hyp as hypothesis(name_opt,hyp_prop),body,conclusion,...}))) = 
+         if Basic.flipCoin() then supAbProof({hyp=hypothesis(name_opt,makeRandomSentence(5,3)),body=body,conclusion=conclusion})
+         else supAbProof({hyp=hyp,body=corruptCertificate(body),conclusion=conclusion})
+  | corruptCertificate(pickAny({eigen_var,actual_fresh,body,conclusion,...})) = 
+          pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=corruptCertificate(body),conclusion=conclusion})
+  | corruptCertificate(conclude({expected_conc,body,conclusion,...})) = 
+           if Basic.flipCoin() then conclude({expected_conc=makeRandomSentence(10,3),body=body,conclusion=conclusion})
+           else conclude({expected_conc=expected_conc,body=corruptCertificate(body),conclusion=conclusion})
+  | corruptCertificate(block({certs,conclusion,...})) = 
+        let val (certs1,certs2) = Basic.randomSplit(certs)
+            val certs' = if null(certs1) then (corruptCertificate(hd certs2))::(tl certs2)
+                         else if null(certs2) then (corruptCertificate(hd certs1))::(tl certs1) 								     
+                         else certs1@[(corruptCertificate(hd certs1))]@(tl certs2)
+        in
+           block({certs=certs',conclusion=conclusion})
+        end						   
+
+ 
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
 
@@ -148,8 +245,10 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
 			(getConclusion D)::conclusions_so_far)
          end
 
+
+  
 val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
-val treat_as_primitives = ref(["dsyl", "gap", "elide", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"])
+val treat_as_primitives = ref(prim_rule_names)
 
 fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
   | isRuleAppOneOf(_) = false
@@ -646,8 +745,9 @@ let (** val _ = print("\nEntering replace with base proof:\n" ^(certToString(D_b
 	         if (h > 0 andalso h <= length(certs)) then
 		     let val cert_i = rep(Basic.nth(certs,h-1),more)
                          val certs' = (Basic.take(certs,h-1)) @ [cert_i] @ (List.drop(certs,h))
+                         val res = block({certs=certs',conclusion=getConclusion(List.last certs')})
                      in
-                        block({certs=certs',conclusion=getConclusion(List. last certs')})
+			res 
 	             end
 		 else pathError(D_base,target_path)
 	       | _ => pathError(D_base,target_path))
@@ -1434,6 +1534,7 @@ in
             val elapsed = Real.toString(Real.-(t2,t1))
             val size2 = String.size(certToStringNaive(proof'))
             val _ = print("\nSimplification finished in " ^ elapsed ^ " seconds, starting size: " ^ (Int.toString size1) ^ ", simplified size: " ^ (Int.toString size2))
+            val _ = print("\nHere's a random sentence: " ^ (Prop.toStringInfix (makeRandomSentence(10, 3))) ^ "\n")
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
             val _ = reset()
         in 

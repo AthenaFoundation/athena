@@ -122,6 +122,9 @@ sig
     val decomposeList: ('a list * ('a -> bool)) -> ('a list * 'a * 'a list) option
     val decomposeNth: 'a list * int -> ('a option * 'a list)
     val takeAndSplit: 'a list * int -> 'a list * 'a list 
+    val randomListChoice: 'a list -> 'a 
+    val randomSplit: 'a list -> 'a list * 'a list 
+    val flipCoin: unit -> bool
     exception Never
     val never: unit -> unit 
     exception FailLst of string list
@@ -138,6 +141,7 @@ sig
     val mergeSortBuiltInComp: 'a list * ('a * 'a -> bool) -> 'a list
     val merge: 'a list * 'a list * ('a * 'a -> bool) -> 'a list
     val isSorted: 'a list * ('a * 'a -> bool) -> bool
+    val mean: int list -> int						     
     val newline: string
     val lparen: string
     val rparen: string
