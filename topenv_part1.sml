@@ -964,22 +964,9 @@ fun processCertificateFun(v1,v2,env,ab) =
                     in
                        (case isStringValConstructive(v2) of
                            SOME(instruction) => 
-                             if instruction = "simplify" then 
-                                let val cert' = Alpha.simplifyProof(cert)
-                                in 
-                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
-                                end
-                             else if instruction = "corrupt" then 
-                                let val cert' = Alpha.corruptCertificate(cert)
-                                in
-                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
-                                end
-                             else if instruction = "none" then 
-                                let val cert' = cert 
-                                in
-                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
-                                end                                
-                             else primError("Unknown certificate-processing instruction: " ^ instruction)
+                                (case Alpha.processCertificate(cert,instruction) of
+                                    SOME(cert') => listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
+				  | _ => primError("Unknown certificate-processing instruction: " ^ instruction))
 		         | _ => primError("An instruction string was expected as the second argument to " ^ N.processAlphaCertFun_name))
                     end 
   in

@@ -1542,6 +1542,16 @@ in
            res 
         end 
 end
+
+fun processCertificate(cert,instruction) = 
+    if instruction = "simplify" then 
+        SOME(simplifyProof(cert))
+    else if instruction = "corrupt" then 
+	SOME(corruptCertificate(cert))			  
+    else if instruction = "none" then 
+	SOME(cert)
+    else
+	NONE
  
 end (* of structure Alpha *) 
 
