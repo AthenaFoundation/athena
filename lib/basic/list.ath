@@ -1132,5 +1132,8 @@ define (trim str chars-to-be-trimmed) :=
 
 define (trim-ws str) := (trim str white-space-chars)
 
+define strip := trim-ws
+
+
 
 

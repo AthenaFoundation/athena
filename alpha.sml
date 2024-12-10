@@ -130,7 +130,6 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
            block({certs=certs',conclusion=conclusion})
         end						   
 
- 
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
 
@@ -1522,7 +1521,8 @@ and
 in
     fn (d,env,ab) => 
         let val _ = reset() 
-            val (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
+            val res as (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
+(*********************************************************************************************************************************************************************************************************
             val _ = print("\nAbout to simplify the generated certificate...\n")
             val size1 = String.size(certToStringNaive(proof))
             val t1 = Time.toReal(Time.now())
@@ -1537,6 +1537,7 @@ in
             val _ = print("\nHere's a random sentence: " ^ (Prop.toStringInfix (makeRandomSentence(10, 3))) ^ "\n")
             val res = (res_val,{proof=proof',conc=conc,fa=fa})
             val _ = reset()
+*********************************************************************************************************************************************************************************************************)
         in 
            res 
         end 

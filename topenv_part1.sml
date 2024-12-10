@@ -679,6 +679,232 @@ fun rootFun([v],(env,ab),{pos_ar,file}) =
   | rootFun(vals,_,{pos_ar,file}) = evError(wrongArgNumber(N.root_name,length(vals),1),
                                             SOME(Array.sub(pos_ar,0)))
 
+
+
+fun evalPhrase((p,fids),env,ab) = let val env' = Semantics.makeEnv(fids,!env) 
+                                      val v = Semantics.evalPhrase(p,env',ab)
+                                       in
+					   v 
+                                       end
+
+fun infixProcess(p:A.phrase,eval_env,fids) = 
+  let 
+      fun evaluatePhrase(e) = evalPhrase((e,fids),eval_env,!top_assum_base)
+      val no_op_val = (~1,~1)
+      fun headInapplicable(proc) = A.inapplicable(proc) 
+                                      orelse (case proc of
+                                               A.exp(e as A.idExp(_)) => ((case Semantics.isApplicable(evaluatePhrase(A.exp e)) of
+                                                                              (true,_) => false
+                                                                            | (false,true) => false
+                                                                            | _ => false)  handle _ => false)
+                                             | _ => false)
+      fun ipExp(e as A.appExp({proc,args,alt_exp=(mcell as ref(NONE)),pos}),op_table) = 
+             let val proc' = ipPhrase(proc,op_table) 
+                 val args' = map (fn p => ipPhrase(p,op_table)) args  
+                 val infix_likely = headInapplicable(proc)  
+(***
+                 val _ = debugPrint("\nCalling ipExp on this app: " ^ (A.unparseExp e) ^ "\nInfix_likely: " ^ (Basic.boolToString infix_likely))
+***)
+             in
+               if length(args) = 0 then e
+               else 
+                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table)
+                                 val _ = () 
+                             in res 
+                             end),"")
+                             handle InfixParser.InfixParseError(msg) => (NONE,msg)
+                                  | Semantics.EvalError(msg,_) => (NONE,msg)
+                                  | _ => (NONE,"")) of
+                       (NONE,msg) => (if infix_likely andalso not(msg = "") then 
+                                         ((print "\nInfix parsing error...\n");raise Semantics.EvalError(msg,NONE))
+                                      else ();e)
+                     | (SOME(A.exp e'),_) => (mcell := SOME(e');e))
+             end
+        | ipExp(e as A.appExp({proc,args,alt_exp=(mcell as ref(SOME(e'))),pos,...}),_) = e
+        | ipExp(A.opExp({op_exp=e',pos,...}),op_table) = A.opExp({op_exp=ipExp(e',op_table),pos=pos})
+        | ipExp(A.whileExp({test,body,pos}),ot) = A.whileExp({test=ipPhrase(test,ot),body=ipPhrase(body,ot),pos=pos})
+        | ipExp(A.beginExp({members,pos}),ot) = A.beginExp({members=map (fn p => ipPhrase(p,ot)) members,pos=pos})
+        | ipExp(A.logicalAndExp({args,pos}),ot) = A.logicalAndExp({args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
+        | ipExp(A.logicalOrExp({args,pos}),ot) = A.logicalOrExp({args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
+        | ipExp(A.functionExp({body=b,params,pos}),ot) = 
+                A.functionExp({params=params,body=ipExp(b,extendOpTabWithParams(ot,params)),pos=pos})
+        | ipExp(A.listExp({members,pos,...}),ot) = A.listExp({members=map (fn p => ipPhrase(p,ot)) members,pos=pos})
+        | ipExp(A.checkExp({clauses,pos}),ot) = A.checkExp({clauses=map (fn c => ipCheckClause(c,ot)) clauses,pos=pos})
+        | ipExp(A.methodExp({params,body,pos,name}),ot) = A.methodExp({params=params,body=ipDed(body,extendOpTabWithParams(ot,params)),
+                                                                            pos=pos,name=name})
+        | ipExp(A.matchExp({discriminant,clauses,pos}),ot) = A.matchExp({discriminant=ipPhrase(discriminant,ot),
+                                                                         clauses=map (fn c => ipMatchClause(c,ot)) clauses,pos=pos})
+        | ipExp(A.tryExp({choices,pos,...}),ot) = A.tryExp({choices=map (fn e => ipExp(e,ot)) choices,pos=pos})
+        | ipExp(A.cellExp({contents,pos}),ot) = A.cellExp({contents=ipPhrase(contents,ot),pos=pos})
+        | ipExp(A.refExp({cell_exp,pos}),ot) = A.refExp({cell_exp=ipExp(cell_exp,ot),pos=pos})
+        | ipExp(A.setCellExp({cell_exp,set_phrase,pos}),ot) = 
+              A.setCellExp({cell_exp=ipExp(cell_exp,ot),set_phrase=ipPhrase(set_phrase,ot),pos=pos})
+        | ipExp(A.vectorInitExp({length_exp,init_val,pos}),ot) = 
+                  A.vectorInitExp({length_exp=ipExp(length_exp,ot),init_val=ipPhrase(init_val,ot),pos=pos})
+        | ipExp(A.vectorSetExp({vector_exp,index_exp,new_val,pos}),ot) =  
+                A.vectorSetExp({vector_exp=ipExp(vector_exp,ot),index_exp=ipExp(index_exp,ot),new_val=ipPhrase(new_val,ot),pos=pos})
+        | ipExp(A.vectorSubExp({vector_exp,index_exp,pos}),ot) = 
+               A.vectorSubExp({vector_exp=ipExp(vector_exp,ot),index_exp=ipExp(index_exp,ot),pos=pos})
+        | ipExp(A.letExp({bindings,body,pos}),ot) = 
+            A.letExp({bindings=ipBindings(bindings,ot,[]),
+                      body=ipExp(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
+        | ipExp(A.letRecExp({bindings,body,pos}),ot) = 
+             let val bindings' = ipBindings(bindings,ot,[])
+                 val new_ot = extendOpTabWithBindings(ot,bindings)
+                 val bindings'' = (map (fn (binding as {bpat,def,pos}) => {bpat=ipPat(bpat,new_ot),def=ipPhrase(def,new_ot),pos=pos}) bindings')
+             in
+                A.letRecExp({bindings=bindings'',body=ipExp(body,new_ot),pos=pos})
+             end
+        | ipExp(e,op_table) = e
+      and ipCheckClause({test=A.boolCond p,result},ot) = {test=A.boolCond(ipPhrase(p,ot)),result=ipExp(result,ot)}
+        | ipCheckClause({test=A.elseCond,result},ot) = {test=A.elseCond,result=ipExp(result,ot)}
+      and ipDCheckClause({test=A.boolCond p,result},ot) = {test=A.boolCond(ipPhrase(p,ot)),result=ipDed(result,ot)}
+        | ipDCheckClause({test=A.elseCond,result},ot) = {test=A.elseCond,result=ipDed(result,ot)}
+      and ipDed(A.assumeDed({assumption,body,pos}),ot) = A.assumeDed({assumption=ipPhrase(assumption,ot),body=ipDed(body,ot),pos=pos}) 
+        | ipDed(A.assumeLetDed({bindings,body,pos}),ot) = A.assumeLetDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.infixAssumeDed({bindings,body,pos}),ot) = A.infixAssumeDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.absurdDed({hyp,body,pos}),ot) = A.absurdDed({hyp=ipPhrase(hyp,ot),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.absurdLetDed({named_hyp,body,pos}),ot) = 
+                A.absurdLetDed({named_hyp=hd(ipBindings([named_hyp],ot,[])),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.methodAppDed({method,args,pos}),ot) = 
+                A.methodAppDed({method=ipExp(method,ot),args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
+
+
+        | ipDed(A.BMethAppDed({method,arg1,arg2,pos}),ot) = 
+                A.BMethAppDed({method=ipExp(method,ot),arg1=ipPhrase(arg1,ot),arg2=ipPhrase(arg2,ot),pos=pos})
+
+        | ipDed(A.UMethAppDed({method,arg,pos}),ot) = 
+                A.UMethAppDed({method=ipExp(method,ot),arg=ipPhrase(arg,ot),pos=pos})
+
+        | ipDed(A.matchDed({discriminant,clauses,pos}),ot) = 
+                A.matchDed({discriminant=ipPhrase(discriminant,ot),clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
+        | ipDed(A.inductionDed({prop,clauses,pos}),ot) = 
+                A.inductionDed({prop=ipPhrase(prop,ot),clauses = map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
+        | ipDed(A.structureCasesDed({prop,clauses,term,pos}),ot) = 
+           (case term of
+               NONE => A.structureCasesDed({prop=ipPhrase(prop,ot),term=NONE,clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
+             | SOME(dt_exp) => A.structureCasesDed({prop=ipPhrase(prop,ot),term=SOME(ipExp(dt_exp,ot)),clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos}))
+        | ipDed(A.tryDed({choices,pos}),ot) = A.tryDed({choices=map (fn d => ipDed(d,ot)) choices,pos=pos})
+        | ipDed(A.letDed({bindings,body,pos}),ot) = 
+               A.letDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
+
+        | ipDed(A.letRecDed({bindings,body,pos}),ot) = 
+               A.letRecDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
+
+        | ipDed(A.beginDed({members,pos}),ot) = A.beginDed({members=map (fn d => ipDed(d,ot)) members,pos=pos})
+        | ipDed(A.checkDed({clauses,pos}),ot) = A.checkDed({clauses=map (fn c => ipDCheckClause(c,ot)) clauses,pos=pos})
+        | ipDed(A.byCasesDed({disj,from_exps=NONE,arms,pos}),ot) = 
+                A.byCasesDed({disj=ipPhrase(disj,ot),from_exps=NONE,arms=map (fn c => ipCaseClause(c,ot)) arms,pos=pos})
+        | ipDed(A.byDed({wanted_res,conc_name,body,pos}),ot) = 
+                A.byDed({wanted_res=ipExp(wanted_res,ot),conc_name=conc_name,body=ipDed(body,ot),pos=pos})
+        | ipDed(A.fromDed({conclusion,premises,pos}),ot) = 
+                A.fromDed({conclusion=ipExp(conclusion,ot),premises=ipExp(premises,ot),pos=pos})
+        | ipDed(A.byCasesDed({disj,from_exps=SOME(exps),arms,pos}),ot) = 
+                A.byCasesDed({disj=ipPhrase(disj,ot),from_exps=SOME(map (fn e => ipExp(e,ot)) exps),
+                              arms=map (fn c => ipCaseClause(c,ot)) arms,pos=pos})
+        | ipDed(A.genOverDed({eigenvar_exp,body,pos}),ot) = 
+                A.genOverDed({eigenvar_exp=ipExp(eigenvar_exp,ot),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.pickAnyDed({eigenvars,body,pos}),ot) = 
+                A.pickAnyDed({eigenvars=eigenvars,body=ipDed(body,ot),pos=pos})
+        | ipDed(A.withWitnessDed({eigenvar_exp,ex_gen,body,pos}),ot) = 
+                A.withWitnessDed({eigenvar_exp=ipExp(eigenvar_exp,ot),ex_gen=ipPhrase(ex_gen,ot),body=ipDed(body,ot),pos=pos})
+        | ipDed(A.pickWitnessDed({ex_gen,var_id,inst_id,body,pos}),ot) = 
+                A.pickWitnessDed({ex_gen=ipPhrase(ex_gen,ot),var_id=var_id,inst_id=inst_id,body=ipDed(body,ot),pos=pos})
+        | ipDed(A.pickWitnessesDed({ex_gen,var_ids,inst_id,body,pos}),ot) = 
+                A.pickWitnessesDed({ex_gen=ipPhrase(ex_gen,ot),var_ids=var_ids,inst_id=inst_id,body=ipDed(body,ot),pos=pos})
+      and ipPhrase(A.exp(e),op_table) = A.exp(ipExp(e,op_table))
+        | ipPhrase(A.ded(d),op_table) = A.ded(ipDed(d,op_table))
+      and ipCaseClause({case_name,alt,proof},ot) = {case_name=case_name,alt=ipExp(alt,ot),proof=ipDed(proof,ot)}
+      and ipMatchClause({pat=p,exp=e},ot) = {pat=ipPat(p,ot),exp=ipExp(e,MS.augment(ot,A.mpatOps(p)))}
+      and ipDMatchClause({pat=p,ded=d},ot) = {pat=ipPat(p,ot),ded=ipDed(d,MS.augment(ot,A.mpatOps(p)))}
+      and extendOpTabWithParams(ot,[]) = ot
+        | extendOpTabWithParams(ot,(A.someParam({name,op_tag as NONE,...}))::more) = 
+              extendOpTabWithParams(MS.enter(ot,A.msym name,no_op_val),more)
+        | extendOpTabWithParams(ot,(A.someParam({name,op_tag as SOME(i,j),...}))::more) = 
+              extendOpTabWithParams(MS.enter(ot,A.msym name,(i,j)),more)
+        | extendOpTabWithParams(ot,_::more) = extendOpTabWithParams(ot,more)
+      and ipBindings([],_,res) = rev res
+        | ipBindings((binding as {bpat,def,pos})::more,ot,res) = 
+           let val b = {bpat=ipPat(bpat,ot),def=ipPhrase(def,ot),pos=pos}
+           in
+              ipBindings(more,MS.augment(ot,A.mpatOps(bpat)),b::res)
+           end
+      and extendOpTabWithBindings(ot,[]) = ot
+        | extendOpTabWithBindings(ot,(binding as {bpat,def,pos})::more) =
+           extendOpTabWithBindings(MS.augment(ot,A.mpatOps(bpat)),more)
+      and ipPat(wp as A.wherePat({pat,guard,pos}),ot) = 
+                 A.wherePat({pat=ipPat(pat,ot),guard=ipExp(guard,ot),pos=pos})
+        | ipPat(A.listPats({member_pats,pos}),ot) = A.listPats({member_pats=(map (fn p => ipPat(p,ot)) member_pats),pos=pos})
+        | ipPat(A.listPat({head_pat,tail_pat,pos}),ot) = A.listPat({head_pat=ipPat(head_pat,ot),tail_pat=ipPat(tail_pat,ot),pos=pos})
+        | ipPat(A.cellPat({pat,pos}),ot) = A.cellPat({pat=ipPat(pat,ot),pos=pos})
+
+
+        | ipPat(A.splitPat({pats,pos,re_form,code}),ot) = 
+             A.splitPat({pats=(map (fn p => ipPat(p,ot)) pats),code=code,pos=pos,re_form=A.applyToRE(fn e => ipExpFinal(e,ot),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPat(A.reStarPat({pat,pos,re_form,code}),ot) = 
+	     let val re_form' = A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form) 
+             in
+                A.reStarPat({pat=ipPat(pat,ot),code=code,pos=pos,re_form=re_form'})
+             end 
+        | ipPat(A.rePlusPat({pat,pos,re_form,code}),ot) = 
+             A.rePlusPat({pat=ipPat(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPat(A.reRangePat({from_pat,to_pat,lo,hi,pos}),ot) = 
+             A.reRangePat({from_pat=ipPat(from_pat,ot),to_pat=ipPat(to_pat,ot),lo=lo,hi=hi,pos=pos})
+
+        | ipPat(A.reOptPat({pat,pos,re_form,code}),ot) = 
+             A.reOptPat({pat=ipPat(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPat(A.reRepPat({pat,times,pos,code,re_form}),ot) = 
+             A.reRepPat({pat=ipPat(pat,ot),pos=pos,code=code,times=times,
+                         re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPat(A.namedPat({name,pat,pos}),ot) = A.namedPat({name=name,pat=ipPat(pat,ot),pos=pos})
+        | ipPat(A.compoundPat({head_pat,rest_pats,pos}),ot) = A.compoundPat({head_pat=ipPat(head_pat,ot),rest_pats=(map (fn p => ipPat(p,ot)) rest_pats),pos=pos})
+        | ipPat(A.disjPat({pats,pos}),ot) = A.disjPat({pats=(map (fn p => ipPat(p,ot)) pats),pos=pos})
+        | ipPat(p,_) = p 
+      and ipPatFinal(wp as A.wherePat({pat,guard,pos}),ot) = 
+              let val _ = print("\nWorking-FINAL on this where pat: " ^ (AbstractSyntax.printPat wp))
+              in
+                 A.wherePat({pat=ipPatFinal(pat,ot),guard=ipExpFinal(guard,ot),pos=pos})
+              end
+        | ipPatFinal(A.listPats({member_pats,pos}),ot) = A.listPats({member_pats=(map (fn p => ipPatFinal(p,ot)) member_pats),pos=pos})
+        | ipPatFinal(A.listPat({head_pat,tail_pat,pos}),ot) = A.listPat({head_pat=ipPatFinal(head_pat,ot),tail_pat=ipPatFinal(tail_pat,ot),pos=pos})
+        | ipPatFinal(A.cellPat({pat,pos}),ot) = A.cellPat({pat=ipPatFinal(pat,ot),pos=pos})
+        | ipPatFinal(A.splitPat({pats,pos,code,re_form}),ot) = 
+             A.splitPat({pats=(map (fn p => ipPatFinal(p,ot)) pats),pos=pos,code=code,re_form=A.applyToRE(fn e => ipExpFinal(e,ot),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPatFinal(A.reStarPat({pat,code,pos,re_form}),ot) = 
+             A.reStarPat({pat=ipPatFinal(pat,ot),code=code,pos=pos,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPatFinal(A.rePlusPat({pat,pos,code,re_form}),ot) = 
+             A.rePlusPat({pat=ipPatFinal(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPatFinal(A.reRangePat({from_pat,to_pat,lo,hi,pos}),ot) = 
+             A.reRangePat({from_pat=ipPatFinal(from_pat,ot),to_pat=ipPatFinal(to_pat,ot),lo=lo,hi=hi,pos=pos})
+
+        | ipPatFinal(A.reOptPat({pat,pos,code,re_form}),ot) = 
+             A.reOptPat({pat=ipPatFinal(pat,ot),code=code,pos=pos,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPatFinal(A.reRepPat({pat,times,pos,code,re_form}),ot) = 
+             A.reRepPat({pat=ipPatFinal(pat,ot),times=times,pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
+
+        | ipPatFinal(A.namedPat({name,pat,pos}),ot) = A.namedPat({name=name,pat=ipPatFinal(pat,ot),pos=pos})
+        | ipPatFinal(A.compoundPat({head_pat,rest_pats,pos}),ot) = A.compoundPat({head_pat=ipPatFinal(head_pat,ot),rest_pats=(map (fn p => ipPatFinal(p,ot)) rest_pats),pos=pos})
+        | ipPatFinal(A.disjPat({pats,pos}),ot) = A.disjPat({pats=(map (fn p => ipPatFinal(p,ot)) pats),pos=pos})
+        | ipPatFinal(p,_) = p 
+      and ipExpFinal(e,ot) = A.phraseToExp(A.splitApps(A.exp(ipExp(e,ot))))
+      and ipFinal(p) =      
+              let val p':A.phrase = if !Options.infix_parsing_option then ipPhrase(p,MS.empty_mapping) else p 
+                  val res = A.splitApps(p')  
+              in
+                 res
+              end
+  in
+     ipFinal(p)
+  end
+
 fun getAlphaCertFun(v1,v2,env,ab) = 
   (case (v1,v2) of 
      (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
@@ -706,6 +932,77 @@ fun analyzeAlphaCertFun(v1,v2,env,ab) =
    | (v1,closUFunVal(_)) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,1,closMethodLCType,v1))
    | (_,v2) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,2,closUFunType,v2)))
 
+
+fun makeSmallEnv(fids:MS.mod_symbol list) = 
+   let fun loop([],res) = res
+	 | loop(fid::more,res) = 
+            let val (mod_syms,main_name) = MS.split(fid)
+            in
+                (case Semantics.lookUp(!top_val_env,mod_syms,main_name) of
+                    SOME(v) => loop(more,Symbol.enter(res,MS.nameAsSymbol(fid),v))
+		  | _ => let 
+                         in 
+                            loop(more,res)
+                         end)
+            end 
+   in
+      loop(fids,Symbol.empty_mapping)
+   end
+
+(*****************
+get-and-process-certificate is a much more flexible function for working with certificates. The first argument is directly a string 
+representing a deduction (so no need to use a method thunk). This is the deduction from which we will extract a certificate, and this
+is the certificate that we will "process". The second argument is a string that simply specifies what sort of processing we want to 
+perform on the obtained certificate: it can be "simplify", "corrupt", etc. The output is a pair of strings (C1,C2), the first representing
+the original certificate extracted from the input deduction, and the second (C2) representing the result of processing C1 as specified. 
+*****************)
+
+fun processCertificateFun(v1,v2,env,ab) = 
+ let fun processInputCertificate(D,env') = 
+                    let (** val _ = print("\nGiven env: " ^ (envToString(!env)) ^ "\n========================================================================\n AND top_val_env:\n\n" ^ (envToString(!top_val_env)) ^ "\n") ***)
+                         val (proof_result,ded_info as {proof as cert,conc,fa,...}) = Alpha.evalDedAlpha(D,env',ab)
+                    in
+                       (case isStringValConstructive(v2) of
+                           SOME(instruction) => 
+                             if instruction = "simplify" then 
+                                let val cert' = Alpha.simplifyProof(cert)
+                                in 
+                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
+                                end
+                             else if instruction = "corrupt" then 
+                                let val cert' = Alpha.corruptCertificate(cert)
+                                in
+                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
+                                end
+                             else if instruction = "none" then 
+                                let val cert' = cert 
+                                in
+                                  listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
+                                end                                
+                             else primError("Unknown certificate-processing instruction: " ^ instruction)
+		         | _ => primError("An instruction string was expected as the second argument to " ^ N.processAlphaCertFun_name))
+                    end 
+  in
+    (case isStringValConstructive(v1) of
+         SOME(proof_str) =>
+            (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
+                A.phraseInput(phr as A.ded(D)) => 
+                  let val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,(!Paths.current_mod_path))
+                      val fid_env = makeSmallEnv(MS.listModSymbols(fids))
+(****
+                      val _ = print("\nHere's fids:\n" ^ (Basic.printListStr(MS.listModSymbols(fids),MS.name," & ")) ^ "\n")
+****)
+                      val env' = Semantics.augmentWithMap(!env,fid_env)
+(** Note: Augmenting env with fid_env might not be safe in the presence of modules. It might be safer (and certainly simpler) to simply pass top_val_env to processInputCertificate. 
+**)
+                  in
+                     processInputCertificate(D',ref(env'))
+                  end 
+  	      | _ => Basic.fail(""))
+       | _ => (case v1 of 
+                  closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => processInputCertificate(D,env)
+                | _ => Basic.fail("")))
+   end 
 
 fun mergeSortPrimBFun(v1,v2,env,ab) =  
       (case v1 of 

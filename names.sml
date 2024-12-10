@@ -182,6 +182,9 @@ val getAlphaCertFun_symbol = Symbol.symbol getAlphaCertFun_name
 val analyzeAlphaCertFun_name = "analyze-alpha-cert"
 val analyzeAlphaCertFun_symbol = Symbol.symbol analyzeAlphaCertFun_name
 
+val processAlphaCertFun_name = "get-and-process-alpha-cert"
+val processAlphaCertFun_symbol = Symbol.symbol processAlphaCertFun_name
+
 val subtermsFun_name = "subterms"
 val subtermsFun_symbol = Symbol.symbol subtermsFun_name
 
