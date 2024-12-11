@@ -11,6 +11,13 @@ struct
 
 open Semantics
 
+fun removeCommentsFromString(str) = 
+  let val lines = Basic.tokenize(str,[#"\n"])
+      val lines' = map Basic.chopComment lines 
+  in
+     Basic.printListStr(lines',fn x => x, "\n")
+  end 
+
 fun makeAthenaError(msg) = raise AthenaError(msg)
 
 fun isNumeralValue(v) = 
@@ -921,6 +928,8 @@ fun getAlphaCertFun(v1,v2,env,ab) =
        in
         (case isStringValConstructive(v1) of
             SOME(proof_str) =>
+             let val proof_str = removeCommentsFromString(proof_str)
+             in 
                (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
                   A.phraseInput(phr as A.ded(D)) => 
                      let val _ = Basic.mark("1")
@@ -940,6 +949,7 @@ fun getAlphaCertFun(v1,v2,env,ab) =
                        res 
                      end
 		| _  => primError("The string given to " ^ N.getAlphaCertFun_name ^ " must represent a deduction."))
+             end
 	  | _ => primError(wrongArgKind(N.getAlphaCertFun_name,1,closMethodLCType,v1)))
        end 
    | (_,v2) => primError(wrongArgKind(N.getAlphaCertFun_name,2,closUFunType,v2)))
@@ -997,6 +1007,16 @@ fun processCertificateFun(v1,v2,env,ab) =
   in
     (case isStringValConstructive(v1) of
          SOME(proof_str) =>
+          let  (***
+               val _ = print("\nIncoming proof_str:[[[\n" ^ proof_str ^ "\n]]]\n")              
+               val _ = (print("\nAnd fully printed out:\n"); print(proof_str); print("\n"))
+               ***)
+               val proof_str = removeCommentsFromString(proof_str)
+(***
+	       val _ = print("\nAnd after the removal of comments:\n[[[" ^ proof_str ^ "\n]]]\n")              
+               val _ = (print("\nAnd fully printed out:\n"); print(proof_str); print("\n"))
+***)
+          in
             (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
                 A.phraseInput(phr as A.ded(D)) => 
                   let val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,(!Paths.current_mod_path))
@@ -1012,6 +1032,7 @@ fun processCertificateFun(v1,v2,env,ab) =
                      processInputCertificate(D'',ref(env'))
                   end 
   	      | _ => Basic.fail(""))
+          end
        | _ => (case v1 of 
                   closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => processInputCertificate(D,env)
                 | _ => Basic.fail("")))
@@ -4611,6 +4632,17 @@ fun catchPrimBFun(v1,v2,env,ab) =
               primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v2))
       | (_,closFunVal(_)) => primError(wrongArgKind(N.catchFun_name,1,closFunLCType,v1)))
 
+
+fun displayStringCharByChar(str) = 
+  let val counter = ref(0)
+      val chars = explode(str)
+  in
+    List.app (fn c => let val _ = print("\nCharacter " ^ (Int.toString (Basic.incAndReturn(counter))) ^ ": " ^ (Char.toString c))
+                      in
+                        ()
+                      end)
+             chars 
+  end
 
 end;
 

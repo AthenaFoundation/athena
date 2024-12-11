@@ -256,7 +256,10 @@ fun eof() = (if ((!open_comments) > 0) then (open_comments := 0;
 alpha = [A-Za-z];
 digit = [0-9];
 alpha_num = {alpha} | {digit}; 
+cr="\013";
+nl="\010";
 printable_minus_backslash = [\033-\091] | [\093-\127];
+printable_and_white_space_minus_backslash = ({cr}{nl}|{nl}|{cr}) | [\032-\091] | [\093-\127];
 init_ide_char =   \037 | \038 | [\042-\043] | [\045-\057] | [\060-\062] | [\064-\090] 
                | \092 | \094 | \095 | [\097-\122] | \124;
 
@@ -294,8 +297,6 @@ object_type_var = #{identifier};
 type_var = ##{identifier};
 white_space = [\ \t\b];
 printable_and_non_paren = [\033-\039] | [\042-\127];
-cr="\013";
-nl="\010";
 eol=({cr}{nl}|{nl}|{cr});
 %%
 <INITIAL>{white_space}+ => (incPos(size(yytext));continue());
@@ -358,34 +359,34 @@ eol=({cr}{nl}|{nl}|{cr});
                continue());
 <STRING>{string_quote} => (YYBEGIN INITIAL; 
                            let val _ = incPos(1)
-                               val _ = temp_string := !code_string
-                               val _ = code_string := ""
-                               val _ = open_string := false;
-                               val res = Tokens.STRING(rev(!char_code_list),
+                               (* val _ = temp_string := !code_string *)
+                               val res = Tokens.STRING(map ord (explode(!code_string)),
                                                       !begin_string_pos,
                                                       (!lines,!pos))
+                               val _ = code_string := ""
+                               val _ = open_string := false;
                                val _ = char_code_list := []
                            in
                               res
                            end);
-<STRING>{printable_minus_backslash} => 
+<STRING>{eol} =>  (code_string := !code_string^yytext; 
+                incLines(); 
+                continue());
+<STRING>{printable_and_white_space_minus_backslash} => 
       (code_string := !code_string^yytext;
        incPos(size(yytext));
-       char_code_list := ord(hd(explode(yytext)))::(!char_code_list);
+       (*** char_code_list := (map ord (explode yytext))@(!char_code_list);  ***)
        continue());
 <STRING>{escape_seq} => 
       (code_string := !code_string^yytext;
        incPos(size(yytext));
-       char_code_list := getEscChar(explode(yytext))::(!char_code_list);
+   (** char_code_list := getEscChar(explode(yytext))::(!char_code_list); **)
        continue());
 <STRING>{blank} =>
       (code_string := !code_string^yytext;
        incPos(1);
-       char_code_list := 32::(!char_code_list);
+    (** char_code_list := 32::(!char_code_list); ***)
        continue());
-<STRING>{eol} =>  (code_string := !code_string^yytext; 
-                incLines(); 
-                continue());
 <STRING>. => (incPos(size(yytext));
               error("Illegal character found inside string constant: "^yytext,
                     SOME(currentPosWithFileInfo()));

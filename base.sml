@@ -579,6 +579,8 @@ val isDigit = Char.isDigit
 val isAlphaNum = Char.isAlphaNum
 val isWhiteSpace = Char.isSpace
 
+fun allWhiteSpace(str) = forall(explode(str),isWhiteSpace);
+
 fun skipWhiteSpace([]) = [] 
   | skipWhiteSpace(clist as (c::rest)) = if isWhiteSpace(c) then skipWhiteSpace(rest) else clist
 
@@ -613,6 +615,13 @@ fun skipUntilWithExtendedPred(L,pred1,pred_rest) =
      in
         loop(L,[])
      end
+
+fun chopComment(str) = 
+   let val chars = explode(str)
+       val (pre_comment_chars,rest) = skipUntil(chars,fn c => c = #"#")
+   in
+      implode(pre_comment_chars)
+   end 
 
 fun firstPastwhiteSpace(str) = 
       let val len = String.size(str)

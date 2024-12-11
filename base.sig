@@ -88,6 +88,8 @@ sig
     val isDigit: char -> bool
     val isAlphaNum: char -> bool
     val isWhiteSpace: char -> bool
+    val allWhiteSpace: string -> bool
+    val chopComment: string -> string 
     val isThereLineThatStartsWith: TextIO.instream * string -> bool * int
     val findAndSkipLine: TextIO.instream * string -> char list
     val skipWhiteSpace: char list -> char list 

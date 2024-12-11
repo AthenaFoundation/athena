@@ -3119,7 +3119,10 @@ open Semantics
 in
 fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) = 
            (case Semantics.isStringValConstructive(v) of
-               SOME(str) => let val stream = TextIO.openString (str)
+               SOME(str) => let (* If the given string literal has comments, we must remove them before we can evaluate the content *)
+                                val str = removeCommentsFromString(str)
+                                (* val _ = displayStringCharByChar(str)  *)
+                                val stream = TextIO.openString (str)
                                 val inputs  = Parse.parse_from_stream(stream)
                                 val input = hd(inputs)
                                 val res_val = (case input of

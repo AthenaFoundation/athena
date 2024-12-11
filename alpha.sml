@@ -139,15 +139,6 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
            block({certs=certs',conclusion=conclusion})
         end						   
 
-
-fun corruptCertificateIterated(D,n) = 
-   if n < 1 then D
-  else 
-      let val D' = corruptCertificate(D)
-      in
-         corruptCertificateIterated(D',n-1) 
-      end 
-
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
 
@@ -468,6 +459,16 @@ fun certToStringNoBlocks(D) =
         block(_)  => "\n{\n" ^ (c2s(D',2)) ^ "\n}"
       | _ => (c2s(D',0)))
   end              
+
+
+fun corruptCertificateIterated(D,n) = 
+   if n < 1 then D
+  else 
+      let val D' = corruptCertificate(D)
+      (** val _ = print("\nHere's the once-corrupted certificate D':\n" ^ (certToString(D')) ^ "\n") **)
+      in
+         corruptCertificateIterated(D',n-1) 
+      end 
 
 fun evaluateCert(D:certificate) = 
    let val str = certToStringNoBlocks(D) 
@@ -1606,6 +1607,8 @@ fun extractTailInt(s: string): int option =
     end
 
 fun processCertificate(cert,instruction) = 
+  let (** val _ = print("\nEntering processCertificate...\n") **)
+  in
     if instruction = "simplify" then 
         SOME(simplifyProof(cert))
     else if (String.isPrefix "corrupt" instruction) then 
@@ -1616,7 +1619,8 @@ fun processCertificate(cert,instruction) =
 	SOME(cert)
     else
 	NONE
- 
+  end 
+
 end (* of structure Alpha *) 
 
 
