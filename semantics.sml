@@ -415,13 +415,13 @@ fun charValToString(c) =
        | 4 => "^D"
        | 5 => "^E"
        | 6 => "^F"
-       | 7 => "\\a"
-       | 8 => "\\b"
-       | 9 => "\\t"
-       | 10 => "\\n"
-       | 11 => "\\v"
-       | 12 => "\\f"
-       | 13 => "\\r"
+       | 7 => "\a"
+       | 8 => "\b"
+       | 9 => "\t"
+       | 10 => "\n"
+       | 11 => "\v"
+       | 12 => "\f"
+       | 13 => "\r"
        | 14 => "^N"
        | 15 => "^O"
        | 16 => "^P"
@@ -440,13 +440,22 @@ fun charValToString(c) =
        | 29 => "^]"
        | 30 => "^^"
        | 31 => "^_"
-       | 32 => "\\blank"
+       | 32 => " "
        | _ => (if c < 127 then Char.toString(chr(c)) else 
                   if c = 127 then "\\127" else
                      genError("Illegal character code passed to character output procedure",NONE)))
 
 fun stringValToString([]) = ""
   | stringValToString(c::more) = charValToString(c)^stringValToString(more)
+
+fun prettyValToStringWithSpecialStringTreatment(v) = 
+  (case v of 
+     listVal(vals) =>  
+       let val char_codes = map (fn v => (case v of charVal(i) => i)) vals
+       in
+         "\"" ^ (stringValToString char_codes) ^ "\""
+       end
+   | _ => prettyValToString(v))                
 
 fun printStringVal([]) = ()
   | printStringVal(charVal(10)::more) = (print("\n");printStringVal(more)) 

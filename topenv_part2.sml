@@ -3078,6 +3078,7 @@ fun processPhraseAndReturn(p,eval_env,fids) =
 val default_ufv_pa_for_procs = SemanticValues.default_ufv_pa_for_procs
 val default_bfv_pa_for_procs = SemanticValues.default_bfv_pa_for_procs
 
+
 fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref) = 
                            let val stream = TextIO.openString (str)
                                val (inputs, parse_error)  = ((Parse.parse_from_stream stream),"") handle e => ([],Semantics.exceptionToString(e))
@@ -3099,7 +3100,7 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                                               processPhraseAndReturn(new_phrase,env',fids) 
                                            end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
                                    in
-                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg
+                                      if error_msg = "" then Semantics.prettyValToStringWithSpecialStringTreatment(res_val) else error_msg
                                    end
                                | _ => 
                                    let val (res_val,error_msg) = 
@@ -3109,10 +3110,9 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                                             unitVal
    				          end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
                                    in
-                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg                                     
+                                      if error_msg = "" then Semantics.prettyValToStringWithSpecialStringTreatment(res_val) else error_msg                                     
  				   end)
                            end
-
 
 local
 open Semantics
