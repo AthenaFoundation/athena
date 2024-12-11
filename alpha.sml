@@ -141,17 +141,11 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
 
 
 fun corruptCertificateIterated(D,n) = 
-   if n < 1 then 
-        let val _ = print("\nReturning final corruption* result...\n") 
-        in
-           D 
-        end
+   if n < 1 then D
   else 
-      let val _ = print("\nCorrupting *once* the proof for n = " ^ (Int.toString n))
-          val c = corruptCertificate(D)
-          val _ = print("\nSingle corruption finished...\n")
+      let val D' = corruptCertificate(D)
       in
-         corruptCertificateIterated(c,n-1) 
+         corruptCertificateIterated(D',n-1) 
       end 
 
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
@@ -1545,9 +1539,7 @@ and
 in
     fn (d,env,ab) => 
         let val _ = reset() 
-            val _ = print("\nAbout to get the certificate...\n")
             val res as (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
-            val _ = print("\nDOne...\n")
 (*********************************************************************************************************************************************************************************************************
             val _ = print("\nAbout to simplify the generated certificate...\n")
             val size1 = String.size(certToStringNaive(proof))
