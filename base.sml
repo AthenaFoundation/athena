@@ -10,6 +10,10 @@ struct
 exception Fail of string
 exception FailLst of string list
 
+fun failLst(messages) = raise FailLst messages
+fun fail(s) = raise Fail s
+
+
 infix !=              
 
 fun a != b = not(a = b)
@@ -23,13 +27,6 @@ fun unZip [] = ([],[])
        in
           (a::tail1,b::tail2)
        end
-
-fun mean(int_lst) = 
-  let fun loop([],sum,length) = Int.div(sum,length)
-	| loop(x::more,sum,length) = loop(more,sum+x,length+1)
-  in
-     loop(int_lst,0,0)
-  end 
 
 (** 
 Starting with the n^th element, inclusive, remove how_many_to_remove elements from L and return the result. 
@@ -754,9 +751,13 @@ val (newline,lparen,rparen,lbrack,rbrack,lbrace,rbrace,
 
 fun mark(s) = (print("\n");repeat 40 (fn _ => print(s));print("\n"))
 
-fun failLst(messages) = raise FailLst messages
-
-fun fail(s) = raise Fail s
+fun mean(int_lst) = 
+  let fun loop([],sum,length) = Int.div(sum,length)
+	| loop(x::more,sum,length) = loop(more,sum+x,length+1)
+  in
+    if null(int_lst) then fail("Attempt to compute the average of an empty list of numbers")
+    else loop(int_lst,0,0)
+  end 
 
 fun strictZip(x::xs,y::ys) = (x,y)::strictZip(xs,ys) 
   | strictZip([],[]) = []

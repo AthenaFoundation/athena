@@ -916,7 +916,32 @@ fun getAlphaCertFun(v1,v2,env,ab) =
          in
             res 
          end
-   | (v1,closUFunVal(_)) => primError(wrongArgKind(N.getAlphaCertFun_name,1,closMethodLCType,v1))
+   | (_,closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
+       let 
+       in
+        (case isStringValConstructive(v1) of
+            SOME(proof_str) =>
+               (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
+                  A.phraseInput(phr as A.ded(D)) => 
+                     let val _ = Basic.mark("1")
+                         val mod_path = (case (!Paths.open_mod_paths) of
+                                           [] => []
+                                         | mp::_ => mp)
+                         val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,mod_path)
+                         val ip as A.ded(D'') = infixProcess(phr',top_val_env,fids) 
+                         val _ = print("\nHere's the input string:\n" ^ proof_str ^ "\n")
+                         val _ = print("\nAnd the deduction parsed from it:\n" ^ (A.unparseDed D'') ^ "\n")
+                         val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(D'',top_val_env,ab)
+			 val _ = Basic.mark("2")
+                         val proof_str = Alpha.certToString(proof)
+                         val proof_ath_str = MLStringToAthString(proof_str)
+                         val res = evalClosure(v2,[proof_ath_str],ab,NONE)
+                     in
+                       res 
+                     end
+		| _  => primError("The string given to " ^ N.getAlphaCertFun_name ^ " must represent a deduction."))
+	  | _ => primError(wrongArgKind(N.getAlphaCertFun_name,1,closMethodLCType,v1)))
+       end 
    | (_,v2) => primError(wrongArgKind(N.getAlphaCertFun_name,2,closUFunType,v2)))
 
 fun analyzeAlphaCertFun(v1,v2,env,ab) = 
@@ -975,6 +1000,7 @@ fun processCertificateFun(v1,v2,env,ab) =
             (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
                 A.phraseInput(phr as A.ded(D)) => 
                   let val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,(!Paths.current_mod_path))
+                      val ip as A.ded(D'') = infixProcess(phr',top_val_env,fids) 
                       val fid_env = makeSmallEnv(MS.listModSymbols(fids))
 (****
                       val _ = print("\nHere's fids:\n" ^ (Basic.printListStr(MS.listModSymbols(fids),MS.name," & ")) ^ "\n")
@@ -983,7 +1009,7 @@ fun processCertificateFun(v1,v2,env,ab) =
 (** Note: Augmenting env with fid_env might not be safe in the presence of modules. It might be safer (and certainly simpler) to simply pass top_val_env to processInputCertificate. 
 **)
                   in
-                     processInputCertificate(D',ref(env'))
+                     processInputCertificate(D'',ref(env'))
                   end 
   	      | _ => Basic.fail(""))
        | _ => (case v1 of 

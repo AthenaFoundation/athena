@@ -45,8 +45,9 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
 
 val random = (!Semantics.evaluateString)("(Random_Sentences.sc->string and)")
 
-fun makeRandomSentence(sz_bound,atom_number) = 
-   let val atom_number_str = Int.toString(atom_number)
+fun makeRandomSentenceAux(sz_bound,atom_number) = 
+   let val sz_bound = Int.max(3,sz_bound)
+       val atom_number_str = Int.toString(atom_number)
        val sz_bound_str = Int.toString(sz_bound)
        val phrase_str = "(Random_Sentences.make-random-sentence-with-fsyms " ^ sz_bound_str ^ " " ^ atom_number_str ^ ")"
        val sentence_val = (!Semantics.evaluateString)(phrase_str)
@@ -56,6 +57,9 @@ fun makeRandomSentence(sz_bound,atom_number) =
 	| _ => let val _ = print("\nFAILED to get a random sentence from the Athena code!\n") in Basic.fail("") end)
    end 
 
+fun makeRandomSentence(sz_bound,atom_number) = 
+  ((makeRandomSentenceAux(sz_bound,atom_number)) handle _ => let val _ = print("\nMake-random-sentence FAILED!!!!\n") in Basic.fail("") end)
+
 fun chooseCorruptionMethodForRuleApps() = 
   let val choises = ["add_arg", "remove_arg", "change_arg", "change_rule_name"]
   in
@@ -63,7 +67,7 @@ fun chooseCorruptionMethodForRuleApps() =
   end 
 
 fun addArg(args) =
-  let val sz = Basic.mean(map meanAlphaSize args)
+  let val sz = (Basic.mean(map meanAlphaSize args)) handle _ => 1
       val random_sentence = makeRandomSentence(sz,3)
       val (L1,L2) = Basic.randomSplit(args)
   in
@@ -84,7 +88,7 @@ fun changeArg(args) =
   if null(args) then [] 
   else 
     let val (L1,L2) = Basic.randomSplit(args)
-        val sz = Basic.mean(map meanAlphaSize args)
+        val sz = (Basic.mean(map meanAlphaSize args)) handle _ => 1 
         val p = sent(makeRandomSentence(sz,3))
     in
        if null(L1) then p::(tl L2)
@@ -110,17 +114,22 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
   | corruptCertificate(assumeProof({hyp as hypothesis(name_opt,hyp_prop),body,conclusion,...})) =   
          if Basic.flipCoin() then assumeProof({hyp=hypothesis(name_opt,makeRandomSentence(5,3)),body=body,conclusion=conclusion})
          else assumeProof({hyp=hyp,body=corruptCertificate(body),conclusion=conclusion})
+
   | corruptCertificate(composition({left,right,conclusion,...})) = 
           if Basic.flipCoin() then composition({left=corruptCertificate(left),right=right,conclusion=conclusion})
           else composition({left=left,right=corruptCertificate(right),conclusion=conclusion})
+
   | corruptCertificate(supAbProof(({hyp as hypothesis(name_opt,hyp_prop),body,conclusion,...}))) = 
          if Basic.flipCoin() then supAbProof({hyp=hypothesis(name_opt,makeRandomSentence(5,3)),body=body,conclusion=conclusion})
          else supAbProof({hyp=hyp,body=corruptCertificate(body),conclusion=conclusion})
+
   | corruptCertificate(pickAny({eigen_var,actual_fresh,body,conclusion,...})) = 
           pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=corruptCertificate(body),conclusion=conclusion})
   | corruptCertificate(conclude({expected_conc,body,conclusion,...})) = 
+
            if Basic.flipCoin() then conclude({expected_conc=makeRandomSentence(10,3),body=body,conclusion=conclusion})
            else conclude({expected_conc=expected_conc,body=corruptCertificate(body),conclusion=conclusion})
+
   | corruptCertificate(block({certs,conclusion,...})) = 
         let val (certs1,certs2) = Basic.randomSplit(certs)
             val certs' = if null(certs1) then (corruptCertificate(hd certs2))::(tl certs2)
@@ -129,6 +138,21 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
         in
            block({certs=certs',conclusion=conclusion})
         end						   
+
+
+fun corruptCertificateIterated(D,n) = 
+   if n < 1 then 
+        let val _ = print("\nReturning final corruption* result...\n") 
+        in
+           D 
+        end
+  else 
+      let val _ = print("\nCorrupting *once* the proof for n = " ^ (Int.toString n))
+          val c = corruptCertificate(D)
+          val _ = print("\nSingle corruption finished...\n")
+      in
+         corruptCertificateIterated(c,n-1) 
+      end 
 
 fun propUnion(prop_list_1,prop_list_2) = Basic.listUnion(prop_list_1,prop_list_2,Prop.alEq)
 fun propDiff(prop_list_1,prop_list_2) = Basic.listDiff(prop_list_1,prop_list_2,Prop.alEq)
@@ -1521,7 +1545,9 @@ and
 in
     fn (d,env,ab) => 
         let val _ = reset() 
+            val _ = print("\nAbout to get the certificate...\n")
             val res as (res_val,ded_info as {proof,conc,fa,...}) = evDed(d,env,ab)
+            val _ = print("\nDOne...\n")
 (*********************************************************************************************************************************************************************************************************
             val _ = print("\nAbout to simplify the generated certificate...\n")
             val size1 = String.size(certToStringNaive(proof))
@@ -1543,11 +1569,57 @@ in
         end 
 end
 
+fun extractTailInt(s: string): int option =
+    let
+        (* Find the last digit position in the string, if any *)
+        fun findLastDigitPos(pos: int): int =
+            case Int.compare(pos, 0) of
+                LESS => ~1
+              | _ => if Char.isDigit(String.sub(s, pos)) then
+                        (* Check if this is really the end of the string *)
+                        case Int.compare(pos, String.size s - 1) of
+                            EQUAL => pos  (* It's at the end - good! *)
+                          | LESS => (* Not at end - check next char *)
+                                if Char.isDigit(String.sub(s, pos + 1)) then 
+                                    findLastDigitPos(pos + 1)
+                                else 
+                                    ~1  (* Found digit but not at end *)
+                          | _ => ~1  (* Shouldn't happen *)
+                     else findLastDigitPos(pos - 1)
+            
+        fun extractNumber(endPos: int): int option =
+            let
+                fun findFirstDigitPos(pos: int): int =
+                    case Int.compare(pos, 0) of
+                        LESS => ~1
+                      | _ => if not(Char.isDigit(String.sub(s, pos))) then pos
+                             else findFirstDigitPos(pos - 1)
+                
+                val startPos = findFirstDigitPos(endPos) + 1
+            in
+                case Int.compare(startPos, endPos) of
+                    GREATER => NONE
+                  | _ => let 
+                        val numStr = String.substring(s, startPos, endPos - startPos + 1)
+                    in
+                        Int.fromString numStr
+                    end
+            end
+            
+        val lastPos = findLastDigitPos(String.size s - 1)
+    in
+        case Int.compare(lastPos, 0) of
+            LESS => NONE
+          | _ => extractNumber(lastPos)
+    end
+
 fun processCertificate(cert,instruction) = 
     if instruction = "simplify" then 
         SOME(simplifyProof(cert))
-    else if instruction = "corrupt" then 
-	SOME(corruptCertificate(cert))			  
+    else if (String.isPrefix "corrupt" instruction) then 
+            (case extractTailInt(instruction) of
+                  SOME(n) => SOME(corruptCertificateIterated(cert,n))
+		| _ => SOME(corruptCertificate(cert)))
     else if instruction = "none" then 
 	SOME(cert)
     else
