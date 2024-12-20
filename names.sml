@@ -865,6 +865,9 @@ val option_valued_selectors_flag_symbol =  Symbol.symbol option_valued_selectors
 val demons_active_flag = "demons"
 val demons_active_flag_symbol = Symbol.symbol demons_active_flag
 
+val decompose_assertions_flag = "decompose-assertions"
+val decompose_assertions_flag_symbol = Symbol.symbol decompose_assertions_flag
+
 val silent_mode_flag_name = "silent-mode"
 val silent_mode_flag_symbol = Symbol.symbol silent_mode_flag_name
 

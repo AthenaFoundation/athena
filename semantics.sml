@@ -3294,7 +3294,10 @@ and
                         SOME(map,_) => let val (vmap,mod_map) = getValAndModMaps(!env1)
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val new_ab = (case dval of
-                                                          propVal(p) => ABaseAugment(ab1,Prop.decomposeConjunctions p)
+                                                          propVal(p) => let val new_asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
+                                                                        in
+                                                                           ABaseAugment(ab1,new_asms)
+                                                                        end 
                                                         | _ => ab1)
                                      in
                                        doLetDed(more,new_env,new_ab)
@@ -3348,7 +3351,7 @@ and
             let val aval = evPhrase(assumption,env,ab)
             in
                (case coerceValIntoProp(aval) of
-                   SOME(p1) => let val asms = Prop.decomposeConjunctions(p1)
+                   SOME(p1) => let val asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions(p1) else [p1]
                                    val ab' = ABase.augment(ab,asms)
                                in 
                                  (case coerceValIntoProp(evDed(body,env,ab')) of 
@@ -3374,7 +3377,7 @@ and
                          end)
                   end
                fun doBindings([]:A.binding list,assumptions,env1) = 
-                     let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
+                     let val asms' = if  (!Options.decompose_assertions_option) then Basic.flatten(map Prop.decomposeConjunctions assumptions) else assumptions 
                      in
                        propVal(Prop.foldConditionals(rev(assumptions),
                                getProp(A.ded(body),true,env1,ABaseAugment(ab,asms'))))
@@ -4153,7 +4156,7 @@ and
 			end
             val (props,new_env) = getPropsAndEnv(bindings,[],env)
 	    val hyps = rev(props)
-            val hyps' = Basic.flatten (map Prop.decomposeConjunctions hyps)
+            val hyps' = if  (!Options.decompose_assertions_option) then Basic.flatten (map Prop.decomposeConjunctions hyps) else hyps 
 	    val res_val = evDed(body,new_env,ABase.augment(ab,hyps'))
             in
 	      (case coerceValIntoProp(res_val) of
@@ -5262,7 +5265,7 @@ and
             let val aval = evPhrase(assumption,env,ab,premises)
             in
                (case coerceValIntoProp(aval) of
-                   SOME(p1) => let val asms = Prop.decomposeConjunctions(p1)
+                   SOME(p1) => let val asms = if  (!Options.decompose_assertions_option) then Prop.decomposeConjunctions(p1) else [p1]
                                    val ab' = ABase.augment(ab,asms)
 				   val (body_val,premises') = evDed(body,env,ab',premises)
                                in 
@@ -5326,7 +5329,10 @@ and
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val (new_ab,new_conclusions) =
                   			         (case dval of
-                                                      propVal(p) => (ABaseAugment(ab1,Prop.decomposeConjunctions p),p::conclusions)
+                                                      propVal(p) => let val new_asms = if  (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
+                                                                    in
+                                                                       (ABaseAugment(ab1,new_asms),p::conclusions)
+                                                                    end 
                                                     | _ => (ab1,conclusions))
                                      in
                                        doLetDed(more,new_env,new_ab,premises'',new_conclusions)
@@ -5364,7 +5370,7 @@ and
                                       "produced a "^valLCTypeAndString(Fval),SOME(A.posOfPhrase(F))))
                   end
                fun doBindings([]:A.binding list,assumptions,env1) = 
-                     let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
+                     let val asms' = if (!Options.decompose_assertions_option) then Basic.flatten(map Prop.decomposeConjunctions assumptions) else assumptions
 		         val (body_conclusion,premises') = getProp(A.ded(body),env1,ABaseAugment(ab,asms'))
                      in
                        (propVal(Prop.foldConditionals(rev(assumptions),body_conclusion)),premises')
@@ -6186,7 +6192,7 @@ and
 			end
             val (props,new_env) = getPropsAndEnv(bindings,[],env)
 	    val hyps = rev(props)
-            val hyps' = Basic.flatten (map Prop.decomposeConjunctions hyps)
+            val hyps' = if (!Options.decompose_assertions_option) then Basic.flatten (map Prop.decomposeConjunctions hyps) else hyps
 	    val (res_val,premises') = evDed(body,new_env,ABase.augment(ab,hyps'),premises)
             in
 	      (case coerceValIntoProp(res_val) of

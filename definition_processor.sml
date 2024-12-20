@@ -81,9 +81,9 @@ val top_assum_base = ABase.top_assum_base
 fun addPropToGlobalAb(p,mod_path,string_opt) = 
   let 
   in
-    (top_assum_base := ABase.insertAlongWithConjuncts(p,!top_assum_base);
+    (top_assum_base := (if (!Options.decompose_assertions_option) then ABase.insertAlongWithConjuncts(p,!top_assum_base) else ABase.insert(p,!top_assum_base));
      P.addToModuleAb(mod_path,p,string_opt);
-     top_assum_base := ABase.addAssertionAlongWithConjuncts(p,!top_assum_base))
+     top_assum_base := (if (!Options.decompose_assertions_option) then ABase.addAssertionAlongWithConjuncts(p,!top_assum_base) else ABase.addAssertion(p,!top_assum_base)))
   end 
                                      
 fun addPropsToGlobalAb(props,mod_path,string_opt) = List.app (fn p => addPropToGlobalAb(p,mod_path,string_opt)) props
@@ -3431,6 +3431,9 @@ fun setFlag(flag as {name,pos=flag_pos}:AbstractSyntax.param,value as (str,pos))
 
   if Symbol.symEq(name,Names.compile_mode_flag_symbol) then 
      myPrint("\n"^Options.setBooleanFlag(Options.compile_mode_option,Names.compile_mode_flag,str,pos)^"\n") else
+
+  if Symbol.symEq(name,Names.decompose_assertions_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.decompose_assertions_option,Names.decompose_assertions_flag,str,pos)^"\n") else
 
   if Symbol.symEq(name,Names.call_stack_size_limit_flag_symbol) then 
      myPrint("\n"^Options.setIntFlag(Options.call_stack_size,Names.call_stack_size_limit_flag,str,pos)^"\n") else

@@ -22,6 +22,7 @@ val infix_parsing_option = ref(true)
 val sexp_infix_style = ref(false)
 val check_fun_defs_option = ref(true)
 val demons_active_option = ref(false)
+val decompose_assertions_option = ref(true)
 val fundef_mlstyle_option = ref(false)
 val proof_tracking_option = ref(false)
 val fundef_simplifying_option = ref(false)
@@ -106,6 +107,14 @@ fun setDemonsFlag("on",_) =   (demons_active_option := true;  "OK.")
   | setDemonsFlag("off",_) =  (demons_active_option := false; "OK.")
   | setDemonsFlag(_,pos) = 
 	let val str = "The only valid values for the "^Names.demons_active_flag^" flag are \"on\" and \"off\"."
+	in      
+           Util.makeErrorMessage(str,SOME(pos))
+        end
+
+fun setDecomposeAssertionsFlag("on",_) =   (decompose_assertions_option := true;  "OK.")
+  | setDecomposeAssertionsFlag("off",_) =  (decompose_assertions_option := false; "OK.")
+  | setDecomposeAssertionsFlag(_,pos) = 
+	let val str = "The only valid values for the "^Names.decompose_assertions_flag^" flag are \"on\" and \"off\"."
 	in      
            Util.makeErrorMessage(str,SOME(pos))
         end

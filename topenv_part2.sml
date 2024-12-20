@@ -236,6 +236,9 @@ fun getFlag(name) =
   if S.symEq(name,Names.simplify_fun_def_flag_symbol) then 
      Basic.boolToString(!Options.fundef_simplifying_option) else
 
+  if S.symEq(name,Names.decompose_assertions_flag_symbol) then 
+     Basic.boolToString(!Options.decompose_assertions_option) else
+
   if S.symEq(name,Names.ATPs_in_chain_flag_symbol) then 
      Basic.boolToString(!Options.atps_in_chain_option) else
 
