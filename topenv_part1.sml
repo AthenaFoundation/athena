@@ -932,16 +932,16 @@ fun getAlphaCertFun(v1,v2,env,ab) =
              in 
                (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
                   A.phraseInput(phr as A.ded(D)) => 
-                     let val _ = Basic.mark("1")
-                         val mod_path = (case (!Paths.open_mod_paths) of
+                     let val mod_path = (case (!Paths.open_mod_paths) of
                                            [] => []
                                          | mp::_ => mp)
                          val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,mod_path)
                          val ip as A.ded(D'') = infixProcess(phr',top_val_env,fids) 
+(***
                          val _ = print("\nHere's the input string:\n" ^ proof_str ^ "\n")
                          val _ = print("\nAnd the deduction parsed from it:\n" ^ (A.unparseDed D'') ^ "\n")
+***)
                          val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(D'',top_val_env,ab)
-			 val _ = Basic.mark("2")
                          val proof_str = Alpha.certToString(proof)
                          val proof_ath_str = MLStringToAthString(proof_str)
                          val res = evalClosure(v2,[proof_ath_str],ab,NONE)
