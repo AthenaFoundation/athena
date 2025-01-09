@@ -994,10 +994,8 @@ the original certificate extracted from the input deduction, and the second (C2)
 
 
 fun processCertificateFun(v1,v2,env,ab) = 
- let val _ = Basic.mark("XXXXXXXXXXXXXXXXXXXXXXXXXXXX")
-     fun processInputCertificate(D,env') = 
-                    let  val _ = print("\nHEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE Entering processCertificateFun ... ")
-			 val _ = print("\nEntering processCertificateFun, will try to get a certificate...")
+ let fun processInputCertificate(D,env') = 
+                    let  val _ = print("\nEntering processCertificateFun, will try to generate a certificate...")
                          val (proof_result,ded_info as {proof as cert,conc,fa,...}) = Alpha.evalDedAlpha(D,env',ab)
 			 val _ = print("\nCertificate was successfully generated...")
                     in
@@ -1009,7 +1007,6 @@ fun processCertificateFun(v1,v2,env,ab) =
 		         | _ => primError("An instruction string was expected as the second argument to " ^ N.processAlphaCertFun_name))
                     end 
   in
-   (print("WHATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n");
     (case isStringValConstructive(v1) of
          SOME(proof_str) =>
           let  (***
@@ -1040,7 +1037,7 @@ fun processCertificateFun(v1,v2,env,ab) =
           end
        | _ => (case v1 of 
                   closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => processInputCertificate(D,env)
-                | _ => Basic.fail(""))))
+                | _ => Basic.fail("")))
    end 
 
 

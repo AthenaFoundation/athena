@@ -1185,6 +1185,7 @@ define (make-cond-def-1 neg) :=
                      (!by-contradiction goal
                         assume -goal := (~ goal)
                           let {c := (!dm' -goal);
+                               #_ := (print "\nHere's -goal:\n" -goal "\nand here's goal:\n" goal "\nand here's p:\n" p "\nand here's c:\n" c "\n");
                                p := try { (!dn (~ ~ p)) | (!claim p) }}
                             (!absurd (!mp premise p) 
                                      (~ q)))

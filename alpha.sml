@@ -622,34 +622,52 @@ fun elimClaims(D) =
    
 fun simplifyProofOnce(D) = 
      let fun mprint(s) = print(s)
+
+(***
          val _ = mprint("\nGiven proof before simplification:\n" ^ (certToStringNoBlocks(D))) 
          val _ = mprint("\nWe'll now evaluate this certificate to get the semantics...")
+***)
 
          val p = evaluateCert(D)
 
+(***     
          val _ = mprint("\nEvaluation succeeded. Now about to right-linearize...") 
 
+****)
+         
          val D1 = rightLinearize(D)
 
+(**** 
          val _ = mprint("\nAfter right-linearization:\n" ^ (certToStringNoBlocks(D1))) 
+***)
 
          (** val _ = checkSemantics(p,D1,"right-linearize") **)          			   
              
          val D2 = makeStrict(D1)
 
+(**** 
          val _ = mprint("\nAfter makeStrict:\n" ^ (certToStringNoBlocks(D2))) 
+
+****)
 
         (** val _ = checkSemantics(p,D2,"makeStrict") **)
 
          val D3 = removeReps(D2)
 
+(**** 
           val _ = mprint("\nAfter removing reps:\n" ^ (certToStringNoBlocks(D3)))
+
+****)
+
 
       (**** val _ = checkSemantics(p,D3,"removeReps") ***)
 
          val D4 = elimClaims(elimClaims(D3))
 
+(**** 
        val _ = mprint("\nFinal result, after claim elimination:\n" ^ (certToStringNoBlocks(D4))) 
+****)
+
 (***
          val _ = checkSemantics(p,D4,"elimClaims")
 ***)
