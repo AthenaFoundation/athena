@@ -874,6 +874,7 @@ fun init(file_name_option) =
 	 val _ = Paths.addPath (OS.FileSys.getDir())
 	 val _ = Paths.createTempDir ()
 	 val util_ath = makeLibFileName(athena_home,"util.ath")
+         (**** TODO: Why is make_random_problems.ath loaded by default - why is it needed? ****) 				       
 	 val random_sentences_ath = makeLibFileName(athena_home,"make_random_problems.ath")
 	 val rewriting_ath = makeLibFileName(athena_home,"rewriting.ath")
 	 val pairs_ath = makeLibFileName(athena_home,"pairs.ath")

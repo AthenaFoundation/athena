@@ -415,13 +415,13 @@ fun charValToString(c) =
        | 4 => "^D"
        | 5 => "^E"
        | 6 => "^F"
-       | 7 => "\a"
-       | 8 => "\b"
-       | 9 => "\t"
-       | 10 => "\n"
-       | 11 => "\v"
-       | 12 => "\f"
-       | 13 => "\r"
+       | 7 => "\\a"
+       | 8 => "\\b"
+       | 9 => "\\t"
+       | 10 => "\\n"
+       | 11 => "\\v"
+       | 12 => "\\f"
+       | 13 => "\\r"
        | 14 => "^N"
        | 15 => "^O"
        | 16 => "^P"
@@ -440,10 +440,11 @@ fun charValToString(c) =
        | 29 => "^]"
        | 30 => "^^"
        | 31 => "^_"
-       | 32 => " "
+       | 32 => "\\blank"
        | _ => (if c < 127 then Char.toString(chr(c)) else 
                   if c = 127 then "\\127" else
                      genError("Illegal character code passed to character output procedure",NONE)))
+
 
 fun stringValToString([]) = ""
   | stringValToString(c::more) = charValToString(c)^stringValToString(more)
@@ -3294,7 +3295,7 @@ and
                         SOME(map,_) => let val (vmap,mod_map) = getValAndModMaps(!env1)
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val new_ab = (case dval of
-                                                          propVal(p) => let val new_asms = if true orelse (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
+                                                          propVal(p) => let val new_asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
                                                                         in
                                                                            ABaseAugment(ab1,new_asms)
                                                                         end 
@@ -5329,7 +5330,7 @@ and
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val (new_ab,new_conclusions) =
                   			         (case dval of
-                                                      propVal(p) => let val new_asms = if  true orelse (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
+                                                      propVal(p) => let val new_asms = if  (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
                                                                     in
                                                                        (ABaseAugment(ab1,new_asms),p::conclusions)
                                                                     end 

@@ -1282,15 +1282,17 @@ fun printVal(Semantics.propVal(p),(true,_)) =
       myPrint("\nTheorem: "^pprint(9,p)^"\n")  
   | printVal(v,_) = Semantics.printVal(v)
 
+
 fun addProp(v as Semantics.propVal(p),env,eval_env,(is_ded,name_opt),mod_path,definition_sym_opt) = 
          if is_ded then
-            (top_assum_base := ABase.insertAlongWithConjuncts(p,!top_assum_base);
+            (top_assum_base := (if (!Options.decompose_assertions_option) then ABase.insertAlongWithConjuncts(p,!top_assum_base) else ABase.insert(p,!top_assum_base));
              (case (name_opt,definition_sym_opt) of 
                  (SOME(name),_) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))
                | (_,SOME(name)) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))
                | _ => P.addToModuleAb(mod_path,p,NONE)))
          else ()
   | addProp(_) = ()
+
 
 fun processAssocDeclaration(((msym,pos),b)) = 
   let fun setAssoc(arity,assoc,b,pos) = 
