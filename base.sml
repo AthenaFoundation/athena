@@ -995,6 +995,33 @@ fun replaceSubstring(s1, s2, base) =
         replace(base, "")
     end
 
+fun extractTailInt (s: string) : int option =
+    let
+        (* Helper to check if a character is a digit *)
+        fun isDigit c = Char.ord c >= Char.ord #"0" andalso Char.ord c <= Char.ord #"9"
+        
+        (* Find the start position of the trailing digits *)
+        fun findStart i =
+            if i < 0 then NONE
+            else if isDigit(String.sub(s, i)) then
+                findStart (i-1)
+            else
+                SOME(i+1)
+        (* Convert string slice of digits to integer *)
+        fun toInt start =
+            let 
+                val numStr = String.substring(s, start, String.size s - start)
+            in
+                SOME(valOf(Int.fromString numStr))
+            end
+    in
+        case findStart (String.size s - 1) of
+            NONE => NONE  (* No digits found *)
+          | SOME 0 => NONE  (* Entire string is digits - not what we want *)
+          | SOME start => let val _ = print("Here we are " ^ (Int.toString start)) in toInt start end 
+    end
+
+
 fun flipCoin() = if MT.getRandomInt(2) < 2 then true else false
 
 fun randomListChoice(L) = 

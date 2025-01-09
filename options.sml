@@ -22,7 +22,7 @@ val infix_parsing_option = ref(true)
 val sexp_infix_style = ref(false)
 val check_fun_defs_option = ref(true)
 val demons_active_option = ref(false)
-val decompose_assertions_option = ref(true)
+val decompose_assertions_option = ref(false)
 val fundef_mlstyle_option = ref(false)
 val proof_tracking_option = ref(false)
 val fundef_simplifying_option = ref(false)
@@ -156,7 +156,7 @@ fun defaultPrec(arity) = if arity = 1 orelse arity = 2 then lowest_fsymbol_prece
 fun setDefaultPrec(arity,prec_ref) = prec_ref := defaultPrec(arity)
 
 val first_call_stack_chunk_size_limit = ref(5)
-val top_call_stack_portion_length = ref(5)
+val top_call_stack_portion_length = ref(40)
 
 val call_stack_size = ref(2000)
 

@@ -3294,7 +3294,7 @@ and
                         SOME(map,_) => let val (vmap,mod_map) = getValAndModMaps(!env1)
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val new_ab = (case dval of
-                                                          propVal(p) => let val new_asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
+                                                          propVal(p) => let val new_asms = if true orelse (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
                                                                         in
                                                                            ABaseAugment(ab1,new_asms)
                                                                         end 
@@ -5329,7 +5329,7 @@ and
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val (new_ab,new_conclusions) =
                   			         (case dval of
-                                                      propVal(p) => let val new_asms = if  (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
+                                                      propVal(p) => let val new_asms = if  true orelse (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
                                                                     in
                                                                        (ABaseAugment(ab1,new_asms),p::conclusions)
                                                                     end 

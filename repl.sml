@@ -105,7 +105,6 @@ fun restoreSignature({struc_table_set,constructor_table_set,fsym_table_set,sort_
 fun handleException(e) = 
 let
 in
-
     (case e of
        Semantics.EvalError(msg,pos_opt) => 
          let val msg' = Semantics.makeErrorWithPosInfo(msg,pos_opt)
