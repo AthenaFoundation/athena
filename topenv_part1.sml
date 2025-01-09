@@ -992,9 +992,11 @@ perform on the obtained certificate: it can be "simplify", "corrupt", etc. The o
 the original certificate extracted from the input deduction, and the second (C2) representing the result of processing C1 as specified. 
 *****************)
 
+
 fun processCertificateFun(v1,v2,env,ab) = 
- let fun processInputCertificate(D,env') = 
-                    let (** val _ = print("\nGiven env: " ^ (envToString(!env)) ^ "\n========================================================================\n AND top_val_env:\n\n" ^ (envToString(!top_val_env)) ^ "\n") ***)
+ let val _ = Basic.mark("XXXXXXXXXXXXXXXXXXXXXXXXXXXX")
+     fun processInputCertificate(D,env') = 
+                    let  val _ = print("\nHEREEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE Entering processCertificateFun ... ")
 			 val _ = print("\nEntering processCertificateFun, will try to get a certificate...")
                          val (proof_result,ded_info as {proof as cert,conc,fa,...}) = Alpha.evalDedAlpha(D,env',ab)
 			 val _ = print("\nCertificate was successfully generated...")
@@ -1002,11 +1004,12 @@ fun processCertificateFun(v1,v2,env,ab) =
                        (case isStringValConstructive(v2) of
                            SOME(instruction) => 
                                 (case Alpha.processCertificate(cert,instruction) of
-                                    SOME(cert') => listVal([MLStringToAthString(Alpha.certToString(cert)),MLStringToAthString(Alpha.certToString(cert'))])
+                                    SOME(map_val) => map_val
 				  | _ => primError("Unknown certificate-processing instruction: " ^ instruction))
 		         | _ => primError("An instruction string was expected as the second argument to " ^ N.processAlphaCertFun_name))
                     end 
   in
+   (print("WHATTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT\n");
     (case isStringValConstructive(v1) of
          SOME(proof_str) =>
           let  (***
@@ -1037,8 +1040,9 @@ fun processCertificateFun(v1,v2,env,ab) =
           end
        | _ => (case v1 of 
                   closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => processInputCertificate(D,env)
-                | _ => Basic.fail("")))
+                | _ => Basic.fail(""))))
    end 
+
 
 fun mergeSortPrimBFun(v1,v2,env,ab) =  
       (case v1 of 

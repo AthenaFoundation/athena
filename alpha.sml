@@ -1611,23 +1611,40 @@ fun extractTailInt(s: string): int option =
           | _ => extractNumber(lastPos)
     end
 
+
 fun processCertificate(cert,instruction) = 
-  let val _ = print("\nEntering processCertificate...\n") 
+  let val binding1 = (termVal(AthTerm.makeIdeConstant("originalCert")),
+		      MLStringToAthString(certToString(cert)))
+      fun addBindings(m,bindings) = Maps.insertLst(m,bindings)
+      fun makeMap(bindings) = SV.mapVal(addBindings(Maps.makeMap(SV.compare),bindings))
   in
     if instruction = "simplify" then 
         let val simplified_cert = simplifyProof(cert)
+            val binding2 = (termVal(AthTerm.makeIdeConstant("simplifiedCert")),
+    		            MLStringToAthString(certToString(simplified_cert)))
         in
-          SOME(simplified_cert)
+           SOME(makeMap([binding1,binding2]))
         end
     else if (String.isPrefix "corrupt" instruction) then 
             (case extractTailInt(instruction) of
-                  SOME(n) => SOME(corruptCertificateIterated(cert,n))
-		| _ => SOME(corruptCertificate(cert)))
+                  SOME(n) => let val cert' = corruptCertificateIterated(cert,n)
+                                 val binding2 = (termVal(AthTerm.makeIdeConstant("corruptedCertIterated")),
+           		                         MLStringToAthString(certToString(cert')))
+                             in
+                                SOME(makeMap([binding1,binding2]))
+                             end 
+		| _ => let val cert' = corruptCertificate(cert)
+                           val binding2 = (termVal(AthTerm.makeIdeConstant("corruptedCertIterated")),
+        		                   MLStringToAthString(certToString(cert')))
+                       in
+                         SOME(makeMap([binding1,binding2]))
+                       end)
     else if instruction = "none" then 
-	SOME(cert)
+	SOME(makeMap([binding1]))
     else
 	NONE
   end 
+
 
 end (* of structure Alpha *) 
 
