@@ -995,7 +995,9 @@ the original certificate extracted from the input deduction, and the second (C2)
 fun processCertificateFun(v1,v2,env,ab) = 
  let fun processInputCertificate(D,env') = 
                     let (** val _ = print("\nGiven env: " ^ (envToString(!env)) ^ "\n========================================================================\n AND top_val_env:\n\n" ^ (envToString(!top_val_env)) ^ "\n") ***)
+			 val _ = print("\nEntering processCertificateFun, will try to get a certificate...")
                          val (proof_result,ded_info as {proof as cert,conc,fa,...}) = Alpha.evalDedAlpha(D,env',ab)
+			 val _ = print("\nCertificate was successfully generated...")
                     in
                        (case isStringValConstructive(v2) of
                            SOME(instruction) => 

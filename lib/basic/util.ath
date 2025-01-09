@@ -1020,15 +1020,20 @@ define (pairs->table L) :=
    (dmatch premise
      ((not (premise-body as (and (some-list conjuncts))))
         (dlet ((goal (or (map c conjuncts))))
-            (!by-contradiction goal
-               (assume -goal := (not goal)
-	         (dlet ((p1 (!(make-dm-3 not) -goal))
-                        (dn (method (p) (dtry (!dn p) (!claim p)))))
-                    (!map-method dn 
-                                 (get-conjuncts p1)
-                                 (method (_)
-                                    (!absurd (!conj-intro premise-body) premise)))))))))))
-
+          (!by-contradiction goal
+            (assume -goal := (not goal)
+	             (dlet ((p1 (!(make-dm-3 not) -goal)) # Here we're applying dm-3 to (not (or ...)) and will get (and (not ..) ... (not ...))
+                                                    # The problem is that the conjuncts (not ...) ... (not ...) will not be in the a.b. by default,
+                                                    # unless (set-flag decompose-assertions "on") has been executed. So, to cover the case where that
+                                                    # flag might be off, we first decompose p1 - the conjunction (and (not ..) ... (not ...)). 
+                      (dn (method (p) (dtry (!dn p) (!claim p)))))
+                  (!decompose1 p1
+                    (method (conjuncts) 
+                      (!map-method dn 
+                                   conjuncts
+                                   (method (_)
+                                     (!absurd (!conj-intro premise-body) premise)))))))))))))
+                                   
 (define dm-1 (make-dm-1 not))
 (define dm-1' (make-dm-1 complement))
 
