@@ -1634,14 +1634,22 @@ fun processCertificate(cert,instruction) =
   let val binding1 = (termVal(AthTerm.makeIdeConstant("originalCert")),
 		      MLStringToAthString(certToString(cert)))
       fun addBindings(m,bindings) = Maps.insertLst(m,bindings)
-      fun makeMap(bindings) = SV.mapVal(addBindings(Maps.makeMap(SV.compare),bindings))
+      fun makeMap(bindings,cert') = 
+          let val tail_binding_1 = (termVal(AthTerm.makeIdeConstant("originalCertSize")),
+                                    termVal(AthTerm.makeNumTerm(A.int_num(certSize(cert),ref ""))))
+              val tail_binding_2 = (termVal(AthTerm.makeIdeConstant("processedCertSize")),
+				    termVal(AthTerm.makeNumTerm(A.int_num(certSize(cert'),ref ""))))
+              val all_tail_bindings = [tail_binding_1, tail_binding_2]
+          in
+             SV.mapVal(addBindings(Maps.makeMap(SV.compare),bindings@all_tail_bindings))
+          end 
   in
     if instruction = "simplify" then 
         let val simplified_cert = simplifyProof(cert)
             val binding2 = (termVal(AthTerm.makeIdeConstant("simplifiedCert")),
     		            MLStringToAthString(certToString(simplified_cert)))
         in
-           SOME(makeMap([binding1,binding2]))
+           SOME(makeMap([binding1,binding2],simplified_cert))
         end
     else if (String.isPrefix "corrupt" instruction) then 
             (case extractTailInt(instruction) of
@@ -1649,16 +1657,16 @@ fun processCertificate(cert,instruction) =
                                  val binding2 = (termVal(AthTerm.makeIdeConstant("corruptedCertIterated")),
            		                         MLStringToAthString(certToString(cert')))
                              in
-                                SOME(makeMap([binding1,binding2]))
+                                SOME(makeMap([binding1,binding2],cert'))
                              end 
 		| _ => let val cert' = corruptCertificate(cert)
                            val binding2 = (termVal(AthTerm.makeIdeConstant("corruptedCertIterated")),
         		                   MLStringToAthString(certToString(cert')))
                        in
-                         SOME(makeMap([binding1,binding2]))
+                         SOME(makeMap([binding1,binding2],cert'))
                        end)
     else if instruction = "none" then 
-	SOME(makeMap([binding1]))
+	SOME(makeMap([binding1],cert))
     else
 	NONE
   end 
