@@ -1031,8 +1031,14 @@ define (pairs->table L) :=
                     (method (conjuncts) 
                       (!map-method dn 
                                    conjuncts
-                                   (method (_)
-                                     (!absurd (!conj-intro premise-body) premise)))))))))))))
+                                   (method (dn-conjuncts)
+                                      (!decompose* dn-conjuncts
+                                         (method (final-conjuncts)
+                                            (dlet (#(_  (print "\nWill try to conj-intro this:\n" premise-body "\n. I already have these conjuncts:\n" dn-conjuncts "\n"))
+                                                   (pb (!conj-intro premise-body))
+                                                   #(_  (print "\nGot the premise body with conj-intro:\n" pb "\n"))
+                                                   )
+                                              (!absurd pb premise))))))))))))))))
                                    
 (define dm-1 (make-dm-1 not))
 (define dm-1' (make-dm-1 complement))
