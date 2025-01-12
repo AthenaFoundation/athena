@@ -25,10 +25,12 @@ sig
    val termSymbolsFastAux: term * (fsymbol,fsymbol) HashTable.hash_table -> unit         
    val termSymbolsFast: term  -> fsymbol list
    val termSymbolsLstFast: term list  -> fsymbol list    
-   
+
    val dom: term -> int list list 
    val subterm: term * int list -> term 
    val posReplace: term * int list * term -> term 
+
+   val toJSON: term -> JSON.value 						 
 
    val hasTaggedSortVars: term -> bool
 

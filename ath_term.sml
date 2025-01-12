@@ -159,6 +159,8 @@ val polyWord:Word8.word = 0w1
 val varsWord:Word8.word = 0w6  (* If it has vars it's non-canonical, so 6 instead of 2 is now the right value for this mask. *)
 val hasPredBasedSortsWord:Word8.word = 0w8 
     
+fun toJSON(t) = JSON.INT(3)
+
 val nonCanonicalWord:Word8.word = 0w4
 
 fun isCanonical(App({bits,...})) = not(isNonCanonicalWord(bits))

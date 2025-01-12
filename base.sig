@@ -8,6 +8,7 @@ signature BASIC =
 sig 
     val != : ''a * ''a -> bool
     val listEq: 'a list * 'a list * ('a * 'a ->bool)  -> bool
+    val deleteFile: string -> unit
     val readFileLines: string -> string list
     val writeLinesToFile: string list * string -> unit
     val replaceFile: string * string -> unit
@@ -174,4 +175,8 @@ sig
     val escape: string -> string 
     val downcaseChar: char -> char
     val downcaseString: string -> string
+    val printJsonObjectToFile: JSON.value * string * bool -> unit
+    val printJsonObjectToStdOut: JSON.value * bool -> unit
+    val jsonValToString: JSON.value * bool -> string
+    val testJson: bool -> string
 end

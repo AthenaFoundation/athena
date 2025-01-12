@@ -19,6 +19,11 @@ fun makeVarSortPrinter() = F.makeVarSortPrinter()
 
 val level = ref(0)
 
+fun foo() = let val arr = JSON.ARRAY [JSON.INT 1, JSON.INT 5, JSON.INT 0] 
+            in
+               JSON.OBJECT [("foo",JSON.INT 3),("bar", arr)]
+            end 
+
 fun decrementLevel() = ()
 
 structure SV = SemanticValues

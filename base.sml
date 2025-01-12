@@ -13,6 +13,7 @@ exception FailLst of string list
 fun failLst(messages) = raise FailLst messages
 fun fail(s) = raise Fail s
 
+fun deleteFile(s) = OS.FileSys.remove(s) handle _ => print("\nUnable to delete this file: " ^ s ^ "\n")
 
 infix !=              
 
@@ -1031,5 +1032,46 @@ fun randomListChoice(L) =
              nth(L,index-1)
           end 
 
+fun printJsonObjectToFile(v,file_name,pretty) =
+  let val file = TextIO.openOut file_name
+  in
+    if pretty then JSONPrinter.print' {strm=file, pretty=true} v before TextIO.closeOut file
+    else JSONPrinter.print (file, v) before TextIO.closeOut file
+  end
+
+fun printJsonObjectToStdOut(v,pretty) =
+  if not(pretty) then JSONPrinter.print (TextIO.stdOut, v)
+  else JSONPrinter.print' {strm=TextIO.stdOut, pretty=true} v
+
+fun jsonValToString(v,pretty) =
+  let val file_name = "/tmp/json_tmp_.txt"
+      val _ = printJsonObjectToFile(v,file_name,pretty)
+      val s = TextIO.inputAll(TextIO.openIn(file_name))
+      val _ = deleteFile(file_name)
+  in
+    s
+  end
+
+fun randomInt(k) = MT.getRandomInt(k)
+
+fun testJson(pretty) =
+  let val arr = JSON.ARRAY [JSON.INT 1, JSON.INT 5, JSON.INT 0]
+      val v = JSON.OBJECT [("foo",JSON.INT 3),("bar", arr)]
+      val ceiling = 32322999
+      val (int1,int2) = (randomInt(323232999),randomInt(32322999))
+      val file_name = "json_tmp_" ^ (Int.toString int1) ^ "_" ^ (Int.toString int2) ^ ".txt"
+      val _ = print("\nFilename: " ^ file_name ^ "\n")
+      val _ = printJsonObjectToFile(v,file_name,pretty)
+      val s = TextIO.inputAll(TextIO.openIn(file_name))
+      val _ = deleteFile(file_name)
+  in
+    s
+  end
+
+(***************
+ JSON.OBJECT([("expressType",JSON.STRING("list")),
+              ("metadata",JSON.NULL),
+             ("elements",JSON.ARRAY([1,2]))]
+***********)
 
 end
