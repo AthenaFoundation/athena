@@ -373,6 +373,7 @@ withtype binding = {bpat:pattern,def:phrase,pos:position}
      and possibly_typed_param = {name:symbol,pos:position,sort_as_sym_term:absyn_term option,op_tag: (int * int) option,
 	     		         sort_as_fterm:FTerm.term option,sort_as_exp: expression option}
 
+
 type absyn_fsym = {name:symbol,pos:position,obtype_params:param list,input_transformer: expression list option,
                    argument_types:absyn_term list,range_type:absyn_term,
                    prec: int option,assoc: bool option,overload_sym: param option}

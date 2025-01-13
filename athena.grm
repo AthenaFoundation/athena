@@ -966,6 +966,8 @@ possibly_named_inference:  inference ({param=NONE,def=A.ded(inference),pos=A.pos
 			    def=A.exp(expression),pos=A.posOfExp(expression)})
 
 inference_list:  possibly_named_inference ([possibly_named_inference])
+               | possibly_named_inference WHERE lcb inference_list rcb (inference_list@[possibly_named_inference])
+               | possibly_named_inference WHERE BEGIN inference_list END (inference_list@[possibly_named_inference])
                | possibly_named_inference SEMI_COLON inference_list 
                   (possibly_named_inference::inference_list)
 
@@ -986,7 +988,11 @@ inference_block: BEGIN inference_list END
               | lcb inference_list rcb 
                   (case rev(inference_list) of 
                      (b:A.optBinding as {param,def=A.ded(d),pos})::rest => 
-                       A.letDed({bindings=A.getBindings(rev (rest)),body=d,pos=getPos lcbleft})
+                       let (**** val _ = print("\nHere's the first binding ded I got after reversing: " ^ (A.unparseDed d) ^ "\n")
+                            ****)
+                       in
+                         A.letDed({bindings=A.getBindings(rev (rest)),body=d,pos=getPos lcbleft})
+                       end
                    | (b as {param,def=A.exp(e),pos})::_ => 
                         raise A.SyntaxError("expression found in the tail position of"^
                                             "\na begin-end inference block---a deduction is"^
