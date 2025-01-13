@@ -117,6 +117,7 @@ val LET:  'a * 'a -> (svalue,'a) token
 val MATCH:  'a * 'a -> (svalue,'a) token
 val METHOD:  'a * 'a -> (svalue,'a) token
 val FUNCTION:  'a * 'a -> (svalue,'a) token
+val APPLYING:  'a * 'a -> (svalue,'a) token
 val SOME_CHAR:  'a * 'a -> (svalue,'a) token
 val WILDCARD:  'a * 'a -> (svalue,'a) token
 val ARROW:  'a * 'a -> (svalue,'a) token

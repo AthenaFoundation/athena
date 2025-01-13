@@ -120,6 +120,7 @@ fun isReserved(str,leftp:pos as (l,p)) =
             doReserved "BY" = (true,Tokens.BY(getPos(2))) |
             doReserved "by" = (true,Tokens.BY(getPos(2))) |
             doReserved "conclude" = (true,Tokens.CONCLUDE(getPos(8))) |
+            doReserved "applying" = (true,Tokens.APPLYING(getPos(8))) |
             doReserved "from" = (true,Tokens.FROM(getPos(4))) |
             doReserved "pick-any" = (true,Tokens.PICK_ANY(getPos(8))) |
             doReserved "pick-witness" = (true,Tokens.PICK_WITNESS(getPos(12))) |

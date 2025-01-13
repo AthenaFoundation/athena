@@ -20,7 +20,7 @@ fun getPos((l,p)) = {line=l,pos=p,file=(!Paths.current_file)}
        CHARACTER of int | LOAD_FILE | DIF_ELSE | NAME | SOME_TERM | COLON  | OVERLOAD | OVERLOAD_INV | MODULE | DEFINE_STAR | DEFINE_MEMOIZED | 
        SOME_ATOM | SOME_PROP | QMARK | EXCL_MARK | QUOTE_WORD |QUOTE_SYMBOL | EXPAND_NEXT_PROOF | LEFT_CURLY_BRACE | RIGHT_CURLY_BRACE | 
        BACK_QUOTE_SYMBOL | LETREC | DLETREC | SPLIT_PAT | BY | PRINT_STACK_TRACE | SEMI_COLON | CONCLUDE | DOUBLE_LEFT_CURLY_BRACE | DOUBLE_RIGHT_CURLY_BRACE | 
-       LPAREN | RPAREN | COMMA | CLAIM | LEFT_BRACKET | RIGHT_BRACKET | SET | ARROW | WILDCARD | SOME_CHAR |
+       LPAREN | RPAREN | COMMA | CLAIM | LEFT_BRACKET | RIGHT_BRACKET | SET | ARROW | WILDCARD | SOME_CHAR | APPLYING  | 
        FUNCTION | METHOD | MATCH | LET | LET_UPPER | DLET | TRY | DTRY | APPLY_METHOD | SOME_VAR | SEQ | DSEQ | SOME_VECTOR | MAP_BEGIN | MAP_END | 
        EQUAL_SIGN | ASSERT | ASSERT_CLOSE | ASSUME | ASSUME_LET | SUPPOSE_ABSURD | SUPPOSE_ABSURD_LET | ON | PROVE | 
        DMATCH | EITHER | ABSURD | MP | DN | EQUIV | LEFT_IFF | RIGHT_IFF | BOTH  | ASGN | BY_CASES | FUN | 
@@ -917,7 +917,11 @@ inference: expression FROM comma_separated_phrase_list
                                                  A.exp(A.listExp({members=comma_separated_phrase_list,pos=getPos FROMright}))],
                                                  pos=A.posOfExp(expression)}))
 
-         |  expression BY expression ON comma_separated_phrase_list  
+         |  expression BY expression ON comma_separated_phrase_list
+               (A.byDed({wanted_res=expression1,conc_name=NONE,body=A.methodAppDed({method=expression2,
+                         args=comma_separated_phrase_list,pos=A.posOfExp(expression)}),pos=getPos BYleft}))
+
+         |  CONCLUDE expression BY expression ON comma_separated_phrase_list  
                (A.byDed({wanted_res=expression1,conc_name=NONE,body=A.methodAppDed({method=expression2,
                          args=comma_separated_phrase_list,pos=A.posOfExp(expression)}),pos=getPos BYleft}))
 
