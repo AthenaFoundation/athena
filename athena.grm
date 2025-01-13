@@ -966,6 +966,7 @@ possibly_named_inference:  inference ({param=NONE,def=A.ded(inference),pos=A.pos
 			    def=A.exp(expression),pos=A.posOfExp(expression)})
 
 inference_list:  possibly_named_inference ([possibly_named_inference])
+               | possibly_named_inference SEMI_COLON ([possibly_named_inference])
                | possibly_named_inference WHERE lcb inference_list rcb (inference_list@[possibly_named_inference])
                | possibly_named_inference WHERE BEGIN inference_list END (inference_list@[possibly_named_inference])
                | possibly_named_inference SEMI_COLON inference_list 
