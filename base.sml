@@ -1043,8 +1043,10 @@ fun printJsonObjectToStdOut(v,pretty) =
   if not(pretty) then JSONPrinter.print (TextIO.stdOut, v)
   else JSONPrinter.print' {strm=TextIO.stdOut, pretty=true} v
 
+val json_file_counter = ref(0)
+
 fun jsonValToString(v,pretty) =
-  let val file_name = "/tmp/json_tmp_.txt"
+  let val file_name = "/tmp/json_tmp_" ^ (Int.toString(incAndReturn(json_file_counter))) ^ ".txt"
       val _ = printJsonObjectToFile(v,file_name,pretty)
       val s = TextIO.inputAll(TextIO.openIn(file_name))
       val _ = deleteFile(file_name)

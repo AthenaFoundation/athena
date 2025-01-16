@@ -1,12 +1,12 @@
 local
 	$(SML_LIB)/basis/basis.mlb
+	$(SML_LIB)/smlnj-lib/JSON/json-lib.mlb	
 	$(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
 	$(SML_LIB)/basis/unsafe.mlb 
 	$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
         $(SML_LIB)/cml/cml.mlb
         $(SML_LIB)/basis/mlton.mlb	
 	$(SML_LIB)/smlnj-lib/INet/inet-lib.mlb
-	$(SML_LIB)/smlnj-lib/JSON/json-lib.mlb	
 	$(SML_LIB)/smlnj-lib/Util/time-limit.mlb
 in
 	compat_11072.sml

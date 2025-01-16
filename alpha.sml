@@ -1701,6 +1701,15 @@ fun processCertificate(cert,instruction) =
         in
            SOME(makeMap([binding0,binding1,binding2],simplified_cert))
         end
+   
+    else if instruction = "toJSON" then 
+        let val cert' = compsToBlocks(cert)
+            val json_string = Basic.jsonValToString(certToJson(cert'),true)
+            val binding2 = (termVal(AthTerm.makeIdeConstant("jsonRep")),
+    		            MLStringToAthString(json_string))
+        in
+           SOME(makeMap([binding0,binding1,binding2],cert'))
+        end
     else if (String.isPrefix "corrupt" instruction) then 
             (case extractTailInt(instruction) of
                   SOME(n) => let val cert' = corruptCertificateIterated(cert,n)

@@ -2069,23 +2069,30 @@ fun jsonLeaf(p,subtype) = JSON.OBJECT([("type", JSON.STRING("formula")),
 	  	 		       ("children", JSON.ARRAY([]))])
 ***)
 
-fun getRoot(json_value:JSON.value) = 
-    (case (JSONUtil.findField json_value "root") of
-	SOME(v) => v 
-      | _ => Basic.fail("Could not find root field!"))
+(* fun getRoot(json_value:JSON.value) =  *)
+(*     (case (JSONUtil.findField json_value "root") of *)
+(* 	SOME(v) => v  *)
+(*       | _ => Basic.fail("Could not find root field!")) *)
 
-fun getChildren(json_value) = 
-    (case (JSONUtil.findField json_value "children") of
-	SOME(v) => v
-      | _ => Basic.fail("Could not find children field!"))
+(* fun getChildren(json_value) =  *)
+(*     (case (JSONUtil.findField json_value "children") of *)
+(* 	SOME(v) => v *)
+(*       | _ => Basic.fail("Could not find children field!")) *)
 
 fun toJson(atom({term,...})) = 
-    let val t_json:JSON.value = AT.toJson(term)
+    let val t_json:JSON.value = AT.toJson(term)					 
+        val (term_root,children,is_var) = 
+                                 (case AT.isApp(term) of 
+				      SOME((f,args)) => ((MS.name f), (map AT.toJson args),false)
+        			    | _ => (case AT.isVarOpt(term) of 
+					      SOME(v) => (AT.toStringDefault(term), [], true)
+  				            | _ => (AT.toStringDefault(term), [],false)))
     in
 	JSON.OBJECT([("type", JSON.STRING("formula")),
 		     ("subtype", JSON.STRING("atom")),
-		     ("root", getRoot(t_json)),
-		     ("children", getChildren(t_json))])
+		     ("root", JSON.STRING(term_root)),
+		     ("isTermVariable", JSON.BOOL(is_var)),
+		     ("children", JSON.ARRAY(children))])
     end 	
   | toJson(neg({arg,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
 					  ("subtype", JSON.STRING("negation")),
