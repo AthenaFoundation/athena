@@ -5245,5 +5245,7 @@ define (break-conditional p) :=
      (if (and (some-list ants)) (some-sentence q)) => (separate (join (map athena->infix ants) [(athena->infix q)]) " # ")
   }
 
-define (get-json proof-string) := 
- ((get-and-process-alpha-cert proof-string "toJSON") 'jsonRep)
+define (get-json proof-string file-name) := 
+  let {s := ((get-and-process-alpha-cert proof-string "toJSON") 'jsonRep)}
+    (write-file file-name s)
+    
