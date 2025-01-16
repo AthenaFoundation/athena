@@ -654,6 +654,7 @@ fun sortVars(p) =
      Basic.removeDuplicatesEq(loop(p,[]),F.varEq)
   end
 
+
 fun makeMonomorphicInstance(p) = 
        let val svars = sortVars(p)
            val sort_sub  = F.makeMonoSortSub(svars)
@@ -2060,6 +2061,67 @@ fun toStringInfix(p) =
         neg({arg=p,...}) => "(~ " ^ (f p) ^ ")" 
       | _ => (f p))
   end
+
+(***
+fun jsonLeaf(p,subtype) = JSON.OBJECT([("type", JSON.STRING("formula")),
+	   	 		       ("subtype", JSON.STRING(subtype)),
+	  	 		       ("root", JSON.STRING(toStringInfix(p)))
+	  	 		       ("children", JSON.ARRAY([]))])
+***)
+
+fun getRoot(json_value:JSON.value) = 
+    (case (JSONUtil.findField json_value "root") of
+	SOME(v) => v 
+      | _ => Basic.fail("Could not find root field!"))
+
+fun getChildren(json_value) = 
+    (case (JSONUtil.findField json_value "children") of
+	SOME(v) => v
+      | _ => Basic.fail("Could not find children field!"))
+
+fun toJson(atom({term,...})) = 
+    let val t_json:JSON.value = AT.toJson(term)
+    in
+	JSON.OBJECT([("type", JSON.STRING("formula")),
+		     ("subtype", JSON.STRING("atom")),
+		     ("root", getRoot(t_json)),
+		     ("children", getChildren(t_json))])
+    end 	
+  | toJson(neg({arg,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
+					  ("subtype", JSON.STRING("negation")),
+					  ("root", JSON.STRING("~")),
+					  ("children", JSON.ARRAY([toJson(arg)]))])
+  | toJson(conj({args,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
+					    ("subtype", JSON.STRING("conjunction")),
+					    ("root", JSON.STRING("&")),
+					    ("children", JSON.ARRAY((map toJson args)))])
+  | toJson(disj({args,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
+					    ("subtype", JSON.STRING("disjunction")),
+					    ("root", JSON.STRING("|")),
+					    ("children", JSON.ARRAY((map toJson args)))])
+  | toJson(cond({ant,con,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
+					       ("subtype", JSON.STRING("conditional")),
+					       ("root", JSON.STRING("|")),
+					       ("children", JSON.ARRAY((map toJson [ant,con])))])
+  | toJson(biCond({left,right,...})) = JSON.OBJECT([("type", JSON.STRING("formula")),
+						    ("subtype", JSON.STRING("biconditional")),
+						    ("root", JSON.STRING("|")),
+						    ("children", JSON.ARRAY((map toJson [left,right])))])
+  | toJson(uGen({qvar,body,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("formula")),
+		 ("subtype", JSON.STRING("uquant")),
+		 ("root", JSON.STRING("forall")),
+		 ("children", JSON.ARRAY([ATV.toJson(qvar),toJson(body)]))])
+  | toJson(eGen({qvar,body,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("formula")),
+		 ("subtype", JSON.STRING("equant")),
+		 ("root", JSON.STRING("exists")),
+		 ("children", JSON.ARRAY([ATV.toJson(qvar),toJson(body)]))])
+  | toJson(eGenUnique({qvar,body,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("formula")),
+		 ("subtype", JSON.STRING("equant-unique")),
+		 ("root", JSON.STRING("exists-unique")),
+		 ("children", JSON.ARRAY([ATV.toJson(qvar),toJson(body)]))])
 
 fun makeTPTPPropAux(P,simple_only) = 
   let val P' = alphaRename(P)

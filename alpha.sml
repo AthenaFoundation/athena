@@ -20,6 +20,14 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
 
+
+fun alphaValToJson(term(t)) = AT.toJson(t)
+  | alphaValToJson(sent(p)) = Prop.toJson(p)
+  | alphaValToJson(alpha_list(vals)) = 
+        JSON.OBJECT([("type", JSON.STRING("list")),
+		     ("root", JSON.STRING("list")),
+		     ("children", JSON.ARRAY(map alphaValToJson vals))])
+
 fun meanAlphaSize(term(t)) = AT.size(t)
   | meanAlphaSize(sent(p)) = Prop.size(p)
   | meanAlphaSize(alpha_list(args)) = Basic.mean(map meanAlphaSize args)
@@ -310,6 +318,10 @@ fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,p
      else
         full_ded_info
 
+(***
+fun certToJson(ruleApp({rule,args,conclusion,...})) = 
+          let val arg_asts = qqqq
+***)
 fun compsToBlocks(D) = 
   let fun B(composition({left,right,...})) = (B left)@(B right)
 	| B(D) = [D] 
@@ -329,6 +341,42 @@ fun compsToBlocks(D) =
   in
      c2b(D)
   end
+
+
+
+fun certToJson(ruleApp({rule,args,conclusion,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+		 ("subtype", JSON.STRING("ruleApp")),
+		 ("root", JSON.STRING(S.name rule)),
+		 ("conclusion", Prop.toJson(conclusion)),
+		 ("children", JSON.ARRAY(map alphaValToJson args))])
+  | certToJson(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+		 ("subtype", JSON.STRING("assumeProof")),
+		 ("root", JSON.STRING("assume")),
+		 ("hypothesisName", JSON.STRING(case name_opt of SOME(sym) => S.name(sym) | _ => "")),
+		 ("conclusion", Prop.toJson(conclusion)),
+		 ("children", JSON.ARRAY([Prop.toJson(p),certToJson(body)]))])
+  | certToJson(conclude({expected_conc,body,conclusion,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+		 ("subtype", JSON.STRING("BYProof")),
+		 ("root", JSON.STRING("BY")),
+		 ("conclusion", Prop.toJson(conclusion)),
+		 ("children", JSON.ARRAY([Prop.toJson(expected_conc),certToJson(body)]))])
+  | certToJson(supAbProof({hyp as hypothesis(name_opt,p),body,conclusion,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+		 ("subtype", JSON.STRING("supAbProof")),
+		 ("root", JSON.STRING("suppose-absurd")),
+		 ("hypothesisName", JSON.STRING(case name_opt of SOME(sym) => S.name(sym) | _ => "")),
+		 ("conclusion", Prop.toJson(conclusion)),
+		 ("children", JSON.ARRAY([Prop.toJson(p),certToJson(body)]))])
+  | certToJson(block({certs,conclusion,...})) = 
+    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+		 ("subtype", JSON.STRING("block")),
+		 ("root", JSON.STRING("compose")),
+		 ("conclusion", Prop.toJson(conclusion)),
+		 ("children", JSON.ARRAY(map certToJson certs))])
+  | certToJson(_) = Basic.fail("")
 
 fun certToStringNaive(D) = 
   let fun argToString(term(t)) = AT.toStringDefault(t)

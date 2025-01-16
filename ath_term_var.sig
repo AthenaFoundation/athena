@@ -18,6 +18,9 @@ sig
 (** athTermVar makes a sorted variable with the given name and with a fresh polymorphic sort: **)
 
   val athTermVar : string -> ath_term_var;
+
+
+  val toJson: ath_term_var -> JSON.value 
   
   val name : ath_term_var -> string
 

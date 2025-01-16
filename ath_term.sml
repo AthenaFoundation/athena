@@ -159,8 +159,6 @@ val polyWord:Word8.word = 0w1
 val varsWord:Word8.word = 0w6  (* If it has vars it's non-canonical, so 6 instead of 2 is now the right value for this mask. *)
 val hasPredBasedSortsWord:Word8.word = 0w8 
     
-fun toJSON(t) = JSON.INT(3)
-
 val nonCanonicalWord:Word8.word = 0w4
 
 fun isCanonical(App({bits,...})) = not(isNonCanonicalWord(bits))
@@ -224,6 +222,8 @@ fun getSort(App({sort,...})) = sort
   | getSort(numTerm(A.int_num(_))) = D.int_sort
   | getSort(numTerm(A.real_num(_))) = D.real_sort
   | getSort(ideTerm(_)) = D.ide_sort 
+
+
 
 val global_tccs:(term * sort) list ref = ref([])
 
@@ -375,6 +375,23 @@ fun toStringDefault(t) = toString(t,F.varToString)
 fun tccToString((t,sort)) = (toStringDefault(t))^" :: "^(F.toStringDefault(sort))
 
 fun tccsToString(tccs) = Basic.printListStr(tccs,tccToString,"\n")
+
+fun jsonLeaf(t,subtype) = JSON.OBJECT([("type", JSON.STRING("term")),
+	   	 		       ("subtype", JSON.STRING(subtype)),
+	  	 		       ("root", JSON.STRING(toStringDefault(t))),
+	  	 		       ("children", JSON.ARRAY([]))])
+
+fun toJson(t as numTerm(_)) = jsonLeaf(t,"number")
+  | toJson(t as ideTerm(_)) = jsonLeaf(t,"ide")
+  | toJson(t as Var(v)) = ATV.toJson(v)
+  | toJson(t as App({root,args,sort,...})) = 
+     let val root_str:string = MS.name(root)
+     in
+	 JSON.OBJECT([("type", JSON.STRING("term")),
+	   	      ("subtype", JSON.STRING("application")),
+	  	      ("root", JSON.STRING(root_str)),
+	  	      ("children", JSON.ARRAY((map toJson args)))])
+     end
 
 fun toPrettyString(start,t,printSortVar) = 
        let fun pp(s,Var(v)) = ATV.toPrettyString(s,v,printSortVar)         

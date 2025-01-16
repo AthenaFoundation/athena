@@ -30,7 +30,7 @@ sig
    val subterm: term * int list -> term 
    val posReplace: term * int list * term -> term 
 
-   val toJSON: term -> JSON.value 						 
+   val toJson: term -> JSON.value 						 
 
    val hasTaggedSortVars: term -> bool
 
