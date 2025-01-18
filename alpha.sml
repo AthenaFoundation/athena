@@ -49,8 +49,17 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
                      | supAbProof of {hyp: hypothesis, body: certificate, conclusion: prop}
                      | composition of {left: certificate, right: certificate,conclusion: prop}
                      | pickAny of {eigen_var: symbol, actual_fresh: variable, body: certificate, conclusion: prop}
-                     | conclude of {expected_conc: prop, body: certificate,conclusion:prop}
+                     | conclude of {expected_conc: prop, body: certificate,conclusion:prop,conclusion_name:string option}
                      | block of {certs: certificate list, conclusion: prop}
+
+fun makeConclusionAnnotatedVersion(cert,p,conc_name_option:A.param option) = 
+  (case conc_name_option of 
+      SOME({name,pos}) => 
+          let val _ = print("\nFOUND CONC NAME: " ^ (S.name name) ^ "\n")
+          in
+             conclude({expected_conc=p, body=cert,conclusion=p,conclusion_name=SOME(S.name(name))})
+          end
+    | _ => conclude({expected_conc=p, body=cert,conclusion=p,conclusion_name=NONE}))
 
 fun updateProofWithPossibleBinding(proof,pat:A.pattern) = 
   (case pat of 
@@ -58,6 +67,11 @@ fun updateProofWithPossibleBinding(proof,pat:A.pattern) =
       (case proof of 
           ruleApp({rule,args,conclusion,index,...}) => 
 	    ruleApp({rule=rule,args=args,conclusion=conclusion,index=index,step_name=SOME(S.name name)})
+	| conclude({expected_conc: prop, body: certificate,conclusion:prop,conclusion_name}) =>
+	    conclude({expected_conc=expected_conc, 
+		      body=body,
+		      conclusion=conclusion,
+		      conclusion_name=SOME(S.name name)})
         | _ => proof)
    | _ => proof)
 
@@ -143,10 +157,9 @@ fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
 
   | corruptCertificate(pickAny({eigen_var,actual_fresh,body,conclusion,...})) = 
           pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=corruptCertificate(body),conclusion=conclusion})
-  | corruptCertificate(conclude({expected_conc,body,conclusion,...})) = 
-
-           if Basic.flipCoin() then conclude({expected_conc=makeRandomSentence(10,3),body=body,conclusion=conclusion})
-           else conclude({expected_conc=expected_conc,body=corruptCertificate(body),conclusion=conclusion})
+  | corruptCertificate(conclude({expected_conc,body,conclusion,conclusion_name,...})) = 
+           if Basic.flipCoin() then conclude({expected_conc=makeRandomSentence(10,3),body=body,conclusion=conclusion,conclusion_name=conclusion_name})
+           else conclude({expected_conc=expected_conc,body=corruptCertificate(body),conclusion=conclusion,conclusion_name=conclusion_name})
 
   | corruptCertificate(block({certs,conclusion,...})) = 
         let val (certs1,certs2) = Basic.randomSplit(certs)
@@ -344,7 +357,7 @@ fun compsToBlocks(D) =
 	| c2b(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,body=c2b(body),conclusion=conclusion})
 	| c2b(supAbProof({hyp,body,conclusion,...})) = supAbProof({hyp=hyp,body=c2b(body),conclusion=conclusion})
 	| c2b(pickAny({eigen_var,actual_fresh,body,conclusion,...})) = pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,conclusion=conclusion,body=c2b(body)})
-	| c2b(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,conclusion=conclusion,body=c2b(body)})
+	| c2b(conclude({expected_conc,body,conclusion,conclusion_name,...})) = conclude({expected_conc=expected_conc,conclusion=conclusion,body=c2b(body),conclusion_name=conclusion_name})
 	| c2b(block({certs=Ds,...})) = 
                            let val blocks = (map c2b Ds)
                            in
@@ -372,12 +385,16 @@ fun certToJson(ruleApp({rule,args,conclusion,...})) =
 		 ("hypothesisName", JSON.STRING(case name_opt of SOME(sym) => S.name(sym) | _ => "")),
 		 ("conclusion", Prop.toJson(conclusion)),
 		 ("children", JSON.ARRAY([Prop.toJson(p),certToJson(body)]))])
-  | certToJson(conclude({expected_conc,body,conclusion,...})) = 
-    JSON.OBJECT([("type", JSON.STRING("alphaProof")),
-		 ("subtype", JSON.STRING("BYProof")),
-		 ("root", JSON.STRING("BY")),
-		 ("conclusion", Prop.toJson(conclusion)),
-		 ("children", JSON.ARRAY([Prop.toJson(expected_conc),certToJson(body)]))])
+  | certToJson(conclude({expected_conc,body,conclusion,conclusion_name,...})) = 
+    let val cname = (case conclusion_name of SOME(s) => s | _ => "")      
+    in
+      JSON.OBJECT([("type", JSON.STRING("alphaProof")),
+  	  	   ("subtype", JSON.STRING("BYProof")),
+  	   	   ("root", JSON.STRING("BY")),
+		   ("conclusion", Prop.toJson(conclusion)),
+		   ("conclusionName", JSON.STRING(cname)),
+		   ("children", JSON.ARRAY([Prop.toJson(expected_conc),certToJson(body)]))])
+    end 
   | certToJson(supAbProof({hyp as hypothesis(name_opt,p),body,conclusion,...})) = 
     JSON.OBJECT([("type", JSON.STRING("alphaProof")),
 		 ("subtype", JSON.STRING("supAbProof")),
@@ -415,6 +432,8 @@ fun certToStringNaive(D) =
 
 fun getRuleName(rule_sym_name) = 
   if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
+
+fun contains(s,pat) = String.isSubstring pat s 
 
 fun certToString(D) =  
   let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
@@ -502,10 +521,28 @@ fun certToString(D) =
 	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ (includeSemicolon left) ^ (c2s(right,offset+2)) 
 	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
-	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
-	      offset) = c2s(D1,offset) ^ (includeSemicolon D1) ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
-	| c2s(conclude({expected_conc,body,...}),offset) = 
-             (spaces offset) ^ (sentToString expected_conc) ^ (decideBy()) ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),offset) = 
+   	     c2s(D1,offset) ^ (includeSemicolon D1) ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
+	| c2s(conclude({expected_conc,body,conclusion_name,...}),offset) = 
+            if simpleCert(body) then
+               let val body_str = c2s(body,0)
+                   val payload = if contains(body_str,"BY") then body_str  else (P.toStringInfix expected_conc) ^ " BY " ^ body_str		   
+               in
+                   (case conclusion_name of
+                       SOME(name) => let val _ = (HashTable.insert name_table (expected_conc,name))
+                                     in
+                                         (spaces offset) ^ name ^ " := " ^ payload 
+                                     end 
+		     | _ => (spaces offset) ^ payload)                       
+               end 
+            else 
+                (case conclusion_name of
+                   SOME(name) => 
+                     let val _ = (HashTable.insert name_table (expected_conc,name))
+                     in
+                       (spaces offset) ^ name ^ " := " ^ (sentToString expected_conc) ^ " BY " ^ ("\n" ^ c2s(body,offset + 2))
+                     end 
+ 	         | _ => (spaces offset) ^ (sentToString expected_conc) ^ " BY " ^ ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
   in
     (case D' of 
@@ -534,7 +571,7 @@ fun certToStringNoBlocks(D) =
 	| c2s(block({certs=[D],...}),offset) = c2s(D,offset) 
 	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
 	      offset) = c2s(D1,offset) ^ ";\n" ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
-	| c2s(conclude({expected_conc,body,...}),offset) = 
+	| c2s(conclude({expected_conc,body,conclusion_name,...}),offset) = 
              (spaces offset) ^ (P.toStringInfix expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = D 
   in
@@ -617,7 +654,7 @@ fun makeStrict(assumeProof({hyp,body,conclusion,...})) = assumeProof({hyp=hyp,bo
          end 
   | makeStrict(pickAny({eigen_var,actual_fresh, body, conclusion,...})) = 
       pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh, body=makeStrict(body), conclusion=conclusion})
-  | makeStrict(conclude({expected_conc,body,conclusion,...})) = conclude({expected_conc=expected_conc,body=makeStrict(body),conclusion=conclusion})
+  | makeStrict(conclude({expected_conc,body,conclusion,conclusion_name,...})) = conclude({expected_conc=expected_conc,body=makeStrict(body),conclusion=conclusion,conclusion_name=conclusion_name})
   | makeStrict(block(_)) = 
         let val _ = print("\n******************************* Block proof found during simplifcation, this should not happen!\n")
         in
@@ -655,8 +692,8 @@ and inspectStructure(assumeProof({hyp as hypothesis(_,antecedent),body,conclusio
           end 
   | inspectStructure(pickAny({conclusion,body,actual_fresh,eigen_var}),already_derived) = 
          pickAny({conclusion=conclusion,body=RR(body,already_derived),eigen_var=eigen_var,actual_fresh=actual_fresh})
-  | inspectStructure(conclude({expected_conc,body,conclusion}),already_derived) = 
-         conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion})
+  | inspectStructure(conclude({expected_conc,body,conclusion,conclusion_name}),already_derived) = 
+         conclude({expected_conc=expected_conc,body=RR(body,already_derived),conclusion=conclusion,conclusion_name=conclusion_name})
   | inspectStructure(block(_),_) = 
         let val _ = print("\n******************************* Block proof found during RR analysis, this should not happen!\n")
         in
@@ -689,10 +726,10 @@ fun elimClaims(D) =
              end
 	| ec(pickAny({conclusion,body,actual_fresh,eigen_var})) = 
              pickAny({conclusion=conclusion,body=ec(body),actual_fresh=actual_fresh,eigen_var=eigen_var})
-	| ec(conclude({expected_conc,body,conclusion})) = 
+	| ec(conclude({expected_conc,body,conclusion,conclusion_name})) = 
                let val body' = ec(body)
                in
-                 conclude({expected_conc=expected_conc,body=body',conclusion=getConclusion(body')})
+                 conclude({expected_conc=expected_conc,body=body',conclusion=getConclusion(body'),conclusion_name=conclusion_name})
                end 
 	| ec(block(_)) = 
              let val _ = print("\n******************************* Block proof found during EC analysis, this should not happen!\n")
@@ -859,11 +896,11 @@ let (** val _ = print("\nEntering replace with base proof:\n" ^(certToString(D_b
 			  pickAny({eigen_var=eigen_var,actual_fresh=actual_fresh,body=body',conclusion=Prop.makeUGen([actual_fresh],getConclusion(body'))})
                       end
 		   else pathError(D_base,target_path)
-	       | (conclude({expected_conc,body,conclusion}),h::more) =>
+	       | (conclude({expected_conc,body,conclusion,conclusion_name}),h::more) =>
 		   if h = 2 then
                       let val body' = rep(body,more) 
                       in
-    		         conclude({body=body',expected_conc=expected_conc,conclusion=getConclusion(body')})
+    		         conclude({body=body',expected_conc=expected_conc,conclusion=getConclusion(body'),conclusion_name=conclusion_name})
                       end
 		   else pathError(D_base,target_path)
 	       | (block({certs,conclusion}),h::more) =>
@@ -1370,6 +1407,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                                                     ^"in dtry clause at "^(A.posToString pos)^".\n"))
                                               else ()
           val wv = evalExp(wanted_res,env,ab)
+          val conc_name_as_string = (case conc_name of  SOME({name,...}) => (S.name name) | _ => "")
           val env' = (case conc_name of 
                          SOME({name,...}) => let val (vmap,mmap) = getValAndModMaps(!env)
                                              in
@@ -1381,9 +1419,14 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
              SOME(P) => (openTracing(P,level);
                          case (evDed(body,env',ab) 
                                handle ex => (closeTracing(level,false);raise ex)) of
-                            res as (body_val,body_ded_info)  => 
+                            res as (body_val,body_ded_info as {proof,conc,fa})  => 
                               (case coerceValIntoProp(body_val) of
-                                 SOME(Q) => if Prop.alEq(P,Q) then (closeTracing(level,true);res)
+                                 SOME(Q) => if Prop.alEq(P,Q) then 
+                                              let val proof' = makeConclusionAnnotatedVersion(proof,P,conc_name)
+                                                  val res' = (body_val,{proof=proof',conc=conc,fa=fa})  
+                                              in
+                                                 (closeTracing(level,true);res')
+                                              end
                                             else (closeTracing(level,false);evError(msg(P,Q),SOME(pos)))))
            | _ => evError(msg2(wv),SOME(A.posOfExp(wanted_res))))
       end

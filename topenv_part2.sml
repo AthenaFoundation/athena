@@ -233,6 +233,9 @@ fun getFlag(name) =
   if S.symEq(name,Names.proof_tracking_flag_symbol) then 
      Basic.boolToString(!Options.proof_tracking_option) else
 
+  if S.symEq(name,Names.conclusion_annotated_certificates_flag_symbol) then 
+     Basic.boolToString(!Options.conclusion_annotated_certificates_option) else
+
   if S.symEq(name,Names.simplify_fun_def_flag_symbol) then 
      Basic.boolToString(!Options.fundef_simplifying_option) else
 
