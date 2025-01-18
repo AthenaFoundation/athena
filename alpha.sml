@@ -435,8 +435,15 @@ fun getRuleName(rule_sym_name) =
 
 fun contains(s,pat) = String.isSubstring pat s 
 
-fun certToString(D) =  
-  let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
+fun certToString(D,premise_names_option: (prop * string) list option) =  
+  let val fa_list = getFAs(D)
+      val fa_table: (Prop.prop,bool) HashTable.hash_table = HashTable.mkTable(Prop.hash,Prop.alEq) (100,Basic.Never) 
+      fun isFreeAssumption(p) = (case (HashTable.find fa_table p) of NONE => false | _ => true)
+      val _ = List.app (fn p => HashTable.insert  fa_table (p,true)) fa_list 								
+      val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
+      val _ = (case premise_names_option of 
+                  SOME(lst) => List.app (fn (premise,name) => (HashTable.insert name_table (premise,name))) lst
+	         | _ => ())
       val (lemma_counter,hyp_counter,assume_counter) = (ref 0, ref 0, ref 0)
       val spaces = Basic.spaces
       val include_by = !Options.conclusion_annotated_certificates_option
@@ -460,7 +467,7 @@ fun certToString(D) =
                    in
                       name ^ " := " ^ (if include_by then (P.toStringInfix p) else "")
 		   end
-           | _  => if String.size(P.toStringInfix(p)) > 10 andalso not(rule_name = "elide") then 
+           | _  => if String.size(P.toStringInfix(p)) > 10 andalso isFreeAssumption(p) andalso not(rule_name = "elide") then 
                       let val new_name = makeNewName(is_assumption)
                           val _ = (HashTable.insert name_table (p,new_name))
                       in
@@ -832,7 +839,7 @@ fun compFree(D) =
      then false else true 
 
 fun pathError(D,path) = 
-  let val _ = print("\nPath " ^ (pathToString path) ^ " is invalid for this certificate:\n" ^ (certToString(D)) ^ "\n")  
+  let val _ = print("\nPath " ^ (pathToString path) ^ " is invalid for this certificate:\n" ^ (certToString(D,NONE)) ^ "\n")  
   in
     raise PathError(D,path)
   end 
@@ -967,7 +974,7 @@ fun shrinkBlock(certs,percentage,block_path) =
          val (prefix,suffix,to_be_removed) = Basic.removeListChunk(certs,where_to_start,how_many_to_remove)
          val replacements = Basic.mapTry((fn previous_proof => let val previous_conc = getConclusion(previous_proof)
                                                                    val _ = if isRuleApp("comment",previous_proof) then Basic.fail("") else ()
-                                                                   val _ = mprint("\n&&&&& Here's a previous_conc: " ^ (P.toStringInfix previous_conc) ^ " from this previous step: " ^ (certToString(previous_proof)) ^"\n")
+                                                                   val _ = mprint("\n&&&&& Here's a previous_conc: " ^ (P.toStringInfix previous_conc) ^ " from this previous step: " ^ (certToString(previous_proof,NONE)) ^"\n")
                          				       in
                                                                   ruleApp({rule=Symbol.symbol("elide"), args=[sent(previous_conc)],conclusion=previous_conc,step_name=NONE,index=index()})
                                                                end),to_be_removed)
@@ -1010,8 +1017,8 @@ fun chooseBlockAndShrink(D) =
                         val (certs',certs'') = shrinkBlock(certs,percentage,block_path)
                         val new_block = block({certs=certs',conclusion=getConclusion(List.last certs')})						
                         val new_block' = block({certs=certs'',conclusion=getConclusion(List.last certs'')})						
-                        val _ = mprint("\nHere's the original non-shrunk block proof:\n" ^ (certToString(block_subproof)) ^ "\n")
-                        val _ = mprint("\nAnd Here's the new shrunk block proof:\n" ^ (certToString(new_block)) ^ "\n")
+                        val _ = mprint("\nHere's the original non-shrunk block proof:\n" ^ (certToString(block_subproof,NONE)) ^ "\n")
+                        val _ = mprint("\nAnd Here's the new shrunk block proof:\n" ^ (certToString(new_block,NONE)) ^ "\n")
                         val res_with_elisions = replace(D,block_path,new_block)
                         val res_without_elisions = replace(D,block_path,new_block')
                     in
@@ -1051,14 +1058,14 @@ fun analyzeCertificate(D) =
      (**** 
         "\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< Here's the certificate produced for the given proof:\n" ^ (certToString D') ^ "\n" ^ sz_str ^ comp_free_info ^ subproof_str ^ subblock_info ^ shrunk_info 
       ****)
-     (certToString(shrunk_with_elisions)) ^ "\n@\n" ^ (certToString(shrunk_completely))
+     (certToString(shrunk_with_elisions,NONE)) ^ "\n@\n" ^ (certToString(shrunk_completely,NONE))
   end 
 
 fun introduceGaps(D) = 
   let val D' = compsToBlocks(D)
       val (D'',D''') = chooseBlockAndShrink(D')
   in
-     certToString(D'')
+     certToString(D'',NONE)
   end 
 
 fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,step_name=NONE,index=0}),conc=Prop.true_prop, fa = []}
@@ -1770,9 +1777,13 @@ fun simulate(cert,ab) =
     Basic.fail("")
   end 
 
-fun processCertificate(cert,instruction) = 
+(***
+The premise_name_pairs list can be empty. Otherwise, if (p,name) is in the list, every occurrence of p inside the certificate cert is referred to as 'name'.
+***)
+
+fun processCertificate(cert,instruction,premise_name_pairs) = 
   let val binding0 = (termVal(AthTerm.makeIdeConstant("originalCert")),
-		      MLStringToAthString(certToString(cert)))
+		      MLStringToAthString(certToString(cert,SOME(premise_name_pairs))))
       val binding1 = (termVal(AthTerm.makeIdeConstant("certificateOperation")),
 		      MLStringToAthString(instruction))
       fun addBindings(m,bindings) = Maps.insertLst(m,bindings)
@@ -1789,7 +1800,7 @@ fun processCertificate(cert,instruction) =
     if instruction = "simplify" then 
         let val simplified_cert = simplifyProof(cert)
             val binding2 = (termVal(AthTerm.makeIdeConstant("processedCert")),
-    		            MLStringToAthString(certToString(simplified_cert)))
+    		            MLStringToAthString(certToString(simplified_cert,SOME(premise_name_pairs))))
         in
            SOME(makeMap([binding0,binding1,binding2],simplified_cert))
         end
@@ -1800,7 +1811,7 @@ fun processCertificate(cert,instruction) =
             val binding2 = (termVal(AthTerm.makeIdeConstant("jsonRep")),
     		            MLStringToAthString(json_string))
             val binding3 = (termVal(AthTerm.makeIdeConstant("cert")),
-           		    MLStringToAthString(certToString(cert')))
+           		    MLStringToAthString(certToString(cert',SOME(premise_name_pairs))))
         in
            SOME(makeMap([binding0,binding1,binding2,binding3],cert'))
         end
@@ -1808,13 +1819,13 @@ fun processCertificate(cert,instruction) =
             (case extractTailInt(instruction) of
                   SOME(n) => let val cert' = corruptCertificateIterated(cert,n)
                                  val binding2 = (termVal(AthTerm.makeIdeConstant("processedCert")),
-           		                         MLStringToAthString(certToString(cert')))
+           		                         MLStringToAthString(certToString(cert',SOME(premise_name_pairs))))
                              in
                                 SOME(makeMap([binding0,binding1,binding2],cert'))
                              end 
 		| _ => let val cert' = corruptCertificate(cert)
                            val binding2 = (termVal(AthTerm.makeIdeConstant("processedCert")),
-        		                   MLStringToAthString(certToString(cert')))
+        		                   MLStringToAthString(certToString(cert',SOME(premise_name_pairs))))
                        in
                          SOME(makeMap([binding0,binding1,binding2],cert'))
                        end)

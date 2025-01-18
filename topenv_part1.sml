@@ -917,7 +917,7 @@ fun getAlphaCertFun(v1,v2,env,ab) =
      (closMethodVal(A.methodExp({params=[],body,pos,name}),env_ref),
       closUFunVal(continuation_body,parameter,close_env,{name=cont_name,prec,...})) => 
          let val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(body,env_ref,ab)
-             val proof_str = Alpha.certToString(proof)
+             val proof_str = Alpha.certToString(proof,NONE)
              val proof_ath_str = MLStringToAthString(proof_str)
              val res = evalClosure(v2,[proof_ath_str],ab,NONE)
          in
@@ -942,7 +942,7 @@ fun getAlphaCertFun(v1,v2,env,ab) =
                          val _ = print("\nAnd the deduction parsed from it:\n" ^ (A.unparseDed D'') ^ "\n")
 ***)
                          val (method_res,ded_info as {proof,conc,fa,...}) = Alpha.evalDedAlpha(D'',top_val_env,ab)
-                         val proof_str = Alpha.certToString(proof)
+                         val proof_str = Alpha.certToString(proof,NONE)
                          val proof_ath_str = MLStringToAthString(proof_str)
                          val res = evalClosure(v2,[proof_ath_str],ab,NONE)
                      in
@@ -993,15 +993,26 @@ the original certificate extracted from the input deduction, and the second (C2)
 *****************)
 
 
-fun processCertificateFun(v1,v2,env,ab) = 
- let fun processInputCertificate(D,env') = 
+fun processCertificateFun([v1,v2,v3],env,ab) = 
+ let val premise_and_name_list = 
+           (case v3 of 
+              listVal(pair_vals) => let fun processPair(listVal([premise_val,premise_name_val])) = 
+                                               (case (coerceValIntoProp(premise_val),isStringValConstructive(premise_name_val)) of 
+                                                   (SOME(p),SOME(name)) => (p,name)
+						  | _ => primError("Every element of the list that is the third argument to " ^ N.processAlphaCertFun_name ^ " must be a pair of a sentence and a string."))
+					  | processPair(_) = primError("Every element of the list that is the third argument to " ^ N.processAlphaCertFun_name ^ " must be a pair of a sentence and a string.")
+                                    in
+                                       (map processPair pair_vals)
+                                    end
+	    | _  => primError("The third argument to " ^ N.processAlphaCertFun_name ^ " must be a list of pair consisting of a sentence and a string."))
+    fun processInputCertificate(D,env') = 
                     let  val _ = print("\nEntering processCertificateFun, will try to generate a certificate...")
                          val (proof_result,ded_info as {proof as cert,conc,fa,...}) = Alpha.evalDedAlpha(D,env',ab)
 			 val _ = print("\nCertificate was successfully generated...")
                     in
                        (case isStringValConstructive(v2) of
                            SOME(instruction) => 
-                                (case Alpha.processCertificate(cert,instruction) of
+                                (case Alpha.processCertificate(cert,instruction,premise_and_name_list) of
                                     SOME(map_val) => map_val
 				  | _ => primError("Unknown certificate-processing instruction: " ^ instruction))
 		         | _ => primError("An instruction string was expected as the second argument to " ^ N.processAlphaCertFun_name))
@@ -1039,7 +1050,6 @@ fun processCertificateFun(v1,v2,env,ab) =
                   closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => processInputCertificate(D,env)
                 | _ => Basic.fail("")))
    end 
-
 
 fun mergeSortPrimBFun(v1,v2,env,ab) =  
       (case v1 of 

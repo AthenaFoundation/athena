@@ -3541,7 +3541,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.getAlphaCertFun_symbol,primBFunVal(getAlphaCertFun,default_bfv_pa_for_procs N.getAlphaCertFun_name)),
                          (N.analyzeAlphaCertFun_symbol,primBFunVal(analyzeAlphaCertFun,default_bfv_pa_for_procs N.analyzeAlphaCertFun_name)),
 
-                         (N.processAlphaCertFun_symbol,primBFunVal(processCertificateFun,default_bfv_pa_for_procs N.processAlphaCertFun_name)),
+                         (N.processAlphaCertFun_symbol,funVal(processCertificateFun,N.processAlphaCertFun_name, default_fv_pa_for_procs 2)),
 
                          (N.uspecPrimMethod_symbol,SV.primBMethodVal(uSpecPrimBMethod,N.uspecPrimMethod_symbol)),
                          (N.proofErrorMethod_symbol,SV.primUMethodVal(proofErrorPrimUMethod,N.proofErrorMethod_symbol)),
