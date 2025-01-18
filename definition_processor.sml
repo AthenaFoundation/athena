@@ -3437,6 +3437,9 @@ fun setFlag(flag as {name,pos=flag_pos}:AbstractSyntax.param,value as (str,pos))
   if Symbol.symEq(name,Names.decompose_assertions_flag_symbol) then 
      myPrint("\n"^Options.setBooleanFlag(Options.decompose_assertions_option,Names.decompose_assertions_flag,str,pos)^"\n") else
 
+  if Symbol.symEq(name,Names.conclusion_annotated_certificates_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.conclusion_annotated_certificates_option,Names.conclusion_annotated_certificates_flag,str,pos)^"\n") else
+
   if Symbol.symEq(name,Names.call_stack_size_limit_flag_symbol) then 
      myPrint("\n"^Options.setIntFlag(Options.call_stack_size,Names.call_stack_size_limit_flag,str,pos)^"\n") else
 

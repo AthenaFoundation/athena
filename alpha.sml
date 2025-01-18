@@ -20,7 +20,6 @@ open Semantics
 datatype hypothesis = hypothesis of symbol option * prop 
 datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list  | alpha_string of string 
 
-
 fun alphaValToJson(term(t)) = AT.toJson(t)
   | alphaValToJson(sent(p)) = Prop.toJson(p)
   | alphaValToJson(alpha_string(s)) = JSON.STRING(s)
@@ -417,12 +416,11 @@ fun certToStringNaive(D) =
 fun getRuleName(rule_sym_name) = 
   if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
 
-val include_by = false 
-
 fun certToString(D) =  
   let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
       val (lemma_counter,hyp_counter,assume_counter) = (ref 0, ref 0, ref 0)
       val spaces = Basic.spaces
+      val include_by = !Options.conclusion_annotated_certificates_option
       fun decideBy() = if include_by then " BY " else ""
       fun makeAssumeComment(conditional_conclusion,offset) = 
                   if Basic.incAndReturn(assume_counter) < 2 then "" 
