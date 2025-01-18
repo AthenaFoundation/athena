@@ -18,11 +18,12 @@ type variable = AthTerm.variable
 open Semantics
 
 datatype hypothesis = hypothesis of symbol option * prop 
-datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list 
+datatype alpha_val = term of AthTerm.term | sent of prop | alpha_list of alpha_val list  | alpha_string of string 
 
 
 fun alphaValToJson(term(t)) = AT.toJson(t)
   | alphaValToJson(sent(p)) = Prop.toJson(p)
+  | alphaValToJson(alpha_string(s)) = JSON.STRING(s)
   | alphaValToJson(alpha_list(vals)) = 
         JSON.OBJECT([("type", JSON.STRING("list")),
 		     ("root", JSON.STRING("list")),
@@ -30,19 +31,21 @@ fun alphaValToJson(term(t)) = AT.toJson(t)
 
 fun meanAlphaSize(term(t)) = AT.size(t)
   | meanAlphaSize(sent(p)) = Prop.size(p)
+  | meanAlphaSize(alpha_string(s)) = 1 
   | meanAlphaSize(alpha_list(args)) = Basic.mean(map meanAlphaSize args)
 
 fun mprint(s) = ()
 
 fun alpha_val_to_val(term(t)) = termVal(t)
   | alpha_val_to_val(sent(p)) = propVal(p)
+  | alpha_val_to_val(alpha_string(s)) = MLStringToAthString(s)
   | alpha_val_to_val(alpha_list(avals)) = listVal(map alpha_val_to_val avals)
 
 val prim_rule_names = ["dsyl", "gap", "elide", "mt", "absurd", "from-false", "two-cases", "ex-middle", "from-complements", "conj-intro", "bdn", "dm", "by-contradiction", "neg-cond", "cond-def", "bicond-def", "dm'", "bicond-def'"]
 
 fun randomRuleName() = Basic.randomListChoice(prim_rule_names@["mp", "mt", "left-and", "right-and", "both", "left-iff", "right-iff", "equiv"])
 
-datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion: prop, index: int}
+datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion: prop, step_name: string option, index: int}
                      | assumeProof of {hyp: hypothesis, body: certificate, conclusion: prop}
                      | supAbProof of {hyp: hypothesis, body: certificate, conclusion: prop}
                      | composition of {left: certificate, right: certificate,conclusion: prop}
@@ -50,6 +53,14 @@ datatype certificate = ruleApp of {rule:symbol, args: alpha_val list, conclusion
                      | conclude of {expected_conc: prop, body: certificate,conclusion:prop}
                      | block of {certs: certificate list, conclusion: prop}
 
+fun updateProofWithPossibleBinding(proof,pat:A.pattern) = 
+  (case pat of 
+     A.idPat({name,...}) => 
+      (case proof of 
+          ruleApp({rule,args,conclusion,index,...}) => 
+	    ruleApp({rule=rule,args=args,conclusion=conclusion,index=index,step_name=SOME(S.name name)})
+        | _ => proof)
+   | _ => proof)
 
 val random = (!Semantics.evaluateString)("(Random_Sentences.sc->string and)")
 
@@ -106,16 +117,16 @@ fun changeArg(args) =
 
 fun corruptRuleApp(ruleApp({rule,args,conclusion,index,...})) = 
     (case chooseCorruptionMethodForRuleApps() of 
-       "add_arg" => ruleApp({rule=rule,args=addArg(args),conclusion=conclusion,index=index})
+       "add_arg" => ruleApp({rule=rule,args=addArg(args),conclusion=conclusion,index=index,step_name=NONE})
      | "remove_arg" => let val args' = removeArg(args) 
                        in 
-			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index})
+			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index,step_name=NONE})
                        end 
      | "change_arg" => let val args' = changeArg(args) 
                        in 
-			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index})
+			  ruleApp({rule=rule,args=args',conclusion=conclusion,index=index,step_name=NONE})
                        end
-     | "change_rule_name" => ruleApp({rule=S.symbol(randomRuleName()),args=args,conclusion=conclusion,index=index}))
+     | "change_rule_name" => ruleApp({rule=S.symbol(randomRuleName()),args=args,conclusion=conclusion,index=index,step_name=NONE}))
   | corruptRuleApp(D) = D
 
 fun corruptCertificate(D as ruleApp(_)) = corruptRuleApp(D)
@@ -263,7 +274,7 @@ and blockFALoop([],fas_so_far,conclusions_so_far) = fas_so_far
 
 
   
-val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0})
+val trivial_cert = ruleApp({rule=S.symbol("TRIVIAL_RULE"),args=[],conclusion=Prop.true_prop,index=0,step_name=NONE})
 val treat_as_primitives = ref(prim_rule_names)
 
 fun isRuleAppOneOf(rule_names,ruleApp({rule,...})) = Basic.isMember(S.name rule,rule_names)
@@ -282,13 +293,15 @@ fun getAlphaVal(v,method_name) =
                              SOME(t) => term(t)
 			   | _ => (case coerceValIntoProp(v) of
                                       SOME(p) => sent(p)
-		  	            | _ => (case v of 
-                                              listVal(vals) => alpha_list(map (fn v => getAlphaVal(v,method_name)) vals)
-					     | _ => let val _ = print("\nUnexpected value type found as an argument to a call of this method: " ^ method_name ^ "; " ^ 
-								      "a term or sentence was expected, but this was found instead:\n" ^ (valLCTypeAndStringNoColon v) ^ "\n")
-                                                    in
-                                                       Basic.fail("")
-                                                    end)))
+		  	            | _ => (case isStringValConstructive(v) of
+                                               SOME(s) => alpha_string(s)
+					     | _ => (case v of 
+                                                        listVal(vals) => alpha_list(map (fn v => getAlphaVal(v,method_name)) vals)
+						      | _ => let val _ = print("\nUnexpected value type found as an argument to a call of this method: " ^ method_name ^ "; " ^ 
+							  	               "a term or sentence was expected, but this was found instead:\n" ^ (valLCTypeAndStringNoColon v) ^ "\n")
+                                                             in
+                                                                Basic.fail("")
+                                                             end))))
 
 fun possiblyPrimitivizeCertificate(closure_name,arg_vals,conclusion,full_certificate) = 
      if Basic.isMember(closure_name,!treat_as_primitives) then 
@@ -296,6 +309,7 @@ fun possiblyPrimitivizeCertificate(closure_name,arg_vals,conclusion,full_certifi
            val rule_cert = ruleApp({rule=S.symbol(closure_name),
 				    args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,
 				    conclusion=conclusion,
+				    step_name=NONE,
 				    index=index()})
        in
           rule_cert 
@@ -309,6 +323,7 @@ fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,p
            val rule_cert = ruleApp({rule=S.symbol(closure_name),
 			 	    args=map (fn (v) => getAlphaVal(v,closure_name)) arg_vals,
 				    conclusion=conc,
+				    step_name=NONE,
 				    index=index()})
        in
           {conc=conc,
@@ -320,7 +335,7 @@ fun possiblyPrimitivizeDedInfo(closure_name,arg_vals,full_ded_info as {conc,fa,p
 
 (***
 fun certToJson(ruleApp({rule,args,conclusion,...})) = 
-          let val arg_asts = qqqq
+          let val arg_asts = 
 ***)
 fun compsToBlocks(D) = 
   let fun B(composition({left,right,...})) = (B left)@(B right)
@@ -342,7 +357,8 @@ fun compsToBlocks(D) =
      c2b(D)
   end
 
-
+fun isCommentCert(ruleApp({rule,...})) = S.name(rule) = "comment"
+  | isCommentCert(_) = false 
 
 fun certToJson(ruleApp({rule,args,conclusion,...})) = 
     JSON.OBJECT([("type", JSON.STRING("alphaProof")),
@@ -371,17 +387,21 @@ fun certToJson(ruleApp({rule,args,conclusion,...})) =
 		 ("conclusion", Prop.toJson(conclusion)),
 		 ("children", JSON.ARRAY([Prop.toJson(p),certToJson(body)]))])
   | certToJson(block({certs,conclusion,...})) = 
+   let val certs' = Basic.filterOut(certs,isCommentCert)
+   in
     JSON.OBJECT([("type", JSON.STRING("alphaProof")),
 		 ("subtype", JSON.STRING("block")),
 		 ("root", JSON.STRING("compose")),
 		 ("conclusion", Prop.toJson(conclusion)),
-		 ("children", JSON.ARRAY(map certToJson certs))])
+		 ("children", JSON.ARRAY(map certToJson certs'))])
+   end 
   | certToJson(_) = Basic.fail("")
 
 fun certToStringNaive(D) = 
   let fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = Prop.makeTPTPPropSimple(p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
+        | argToString(alpha_string(s)) = "\"" ^ s ^ "\""
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun f(ruleApp({rule,args,...})) = 
              "[" ^ (S.name rule) ^ " on " ^ (argsToString args) ^ "]"
@@ -397,10 +417,13 @@ fun certToStringNaive(D) =
 fun getRuleName(rule_sym_name) = 
   if S.symEq(rule_sym_name,Names.true_intro_PrimMethod_symbol) then "true-introduction" else (S.name rule_sym_name)
 
+val include_by = false 
+
 fun certToString(D) =  
   let val name_table: (P.prop,string) HashTable.hash_table = HashTable.mkTable(Prop.hash, Prop.alEq) (100,Basic.Never)
       val (lemma_counter,hyp_counter,assume_counter) = (ref 0, ref 0, ref 0)
       val spaces = Basic.spaces
+      fun decideBy() = if include_by then " BY " else ""
       fun makeAssumeComment(conditional_conclusion,offset) = 
                   if Basic.incAndReturn(assume_counter) < 2 then "" 
                   else let val comment = "# We now derive the conditional " ^ (P.toStringInfix conditional_conclusion) ^ ": "
@@ -413,15 +436,21 @@ fun certToString(D) =
       fun sentToString(p) = (case (HashTable.find name_table p) of 
                                 SOME(name) => name
  			      | _ => P.toStringInfix(p))
-      fun decideNaming(p,is_assumption,rule_name) = 
-             if String.size(P.toStringInfix(p)) > 10 andalso not(rule_name = "elide") then 
-                let val new_name = makeNewName(is_assumption)
-                    val _ = (HashTable.insert name_table (p,new_name))
-                in
-                   new_name ^ " := " ^ (P.toStringInfix p)
-                end
-             else (P.toStringInfix p)
-      fun getCommentPayload([alpha_list(args)]) =  
+      fun decideNaming(p,is_assumption,rule_name,step_name_option) = 
+	  (case step_name_option of
+             SOME(name) =>
+                   let val _ = (HashTable.insert name_table (p,name))
+                   in
+                      name ^ " := " ^ (if include_by then (P.toStringInfix p) else "")
+		   end
+           | _  => if String.size(P.toStringInfix(p)) > 10 andalso not(rule_name = "elide") then 
+                      let val new_name = makeNewName(is_assumption)
+                          val _ = (HashTable.insert name_table (p,new_name))
+                      in
+                        new_name ^ " := " ^ (if include_by then (P.toStringInfix p) else "")
+                      end
+                   else (if include_by then (P.toStringInfix p) else ""))
+      fun getCommentPayloadOld([alpha_list(args)]) =  
         (* Every arg is a meta-id separated by @ or a sentence *)
 
           let fun argToString(sent(p)) = (P.toStringInfix p)
@@ -441,13 +470,20 @@ fun certToString(D) =
           in
              Basic.printListStr(strings, fn x => x, " ")
           end
-
-      fun argToString(term(t)) = AT.toStringDefault(t)
+      fun getCommentPayload([alpha_string(s)]) =  s
+      fun argToString(term(t)) = 
+              let val term_sort = AT.getSort(t)
+                  val term_sort_as_string = FTerm.toStringDefault(term_sort)
+              in
+                 if term_sort_as_string = Names.boolean_sort_name then sentToString(Prop.makeAtom(t))
+                 else AT.toStringDefault(t)
+              end 
         | argToString(sent(p)) = (sentToString p)
+        | argToString(alpha_string(s)) = s
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun includeSemicolon(left_proof) = if isRuleApp("comment",left_proof) then "" else ";\n"
-      fun c2s(ruleApp({rule,args,conclusion,...}),offset) = 
+      fun c2s(ruleApp({rule,args,conclusion,step_name,...}),offset) = 
         let val rule_name = getRuleName(rule)
         in
              if Symbol.symEq(rule,Names.commentPrimMethod_symbol) 
@@ -456,14 +492,14 @@ fun certToString(D) =
              if Symbol.name(rule) = "gap" 
              then  (spaces offset) ^  ("GAP(" ^ (argsToString args) ^ ")")
              else let val argument_part =  " on " ^ (argsToString args) 
-                      val res = (spaces offset) ^ (decideNaming(conclusion,false,rule_name)) ^  " BY " ^ rule_name ^ (if null(args) then "" else argument_part)
+                      val res = (spaces offset) ^ (decideNaming(conclusion,false,rule_name,step_name)) ^  (decideBy()) ^ rule_name ^ (if null(args) then "" else argument_part)
                   in
                      res 
                   end 
         end 
 	| c2s(assumeProof({hyp as hypothesis(name_opt,p),body,conclusion,...}),offset) = 
-	      (spaces offset) ^ (makeAssumeComment(conclusion,offset))  ^ 
-              "assume " ^ (decideNaming(p,true,"")) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
+	      (spaces offset) ^ 
+              "assume " ^ (decideNaming(p,true,"",NONE)) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(supAbProof({hyp as hypothesis(name_opt,p),body,...}),offset) =
 	      (spaces offset) ^ "suppose-absurd " ^ (sentToString p) ^ " {\n" ^ (c2s(body,offset+2)) ^ "\n" ^ (spaces (offset + 1)) ^"}"
 	| c2s(composition({left,right,...}),offset) = (c2s(left,offset+2)) ^ (includeSemicolon left) ^ (c2s(right,offset+2)) 
@@ -471,7 +507,7 @@ fun certToString(D) =
 	| c2s(block({certs=D1::(more as (_::_)),conclusion,...}),
 	      offset) = c2s(D1,offset) ^ (includeSemicolon D1) ^ (c2s(block({certs=more,conclusion=conclusion}),offset))
 	| c2s(conclude({expected_conc,body,...}),offset) = 
-             (spaces offset) ^ (sentToString expected_conc) ^ " BY " ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
+             (spaces offset) ^ (sentToString expected_conc) ^ (decideBy()) ^ (if simpleCert(body) then c2s(body,0) else ("\n" ^ c2s(body,offset + 2)))
       val D' = compsToBlocks(D)
   in
     (case D' of 
@@ -484,6 +520,7 @@ fun certToStringNoBlocks(D) =
       fun argToString(term(t)) = AT.toStringDefault(t)
         | argToString(sent(p)) = (P.toStringInfix p)
         | argToString(alpha_list(vals)) = Basic.printListStr(vals,argToString,", ")
+        | argToString(alpha_string(s)) = s
       fun argsToString(args) = Basic.printListStr(args,argToString,", ")
       fun c2s(ruleApp({rule,conclusion,args,...}),offset) = 
               let val rule_name = (getRuleName rule)
@@ -598,6 +635,7 @@ fun removeReps(D) =
     	        then ruleApp({rule=S.symbol("claim"), 
 			      args=[sent(D_conc)],
 			      conclusion=D_conc,
+			      step_name=NONE,
 			      index=index()}) 
                 else inspectStructure(D,already_derived)
              end 
@@ -896,7 +934,7 @@ fun shrinkBlock(certs,percentage,block_path) =
                                                                    val _ = if isRuleApp("comment",previous_proof) then Basic.fail("") else ()
                                                                    val _ = mprint("\n&&&&& Here's a previous_conc: " ^ (P.toStringInfix previous_conc) ^ " from this previous step: " ^ (certToString(previous_proof)) ^"\n")
                          				       in
-                                                                  ruleApp({rule=Symbol.symbol("elide"), args=[sent(previous_conc)],conclusion=previous_conc,index=index()})
+                                                                  ruleApp({rule=Symbol.symbol("elide"), args=[sent(previous_conc)],conclusion=previous_conc,step_name=NONE,index=index()})
                                                                end),to_be_removed)
          val certs_with_elisions = prefix @ replacements @ suffix 
          val certs_without_elisions = prefix @ suffix 
@@ -988,7 +1026,7 @@ fun introduceGaps(D) =
      certToString(D'')
   end 
 
-fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,index=0}),conc=Prop.true_prop, fa = []}
+fun makeAlphaDed() = let val res: alpha_ded_info = {proof=ruleApp({rule=S.symbol("foo"),args=[],conclusion=Prop.true_prop,step_name=NONE,index=0}),conc=Prop.true_prop, fa = []}
                      in
                        res
                      end
@@ -1060,7 +1098,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                      val rule_fas = getRuleFA(method_name,[v1,v2],ab'')				   
                      val tail_ded_info = {conc=res_conc,
 					  fa=rule_fas,
-					  proof=ruleApp({rule=method_sym,args=[av1,av2],conclusion=res_conc,index=newIndex(rule_fas,method_name)})}
+					  proof=ruleApp({rule=method_sym,args=[av1,av2],step_name=NONE,conclusion=res_conc,index=newIndex(rule_fas,method_name)})}
                      val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                  in
                     (res_val,ded_info)
@@ -1088,7 +1126,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                                           val ded_info = (case ded_1_info_opt of
                                                              NONE => {conc=res_conc,
  								      fa=rule_app_fas,
-								      proof=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=newIndex(rule_app_fas,method_name)})}
+								      proof=ruleApp({rule=method_sym,step_name=NONE,args=[getAlphaVal(arg_val,method_name)],conclusion=res_conc,index=newIndex(rule_app_fas,method_name)})}
 						           | SOME({conc=conc1,fa=fa1,proof=proof1,...}) =>
                            				       let val final_fas = propUnion(fa1,propDiff(rule_app_fas,[conc1]))
 							       in
@@ -1096,7 +1134,7 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
 								    fa=final_fas,
 								    proof=composition({left=proof1,
 										       right=ruleApp({rule=method_sym,args=[getAlphaVal(arg_val,method_name)],
-												      conclusion=res_conc,
+												      conclusion=res_conc,step_name=NONE,
 												      index=newIndex(rule_app_fas,method_name)}),
 								                       conclusion=res_conc})}
 							       end)
@@ -1185,7 +1223,10 @@ and evDed(method_app as A.BMethAppDed({method,arg1,arg2,pos}),env,ab) =
                    end
 	     | doBindings({bpat,def=A.ded(d),pos}::more,env1,ab1,ded_infos) = 
                   let val (ded_val,ded_info as {proof,conc,fa}) = evDed(d,env1,ab1)
+                      val proof' = updateProofWithPossibleBinding(proof,bpat)								       
+                      val ded_info:alpha_ded_info = {proof=proof',conc=conc,fa=fa}
                       val (env2,ab2) = getNewEnvAndAb(ded_val,bpat,env1,ab1,ab)                   
+                      
                   in
                      doBindings(more,env2,ab2,ded_info::ded_infos)
                   end 
@@ -1534,7 +1575,8 @@ and
                           val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                           val tail_ded_info = {conc=tail_conc,
 					       fa=rule_fas,
-					       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_conc})}
+					       proof=ruleApp({rule=method_code,					       
+							      step_name=NONE,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_conc})}
                           val ded_info = reconcile(possiblyPrimitivizeDedInfo(closure_name,arg_vals,tail_ded_info),arg_ded_infos)
                       in
                          (res_val,ded_info)
@@ -1549,7 +1591,8 @@ and
                                           val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                                           val tail_ded_info = {conc=tail_ded_conc,
 		   			                       fa=rule_fas,
-					                       proof=ruleApp({rule=method_code,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_ded_conc})}
+					                       proof=ruleApp({rule=method_code,					       
+									      step_name=NONE,args=avs,index=newIndex(rule_fas,method_name),conclusion=tail_ded_conc})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 1) then
@@ -1565,8 +1608,8 @@ and
                                           val tail_ded_conc = getProp(res_val)		
 					  val rule_fas = getRuleFA(method_name,arg_vals,new_ab)
                                           val tail_ded_info = {conc=tail_ded_conc,
-		   			                       fa=rule_fas,
-					                       proof=ruleApp({rule=method_code,args=avs,conclusion=tail_ded_conc,index=newIndex(rule_fas,method_name)})}
+		   			                       fa=rule_fas,							       
+					                       proof=ruleApp({rule=method_code,step_name=NONE,args=avs,conclusion=tail_ded_conc,index=newIndex(rule_fas,method_name)})}
                                           val ded_info = reconcile(tail_ded_info,arg_ded_infos)
                                       in
                                         if not(length(arg_vals)  = 2) then
@@ -1678,6 +1721,14 @@ fun extractTailInt(s: string): int option =
     end
 
 
+datatype State = state of {pre_ab: Prop.prop list, post_ab: Prop.prop list, line_number: int, raw_text:int, conclusion: Prop.prop, error: string};
+
+fun simulate(cert,ab) = 
+  let fun step(ruleApp({rule,args,conclusion,index,...}),state(s as {pre_ab, post_ab, line_number,...})) = state
+  in
+    Basic.fail("")
+  end 
+
 fun processCertificate(cert,instruction) = 
   let val binding0 = (termVal(AthTerm.makeIdeConstant("originalCert")),
 		      MLStringToAthString(certToString(cert)))
@@ -1703,12 +1754,14 @@ fun processCertificate(cert,instruction) =
         end
    
     else if instruction = "toJSON" then 
-        let val cert' = compsToBlocks(cert)
+        let val cert' = compsToBlocks(cert)         				     
             val json_string = Basic.jsonValToString(certToJson(cert'),true)
             val binding2 = (termVal(AthTerm.makeIdeConstant("jsonRep")),
     		            MLStringToAthString(json_string))
+            val binding3 = (termVal(AthTerm.makeIdeConstant("cert")),
+           		    MLStringToAthString(certToString(cert')))
         in
-           SOME(makeMap([binding0,binding1,binding2],cert'))
+           SOME(makeMap([binding0,binding1,binding2,binding3],cert'))
         end
     else if (String.isPrefix "corrupt" instruction) then 
             (case extractTailInt(instruction) of

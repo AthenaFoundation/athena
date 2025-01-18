@@ -582,11 +582,10 @@ fun claimPrimUMethod(v,env,ab) =
             SOME(p) => (checkOneAbMemberNoPos(p,ab,N.claimPrimMethod_name);propVal(p))
           | _ => primError(wrongArgKind(N.claimPrimMethod_name,1,propLCType,v)))
 
-fun commentPrimUMethod(v1 as listVal(vals),env,ab) = 
-  let fun properValue(v) = isMetaId(v) orelse (case coerceValIntoProp(v) of SOME(_) => true |  _ => false)
-  in 
-    if Basic.forall(vals,properValue) then propVal(P.true_prop) else primError(wrongArgKind(N.commentPrimMethod_name,1,"A list of metaidentifiers or sentences",v1))
-  end
+fun commentPrimUMethod(v,env,ab) = 
+    (case isStringValConstructive(v) of
+        SOME(s) => propVal(P.true_prop)
+      | _ => primError(wrongArgKind(N.commentPrimMethod_name,1,"A list of metaidentifiers or sentences",v)))
 
 fun mpPrimBMethod(v1,v2,env,ab) =  
       (case getTwoProps(v1,v2,N.mpPrimMethod_name,env) of 

@@ -5246,6 +5246,9 @@ define (break-conditional p) :=
   }
 
 define (get-json proof-string file-name) := 
-  let {s := ((get-and-process-alpha-cert proof-string "toJSON") 'jsonRep)}
-    (write-file file-name s)
+  let {D := (get-and-process-alpha-cert proof-string "toJSON");
+       s := (D 'jsonRep);
+       _ := (delete-file file-name);
+       cert := (D 'cert)}
+    (write-file file-name (join s "\n***********************************************************************\n" cert))
     
