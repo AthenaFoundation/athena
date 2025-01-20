@@ -984,6 +984,25 @@ fun makeSmallEnv(fids:MS.mod_symbol list) =
       loop(fids,Symbol.empty_mapping)
    end
 
+
+fun astJsonPrimUFun(v,env,ab) = 
+        (case isStringValConstructive(v) of
+            SOME(proof_str) => 
+              (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
+                  A.phraseInput(phr as A.ded(D)) => 
+                     let val (phr' as A.ded(D'),vars,fids) = SV.preProcessPhrase(phr,(!Paths.current_mod_path))
+                         val ip as A.ded(D'') = infixProcess(phr',top_val_env,fids) 
+                         val _ = print("About to get JSON for this deduction: " ^ (A.unparseDed D'') ^ "\n")
+                         val ast = A.proofAST(D'')
+                         val _ = Basic.mark("H")
+                     in
+                        MLStringToAthString(Basic.jsonValToString(ast,true))
+                     end
+		| _ => Basic.fail(""))
+          | _ => Basic.fail(""))
+
+
+
 (*****************
 get-and-process-certificate is a much more flexible function for working with certificates. The first argument is directly a string 
 representing a deduction (so no need to use a method thunk). This is the deduction from which we will extract a certificate, and this

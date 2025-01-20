@@ -276,6 +276,17 @@ fun getOccurences(t1,t2) =
     end
 
 
+fun toJson(t as Var(v)) = 
+    JSON.OBJECT([("type", JSON.STRING("symTerm")),
+	   	 ("subtype", JSON.STRING("variable")),
+	  	 ("root", JSON.STRING(Symbol.name v)),
+	  	 ("children", JSON.ARRAY([]))])
+  | toJson(t as App(f,terms)) = 
+    JSON.OBJECT([("type", JSON.STRING("symTerm")),
+	   	 ("subtype", JSON.STRING("app")),
+	  	 ("root", JSON.STRING(ModSymbol.name f)),
+	  	 ("children", JSON.ARRAY(map toJson terms))])
+
 end; (**  of "abstype term with..."  **)
 
 
@@ -369,6 +380,21 @@ fun areTaggedLegal(terms,arityOf,isLegalVariable) =
           in
              checkLst(terms)    
       end
+
+
+fun taggedTermToJson(t as Var(v,tag),tagToString) = 
+    JSON.OBJECT([("type", JSON.STRING("symTerm")),
+	   	 ("subtype", JSON.STRING("variable")),
+	  	 ("root", JSON.STRING(Symbol.name v)),
+		 ("tag",JSON.STRING(tagToString(tag))),
+	  	 ("children", JSON.ARRAY([]))])
+  | taggedTermToJson(t as App(f,tag,terms),tagToString) = 
+    JSON.OBJECT([("type", JSON.STRING("symTerm")),
+	   	 ("subtype", JSON.STRING("app")),
+	  	 ("root", JSON.STRING(ModSymbol.name f)),
+		 ("tag",JSON.STRING(tagToString(tag))),
+	  	 ("children", JSON.ARRAY(map (fn t => taggedTermToJson(t,tagToString)) terms))])
+
 
 end; (**  of "abstype tagged_term with..."  **)
 

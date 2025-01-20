@@ -199,6 +199,9 @@ val sortVarsFun_symbol = Symbol.symbol sortVarsFun_name
 val monoInstanceFun_name = "make-monomorphic-instance"
 val monoInstanceFun_symbol = Symbol.symbol monoInstanceFun_name
 
+val astJsonFun_name = "ast-json"
+val astJsonFun_symbol = Symbol.symbol astJsonFun_name
+
 val holdsFun_name = "holds?"
 val holdsFun_symbol = Symbol.symbol holdsFun_name
 val consFun_name = "add"

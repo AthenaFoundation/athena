@@ -376,7 +376,7 @@ fun tccToString((t,sort)) = (toStringDefault(t))^" :: "^(F.toStringDefault(sort)
 
 fun tccsToString(tccs) = Basic.printListStr(tccs,tccToString,"\n")
 
-fun jsonLeaf(t,subtype) = JSON.OBJECT([("type", JSON.STRING("term")),
+fun jsonLeaf(t,subtype) = JSON.OBJECT([("type", JSON.STRING("athenaTerm")),
 	   	 		       ("subtype", JSON.STRING(subtype)),
 	  	 		       ("root", JSON.STRING(toStringDefault(t))),
 	  	 		       ("children", JSON.ARRAY([]))])

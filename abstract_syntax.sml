@@ -1089,6 +1089,135 @@ and
   | printPat(someMapPat({id=pwp,...})) = "(some-map "^pwpToString(pwp)^")"
   | printPat(someCellPat({id=pwp,...})) = "(some-cell "^pwpToString(pwp)^")"
 
+
+fun posToJson(p:position as {line,pos,file}) = 
+    JSON.OBJECT([("line", JSON.INT(IntInf.fromInt(line))),
+		 ("column",JSON.INT(IntInf.fromInt(pos))),
+		 ("file",JSON.STRING(file))])
+
+
+fun taggedSymTermOptToJson(NONE,_) = JSON.NULL
+  | taggedSymTermOptToJson(SOME(t),printer) = SymTerm.taggedTermToJson(t,printer)
+
+fun proofAST(D) = 
+  let fun makeMethodApp(method,args,pos) = 
+            let val operator = unparseExp(method)
+                val operator_value = JSON.STRING(operator)
+                val _ = print("\nHere's the operator: " ^ operator)
+            in
+               JSON.OBJECT([("type", JSON.STRING("proof")),
+	  		    ("subtype", JSON.STRING("ruleApp")),
+			    ("rule", operator_value),
+			    ("root", JSON.STRING("ruleApp")),
+			    ("children", JSON.ARRAY(map h args)), 
+			    ("pos", posToJson(pos))])
+            end 
+      and f(methodAppDed({method,args,pos})) = makeMethodApp(method,args,pos)
+	| f(UMethAppDed({method,arg,pos})) = 
+	    let val _ = Basic.mark("1")
+                val res = makeMethodApp(method,[arg],pos)
+                val _ = Basic.mark("2")
+            in 
+               res
+            end
+	| f(BMethAppDed({method,arg1,arg2,pos})) = makeMethodApp(method,[arg1,arg2],pos)
+	| f(assumeDed({assumption,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val assumption_ast = h(assumption)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("hypotheticalProof")),
+			     ("root", JSON.STRING("assume")),
+			     ("assumption",assumption_ast),
+			     ("body",body_ast),
+			     ("children", JSON.ARRAY([assumption_ast,body_ast])),
+			     ("pos", posToJson(pos))])
+             end 
+	| f(infixAssumeDed({bindings,body,pos,...})) = 
+    	      let val _ = print("\nAbout to get infix-assume bindings...")
+                  val binding_asts = (map bindingToJson bindings)
+		  val _ = print("\nAbout to get infix-assume body...")
+                  val body_ast = f(body)
+              in
+  	         JSON.OBJECT([("type", JSON.STRING("proof")),
+ 			      ("subtype", JSON.STRING("infixHypotheticalAssume")),
+			      ("root", JSON.STRING("assume")),
+			      ("assumptionBindings", JSON.ARRAY(binding_asts)),
+			      ("body",body_ast),
+			      ("children", JSON.ARRAY(binding_asts@[body_ast])),
+			      ("pos", posToJson(pos))])
+              end
+	| f(beginDed({members,pos,...})) = 
+	      JSON.OBJECT([("type", JSON.STRING("proof")),
+			   ("subtype", JSON.STRING("proofBlock")),
+			   ("root", JSON.STRING("proofBlock")),
+			   ("children", JSON.ARRAY(map f members)),
+			    ("pos", posToJson(pos))])
+	| f(letDed({bindings,body,pos,...})) = 
+    	      let val binding_asts = (map bindingToJson bindings)
+                  val body_ast = f(body)
+              in
+   	        JSON.OBJECT([("type", JSON.STRING("proof")),
+                             ("subtype", JSON.STRING("proofSequence")),	      
+                             ("root", JSON.STRING("dlet")),	      
+			     ("children",JSON.ARRAY(binding_asts@[body_ast])),
+			     ("bindings", JSON.ARRAY(binding_asts)),
+			     ("pos", posToJson(pos)),
+			     ("body", body_ast)])
+              end 
+			   
+        | f(_) = Basic.fail("")
+      and g(unitExp({pos})) = JSON.OBJECT([("type", JSON.STRING("expression")),
+					   ("subtype", JSON.STRING("unit")),
+					   ("root", JSON.STRING("()")),
+					   ("children", JSON.ARRAY([])),
+					   ("pos", posToJson(pos))])
+	| g(e as idExp({msym, mods,sym, no_mods,pos,...})) = 
+               JSON.OBJECT([("type", JSON.STRING("expression")),
+			    ("subtype", JSON.STRING("idExp")),
+			    ("name",JSON.STRING(MS.name(msym))),
+			    ("root",JSON.STRING(MS.name(msym))),
+			    ("children",JSON.ARRAY([])),
+			    ("pos", posToJson(pos))])
+	| g(_) = Basic.fail("Don't know how to do these expressions yet...")
+      and h(exp(e)) = g(e)
+	| h(ded(d)) = f(d)
+      and bindingToJson(b:binding as {bpat,def,pos}) = 
+          let val _ = print("\nAbout to get the value part of this binding, given by this phrase: " ^ (unparsePhrase def) ^ "\n")
+              val binding_value_json = h(def)
+              val _ = Basic.mark("2")					
+          in
+               JSON.OBJECT([("type", JSON.STRING("binding")),
+			    ("subtype", JSON.STRING("letBinding")),
+			    ("root",JSON.STRING("letBinding")),
+			    ("children",JSON.ARRAY([])),
+                            ("identifier", patToJson(bpat)),
+			    ("value", binding_value_json),
+			    ("pos", posToJson(pos))])			    
+          end 
+      and patToJson(anyPat({pos})) = 
+               JSON.OBJECT([("type", JSON.STRING("pattern")),
+			    ("pos", posToJson(pos)),			    
+			    ("subtype", JSON.STRING("anyPattern"))])
+	| patToJson(idPat(param as {pos,...})) = 
+               JSON.OBJECT([("type", JSON.STRING("pattern")),
+			    ("subtype", JSON.STRING("idPat")),
+		 	     ("pos", posToJson(pos)),
+                            ("identifier", possiblyTypedParamToJson(param))])
+      and possiblyTypedParamToJson({name,pos,sort_as_sym_term,op_tag,sort_as_fterm,sort_as_exp,...}) = 
+             let val has_sort_as_sym_term = (case sort_as_sym_term of SOME(_) => true | _ => false)
+             in
+                JSON.OBJECT([("type", JSON.STRING("possiblyTypedParameter")),                  
+		 	     ("pos", posToJson(pos)),
+			     ("root", JSON.STRING(S.name name)),
+			     ("children", JSON.ARRAY([])),
+			     ("hasSortAsSymTerm", JSON.BOOL(has_sort_as_sym_term)),
+			     ("sortAsSymTerm", taggedSymTermOptToJson(sort_as_sym_term,posToString))])
+             end 
+  in
+    f(D) 
+  end
+
 fun isSomeTypePat(p) = 
   let fun f(someVarPat({id=someParam({name,...}),...})) = SOME(name)
         | f(someQuantPat({id=someParam({name,...}),...})) = SOME(name)
