@@ -967,6 +967,11 @@ fun analyzeAlphaCertFun(v1,v2,env,ab) =
    | (v1,closUFunVal(_)) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,1,closMethodLCType,v1))
    | (_,v2) => primError(wrongArgKind(N.analyzeAlphaCertFun_name,2,closUFunType,v2)))
 
+fun writeFile(fname,str:string) = let val stream = TextIO.openAppend(fname) handle _ => TextIO.openOut(fname)
+                                  in
+                                     (TextIO.output(stream,str);TextIO.closeOut(stream))
+                                  end
+
 
 fun makeSmallEnv(fids:MS.mod_symbol list) = 
    let fun loop([],res) = res
@@ -985,7 +990,9 @@ fun makeSmallEnv(fids:MS.mod_symbol list) =
    end
 
 
-fun astJsonPrimUFun(v,env,ab) = 
+fun astJsonPrimBFun(v,v2,env,ab) = 
+   (case isStringValConstructive(v2) of
+      SOME(file_name) => 
         (case isStringValConstructive(v) of
             SOME(proof_str) => 
               (case hd(Parse.parse_from_stream(TextIO.openString proof_str)) of 
@@ -995,18 +1002,22 @@ fun astJsonPrimUFun(v,env,ab) =
                          val _ = print("About to get JSON for this deduction: " ^ (A.unparseDed D'') ^ "\n")
                          val ast = A.proofAST(D'')
                          val _ = Basic.mark("H")
+			 val json_string = Basic.jsonValToString(ast,true)
+                         val _ = writeFile(file_name,json_string)
                      in
-                        MLStringToAthString(Basic.jsonValToString(ast,true))
+                        MLStringToAthString("AST written to " ^ file_name)
                      end
 		| _ => Basic.fail(""))
           | _ => (case v of 
                      closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => 
                         let val ast = A.proofAST(D)
+			    val json_string = Basic.jsonValToString(ast,true)
+                         val _ = writeFile(file_name,json_string)
                         in
-                           MLStringToAthString(Basic.jsonValToString(ast,true))
+                          MLStringToAthString("AST written to " ^ file_name)
                         end
                    | _ => primError("A string or a nullary method must be given as an argument to " ^ (Names.astJsonFun_name))))
-
+      | _ => primError("A file name was expected as the second argument to " ^ (Names.astJsonFun_name)))
 
 
 (*****************
@@ -2624,10 +2635,6 @@ fun freshVarWithPrefixPrimBFun(v1,v2,env,_) =
                         end
         | _ => primError(wrongArgKind(N.fresh_var_with_prefix_name,1,stringLCType,v1)))
 
-fun writeFile(fname,str:string) = let val stream = TextIO.openAppend(fname) handle _ => TextIO.openOut(fname)
-                                  in
-                                     (TextIO.output(stream,str);TextIO.closeOut(stream))
-                                  end
  
 fun readFilePrimUFun(v,_,_) = 
        (case isStringValConstructive(v) of

@@ -3589,6 +3589,10 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.mapFoldlFun_symbol,funVal(mapFoldlFun,N.mapFoldlFun_name,default_fv_pa_for_procs 3)),
                          (N.makeMapFromListFun_symbol,primUFunVal(makeMapFromListPrimUFun,default_ufv_pa_for_procs N.makeMapFromListFun_name)),
                          (N.removeTableFun_symbol,primBFunVal(removeTablePrimBFun,default_bfv_pa_for_procs N.removeTableFun_name)),
+
+                         (N.astJsonFun_symbol,primBFunVal(astJsonPrimBFun,default_bfv_pa_for_procs N.astJsonFun_name)),
+
+
                          (N.findTableFun_symbol,primBFunVal(findTablePrimBFun,default_bfv_pa_for_procs N.findTableFun_name)),
                          (N.findMapFun_symbol,primBFunVal(findMapPrimBFun,default_bfv_pa_for_procs N.findMapFun_name)),
                          (N.tableSizeFun_symbol,primUFunVal(tableSizePrimUFun,default_ufv_pa_for_procs N.tableSizeFun_name)),
@@ -3598,7 +3602,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.nnf_fun_symbol,primUFunVal(nnfFun,default_ufv_pa_for_procs N.nnf_fun_name)),
                          (N.cnfFun_symbol,primBFunVal(cnfPrimBFun,default_bfv_pa_for_procs N.cnfFun_name)),
                          (N.hasMonoSortFun_symbol,primUFunVal(hasMonoSortPrimUFun,default_ufv_pa_for_procs N.hasMonoSortFun_name)),
-                         (N.astJsonFun_symbol,primUFunVal(astJsonPrimUFun,default_ufv_pa_for_procs N.astJsonFun_name)),
+
                          (N.escapeStringFun_symbol,primUFunVal(escapeStringPrimUFun,default_ufv_pa_for_procs N.escapeStringFun_name)),
                          (Symbol.symbol("make-private"),primUFunVal(makePrivatePrimUFun,default_ufv_pa_for_procs "make-private")),
  			 (N.eqTranPrimMethod_symbol,SV.primBMethodVal(eqTranPrimBMethod,N.eqTranPrimMethod_symbol)),
