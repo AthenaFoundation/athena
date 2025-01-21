@@ -999,7 +999,13 @@ fun astJsonPrimUFun(v,env,ab) =
                         MLStringToAthString(Basic.jsonValToString(ast,true))
                      end
 		| _ => Basic.fail(""))
-          | _ => Basic.fail(""))
+          | _ => (case v of 
+                     closMethodVal(A.methodExp({params=[],body=D,pos,name}),env_ref) => 
+                        let val ast = A.proofAST(D)
+                        in
+                           MLStringToAthString(Basic.jsonValToString(ast,true))
+                        end
+                   | _ => primError("A string or a nullary method must be given as an argument to " ^ (Names.astJsonFun_name))))
 
 
 

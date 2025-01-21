@@ -1103,53 +1103,58 @@ fun proofAST(D) =
   let fun makeMethodApp(method,args,pos) = 
             let val operator = unparseExp(method)
                 val operator_value = JSON.STRING(operator)
-                val _ = print("\nHere's the operator: " ^ operator)
             in
                JSON.OBJECT([("type", JSON.STRING("proof")),
 	  		    ("subtype", JSON.STRING("ruleApp")),
 			    ("rule", operator_value),
 			    ("arguments", JSON.ARRAY(map h args)), 
-(***
-			    ("root", JSON.STRING("ruleApp")),
-			    ("children", JSON.ARRAY(map h args)), 
-***)
 			    ("pos", posToJson(pos))])
             end 
       and f(methodAppDed({method,args,pos})) = makeMethodApp(method,args,pos)
 	| f(UMethAppDed({method,arg,pos})) = 
-	    let val _ = Basic.mark("1")
+	    let (* val _ = Basic.mark("1") *)
                 val res = makeMethodApp(method,[arg],pos)
-                val _ = Basic.mark("2")
+                (* val _ = Basic.mark("2") *)
             in 
                res
             end
 	| f(BMethAppDed({method,arg1,arg2,pos})) = makeMethodApp(method,[arg1,arg2],pos)
+	| f(absurdDed({hyp,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val hyp_ast = h(hyp)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("supposeAbsurdProof")),
+			     ("hypothesis",hyp_ast),
+			     ("body",body_ast),
+			     ("pos", posToJson(pos))])
+             end 
+	| f(absurdLetDed({named_hyp,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val hyp_ast = bindingToJson(named_hyp)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("namedSupposeAbsurdProof")),
+			     ("hypothesisBinding",hyp_ast),
+			     ("body",body_ast),
+			     ("pos", posToJson(pos))])
+             end 
 	| f(assumeDed({assumption,body,pos,...})) = 
              let val body_ast = f(body)
                  val assumption_ast = h(assumption)
              in
   	        JSON.OBJECT([("type", JSON.STRING("proof")),
 		  	     ("subtype", JSON.STRING("hypotheticalProof")),
-(***
-			     ("root", JSON.STRING("assume")),
-			     ("children", JSON.ARRAY([assumption_ast,body_ast])),
-***)
 			     ("assumption",assumption_ast),
 			     ("body",body_ast),
 			     ("pos", posToJson(pos))])
              end 
 	| f(infixAssumeDed({bindings,body,pos,...})) = 
-    	      let val _ = print("\nAbout to get infix-assume bindings...")
-                  val binding_asts = (map bindingToJson bindings)
-		  val _ = print("\nAbout to get infix-assume body...")
+    	      let val binding_asts = (map bindingToJson bindings)
                   val body_ast = f(body)
               in
   	         JSON.OBJECT([("type", JSON.STRING("proof")),
  			      ("subtype", JSON.STRING("infixHypotheticalAssume")),
-(***
-			      ("root", JSON.STRING("assume")),
-			      ("children", JSON.ARRAY(binding_asts@[body_ast])),
-***)
 			      ("assumptionBindings", JSON.ARRAY(binding_asts)),
 			      ("body",body_ast),
 			      ("pos", posToJson(pos))])
@@ -1157,10 +1162,6 @@ fun proofAST(D) =
 	| f(beginDed({members,pos,...})) = 
 	      JSON.OBJECT([("type", JSON.STRING("proof")),
 			   ("subtype", JSON.STRING("proofBlock")),
-(***
-			   ("root", JSON.STRING("proofBlock")),
-			   ("children", JSON.ARRAY(map f members)),
-***)
 			    ("pos", posToJson(pos))])
 	| f(letDed({bindings,body,pos,...})) = 
     	      let val binding_asts = (map bindingToJson bindings)
@@ -1168,10 +1169,6 @@ fun proofAST(D) =
               in
    	        JSON.OBJECT([("type", JSON.STRING("proof")),
                              ("subtype", JSON.STRING("dlet")),	      
-(***
-                             ("root", JSON.STRING("dlet")),	      
-			     ("children",JSON.ARRAY(binding_asts@[body_ast])),
-***)
 			     ("bindings", JSON.ARRAY(binding_asts)),
 			     ("pos", posToJson(pos)),
 			     ("body", body_ast)])
@@ -1183,10 +1180,6 @@ fun proofAST(D) =
                     JSON.OBJECT([("type", JSON.STRING("proof")),
 				 ("subtype", JSON.STRING("conclusionAnnotatedProof")),
 				 ("pos", posToJson(pos)),
-(***
-				 ("root", JSON.STRING("BY")),
-				 ("children", JSON.ARRAY([wanted_res_json,body_json])),
-***)
 				 ("expectedConclusion", wanted_res_json),
 				 ("body", body_json)])
                  end
@@ -1196,19 +1189,11 @@ fun proofAST(D) =
                  end 
       and g(unitExp({pos})) = JSON.OBJECT([("type", JSON.STRING("expression")),
 					   ("subtype", JSON.STRING("unit")),
-(***
-					   ("root", JSON.STRING("()")),
-					   ("children", JSON.ARRAY([])),
-***)
 					   ("pos", posToJson(pos))])
 	| g(e as idExp({msym, mods,sym, no_mods,pos,...})) = 
                JSON.OBJECT([("type", JSON.STRING("expression")),
 			    ("subtype", JSON.STRING("idExp")),
 			    ("name",JSON.STRING(MS.name(msym))),
-(***
-			    ("root",JSON.STRING(MS.name(msym))),
-			    ("children",JSON.ARRAY([])),
-***)
 			    ("pos", posToJson(pos))])
 	| g(e as UAppExp({proc, arg, pos,...})) = 
                let val _ = ()
@@ -1217,10 +1202,6 @@ fun proofAST(D) =
 				("subtype", JSON.STRING("appExp")),
                                 ("operator", h(proc)),
                                 ("arguments", JSON.ARRAY([(h arg)])),
-(***
-				("root",JSON.STRING("appExp")),
-				("children",JSON.ARRAY((h proc)::[(h arg)])),
-***)
 				("pos", posToJson(pos))])
                end 
 	| g(e as BAppExp({proc, arg1, arg2, pos,...})) = 
@@ -1230,10 +1211,6 @@ fun proofAST(D) =
 				("subtype", JSON.STRING("appExp")),
                                 ("operator", h(proc)),
                                 ("arguments", JSON.ARRAY([(h arg1), (h arg2)])),
-(***
-				("root",JSON.STRING("appExp")),
-				("children",JSON.ARRAY((h proc)::[(h arg1), (h arg2)])),
-***)
 				("pos", posToJson(pos))])
                end 
 	| g(e as appExp({proc, args, pos,alt_exp,...})) = 
@@ -1243,26 +1220,16 @@ fun proofAST(D) =
 				("subtype", JSON.STRING("appExp")),
                                 ("operator", h(proc)),
                                 ("arguments", JSON.ARRAY(map h args)),
-(***
-				("root",JSON.STRING("appExp")),
-				("children",JSON.ARRAY((h proc)::(map h args))),
-***)
 				("pos", posToJson(pos))])
                end 
 	| g(_) = Basic.fail("Don't know how to do these expressions yet...")
       and h(exp(e)) = g(e)
 	| h(ded(d)) = f(d)
       and bindingToJson(b:binding as {bpat,def,pos}) = 
-          let val _ = print("\nAbout to get the value part of this binding, given by this phrase: " ^ (unparsePhrase def) ^ "\n")
-              val binding_value_json = h(def)
-              val _ = Basic.mark("2")					
+          let val binding_value_json = h(def)
           in
                JSON.OBJECT([("type", JSON.STRING("binding")),
 			    ("subtype", JSON.STRING("letBinding")),
-(***
-			    ("root",JSON.STRING("letBinding")),
-			    ("children",JSON.ARRAY([])),
-***)
                             ("bindingId", patToJson(bpat)),
 			    ("bindingVal", binding_value_json),
 			    ("pos", posToJson(pos))])			    
@@ -1283,10 +1250,6 @@ fun proofAST(D) =
                 JSON.OBJECT([("type", JSON.STRING("possiblyTypedParameter")),                  
 		 	     ("pos", posToJson(pos)),
 			     ("name", JSON.STRING(sym_name)),
-(***
-			     ("root", JSON.STRING(sym_name)),
-			     ("children", JSON.ARRAY([])),
-***)
 			     ("hasSortAsSymTerm", JSON.BOOL(has_sort_as_sym_term)),
 			     ("sortAsSymTerm", taggedSymTermOptToJson(sort_as_sym_term,posToString))])
              end 
