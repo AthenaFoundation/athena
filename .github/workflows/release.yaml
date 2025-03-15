@@ -96,6 +96,7 @@ jobs:
           brew install mlton smlnj
       - name: Build
         run: | 
+          export PATH=/usr/local/smlnj/bin:"$PATH"
           make smlnj packages
       - name: version
         run: |
