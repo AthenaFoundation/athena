@@ -96,7 +96,7 @@ jobs:
           brew install mlton smlnj
       - name: Build
         run: | 
-          make packages
+          make smlnj packages
       - name: version
         run: |
           echo "::set-output name=version::$(cat version.txt)"
