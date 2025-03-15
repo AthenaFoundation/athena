@@ -326,6 +326,35 @@ in
 
     fun mergeWithi f (m1, m2) = raise Fail("mergeWithi not implemented")
 
+    (* Implementation of equiv: checks if two maps are equivalent based on a comparison function *)
+    fun equiv cmp (m1, m2) =
+      (numItems m1 = numItems m2) andalso
+      let
+        fun checkEquiv (key, v1) =
+          case find(m2, key)
+           of NONE => false
+            | SOME v2 => cmp(v1, v2)
+      in
+        foldli (fn (k, v, b) => b andalso checkEquiv(k, v)) true m1
+      end
+
+    (* Implementation of extends: checks if m1 extends m2 based on a comparison function *)
+    fun extends cmp (m1, m2) =
+      let
+        fun checkExtends (key, v2) =
+          case find(m1, key)
+           of NONE => false
+            | SOME v1 => cmp(v1, v2)
+      in
+        foldli (fn (k, v, b) => b andalso checkExtends(k, v)) true m2
+      end
+
+    (* Implementation of findAndRemove: finds and removes a key-value pair *)
+    fun findAndRemove (m, k) =
+      if inDomain(m, k)
+      then let val (m', v) = remove(m, k) in SOME(m', v) end
+      else NONE
+
   (* this is a generic implementation of filter.  It should
    * be specialized to the data-structure at some point.
    *)
