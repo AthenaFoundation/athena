@@ -1,9 +1,7 @@
 #!/bin/bash
-rm ${ATHENA_HOME}/athena-run-temp.ath
-echo "(load \""$1".ath\")" >>${ATHENA_HOME}/athena-run-temp.ath
-echo "quit" >>${ATHENA_HOME}/athena-run-temp.ath
-echo " " >>${ATHENA_HOME}/athena-run-temp.ath
-time ${ATHENA_HOME}/athena <${ATHENA_HOME}/athena-run-temp.ath
-
-
-
+TMPFILE="mktemp --tmpdir athena-run-temp-XXXXXX.ath"
+echo "(load \""$1"\")" >> "$TMPFILE"
+echo "quit" >> "$TMPFILE"
+echo " " >> "$TMPFILE"
+time ${ATHENA_HOME}/athena < "$TMPFILE"
+rm "$TMPFILE"
