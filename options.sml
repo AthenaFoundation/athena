@@ -35,7 +35,7 @@ val auto_assert_dt_axioms = ref(false)
 val auto_assert_selector_axioms = ref(true)
 val default_table_size = ref(743)
 val prohibit_large_proof_steps = ref(false)
-val max_proof_steps = ref(1)
+val max_proof_steps = ref(10)
 
 fun setDebugModeFlag("off",_) = 
 	(conclude_trace := false;

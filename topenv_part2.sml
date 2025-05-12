@@ -2798,20 +2798,15 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       val _ = OS.Process.system(cmd)
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
-      val _ = Basic.mark("XXXX")
-      val large_proof_steps = if not(answer_bit) orelse not(!Options.prohibit_large_proof_steps) then 
-                              let val _ = Basic.mark("00") in false end else
-                              let val _ = Basic.mark("11")
-                                  val lines = Basic.readFileLines(vamp_out_fname)
-				  val _ = print("\nTotal number of lines read from file " ^ vamp_out_fname ^ ": " ^ (Int.toString (length lines)))
-			          val resolution_lines = length(Basic.filter(lines,fn line => (String.isSubstring "resolution" line)))                         
-				  val _ = print("\nResolution lines: " ^ (Int.toString resolution_lines))
-				  val too_large_steps = resolution_lines > !Options.max_proof_steps 
-				  val _ = if too_large_steps then print("\n'from' proof found with too many (" ^ (Int.toString(resolution_lines)) ^ ") resolution steps, will fail the proof attempt.")
-                                          else ()
-                              in
-			         too_large_steps
-                              end 
+      val resolution_proof_step_count = 
+                            (* If the proof attempt failed, or if we don't care about proof steps, then there's nothing to count so just return ~1: *)
+                             if not(answer_bit) orelse not(!Options.prohibit_large_proof_steps) then ~1
+                             else 
+                                let val lines = Basic.readFileLines(vamp_out_fname)
+                                    val count = length(Basic.filter(lines,fn line => (String.isSubstring "resolution" line)))
+                                in
+                                  count
+                                end                         
       val used_premise_indices = if not(answer_bit) then [] else findUsedPremises(vamp_answer_stream)
       val used_premises = let fun loop([],res) = res
                                 | loop(i::more,res) = loop(more,(Array.sub(premise_array,i-1))::res)
@@ -2821,10 +2816,15 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       val _ = deleteFile(vamp_out_fname) *)
       val _ = List.app (fn (_,f') => Data.removeFSymByName(f')) syms_and_new_syms
   in
-     (answer_bit andalso not(large_proof_steps),goal,used_premises)
+     (answer_bit,goal,used_premises,resolution_proof_step_count)
   end
 and 
  polyDecide(str) = if Util.small(str,40) then str else "\n"^str
+and
+  handleProofStepError(desired_conc,resolution_step_count) =
+     primError("Failed application of "^N.vpfPrimMethod_name^
+               ":\nThe number of steps (" ^ (Int.toString resolution_step_count) ^ ") in the derivation of " ^ (polyDecide(pprint(0,desired_conc))) ^ 
+               " exceeded the set maximum, " ^ (Int.toString (!Options.max_proof_steps)) ^ ".")
 and
  polyVampireProvePrimMethod([v,listVal(hyp_vals),listVal(option_pairs)],env,ab) = 
   let val options as {poly,subsorting,time,cell_option,...} = getOptions(option_pairs,env) 
@@ -2834,19 +2834,22 @@ and
       val goal_prop = (case coerceValIntoProp(v) of
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.vpfPrimMethod_name,1,propLCType,v)))
-      val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,time,is_mono,subsorting)
+      val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,time,is_mono,subsorting)
   in
      if answer_bit then 
-        let val _ = (case (cell_option,used_hyps) of
-                        (SOME(c),SOME(props)) => (c := listVal(map propVal props))
-                      | _ => ())
-        in 
-           propVal(desired_conc) 
-        end
-     else primError("Failed application of "^N.vpfPrimMethod_name^
-	             ":\nUnable to derive the conclusion "^
-                     polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
-                  
+        (if resolution_step_count > !Options.max_proof_steps then 
+            handleProofStepError(desired_conc,resolution_step_count)
+         else 
+            let val _ = (case (cell_option,used_hyps) of
+                            (SOME(c),SOME(props)) => (c := listVal(map propVal props))
+                          | _ => ())
+            in 
+               propVal(desired_conc) 
+            end)
+     else 
+         primError("Failed application of "^N.vpfPrimMethod_name^
+                   ":\nUnable to derive the conclusion "^
+                   polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
   end
  | polyVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) = 
      let val is_mono =  false
@@ -2857,9 +2860,11 @@ and
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.vpfPrimMethod_name,1,
 						propLCType,v)))
-         val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,false,false)
+         val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,false,false)
      in
-        if answer_bit then propVal(desired_conc) 
+        if answer_bit then 
+            (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+             else propVal(desired_conc))
         else primError("Failed application of "^N.vpfPrimMethod_name^
    	             ":\nUnable to derive the conclusion "^
                      polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
@@ -2900,9 +2905,11 @@ fun monoVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
       val goal_prop = (case coerceValIntoProp(v) of
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.mvpfPrimMethod_name,1,propLCType,v)))
-      val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,"50",true,false)
+      val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,"50",true,false)
   in
-     if answer_bit then propVal(desired_conc) 
+     if answer_bit then 
+        (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+         else propVal(desired_conc))
      else primError("Failed application of "^N.vpfPrimMethod_name^
 	            ":\nUnable to derive the conclusion "^
                     decide(pprint(0,desired_conc))^" from the given hypotheses")
@@ -2920,9 +2927,11 @@ fun monoVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
                               else primError("Failed application of "^N.vpfPrimMethod_name^": invalid time limit: "^str)
 		      | _ => primError("Failed application of "^N.vpfPrimMethod_name^": invalid time limit: "^str))
           | _ => primError(wrongArgKind(N.vpfPrimMethod_name,3,stringLCType,seconds)))
-         val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,true,false)
+         val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,true,false)
      in
-        if answer_bit then propVal(desired_conc) 
+        if answer_bit then 
+           (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+            else propVal(desired_conc))
         else primError("Failed application of "^N.vpfPrimMethod_name^
    	               ":\nUnable to derive the conclusion "^
                        decide(pprint(0,desired_conc))^" from the given hypotheses")
