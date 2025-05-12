@@ -5,7 +5,7 @@ define (alist->pair inner1 inner2) :=
     match L {
       [a b] => (pair (inner1 a) (inner2 b))
     | _ => L
-    }
+  }
 
 module Pair {
 

@@ -7234,7 +7234,7 @@ expression1 ()
  val  (comma_separated_phrase_list as comma_separated_phrase_list1) = 
 comma_separated_phrase_list1 ()
  in (
-A.methodAppDed({method=A.idExp({msym=A.mSym N.spfPrimMethod_symbol,mods=[],sym=N.spfPrimMethod_symbol,no_mods=true,pos=getPos FROMleft}),
+A.methodAppDed({method=A.idExp({msym=A.mSym N.mvpfPrimMethod_symbol,mods=[],sym=N.mvpfPrimMethod_symbol,no_mods=true,pos=getPos FROMleft}),
                                            args=[A.exp(expression),
                                                  A.exp(A.listExp({members=comma_separated_phrase_list,pos=getPos FROMright}))],
                                                  pos=A.posOfExp(expression)})

@@ -912,7 +912,8 @@ opt_comma_separated_phrase_list: phrase ([phrase])
                                        (phrase::opt_comma_separated_phrase_list)
 
 inference: expression FROM comma_separated_phrase_list 
-             (A.methodAppDed({method=A.idExp({msym=A.mSym N.spfPrimMethod_symbol,mods=[],sym=N.spfPrimMethod_symbol,no_mods=true,pos=getPos FROMleft}),
+(**  TODO QQQ !! FIX: change mvpfPrimMethod_name to vpfPrimMethod_name **)
+             (A.methodAppDed({method=A.idExp({msym=A.mSym N.mvpfPrimMethod_symbol,mods=[],sym=N.mvpfPrimMethod_symbol,no_mods=true,pos=getPos FROMleft}),
                                            args=[A.exp(expression),
                                                  A.exp(A.listExp({members=comma_separated_phrase_list,pos=getPos FROMright}))],
                                                  pos=A.posOfExp(expression)}))

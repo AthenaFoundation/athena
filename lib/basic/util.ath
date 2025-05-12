@@ -4899,6 +4899,16 @@ define (sub-sentences p) :=
  | ((some-quant _) (some-list _) body) => (add p (sub-sentences body))
   }
 
+define (sent-cons p) := 
+  match p { 
+ | ((some-sent-con sc) (some-list args)) => (add sc (flatten (map sent-cons args)))
+ | _ => []
+ }
+
+define (canonical-sent-cons p) :=
+   let {scs := (sent-cons p);
+        get := lambda (sc) (filter scs (lambda (sc') (equal? sc sc')))}
+     [(length (get not)) (length (get and)) (length (get or)) (length (get if)) (length (get iff))]
 
 (define (idf f max-depth max-branches)
   (letrec ((loop (lambda (i)

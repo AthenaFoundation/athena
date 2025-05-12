@@ -2182,6 +2182,7 @@ fun makeTPTPPropSimple(P) = makeTPTPPropAux(P,true)
 
 fun makeTPTPPropList(props) = List.map makeTPTPProp props
 
+
 fun makeTSTPProp(P) = 
  let val P' = alphaRename(P)
      val fvars = freeVars(P')

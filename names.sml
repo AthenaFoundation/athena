@@ -898,6 +898,9 @@ val explicit_wildcard_patterns_flag_symbol = Symbol.symbol explicit_wildcard_pat
 val compile_mode_flag = "incremental-compile-mode"
 val compile_mode_flag_symbol = Symbol.symbol compile_mode_flag
 
+val prohibit_large_proof_steps_flag = "prohibit-large-proof-steps"
+val prohibit_large_proof_steps_flag_symbol = Symbol.symbol prohibit_large_proof_steps_flag
+
 val dom_as_dt_default_size_flag = "dom-dt-default-size"
 val dom_as_dt_default_size_flag_symbol = Symbol.symbol dom_as_dt_default_size_flag
 
@@ -1199,7 +1202,7 @@ val spass_windows_binary = (case Paths.findFileWithPossibleSuffix("SPASS",".exe"
 
 val spass_binary = if (Paths.is_unix) then Paths.findIterated(["spass","SPASS"],"./SPASS") else spass_windows_binary
 
-val vampire_linux_binary = Paths.findIterated(["vampire_z3_rel_static_sledge_5980"],"./vampire_z3_rel_static_sledge_5980")
+val vampire_linux_binary = Paths.findIterated(["dvampire_z3_rel_static_sledge_5980"],"./vampire_z3_rel_static_sledge_5980")
 			     
 val vampire_binary = (case Paths.findFileWithPossibleSuffix("vampire",".exe") of
                                    SOME(str) => str

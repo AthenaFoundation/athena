@@ -245,6 +245,9 @@ fun getFlag(name) =
   if S.symEq(name,Names.ATPs_in_chain_flag_symbol) then 
      Basic.boolToString(!Options.atps_in_chain_option) else
 
+  if S.symEq(name,Names.prohibit_large_proof_steps_flag_symbol) then 
+     Basic.boolToString(!Options.prohibit_large_proof_steps) else
+
   if S.symEq(name,Names.call_stack_size_limit_flag_symbol) then 
      Int.toString(!Options.call_stack_size) else
 
@@ -1860,7 +1863,9 @@ fun spassProve(fun_sym_str,pred_sym_str,hyp_str_lst,concl_str,max_seconds) =
       val sp_output_string = TextIO.inputAll(in_stream)
       val _ = TextIO.closeIn(in_stream)
       val _ = TextIO.closeOut(stream)
+(***
       val _ = (deleteFile(in_file_name);deleteFile(out_file_name))
+***)
   in
     (sp_output_string,answer_bit)
   end
@@ -2785,10 +2790,28 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       fun write(str) = TextIO.output(vamp_problem_stream,str)
       val _ = (List.app write hyps;write conc)
       val _ = TextIO.closeOut(vamp_problem_stream)
+(***
       val cmd = Names.vampire_binary ^ " --proof tptp --mode casc --show_skolemisations on --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname ^ " 2> " ^ vamp_error_fname 
+***)
+	(*** QQQ TODO !!! FIX: Remove -av off to allow Vampire to use SAT Solving ***)
+      val cmd = Names.vampire_binary ^ " --proof tptp --show_skolemisations on -av off --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname ^ " 2> " ^ vamp_error_fname 
       val _ = OS.Process.system(cmd)
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
+      val _ = Basic.mark("XXXX")
+      val large_proof_steps = if not(answer_bit) orelse not(!Options.prohibit_large_proof_steps) then 
+                              let val _ = Basic.mark("00") in false end else
+                              let val _ = Basic.mark("11")
+                                  val lines = Basic.readFileLines(vamp_out_fname)
+				  val _ = print("\nTotal number of lines read from file " ^ vamp_out_fname ^ ": " ^ (Int.toString (length lines)))
+			          val resolution_lines = length(Basic.filter(lines,fn line => (String.isSubstring "resolution" line)))                         
+				  val _ = print("\nResolution lines: " ^ (Int.toString resolution_lines))
+				  val too_large_steps = resolution_lines > !Options.max_proof_steps 
+				  val _ = if too_large_steps then print("\n'from' proof found with too many (" ^ (Int.toString(resolution_lines)) ^ ") resolution steps, will fail the proof attempt.")
+                                          else ()
+                              in
+			         too_large_steps
+                              end 
       val used_premise_indices = if not(answer_bit) then [] else findUsedPremises(vamp_answer_stream)
       val used_premises = let fun loop([],res) = res
                                 | loop(i::more,res) = loop(more,(Array.sub(premise_array,i-1))::res)
@@ -2798,7 +2821,7 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       val _ = deleteFile(vamp_out_fname) *)
       val _ = List.app (fn (_,f') => Data.removeFSymByName(f')) syms_and_new_syms
   in
-     (answer_bit,goal,used_premises)
+     (answer_bit andalso not(large_proof_steps),goal,used_premises)
   end
 and 
  polyDecide(str) = if Util.small(str,40) then str else "\n"^str

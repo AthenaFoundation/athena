@@ -24,9 +24,9 @@ define (inconsistent? abase inconsistent-pair-cell) :=
        | (list-of p more) => (loop p more)
        }
 
-define UPPER-BOUND := 100000
-define MAX-ITERS := (cell 8)
-define TIMEOUT_LIMIT := 60000 # 60 seconds (60K milliseconds) timeout limit
+define UPPER-BOUND := 1000000
+define MAX-ITERS := (cell 1000000)
+define TIMEOUT_LIMIT := 600000 # 60 seconds (60K milliseconds) timeout limit
 
 define (transform-forward hyp K) :=
   match hyp {

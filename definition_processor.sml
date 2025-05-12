@@ -3434,6 +3434,9 @@ fun setFlag(flag as {name,pos=flag_pos}:AbstractSyntax.param,value as (str,pos))
   if Symbol.symEq(name,Names.compile_mode_flag_symbol) then 
      myPrint("\n"^Options.setBooleanFlag(Options.compile_mode_option,Names.compile_mode_flag,str,pos)^"\n") else
 
+  if Symbol.symEq(name,Names.prohibit_large_proof_steps_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.prohibit_large_proof_steps,Names.prohibit_large_proof_steps_flag,str,pos)^"\n") else
+
   if Symbol.symEq(name,Names.decompose_assertions_flag_symbol) then 
      myPrint("\n"^Options.setBooleanFlag(Options.decompose_assertions_option,Names.decompose_assertions_flag,str,pos)^"\n") else
 
