@@ -226,6 +226,7 @@ fun isReserved(str,leftp:pos as (l,p)) =
             doReserved "conclude" = (true,Tokens.CONCLUDE(getPos(8))) |
             doReserved "applying" = (true,Tokens.APPLYING(getPos(8))) |
             doReserved "from" = (true,Tokens.FROM(getPos(4))) |
+            doReserved "FROM" = (true,Tokens.FROM(getPos(4))) |
             doReserved "pick-any" = (true,Tokens.PICK_ANY(getPos(8))) |
             doReserved "pick-witness" = (true,Tokens.PICK_WITNESS(getPos(12))) |
             doReserved "pick-witnesses" = (true,Tokens.PICK_WITNESSES(getPos(14))) |
