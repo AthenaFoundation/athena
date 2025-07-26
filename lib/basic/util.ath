@@ -5261,4 +5261,27 @@ define (get-json proof-string file-name premise-name-pairs) :=
        _ := (delete-file file-name);
        cert := (D 'cert)}
     (write-file file-name (join s "\n***********************************************************************\n" cert))
-    
+
+
+define [dn-equiv dn-equiv*] :=
+  letrec {dn-equiv :=
+            lambda (p q)
+              check {(equal? p q) => true
+                   | else => match [p q] {
+                               [_ (not (not p))] => true
+                             | [(not (not (some-sent r))) r] => true
+                             | [(not p') (not q')] => (dn-equiv p' q')
+                             | [(and (some-list props)) (and (some-list props'))] => (dn-equiv* props props')
+                             | [(or (some-list props)) (or (some-list props'))] => (dn-equiv* props props')
+                             | [(if p1 p2) (if q1 q2)] => (&& (dn-equiv p1 q1) (dn-equiv p2 q2))
+                             | [(iff p1 p2) (iff q1 q2)] => (&& (dn-equiv p1 q1) (dn-equiv p2 q2))
+                             | _ => false
+                             }};
+          dn-equiv* :=
+            lambda (props1 props2)
+               match [props1 props2] {
+                 [[] []] => true
+               | [(list-of p1 more1) (list-of p2 more2)] => (&& (dn-equiv p1 p2) (dn-equiv* more1 more2))
+               | _ => false
+               }}
+      [dn-equiv dn-equiv*]               
