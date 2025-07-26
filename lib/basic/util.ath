@@ -5268,7 +5268,7 @@ define [dn-equiv dn-equiv*] :=
             lambda (p q)
               check {(equal? p q) => true
                    | else => match [p q] {
-                               [_ (not (not p))] => true
+                               [_ (not (not (val-of p)))] => true
                              | [(not (not (some-sent r))) r] => true
                              | [(not p') (not q')] => (dn-equiv p' q')
                              | [(and (some-list props)) (and (some-list props'))] => (dn-equiv* props props')
