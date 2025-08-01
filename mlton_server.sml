@@ -130,7 +130,7 @@ fun acceptLoop(server_port:int) =
           accept(listener)
     end
 
-fun startServer(port,file_name_option) = 
+fun startServerb(port,file_name_option) = 
     let val sock = INetSock.TCP.socket()
     	val _ = Repl.init(file_name_option)
     in

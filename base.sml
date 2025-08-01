@@ -1048,7 +1048,9 @@ val json_file_counter = ref(0)
 fun jsonValToString(v,pretty) =
   let val file_name = "/tmp/json_tmp_" ^ (Int.toString(incAndReturn(json_file_counter))) ^ ".txt"
       val _ = printJsonObjectToFile(v,file_name,pretty)
-      val s = TextIO.inputAll(TextIO.openIn(file_name))
+      val istream = TextIO.openIn(file_name)
+      val s = TextIO.inputAll(istream)
+      val _ = TextIO.closeIn(istream) 
       val _ = deleteFile(file_name)
   in
     s

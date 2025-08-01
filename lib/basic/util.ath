@@ -5262,7 +5262,6 @@ define (get-json proof-string file-name premise-name-pairs) :=
        cert := (D 'cert)}
     (write-file file-name (join s "\n***********************************************************************\n" cert))
 
-
 define [dn-equiv dn-equiv*] :=
   letrec {dn-equiv :=
             lambda (p q)
@@ -5285,3 +5284,6 @@ define [dn-equiv dn-equiv*] :=
                | _ => false
                }}
       [dn-equiv dn-equiv*]               
+
+define (comm-equiv p q) := (assume p (!transform p q [comm]))
+
