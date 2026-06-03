@@ -373,6 +373,7 @@ withtype binding = {bpat:pattern,def:phrase,pos:position}
      and possibly_typed_param = {name:symbol,pos:position,sort_as_sym_term:absyn_term option,op_tag: (int * int) option,
 	     		         sort_as_fterm:FTerm.term option,sort_as_exp: expression option}
 
+
 type absyn_fsym = {name:symbol,pos:position,obtype_params:param list,input_transformer: expression list option,
                    argument_types:absyn_term list,range_type:absyn_term,
                    prec: int option,assoc: bool option,overload_sym: param option}
@@ -1006,9 +1007,40 @@ and unparseCheckClause({test=boolCond(phr),result,...}:check_clause) = lparen^(u
   | unparseCheckClause({test=elseCond,result,...}:check_clause) = lparen^(Names.else_name)^space^(unparseExp(result))^rparen
 and unparseCheckClauses(clauses) = Basic.printSExpListStr(clauses,unparseCheckClause)
 and unparseBinding({bpat,def,...}) = lparen^(printPat bpat)^space^(unparsePhrase def)^rparen
+and unparseBindingInfix({bpat,def,...}) = (printPat bpat)^ " := " ^(unparsePhrase def)
 and unparseBindings(bindings) = Basic.printSExpListStr(bindings,unparseBinding)
-and unparseDed(methodAppDed({method,args,pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr(args,unparsePhrase))^")"
-  | unparseDed(_) = "(Don't know how to unparse this deduction yet.)"
+and unparseBindingsInfix(bindings) = Basic.printListStr(bindings,unparseBindingInfix,"; ")
+and unparseDed(methodAppDed({method,args,pos})) = 
+       let 
+       in
+          "(!"^(unparseExp method)^space^(Basic.printSExpListStr(args,unparsePhrase))^")"
+       end
+  | unparseDed(UMethAppDed({method, arg, pos})) = 
+       let 
+       in
+         "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg],unparsePhrase))^")"
+       end 
+  | unparseDed(BMethAppDed({method, arg1, arg2, pos})) = "(!"^(unparseExp method)^space^(Basic.printSExpListStr([arg1,arg2],unparsePhrase))^")"
+  | unparseDed(letDed({bindings,body,pos,...})) = "let {"^(unparseBindingsInfix bindings)^"}"^space^(unparseDed body)
+  | unparseDed(beginDed({members,pos,...})) = "{"^(Basic.printListStr(members, unparseDed, ";\n"))^"}"
+  | unparseDed(matchDed(_)) = "Match ded!"
+  | unparseDed(letRecDed(_)) = "Letrec ded!"
+  | unparseDed(checkDed(_)) = "Check ded!"
+  | unparseDed(assumeDed({assumption,body,pos,...})) = "(assume " ^ (unparsePhrase assumption) ^ " " ^ (unparseDed body) ^ ")"
+  | unparseDed(infixAssumeDed(_)) = "Infix Assume ded!"
+  | unparseDed(assumeLetDed(_)) = "Assume-Let ded!"
+  | unparseDed(absurdDed(_)) = "Absurd ded!"
+  | unparseDed(tryDed(_)) = "Try ded!"
+  | unparseDed(absurdLetDed(_)) = "Absurd-Let ded!"
+  | unparseDed(inductionDed(_)) = "Induction ded!"
+  | unparseDed(structureCasesDed(_)) = "Structure-Cases ded!"
+  | unparseDed(byDed({wanted_res,conc_name,body,pos,...})) = "(" ^ (unparseExp wanted_res) ^ " BY " ^ (unparseDed body) ^ ")"
+  | unparseDed(fromDed(_)) = "From ded!"
+  | unparseDed(genOverDed(_)) = "Gen-over ded!"
+  | unparseDed(pickAnyDed(_)) = "Pick-any ded!"
+  | unparseDed(withWitnessDed(_)) = "With-witness ded!"
+  | unparseDed(pickWitnessDed(_)) = "Pick-witness ded!"
+  | unparseDed(pickWitnessesDed(_)) = "Pick-witnesses ded!"
 and unparsePhrase(exp(e)) = unparseExp(e)
   | unparsePhrase(ded(d)) = unparseDed(d)
 and
@@ -1056,6 +1088,174 @@ and
   | printPat(someTablePat({id=pwp,...})) = "(some-table "^pwpToString(pwp)^")"
   | printPat(someMapPat({id=pwp,...})) = "(some-map "^pwpToString(pwp)^")"
   | printPat(someCellPat({id=pwp,...})) = "(some-cell "^pwpToString(pwp)^")"
+
+
+fun posToJson(p:position as {line,pos,file}) = 
+    JSON.OBJECT([("line", JSON.INT(IntInf.fromInt(line))),
+		 ("column",JSON.INT(IntInf.fromInt(pos))),
+		 ("file",JSON.STRING(file))])
+
+
+fun taggedSymTermOptToJson(NONE,_) = JSON.NULL
+  | taggedSymTermOptToJson(SOME(t),printer) = SymTerm.taggedTermToJson(t,printer)
+
+fun proofAST(D) = 
+  let fun makeMethodApp(method,args,pos) = 
+            let val operator = unparseExp(method)
+                val operator_value = JSON.STRING(operator)
+            in
+               JSON.OBJECT([("type", JSON.STRING("proof")),
+	  		    ("subtype", JSON.STRING("ruleApp")),
+			    ("rule", operator_value),
+			    ("arguments", JSON.ARRAY(map h args)), 
+			    ("pos", posToJson(pos))])
+            end 
+      and f(methodAppDed({method,args,pos})) = makeMethodApp(method,args,pos)
+	| f(UMethAppDed({method,arg,pos})) = 
+	    let (* val _ = Basic.mark("1") *)
+                val res = makeMethodApp(method,[arg],pos)
+                (* val _ = Basic.mark("2") *)
+            in 
+               res
+            end
+	| f(BMethAppDed({method,arg1,arg2,pos})) = makeMethodApp(method,[arg1,arg2],pos)
+	| f(absurdDed({hyp,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val hyp_ast = h(hyp)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("supposeAbsurdProof")),
+			     ("hypothesis",hyp_ast),
+			     ("body",body_ast),
+			     ("pos", posToJson(pos))])
+             end 
+	| f(absurdLetDed({named_hyp,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val hyp_ast = bindingToJson(named_hyp)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("namedSupposeAbsurdProof")),
+			     ("hypothesisBinding",hyp_ast),
+			     ("body",body_ast),
+			     ("pos", posToJson(pos))])
+             end 
+	| f(assumeDed({assumption,body,pos,...})) = 
+             let val body_ast = f(body)
+                 val assumption_ast = h(assumption)
+             in
+  	        JSON.OBJECT([("type", JSON.STRING("proof")),
+		  	     ("subtype", JSON.STRING("hypotheticalProof")),
+			     ("assumption",assumption_ast),
+			     ("body",body_ast),
+			     ("pos", posToJson(pos))])
+             end 
+	| f(infixAssumeDed({bindings,body,pos,...})) = 
+    	      let val binding_asts = (map bindingToJson bindings)
+                  val body_ast = f(body)
+              in
+  	         JSON.OBJECT([("type", JSON.STRING("proof")),
+ 			      ("subtype", JSON.STRING("infixHypotheticalAssume")),
+			      ("assumptionBindings", JSON.ARRAY(binding_asts)),
+			      ("body",body_ast),
+			      ("pos", posToJson(pos))])
+              end
+	| f(beginDed({members,pos,...})) = 
+	      JSON.OBJECT([("type", JSON.STRING("proof")),
+			   ("subtype", JSON.STRING("proofBlock")),
+			    ("pos", posToJson(pos))])
+	| f(letDed({bindings,body,pos,...})) = 
+    	      let val binding_asts = (map bindingToJson bindings)
+                  val body_ast = f(body)
+              in
+   	        JSON.OBJECT([("type", JSON.STRING("proof")),
+                             ("subtype", JSON.STRING("dlet")),	      
+			     ("bindings", JSON.ARRAY(binding_asts)),
+			     ("pos", posToJson(pos)),
+			     ("body", body_ast)])
+              end 
+	| f(byDed({wanted_res,conc_name,body,pos,...})) = 
+                 let val wanted_res_json = g(wanted_res)
+                     val body_json = f(body)					    
+                 in
+                    JSON.OBJECT([("type", JSON.STRING("proof")),
+				 ("subtype", JSON.STRING("conclusionAnnotatedProof")),
+				 ("pos", posToJson(pos)),
+				 ("expectedConclusion", wanted_res_json),
+				 ("body", body_json)])
+                 end
+        | f(D) = let val _ = print("\nDon't know how to parse this type of proof yet: " ^ (unparseDed D) ^ "\n")
+                 in 
+                    Basic.fail("")
+                 end 
+      and g(unitExp({pos})) = JSON.OBJECT([("type", JSON.STRING("expression")),
+					   ("subtype", JSON.STRING("unit")),
+					   ("pos", posToJson(pos))])
+	| g(e as idExp({msym, mods,sym, no_mods,pos,...})) = 
+               JSON.OBJECT([("type", JSON.STRING("expression")),
+			    ("subtype", JSON.STRING("idExp")),
+			    ("name",JSON.STRING(MS.name(msym))),
+			    ("pos", posToJson(pos))])
+	| g(e as UAppExp({proc, arg, pos,...})) = 
+               let val _ = ()
+               in
+		   JSON.OBJECT([("type", JSON.STRING("expression")),
+				("subtype", JSON.STRING("appExp")),
+                                ("operator", h(proc)),
+                                ("arguments", JSON.ARRAY([(h arg)])),
+				("pos", posToJson(pos))])
+               end 
+	| g(e as BAppExp({proc, arg1, arg2, pos,...})) = 
+               let val _ = ()
+               in
+		   JSON.OBJECT([("type", JSON.STRING("expression")),
+				("subtype", JSON.STRING("appExp")),
+                                ("operator", h(proc)),
+                                ("arguments", JSON.ARRAY([(h arg1), (h arg2)])),
+				("pos", posToJson(pos))])
+               end 
+	| g(e as appExp({proc, args, pos,alt_exp,...})) = 
+               let val _ = ()
+               in
+		   JSON.OBJECT([("type", JSON.STRING("expression")),
+				("subtype", JSON.STRING("appExp")),
+                                ("operator", h(proc)),
+                                ("arguments", JSON.ARRAY(map h args)),
+				("pos", posToJson(pos))])
+               end 
+	| g(_) = Basic.fail("Don't know how to do these expressions yet...")
+      and h(exp(e)) = g(e)
+	| h(ded(d)) = f(d)
+      and bindingToJson(b:binding as {bpat,def,pos}) = 
+          let val binding_value_json = h(def)
+          in
+               JSON.OBJECT([("type", JSON.STRING("binding")),
+			    ("subtype", JSON.STRING("letBinding")),
+                            ("bindingId", patToJson(bpat)),
+			    ("bindingVal", binding_value_json),
+			    ("pos", posToJson(pos))])			    
+          end 
+      and patToJson(anyPat({pos})) = 
+               JSON.OBJECT([("type", JSON.STRING("pattern")),
+			    ("pos", posToJson(pos)),			    
+			    ("subtype", JSON.STRING("anyPattern"))])
+	| patToJson(idPat(param as {pos,...})) = 
+               JSON.OBJECT([("type", JSON.STRING("pattern")),
+			    ("subtype", JSON.STRING("idPat")),
+		 	     ("pos", posToJson(pos)),
+                            ("identifier", possiblyTypedParamToJson(param))])
+      and possiblyTypedParamToJson({name,pos,sort_as_sym_term,op_tag,sort_as_fterm,sort_as_exp,...}) = 
+             let val has_sort_as_sym_term = (case sort_as_sym_term of SOME(_) => true | _ => false)
+                 val sym_name = (S.name name)
+             in
+                JSON.OBJECT([("type", JSON.STRING("possiblyTypedParameter")),                  
+		 	     ("pos", posToJson(pos)),
+			     ("name", JSON.STRING(sym_name)),
+			     ("hasSortAsSymTerm", JSON.BOOL(has_sort_as_sym_term)),
+			     ("sortAsSymTerm", taggedSymTermOptToJson(sort_as_sym_term,posToString))])
+             end 
+  in
+    f(D) 
+  end
 
 fun isSomeTypePat(p) = 
   let fun f(someVarPat({id=someParam({name,...}),...})) = SOME(name)

@@ -105,7 +105,6 @@ fun restoreSignature({struc_table_set,constructor_table_set,fsym_table_set,sort_
 fun handleException(e) = 
 let
 in
-
     (case e of
        Semantics.EvalError(msg,pos_opt) => 
          let val msg' = Semantics.makeErrorWithPosInfo(msg,pos_opt)
@@ -782,8 +781,12 @@ fun getInputAndProcess() =
                                                   end
                      in
                        if ok_input then
-                           (List.app (fn i => processInputWithTopValBackUpRefreshed(i, [], ref(SV.valEnv({val_map=SV.empty_val_map,mod_map=SV.empty_mod_map})), 
-                                                                  Semantics.top_val_env, N.top_level_name,top_loaded_files_ht)) 
+                           (List.app (fn i => processInputWithTopValBackUpRefreshed(i, 
+										    [], 
+										    ref(SV.valEnv({val_map=SV.empty_val_map,mod_map=SV.empty_mod_map})), 
+										    Semantics.top_val_env, 
+										    N.top_level_name,
+										    top_loaded_files_ht))
                                      user_inputs;
   	                    TextIO.closeIn istream;
                             ABase.adjustHashTable(!SM.top_assum_base);
@@ -817,9 +820,9 @@ fun escape(str) =
 fun processString(cmd,mod_path,env,eval_env) =
     let val stream = TextIO.openString (cmd)
         val inputs  = Parse.parse_from_stream(stream)
-        val _ = List.app (fn i => (processInput(i,mod_path,env, Semantics.top_val_env, N.top_level_name,top_loaded_files_ht))) inputs
-
-    in () 
+        val responses = List.app (fn i => (processInput(i,mod_path,env, Semantics.top_val_env, N.top_level_name,top_loaded_files_ht))) inputs
+    in 
+      ()
     end
 
 val _ = (Semantics.processString := processString)
@@ -871,6 +874,8 @@ fun init(file_name_option) =
 	 val _ = Paths.addPath (OS.FileSys.getDir())
 	 val _ = Paths.createTempDir ()
 	 val util_ath = makeLibFileName(athena_home,"util.ath")
+         (**** TODO: Why is make_random_problems.ath loaded by default - why is it needed? ****) 				       
+	 val random_sentences_ath = makeLibFileName(athena_home,"make_random_problems.ath")
 	 val rewriting_ath = makeLibFileName(athena_home,"rewriting.ath")
 	 val pairs_ath = makeLibFileName(athena_home,"pairs.ath")
 	 val options_ath = makeLibFileName(athena_home,"options.ath")
@@ -891,7 +896,7 @@ fun init(file_name_option) =
 	                            "auto-induction-definition",
 	 	                    "dcompile-symbol", "string->symbol","get-defined-prop", "-->", N.mapApplyFun_name,
                                     N.empty_mapping_name, N.addMapFun_name, N.makeMapFun_name, N.addTableFun_name, N.makeTableFun_name, N.findTableFun_name])
-         val top_files2 = [dt_model_check_ath ,property_management_ath]
+         val top_files2 = [dt_model_check_ath ,property_management_ath, random_sentences_ath]
          val _ = auxLoadFiles(top_files2, [],Semantics.top_val_env,Semantics.top_val_env,top_loaded_files_ht)
              handle e => (print("\nEvaluation error encountered during the loading of the initial files:\n");
                           handleException(e))	     	          

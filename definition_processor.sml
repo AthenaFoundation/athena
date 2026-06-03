@@ -79,9 +79,12 @@ val pprint =  TopEnv.pprint
 val top_assum_base = ABase.top_assum_base
 
 fun addPropToGlobalAb(p,mod_path,string_opt) = 
-    (top_assum_base := ABase.insert(p,!top_assum_base);
+  let 
+  in
+    (top_assum_base := (if (!Options.decompose_assertions_option) then ABase.insertAlongWithConjuncts(p,!top_assum_base) else ABase.insert(p,!top_assum_base));
      P.addToModuleAb(mod_path,p,string_opt);
-     top_assum_base := ABase.addAssertion(p,!top_assum_base))
+     top_assum_base := (if (!Options.decompose_assertions_option) then ABase.addAssertionAlongWithConjuncts(p,!top_assum_base) else ABase.addAssertion(p,!top_assum_base)))
+  end 
                                      
 fun addPropsToGlobalAb(props,mod_path,string_opt) = List.app (fn p => addPropToGlobalAb(p,mod_path,string_opt)) props
 val top_val_env = SV.top_val_env 
@@ -1279,15 +1282,17 @@ fun printVal(Semantics.propVal(p),(true,_)) =
       myPrint("\nTheorem: "^pprint(9,p)^"\n")  
   | printVal(v,_) = Semantics.printVal(v)
 
+
 fun addProp(v as Semantics.propVal(p),env,eval_env,(is_ded,name_opt),mod_path,definition_sym_opt) = 
          if is_ded then
-            (top_assum_base := ABase.augment(!top_assum_base,[p]);  	     
+            (top_assum_base := (if (!Options.decompose_assertions_option) then ABase.insertAlongWithConjuncts(p,!top_assum_base) else ABase.insert(p,!top_assum_base));
              (case (name_opt,definition_sym_opt) of 
                  (SOME(name),_) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))
                | (_,SOME(name)) => (Semantics.updateTopValEnv(env,name,v,true);Semantics.updateTopValEnv(eval_env,name,v,true);P.addToModuleAb(mod_path,p,SOME(S.name(name))))
                | _ => P.addToModuleAb(mod_path,p,NONE)))
          else ()
   | addProp(_) = ()
+
 
 fun processAssocDeclaration(((msym,pos),b)) = 
   let fun setAssoc(arity,assoc,b,pos) = 
@@ -3428,6 +3433,15 @@ fun setFlag(flag as {name,pos=flag_pos}:AbstractSyntax.param,value as (str,pos))
 
   if Symbol.symEq(name,Names.compile_mode_flag_symbol) then 
      myPrint("\n"^Options.setBooleanFlag(Options.compile_mode_option,Names.compile_mode_flag,str,pos)^"\n") else
+
+  if Symbol.symEq(name,Names.prohibit_large_proof_steps_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.prohibit_large_proof_steps,Names.prohibit_large_proof_steps_flag,str,pos)^"\n") else
+
+  if Symbol.symEq(name,Names.decompose_assertions_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.decompose_assertions_option,Names.decompose_assertions_flag,str,pos)^"\n") else
+
+  if Symbol.symEq(name,Names.conclusion_annotated_certificates_flag_symbol) then 
+     myPrint("\n"^Options.setBooleanFlag(Options.conclusion_annotated_certificates_option,Names.conclusion_annotated_certificates_flag,str,pos)^"\n") else
 
   if Symbol.symEq(name,Names.call_stack_size_limit_flag_symbol) then 
      myPrint("\n"^Options.setIntFlag(Options.call_stack_size,Names.call_stack_size_limit_flag,str,pos)^"\n") else

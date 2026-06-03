@@ -19,6 +19,11 @@ fun makeVarSortPrinter() = F.makeVarSortPrinter()
 
 val level = ref(0)
 
+fun foo() = let val arr = JSON.ARRAY [JSON.INT 1, JSON.INT 5, JSON.INT 0] 
+            in
+               JSON.OBJECT [("foo",JSON.INT 3),("bar", arr)]
+            end 
+
 fun decrementLevel() = ()
 
 structure SV = SemanticValues
@@ -445,8 +450,18 @@ fun charValToString(c) =
                   if c = 127 then "\\127" else
                      genError("Illegal character code passed to character output procedure",NONE)))
 
+
 fun stringValToString([]) = ""
   | stringValToString(c::more) = charValToString(c)^stringValToString(more)
+
+fun prettyValToStringWithSpecialStringTreatment(v) = 
+  (case v of 
+     listVal(vals) =>  
+       let val char_codes = map (fn v => (case v of charVal(i) => i)) vals
+       in
+         "\"" ^ (stringValToString char_codes) ^ "\""
+       end
+   | _ => prettyValToString(v))                
 
 fun printStringVal([]) = ()
   | printStringVal(charVal(10)::more) = (print("\n");printStringVal(more)) 
@@ -3285,7 +3300,10 @@ and
                         SOME(map,_) => let val (vmap,mod_map) = getValAndModMaps(!env1)
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val new_ab = (case dval of
-                                                          propVal(p) => ABaseAugment(ab1,Prop.decomposeConjunctions p)
+                                                          propVal(p) => let val new_asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions p else [p]
+                                                                        in
+                                                                           ABaseAugment(ab1,new_asms)
+                                                                        end 
                                                         | _ => ab1)
                                      in
                                        doLetDed(more,new_env,new_ab)
@@ -3339,7 +3357,7 @@ and
             let val aval = evPhrase(assumption,env,ab)
             in
                (case coerceValIntoProp(aval) of
-                   SOME(p1) => let val asms = Prop.decomposeConjunctions(p1)
+                   SOME(p1) => let val asms = if (!Options.decompose_assertions_option) then Prop.decomposeConjunctions(p1) else [p1]
                                    val ab' = ABase.augment(ab,asms)
                                in 
                                  (case coerceValIntoProp(evDed(body,env,ab')) of 
@@ -3365,7 +3383,7 @@ and
                          end)
                   end
                fun doBindings([]:A.binding list,assumptions,env1) = 
-                     let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
+                     let val asms' = if  (!Options.decompose_assertions_option) then Basic.flatten(map Prop.decomposeConjunctions assumptions) else assumptions 
                      in
                        propVal(Prop.foldConditionals(rev(assumptions),
                                getProp(A.ded(body),true,env1,ABaseAugment(ab,asms'))))
@@ -3693,7 +3711,7 @@ and
 			      | _ => evError("A sentence (disjunction) was expected here. Instead, a\n"^
 					     "value of type "^valLCTypeAndString(disj_val)^" was found.",
                 	                      SOME(A.posOfPhrase(disj))))
-	    val disj_holds = if ABase.isMember(disj_prop,ab) orelse A.isDeduction(disj) then true
+	    val disj_holds = if ABase.isMember(disj_prop,ab) orelse A.isDeduction(disj) orelse Prop.isExMiddleInstance(disj_prop) then true
 			     else
 				(case from_exps of 
 				   NONE => evError("By-cases disjunction doesn't hold",
@@ -4144,7 +4162,7 @@ and
 			end
             val (props,new_env) = getPropsAndEnv(bindings,[],env)
 	    val hyps = rev(props)
-            val hyps' = Basic.flatten (map Prop.decomposeConjunctions hyps)
+            val hyps' = if  (!Options.decompose_assertions_option) then Basic.flatten (map Prop.decomposeConjunctions hyps) else hyps 
 	    val res_val = evDed(body,new_env,ABase.augment(ab,hyps'))
             in
 	      (case coerceValIntoProp(res_val) of
@@ -4262,7 +4280,10 @@ in
                       in
                         res
                       end),
-    fn (d,env,ab) => (evDed(d,env,ab)),
+    fn (d,env,ab) => let (** val _ = print("\nOLD-FASHIONED DEDUCTION EVALUATION!\n") **)
+                     in
+                        (evDed(d,env,ab))
+                     end,
     fn (p,env,ab) => (let val res = evPhrase(p,env,ab)
                     in
                        res
@@ -4754,6 +4775,7 @@ and
        (case head_val of
           propConVal(con) => evalPropConApp(con,args,env,ab,pos)
         | funVal(f,name,_) =>
+                            
                             (let fun doArgs([],_,res) = rev(res)
                                   | doArgs(a::more,i,res) = doArgs(more,i+1,evPhrase(a,env,ab,premises)::res)
                                 val arg_vals = doArgs(args,2,[])
@@ -5249,7 +5271,7 @@ and
             let val aval = evPhrase(assumption,env,ab,premises)
             in
                (case coerceValIntoProp(aval) of
-                   SOME(p1) => let val asms = Prop.decomposeConjunctions(p1)
+                   SOME(p1) => let val asms = if  (!Options.decompose_assertions_option) then Prop.decomposeConjunctions(p1) else [p1]
                                    val ab' = ABase.augment(ab,asms)
 				   val (body_val,premises') = evDed(body,env,ab',premises)
                                in 
@@ -5313,7 +5335,10 @@ and
                                          val new_env = ref(valEnv({val_map=Symbol.augment(vmap,map),mod_map=mod_map}))
                                          val (new_ab,new_conclusions) =
                   			         (case dval of
-                                                      propVal(p) => (ABaseAugment(ab1,Prop.decomposeConjunctions p),p::conclusions)
+                                                      propVal(p) => let val new_asms = if  (!Options.decompose_assertions_option) then (Prop.decomposeConjunctions p) else [p]
+                                                                    in
+                                                                       (ABaseAugment(ab1,new_asms),p::conclusions)
+                                                                    end 
                                                     | _ => (ab1,conclusions))
                                      in
                                        doLetDed(more,new_env,new_ab,premises'',new_conclusions)
@@ -5351,7 +5376,7 @@ and
                                       "produced a "^valLCTypeAndString(Fval),SOME(A.posOfPhrase(F))))
                   end
                fun doBindings([]:A.binding list,assumptions,env1) = 
-                     let val asms' = Basic.flatten(map Prop.decomposeConjunctions assumptions)
+                     let val asms' = if (!Options.decompose_assertions_option) then Basic.flatten(map Prop.decomposeConjunctions assumptions) else assumptions
 		         val (body_conclusion,premises') = getProp(A.ded(body),env1,ABaseAugment(ab,asms'))
                      in
                        (propVal(Prop.foldConditionals(rev(assumptions),body_conclusion)),premises')
@@ -6173,7 +6198,7 @@ and
 			end
             val (props,new_env) = getPropsAndEnv(bindings,[],env)
 	    val hyps = rev(props)
-            val hyps' = Basic.flatten (map Prop.decomposeConjunctions hyps)
+            val hyps' = if (!Options.decompose_assertions_option) then Basic.flatten (map Prop.decomposeConjunctions hyps) else hyps
 	    val (res_val,premises') = evDed(body,new_env,ABase.augment(ab,hyps'),premises)
             in
 	      (case coerceValIntoProp(res_val) of
@@ -6417,6 +6442,18 @@ fun getTermsNoPos(val_lst,list_name,NONE) =
 (* It's important that the above coercion function take term *values* as inputs
 and not just terms. A term value is guaranteed to be well-typed, whereas an arbitrary
 term might not be. *)
+
+fun isMetaId(v) = 
+      (case coerceValIntoTerm(v) of 
+          SOME(term) => 
+               (case AthTerm.isIdeConstant(term) of 
+                  NONE => false | _ => true)
+        | _ => false)
+
+fun isMetaIdConstructive(v) = 
+      (case coerceValIntoTerm(v) of 
+          SOME(term) => AthTerm.isIdeConstant(term)
+        | _ => NONE)
  
 end (* of structure Semantics *) 
 

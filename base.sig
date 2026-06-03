@@ -8,16 +8,19 @@ signature BASIC =
 sig 
     val != : ''a * ''a -> bool
     val listEq: 'a list * 'a list * ('a * 'a ->bool)  -> bool
+    val deleteFile: string -> unit
     val readFileLines: string -> string list
     val writeLinesToFile: string list * string -> unit
     val replaceFile: string * string -> unit
     val isDir: string -> bool 
+    val tokenize: string * char list -> string list 
+    val replaceSubstring: string * string * string -> string 
     val listDirFilesRecursively: string -> string list    
     val readAllDirFiles: string -> string list 				    
     val countLines: string -> int 
     val allEqual: ''a list -> bool 
     val bool2Str : bool -> string
-    val isMember : ''a * ''a list ->bool
+    val isMember : ''a * ''a list -> bool
     val isMemberEq : 'a * 'a list * ('a * 'a -> bool)  ->bool
     val subsetEq: ('a list * 'a list * ('a * 'a -> bool)) -> bool
     val listDiff: ('a list * 'a list * ('a * 'a -> bool)) -> 'a list 
@@ -39,6 +42,7 @@ sig
     val writeString: string * char Array.array * int -> int 
     val remove : ''a * ''a list -> ''a list
     val removeAll : ''a list * ''a list -> ''a list
+    val removeAllEq : 'a list * 'a list * ('a * 'a -> bool) -> 'a list
     val removeEq : 'a * 'a list * ('a * 'a ->bool) -> 'a list
     val removeAndCheckMemEq : 'a * 'a list * ('a * 'a ->bool) -> ('a list * bool)
     val zip : 'a list * 'b list -> ('a * 'b) list
@@ -60,10 +64,12 @@ sig
     val findAndSplit: 'a list * ('a -> bool) * ('a * 'a -> bool) -> ('a option * 'a list)
     val countAll: 'a list * ('a -> bool) -> int 
     val forall: 'a list * ('a -> bool) ->bool
+    val removeListChunk: 'a list * int * int -> ('a list * 'a list * 'a list)
     val id: ('a -> 'a) 
     val flatten: 'a list list -> 'a list
     val doubleMap:  ('b -> 'c) * ('a -> 'b) * 'a list -> 'c list
     val mapSelect:  ('a -> 'b) * 'a list * ('b -> bool) -> 'b list 
+    val mapTry:  ('a -> 'b) * 'a list -> 'b list 
     val mapWithIndex:  ((('a * int) -> 'b) * 'a list) -> 'b list
     val appWithIndex: (('a * int) -> unit) * ('a list) -> unit 
     val firstNumbersFast: int * int -> int list 
@@ -83,6 +89,8 @@ sig
     val isDigit: char -> bool
     val isAlphaNum: char -> bool
     val isWhiteSpace: char -> bool
+    val allWhiteSpace: string -> bool
+    val chopComment: string -> string 
     val isThereLineThatStartsWith: TextIO.instream * string -> bool * int
     val findAndSkipLine: TextIO.instream * string -> char list
     val skipWhiteSpace: char list -> char list 
@@ -113,9 +121,13 @@ sig
     val listReplace: 'a list * int * 'a -> 'a list 
     val repeat: int -> (int -> 'a) -> unit
     val timeIt: (unit -> unit) -> Real.real 
+    val timeOut: ('a -> 'b) * int -> (('a -> ('b option)))
     val decomposeList: ('a list * ('a -> bool)) -> ('a list * 'a * 'a list) option
     val decomposeNth: 'a list * int -> ('a option * 'a list)
     val takeAndSplit: 'a list * int -> 'a list * 'a list 
+    val randomListChoice: 'a list -> 'a 
+    val randomSplit: 'a list -> 'a list * 'a list 
+    val flipCoin: unit -> bool
     exception Never
     val never: unit -> unit 
     exception FailLst of string list
@@ -132,6 +144,7 @@ sig
     val mergeSortBuiltInComp: 'a list * ('a * 'a -> bool) -> 'a list
     val merge: 'a list * 'a list * ('a * 'a -> bool) -> 'a list
     val isSorted: 'a list * ('a * 'a -> bool) -> bool
+    val mean: int list -> int						     
     val newline: string
     val lparen: string
     val rparen: string
@@ -162,4 +175,8 @@ sig
     val escape: string -> string 
     val downcaseChar: char -> char
     val downcaseString: string -> string
+    val printJsonObjectToFile: JSON.value * string * bool -> unit
+    val printJsonObjectToStdOut: JSON.value * bool -> unit
+    val jsonValToString: JSON.value * bool -> string
+    val testJson: bool -> string
 end

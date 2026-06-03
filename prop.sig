@@ -20,6 +20,9 @@ sig
 (* This is the default way to convert a sentence to a string: *)
    val toStringDefault: prop  -> string
 
+
+   val toJson: prop -> JSON.value 						 
+
    val toStringWithVarSortsAsTheyAre: prop -> string
 
    val display: prop -> unit
@@ -195,6 +198,8 @@ sig
 
    val size: prop -> int 
    val sizeLst: prop list -> int 
+
+   val toStringInfix: prop -> string 
 
    val makeTPTPProp: prop -> string 
    val makeTPTPPropSimple: prop -> string 

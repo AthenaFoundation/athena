@@ -223,6 +223,8 @@ fun getSort(App({sort,...})) = sort
   | getSort(numTerm(A.real_num(_))) = D.real_sort
   | getSort(ideTerm(_)) = D.ide_sort 
 
+
+
 val global_tccs:(term * sort) list ref = ref([])
 
 val (termSymbols,termSymbolsLst) = 
@@ -373,6 +375,23 @@ fun toStringDefault(t) = toString(t,F.varToString)
 fun tccToString((t,sort)) = (toStringDefault(t))^" :: "^(F.toStringDefault(sort))
 
 fun tccsToString(tccs) = Basic.printListStr(tccs,tccToString,"\n")
+
+fun jsonLeaf(t,subtype) = JSON.OBJECT([("type", JSON.STRING("athenaTerm")),
+	   	 		       ("subtype", JSON.STRING(subtype)),
+	  	 		       ("root", JSON.STRING(toStringDefault(t))),
+	  	 		       ("children", JSON.ARRAY([]))])
+
+fun toJson(t as numTerm(_)) = jsonLeaf(t,"number")
+  | toJson(t as ideTerm(_)) = jsonLeaf(t,"ide")
+  | toJson(t as Var(v)) = ATV.toJson(v)
+  | toJson(t as App({root,args,sort,...})) = 
+     let val root_str:string = MS.name(root)
+     in
+	 JSON.OBJECT([("type", JSON.STRING("term")),
+	   	      ("subtype", JSON.STRING("application")),
+	  	      ("root", JSON.STRING(root_str)),
+	  	      ("children", JSON.ARRAY((map toJson args)))])
+     end
 
 fun toPrettyString(start,t,printSortVar) = 
        let fun pp(s,Var(v)) = ATV.toPrettyString(s,v,printSortVar)         

@@ -10,6 +10,11 @@ struct
 exception Fail of string
 exception FailLst of string list
 
+fun failLst(messages) = raise FailLst messages
+fun fail(s) = raise Fail s
+
+fun deleteFile(s) = OS.FileSys.remove(s) handle _ => print("\nUnable to delete this file: " ^ s ^ "\n")
+
 infix !=              
 
 fun a != b = not(a = b)
@@ -24,7 +29,39 @@ fun unZip [] = ([],[])
           (a::tail1,b::tail2)
        end
 
+(** 
+Starting with the n^th element, inclusive, remove how_many_to_remove elements from L and return the result. 
+Note that the n^th element is determined by counting from 1, not 0. 
+**)
+
+fun removeListChunk(L,start,how_many_to_remove) = 
+   let val suffix1 = List.drop(L,start-1)
+       val to_be_removed = List.take(suffix1,how_many_to_remove)
+       val suffix2 = List.drop(suffix1,how_many_to_remove)
+   in
+     ((List.take(L,start-1)),suffix2,to_be_removed)
+   end 
+
+
 fun bool2Str(b) = if b then "true" else "false"
+
+fun is_delim c delims =
+    List.exists (fn d => c = d) delims;
+
+fun tokenize(str:string, delims: char list) =
+    let
+        (* Helper function to build tokens recursively *)
+        fun tokenize_rec [] current_token acc =
+            if current_token = "" then List.rev acc
+            else List.rev (current_token :: acc)
+          | tokenize_rec (c :: cs) current_token acc =
+                if is_delim c delims then
+                    if current_token = "" then tokenize_rec cs "" acc
+                    else tokenize_rec cs "" (current_token :: acc)
+                    else (tokenize_rec cs (current_token ^ String.str c) acc)
+    in
+        tokenize_rec (String.explode str) "" []
+    end 
 
 exception Never
 
@@ -96,6 +133,14 @@ fun takeAndSplit(L,n) =
          loop(L,0,[],L)
       end
 
+fun randomSplit(L) = 
+  if null(L) then ([],[])
+  else 
+     let val how_many = MT.getRandomInt(1+length(L))
+     in
+        takeAndSplit(L,how_many-1)
+     end
+ 
 val findInList = constructiveExists   
 
 fun findInListCont(L,pred,success,failure) = 
@@ -297,12 +342,20 @@ fun removeAll(L1,L2) =
            loop(L1,L2)
        end
 
+
 fun removeEq(x,l,eq) = 
     let fun remove([],res) = res
           | remove(y::ys,res) = if eq(x,y) then remove(ys,res) else remove(ys,y::res)
         in
           remove(l,[])
     end
+
+fun removeAllEq(L1,L2,f) = 
+       let fun loop([],res) = res
+             | loop(x::more,res) = loop(more,removeEq(x,res,f))
+       in
+           loop(L1,L2)
+       end
 
 (* removeAndCheckMemEq also does not preserve order: *)
 
@@ -503,6 +556,19 @@ fun timeIt(f) = let val t1:Real.real = Time.toReal(Time.now())
                 in
                    Real.-(t2,t1)
                 end
+
+fun timeOut(f:('a -> 'b),max_seconds:int) = 
+ let fun g(x:'a) = 
+      let val max_seconds' = Time.fromMilliseconds (IntInf.fromInt max_seconds)
+          val res = (SOME (TimeLimit.timeLimit max_seconds' f x))
+              handle TimeLimit.TimeOut => NONE
+                   | ex  => raise ex
+      in
+         res 
+      end
+ in
+    g
+ end
  
 fun continue() = (print("\nPress return to continue...");readLine();print "\n")
 
@@ -513,6 +579,8 @@ val isAlpha = Char.isAlpha
 val isDigit = Char.isDigit
 val isAlphaNum = Char.isAlphaNum
 val isWhiteSpace = Char.isSpace
+
+fun allWhiteSpace(str) = forall(explode(str),isWhiteSpace);
 
 fun skipWhiteSpace([]) = [] 
   | skipWhiteSpace(clist as (c::rest)) = if isWhiteSpace(c) then skipWhiteSpace(rest) else clist
@@ -548,6 +616,13 @@ fun skipUntilWithExtendedPred(L,pred1,pred_rest) =
      in
         loop(L,[])
      end
+
+fun chopComment(str) = 
+   let val chars = explode(str)
+       val (pre_comment_chars,rest) = skipUntil(chars,fn c => c = #"#")
+   in
+      implode(pre_comment_chars)
+   end 
 
 fun firstPastwhiteSpace(str) = 
       let val len = String.size(str)
@@ -684,11 +759,15 @@ fun repeat n f =
 val (newline,lparen,rparen,lbrack,rbrack,lbrace,rbrace,
      blank,comma,period,colon,semi_colon,string_quote) = ("\n","(",")","[","]","{","}"," ",",",".",":",";","\"")
 
-fun mark(s) = (print("\n");repeat 10 (fn _ => print(s));print("\n"))
+fun mark(s) = (print("\n");repeat 40 (fn _ => print(s));print("\n"))
 
-fun failLst(messages) = raise FailLst messages
-
-fun fail(s) = raise Fail s
+fun mean(int_lst) = 
+  let fun loop([],sum,length) = Int.div(sum,length)
+	| loop(x::more,sum,length) = loop(more,sum+x,length+1)
+  in
+    if null(int_lst) then fail("Attempt to compute the average of an empty list of numbers")
+    else loop(int_lst,0,0)
+  end 
 
 fun strictZip(x::xs,y::ys) = (x,y)::strictZip(xs,ys) 
   | strictZip([],[]) = []
@@ -785,6 +864,19 @@ fun mapSelect(f,l,pred) =
              end
   in loop(l,[])
   end
+
+fun mapTry(f,l) = 
+  let fun loop([],accum) = rev accum
+	| loop(x::more,accum) = 
+	     let val res_opt = ((SOME(f x)) handle _ => NONE)
+             in
+                (case res_opt of
+                    SOME(y) => loop(more,y::accum)
+		  | _ => loop(more,accum))
+             end 
+  in
+     loop(l,[])       
+  end 
 
 fun mapWithIndex(f,L) = 
  let fun loop([],_,res) = rev(res)
@@ -888,5 +980,102 @@ fun downcaseChar(c:char) =
   end
 
 fun downcaseString(str:string) = implode(List.map downcaseChar (explode str))
+
+fun replaceSubstring(s1, s2, base) =
+    let
+        (* Helper function that processes the string from left to right *)
+        fun replace(str, acc) =
+            if String.size str = 0 then
+                acc
+            else if String.isPrefix s1 (str) then
+                replace(String.extract(str, String.size s1, NONE), acc ^ s2)
+            else
+                replace(String.extract(str, 1, NONE), acc ^ String.str(String.sub(str, 0)))
+    in
+        (* Start with empty accumulator *)
+        replace(base, "")
+    end
+
+fun extractTailInt (s: string) : int option =
+    let
+        (* Helper to check if a character is a digit *)
+        fun isDigit c = Char.ord c >= Char.ord #"0" andalso Char.ord c <= Char.ord #"9"
+        
+        (* Find the start position of the trailing digits *)
+        fun findStart i =
+            if i < 0 then NONE
+            else if isDigit(String.sub(s, i)) then
+                findStart (i-1)
+            else
+                SOME(i+1)
+        (* Convert string slice of digits to integer *)
+        fun toInt start =
+            let 
+                val numStr = String.substring(s, start, String.size s - start)
+            in
+                SOME(valOf(Int.fromString numStr))
+            end
+    in
+        case findStart (String.size s - 1) of
+            NONE => NONE  (* No digits found *)
+          | SOME 0 => NONE  (* Entire string is digits - not what we want *)
+          | SOME start => let val _ = print("Here we are " ^ (Int.toString start)) in toInt start end 
+    end
+
+
+fun flipCoin() = if MT.getRandomInt(2) < 2 then true else false
+
+fun randomListChoice(L) = 
+     if null(L) then fail("")
+     else let val index = MT.getRandomInt(length(L))
+          in
+             nth(L,index-1)
+          end 
+
+fun printJsonObjectToFile(v,file_name,pretty) =
+  let val file = TextIO.openOut file_name
+  in
+    if pretty then JSONPrinter.print' {strm=file, pretty=true} v before TextIO.closeOut file
+    else JSONPrinter.print (file, v) before TextIO.closeOut file
+  end
+
+fun printJsonObjectToStdOut(v,pretty) =
+  if not(pretty) then JSONPrinter.print (TextIO.stdOut, v)
+  else JSONPrinter.print' {strm=TextIO.stdOut, pretty=true} v
+
+val json_file_counter = ref(0)
+
+fun jsonValToString(v,pretty) =
+  let val file_name = "/tmp/json_tmp_" ^ (Int.toString(incAndReturn(json_file_counter))) ^ ".txt"
+      val _ = printJsonObjectToFile(v,file_name,pretty)
+      val istream = TextIO.openIn(file_name)
+      val s = TextIO.inputAll(istream)
+      val _ = TextIO.closeIn(istream) 
+      val _ = deleteFile(file_name)
+  in
+    s
+  end
+
+fun randomInt(k) = MT.getRandomInt(k)
+
+fun testJson(pretty) =
+  let val arr = JSON.ARRAY [JSON.INT 1, JSON.INT 5, JSON.INT 0]
+      val v = JSON.OBJECT [("foo",JSON.INT 3),("bar", arr)]
+      val ceiling = 32322999
+      val (int1,int2) = (randomInt(323232999),randomInt(32322999))
+      val file_name = "json_tmp_" ^ (Int.toString int1) ^ "_" ^ (Int.toString int2) ^ ".txt"
+      val _ = print("\nFilename: " ^ file_name ^ "\n")
+      val _ = printJsonObjectToFile(v,file_name,pretty)
+      val s = TextIO.inputAll(TextIO.openIn(file_name))
+      val _ = deleteFile(file_name)
+  in
+    s
+  end
+
+(***************
+ JSON.OBJECT([("expressType",JSON.STRING("list")),
+              ("metadata",JSON.NULL),
+             ("elements",JSON.ARRAY([1,2]))]
+***********)
 
 end

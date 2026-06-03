@@ -233,11 +233,20 @@ fun getFlag(name) =
   if S.symEq(name,Names.proof_tracking_flag_symbol) then 
      Basic.boolToString(!Options.proof_tracking_option) else
 
+  if S.symEq(name,Names.conclusion_annotated_certificates_flag_symbol) then 
+     Basic.boolToString(!Options.conclusion_annotated_certificates_option) else
+
   if S.symEq(name,Names.simplify_fun_def_flag_symbol) then 
      Basic.boolToString(!Options.fundef_simplifying_option) else
 
+  if S.symEq(name,Names.decompose_assertions_flag_symbol) then 
+     Basic.boolToString(!Options.decompose_assertions_option) else
+
   if S.symEq(name,Names.ATPs_in_chain_flag_symbol) then 
      Basic.boolToString(!Options.atps_in_chain_option) else
+
+  if S.symEq(name,Names.prohibit_large_proof_steps_flag_symbol) then 
+     Basic.boolToString(!Options.prohibit_large_proof_steps) else
 
   if S.symEq(name,Names.call_stack_size_limit_flag_symbol) then 
      Int.toString(!Options.call_stack_size) else
@@ -579,6 +588,10 @@ fun claimPrimUMethod(v,env,ab) =
             SOME(p) => (checkOneAbMemberNoPos(p,ab,N.claimPrimMethod_name);propVal(p))
           | _ => primError(wrongArgKind(N.claimPrimMethod_name,1,propLCType,v)))
 
+fun commentPrimUMethod(v,env,ab) = 
+    (case isStringValConstructive(v) of
+        SOME(s) => propVal(P.true_prop)
+      | _ => primError(wrongArgKind(N.commentPrimMethod_name,1,"A list of metaidentifiers or sentences",v)))
 
 fun mpPrimBMethod(v1,v2,env,ab) =  
       (case getTwoProps(v1,v2,N.mpPrimMethod_name,env) of 
@@ -716,14 +729,18 @@ fun bothPrimBMethod(v1,v2,env,ab) =
            plst as [P1,P2] => (checkAbMembersNoPos(plst,ab,N.bothPrimMethod_name);
                                propVal(Prop.makeConjunction(plst))))
 
-fun conjIntroPrimMethod([listVal(vals)],(env,ab),{pos_ar,file}) = 
-       let val pplst = rev(coercePositionedValsIntoPropsAndPositionCopies(vals,Array.sub(pos_ar,0),N.conjIntroPrimMethod_name))
+fun conjIntroPrimMethod([listVal(vals)],env,ab) = 
+       let val pplst = rev(coercePositionlessValsIntoProps(vals,N.conjIntroPrimMethod_name))
        in 
-         (checkAbMembers(pplst,ab,N.conjIntroPrimMethod_name);
-                     propVal(Prop.makeConjunction(#1(Basic.unZip(pplst)))))
+         (checkAbMembersNoPos(pplst,ab,N.conjIntroPrimMethod_name);
+          propVal(Prop.makeConjunction(pplst)))
        end
-  | conjIntroPrimMethod(args,(env,ab),{pos_ar,file}) = 
-       evError(wrongArgNumber(N.conjIntroPrimMethod_name,length(args),1),getPosOpt(pos_ar,0))
+  | conjIntroPrimMethod(vals,env,ab) = 
+       let val pplst = rev(coercePositionlessValsIntoProps(vals,N.conjIntroPrimMethod_name))
+       in 
+         (checkAbMembersNoPos(pplst,ab,N.conjIntroPrimMethod_name);
+          propVal(Prop.makeConjunction(pplst)))
+       end
 
 fun conjIntroPrimUMethod(listVal(vals),env,ab) = 
       (case getAProps(vals,N.conjIntroPrimMethod_name,env) of
@@ -1846,7 +1863,9 @@ fun spassProve(fun_sym_str,pred_sym_str,hyp_str_lst,concl_str,max_seconds) =
       val sp_output_string = TextIO.inputAll(in_stream)
       val _ = TextIO.closeIn(in_stream)
       val _ = TextIO.closeOut(stream)
+(***
       val _ = (deleteFile(in_file_name);deleteFile(out_file_name))
+***)
   in
     (sp_output_string,answer_bit)
   end
@@ -2771,10 +2790,23 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       fun write(str) = TextIO.output(vamp_problem_stream,str)
       val _ = (List.app write hyps;write conc)
       val _ = TextIO.closeOut(vamp_problem_stream)
+(***
       val cmd = Names.vampire_binary ^ " --proof tptp --mode casc --show_skolemisations on --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname ^ " 2> " ^ vamp_error_fname 
+***)
+	(*** QQQ TODO !!! FIX: Remove -av off to allow Vampire to use SAT Solving ***)
+      val cmd = Names.vampire_binary ^ " --proof tptp --show_skolemisations on -av off --time_limit "^max_seconds^" --input_file "^vamp_in_fname^" > "^vamp_out_fname ^ " 2> " ^ vamp_error_fname 
       val _ = OS.Process.system(cmd)
       val vamp_answer_stream = TextIO.openIn(vamp_out_fname)
       val answer_bit = findLine(vamp_answer_stream,vamp_proof_line)
+      val resolution_proof_step_count = 
+                            (* If the proof attempt failed, or if we don't care about proof steps, then there's nothing to count so just return ~1: *)
+                             if not(answer_bit) orelse not(!Options.prohibit_large_proof_steps) then ~1
+                             else 
+                                let val lines = Basic.readFileLines(vamp_out_fname)
+                                    val count = length(Basic.filter(lines,fn line => (String.isSubstring "resolution" line)))
+                                in
+                                  count
+                                end                         
       val used_premise_indices = if not(answer_bit) then [] else findUsedPremises(vamp_answer_stream)
       val used_premises = let fun loop([],res) = res
                                 | loop(i::more,res) = loop(more,(Array.sub(premise_array,i-1))::res)
@@ -2784,10 +2816,15 @@ fun polyVProve(goal, premises,env,ab,max_seconds,mono:bool,subsorting:bool) =
       val _ = deleteFile(vamp_out_fname) *)
       val _ = List.app (fn (_,f') => Data.removeFSymByName(f')) syms_and_new_syms
   in
-     (answer_bit,goal,used_premises)
+     (answer_bit,goal,used_premises,resolution_proof_step_count)
   end
 and 
  polyDecide(str) = if Util.small(str,40) then str else "\n"^str
+and
+  handleProofStepError(desired_conc,resolution_step_count) =
+     primError("Failed application of "^N.vpfPrimMethod_name^
+               ":\nThe number of steps (" ^ (Int.toString resolution_step_count) ^ ") in the derivation of " ^ (polyDecide(pprint(0,desired_conc))) ^ 
+               " exceeded the set maximum, " ^ (Int.toString (!Options.max_proof_steps)) ^ ".")
 and
  polyVampireProvePrimMethod([v,listVal(hyp_vals),listVal(option_pairs)],env,ab) = 
   let val options as {poly,subsorting,time,cell_option,...} = getOptions(option_pairs,env) 
@@ -2797,19 +2834,22 @@ and
       val goal_prop = (case coerceValIntoProp(v) of
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.vpfPrimMethod_name,1,propLCType,v)))
-      val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,time,is_mono,subsorting)
+      val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,time,is_mono,subsorting)
   in
      if answer_bit then 
-        let val _ = (case (cell_option,used_hyps) of
-                        (SOME(c),SOME(props)) => (c := listVal(map propVal props))
-                      | _ => ())
-        in 
-           propVal(desired_conc) 
-        end
-     else primError("Failed application of "^N.vpfPrimMethod_name^
-	             ":\nUnable to derive the conclusion "^
-                     polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
-                  
+        (if resolution_step_count > !Options.max_proof_steps then 
+            handleProofStepError(desired_conc,resolution_step_count)
+         else 
+            let val _ = (case (cell_option,used_hyps) of
+                            (SOME(c),SOME(props)) => (c := listVal(map propVal props))
+                          | _ => ())
+            in 
+               propVal(desired_conc) 
+            end)
+     else 
+         primError("Failed application of "^N.vpfPrimMethod_name^
+                   ":\nUnable to derive the conclusion "^
+                   polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
   end
  | polyVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) = 
      let val is_mono =  false
@@ -2820,9 +2860,11 @@ and
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.vpfPrimMethod_name,1,
 						propLCType,v)))
-         val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,false,false)
+         val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,false,false)
      in
-        if answer_bit then propVal(desired_conc) 
+        if answer_bit then 
+            (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+             else propVal(desired_conc))
         else primError("Failed application of "^N.vpfPrimMethod_name^
    	             ":\nUnable to derive the conclusion "^
                      polyDecide(pprint(0,desired_conc))^" from the given hypotheses")
@@ -2863,9 +2905,11 @@ fun monoVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
       val goal_prop = (case coerceValIntoProp(v) of
                                    SOME(P) => P
 				 | _ => primError(wrongArgKind(N.mvpfPrimMethod_name,1,propLCType,v)))
-      val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,"50",true,false)
+      val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,"50",true,false)
   in
-     if answer_bit then propVal(desired_conc) 
+     if answer_bit then 
+        (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+         else propVal(desired_conc))
      else primError("Failed application of "^N.vpfPrimMethod_name^
 	            ":\nUnable to derive the conclusion "^
                     decide(pprint(0,desired_conc))^" from the given hypotheses")
@@ -2883,9 +2927,11 @@ fun monoVampireProvePrimMethod([v,listVal(hyp_vals)],env,ab) =
                               else primError("Failed application of "^N.vpfPrimMethod_name^": invalid time limit: "^str)
 		      | _ => primError("Failed application of "^N.vpfPrimMethod_name^": invalid time limit: "^str))
           | _ => primError(wrongArgKind(N.vpfPrimMethod_name,3,stringLCType,seconds)))
-         val (answer_bit,desired_conc,used_hyps) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,true,false)
+         val (answer_bit,desired_conc,used_hyps,resolution_step_count) = polyVProve(goal_prop,hyp_props,env,ab,max_seconds,true,false)
      in
-        if answer_bit then propVal(desired_conc) 
+        if answer_bit then 
+           (if resolution_step_count > !Options.max_proof_steps then handleProofStepError(desired_conc,resolution_step_count)
+            else propVal(desired_conc))
         else primError("Failed application of "^N.vpfPrimMethod_name^
    	               ":\nUnable to derive the conclusion "^
                        decide(pprint(0,desired_conc))^" from the given hypotheses")
@@ -2953,6 +2999,8 @@ fun paradoxProvePrimFun([listVal(vals)],env,ab) =
  |  paradoxProvePrimFun(args,_,_) = primError(wrongArgNumber(N.paradoxPrimFun_name,length(args),2))
 
 fun getABFun([],_,ab) = listVal(map propVal (ABase.getAll(ab)))
+
+fun abToStringFun([],_,ab) = MLStringToAthString(ABase.abToString(ab))
 
 fun getBucketSizesFun([],_,ab) = listVal(map (fn i => termVal(AthTerm.makeNumTerm(A.int_num(i,ref "")))) (ABase.bucketSizes()))
 
@@ -3056,229 +3104,6 @@ fun fcongPrimMethod(args as [v],env,ab) =
   | fcongPrimMethod(args as _::_,ea,pf) = fcongPrimMethod([List.last(args)],ea,pf)
   | fcongPrimMethod(args as vals,env,ab) = primError(wrongArgNumber(N.fcongPrimMethod_name,length(args),1))
 
-fun evalPhrase((p,fids),env,ab) = let val env' = Semantics.makeEnv(fids,!env) 
-                                      val v = Semantics.evalPhrase(p,env',ab)
-                                       in
-					   v 
-                                       end
-
-fun infixProcess(p:A.phrase,eval_env,fids) = 
-  let 
-      fun evaluatePhrase(e) = evalPhrase((e,fids),eval_env,!top_assum_base)
-      val no_op_val = (~1,~1)
-      fun headInapplicable(proc) = A.inapplicable(proc) 
-                                      orelse (case proc of
-                                               A.exp(e as A.idExp(_)) => ((case Semantics.isApplicable(evaluatePhrase(A.exp e)) of
-                                                                              (true,_) => false
-                                                                            | (false,true) => false
-                                                                            | _ => false)  handle _ => false)
-                                             | _ => false)
-      fun ipExp(e as A.appExp({proc,args,alt_exp=(mcell as ref(NONE)),pos}),op_table) = 
-             let val proc' = ipPhrase(proc,op_table) 
-                 val args' = map (fn p => ipPhrase(p,op_table)) args  
-                 val infix_likely = headInapplicable(proc)  
-(***
-                 val _ = debugPrint("\nCalling ipExp on this app: " ^ (A.unparseExp e) ^ "\nInfix_likely: " ^ (Basic.boolToString infix_likely))
-***)
-             in
-               if length(args) = 0 then e
-               else 
-                (case ((SOME(let val res = InfixParser.parse(e,evaluatePhrase,op_table)
-                                 val _ = () 
-                             in res 
-                             end),"")
-                             handle InfixParser.InfixParseError(msg) => (NONE,msg)
-                                  | Semantics.EvalError(msg,_) => (NONE,msg)
-                                  | _ => (NONE,"")) of
-                       (NONE,msg) => (if infix_likely andalso not(msg = "") then 
-                                         ((print "\nInfix parsing error...\n");raise Semantics.EvalError(msg,NONE))
-                                      else ();e)
-                     | (SOME(A.exp e'),_) => (mcell := SOME(e');e))
-             end
-        | ipExp(e as A.appExp({proc,args,alt_exp=(mcell as ref(SOME(e'))),pos,...}),_) = e
-        | ipExp(A.opExp({op_exp=e',pos,...}),op_table) = A.opExp({op_exp=ipExp(e',op_table),pos=pos})
-        | ipExp(A.whileExp({test,body,pos}),ot) = A.whileExp({test=ipPhrase(test,ot),body=ipPhrase(body,ot),pos=pos})
-        | ipExp(A.beginExp({members,pos}),ot) = A.beginExp({members=map (fn p => ipPhrase(p,ot)) members,pos=pos})
-        | ipExp(A.logicalAndExp({args,pos}),ot) = A.logicalAndExp({args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
-        | ipExp(A.logicalOrExp({args,pos}),ot) = A.logicalOrExp({args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
-        | ipExp(A.functionExp({body=b,params,pos}),ot) = 
-                A.functionExp({params=params,body=ipExp(b,extendOpTabWithParams(ot,params)),pos=pos})
-        | ipExp(A.listExp({members,pos,...}),ot) = A.listExp({members=map (fn p => ipPhrase(p,ot)) members,pos=pos})
-        | ipExp(A.checkExp({clauses,pos}),ot) = A.checkExp({clauses=map (fn c => ipCheckClause(c,ot)) clauses,pos=pos})
-        | ipExp(A.methodExp({params,body,pos,name}),ot) = A.methodExp({params=params,body=ipDed(body,extendOpTabWithParams(ot,params)),
-                                                                            pos=pos,name=name})
-        | ipExp(A.matchExp({discriminant,clauses,pos}),ot) = A.matchExp({discriminant=ipPhrase(discriminant,ot),
-                                                                         clauses=map (fn c => ipMatchClause(c,ot)) clauses,pos=pos})
-        | ipExp(A.tryExp({choices,pos,...}),ot) = A.tryExp({choices=map (fn e => ipExp(e,ot)) choices,pos=pos})
-        | ipExp(A.cellExp({contents,pos}),ot) = A.cellExp({contents=ipPhrase(contents,ot),pos=pos})
-        | ipExp(A.refExp({cell_exp,pos}),ot) = A.refExp({cell_exp=ipExp(cell_exp,ot),pos=pos})
-        | ipExp(A.setCellExp({cell_exp,set_phrase,pos}),ot) = 
-              A.setCellExp({cell_exp=ipExp(cell_exp,ot),set_phrase=ipPhrase(set_phrase,ot),pos=pos})
-        | ipExp(A.vectorInitExp({length_exp,init_val,pos}),ot) = 
-                  A.vectorInitExp({length_exp=ipExp(length_exp,ot),init_val=ipPhrase(init_val,ot),pos=pos})
-        | ipExp(A.vectorSetExp({vector_exp,index_exp,new_val,pos}),ot) =  
-                A.vectorSetExp({vector_exp=ipExp(vector_exp,ot),index_exp=ipExp(index_exp,ot),new_val=ipPhrase(new_val,ot),pos=pos})
-        | ipExp(A.vectorSubExp({vector_exp,index_exp,pos}),ot) = 
-               A.vectorSubExp({vector_exp=ipExp(vector_exp,ot),index_exp=ipExp(index_exp,ot),pos=pos})
-        | ipExp(A.letExp({bindings,body,pos}),ot) = 
-            A.letExp({bindings=ipBindings(bindings,ot,[]),
-                      body=ipExp(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
-        | ipExp(A.letRecExp({bindings,body,pos}),ot) = 
-             let val bindings' = ipBindings(bindings,ot,[])
-                 val new_ot = extendOpTabWithBindings(ot,bindings)
-                 val bindings'' = (map (fn (binding as {bpat,def,pos}) => {bpat=ipPat(bpat,new_ot),def=ipPhrase(def,new_ot),pos=pos}) bindings')
-             in
-                A.letRecExp({bindings=bindings'',body=ipExp(body,new_ot),pos=pos})
-             end
-        | ipExp(e,op_table) = e
-      and ipCheckClause({test=A.boolCond p,result},ot) = {test=A.boolCond(ipPhrase(p,ot)),result=ipExp(result,ot)}
-        | ipCheckClause({test=A.elseCond,result},ot) = {test=A.elseCond,result=ipExp(result,ot)}
-      and ipDCheckClause({test=A.boolCond p,result},ot) = {test=A.boolCond(ipPhrase(p,ot)),result=ipDed(result,ot)}
-        | ipDCheckClause({test=A.elseCond,result},ot) = {test=A.elseCond,result=ipDed(result,ot)}
-      and ipDed(A.assumeDed({assumption,body,pos}),ot) = A.assumeDed({assumption=ipPhrase(assumption,ot),body=ipDed(body,ot),pos=pos}) 
-        | ipDed(A.assumeLetDed({bindings,body,pos}),ot) = A.assumeLetDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.infixAssumeDed({bindings,body,pos}),ot) = A.infixAssumeDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.absurdDed({hyp,body,pos}),ot) = A.absurdDed({hyp=ipPhrase(hyp,ot),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.absurdLetDed({named_hyp,body,pos}),ot) = 
-                A.absurdLetDed({named_hyp=hd(ipBindings([named_hyp],ot,[])),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.methodAppDed({method,args,pos}),ot) = 
-                A.methodAppDed({method=ipExp(method,ot),args=map (fn p => ipPhrase(p,ot)) args,pos=pos})
-
-
-        | ipDed(A.BMethAppDed({method,arg1,arg2,pos}),ot) = 
-                A.BMethAppDed({method=ipExp(method,ot),arg1=ipPhrase(arg1,ot),arg2=ipPhrase(arg2,ot),pos=pos})
-
-        | ipDed(A.UMethAppDed({method,arg,pos}),ot) = 
-                A.UMethAppDed({method=ipExp(method,ot),arg=ipPhrase(arg,ot),pos=pos})
-
-        | ipDed(A.matchDed({discriminant,clauses,pos}),ot) = 
-                A.matchDed({discriminant=ipPhrase(discriminant,ot),clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
-        | ipDed(A.inductionDed({prop,clauses,pos}),ot) = 
-                A.inductionDed({prop=ipPhrase(prop,ot),clauses = map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
-        | ipDed(A.structureCasesDed({prop,clauses,term,pos}),ot) = 
-           (case term of
-               NONE => A.structureCasesDed({prop=ipPhrase(prop,ot),term=NONE,clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos})
-             | SOME(dt_exp) => A.structureCasesDed({prop=ipPhrase(prop,ot),term=SOME(ipExp(dt_exp,ot)),clauses=map (fn c => ipDMatchClause(c,ot)) clauses,pos=pos}))
-        | ipDed(A.tryDed({choices,pos}),ot) = A.tryDed({choices=map (fn d => ipDed(d,ot)) choices,pos=pos})
-        | ipDed(A.letDed({bindings,body,pos}),ot) = 
-               A.letDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
-
-        | ipDed(A.letRecDed({bindings,body,pos}),ot) = 
-               A.letRecDed({bindings=ipBindings(bindings,ot,[]),body=ipDed(body,extendOpTabWithBindings(ot,bindings)),pos=pos})
-
-        | ipDed(A.beginDed({members,pos}),ot) = A.beginDed({members=map (fn d => ipDed(d,ot)) members,pos=pos})
-        | ipDed(A.checkDed({clauses,pos}),ot) = A.checkDed({clauses=map (fn c => ipDCheckClause(c,ot)) clauses,pos=pos})
-        | ipDed(A.byCasesDed({disj,from_exps=NONE,arms,pos}),ot) = 
-                A.byCasesDed({disj=ipPhrase(disj,ot),from_exps=NONE,arms=map (fn c => ipCaseClause(c,ot)) arms,pos=pos})
-        | ipDed(A.byDed({wanted_res,conc_name,body,pos}),ot) = 
-                A.byDed({wanted_res=ipExp(wanted_res,ot),conc_name=conc_name,body=ipDed(body,ot),pos=pos})
-        | ipDed(A.fromDed({conclusion,premises,pos}),ot) = 
-                A.fromDed({conclusion=ipExp(conclusion,ot),premises=ipExp(premises,ot),pos=pos})
-        | ipDed(A.byCasesDed({disj,from_exps=SOME(exps),arms,pos}),ot) = 
-                A.byCasesDed({disj=ipPhrase(disj,ot),from_exps=SOME(map (fn e => ipExp(e,ot)) exps),
-                              arms=map (fn c => ipCaseClause(c,ot)) arms,pos=pos})
-        | ipDed(A.genOverDed({eigenvar_exp,body,pos}),ot) = 
-                A.genOverDed({eigenvar_exp=ipExp(eigenvar_exp,ot),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.pickAnyDed({eigenvars,body,pos}),ot) = 
-                A.pickAnyDed({eigenvars=eigenvars,body=ipDed(body,ot),pos=pos})
-        | ipDed(A.withWitnessDed({eigenvar_exp,ex_gen,body,pos}),ot) = 
-                A.withWitnessDed({eigenvar_exp=ipExp(eigenvar_exp,ot),ex_gen=ipPhrase(ex_gen,ot),body=ipDed(body,ot),pos=pos})
-        | ipDed(A.pickWitnessDed({ex_gen,var_id,inst_id,body,pos}),ot) = 
-                A.pickWitnessDed({ex_gen=ipPhrase(ex_gen,ot),var_id=var_id,inst_id=inst_id,body=ipDed(body,ot),pos=pos})
-        | ipDed(A.pickWitnessesDed({ex_gen,var_ids,inst_id,body,pos}),ot) = 
-                A.pickWitnessesDed({ex_gen=ipPhrase(ex_gen,ot),var_ids=var_ids,inst_id=inst_id,body=ipDed(body,ot),pos=pos})
-      and ipPhrase(A.exp(e),op_table) = A.exp(ipExp(e,op_table))
-        | ipPhrase(A.ded(d),op_table) = A.ded(ipDed(d,op_table))
-      and ipCaseClause({case_name,alt,proof},ot) = {case_name=case_name,alt=ipExp(alt,ot),proof=ipDed(proof,ot)}
-      and ipMatchClause({pat=p,exp=e},ot) = {pat=ipPat(p,ot),exp=ipExp(e,MS.augment(ot,A.mpatOps(p)))}
-      and ipDMatchClause({pat=p,ded=d},ot) = {pat=ipPat(p,ot),ded=ipDed(d,MS.augment(ot,A.mpatOps(p)))}
-      and extendOpTabWithParams(ot,[]) = ot
-        | extendOpTabWithParams(ot,(A.someParam({name,op_tag as NONE,...}))::more) = 
-              extendOpTabWithParams(MS.enter(ot,A.msym name,no_op_val),more)
-        | extendOpTabWithParams(ot,(A.someParam({name,op_tag as SOME(i,j),...}))::more) = 
-              extendOpTabWithParams(MS.enter(ot,A.msym name,(i,j)),more)
-        | extendOpTabWithParams(ot,_::more) = extendOpTabWithParams(ot,more)
-      and ipBindings([],_,res) = rev res
-        | ipBindings((binding as {bpat,def,pos})::more,ot,res) = 
-           let val b = {bpat=ipPat(bpat,ot),def=ipPhrase(def,ot),pos=pos}
-           in
-              ipBindings(more,MS.augment(ot,A.mpatOps(bpat)),b::res)
-           end
-      and extendOpTabWithBindings(ot,[]) = ot
-        | extendOpTabWithBindings(ot,(binding as {bpat,def,pos})::more) =
-           extendOpTabWithBindings(MS.augment(ot,A.mpatOps(bpat)),more)
-      and ipPat(wp as A.wherePat({pat,guard,pos}),ot) = 
-                 A.wherePat({pat=ipPat(pat,ot),guard=ipExp(guard,ot),pos=pos})
-        | ipPat(A.listPats({member_pats,pos}),ot) = A.listPats({member_pats=(map (fn p => ipPat(p,ot)) member_pats),pos=pos})
-        | ipPat(A.listPat({head_pat,tail_pat,pos}),ot) = A.listPat({head_pat=ipPat(head_pat,ot),tail_pat=ipPat(tail_pat,ot),pos=pos})
-        | ipPat(A.cellPat({pat,pos}),ot) = A.cellPat({pat=ipPat(pat,ot),pos=pos})
-
-
-        | ipPat(A.splitPat({pats,pos,re_form,code}),ot) = 
-             A.splitPat({pats=(map (fn p => ipPat(p,ot)) pats),code=code,pos=pos,re_form=A.applyToRE(fn e => ipExpFinal(e,ot),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPat(A.reStarPat({pat,pos,re_form,code}),ot) = 
-	     let val re_form' = A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form) 
-             in
-                A.reStarPat({pat=ipPat(pat,ot),code=code,pos=pos,re_form=re_form'})
-             end 
-        | ipPat(A.rePlusPat({pat,pos,re_form,code}),ot) = 
-             A.rePlusPat({pat=ipPat(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPat(A.reRangePat({from_pat,to_pat,lo,hi,pos}),ot) = 
-             A.reRangePat({from_pat=ipPat(from_pat,ot),to_pat=ipPat(to_pat,ot),lo=lo,hi=hi,pos=pos})
-
-        | ipPat(A.reOptPat({pat,pos,re_form,code}),ot) = 
-             A.reOptPat({pat=ipPat(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPat(A.reRepPat({pat,times,pos,code,re_form}),ot) = 
-             A.reRepPat({pat=ipPat(pat,ot),pos=pos,code=code,times=times,
-                         re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPat(A.namedPat({name,pat,pos}),ot) = A.namedPat({name=name,pat=ipPat(pat,ot),pos=pos})
-        | ipPat(A.compoundPat({head_pat,rest_pats,pos}),ot) = A.compoundPat({head_pat=ipPat(head_pat,ot),rest_pats=(map (fn p => ipPat(p,ot)) rest_pats),pos=pos})
-        | ipPat(A.disjPat({pats,pos}),ot) = A.disjPat({pats=(map (fn p => ipPat(p,ot)) pats),pos=pos})
-        | ipPat(p,_) = p 
-      and ipPatFinal(wp as A.wherePat({pat,guard,pos}),ot) = 
-              let val _ = print("\nWorking-FINAL on this where pat: " ^ (AbstractSyntax.printPat wp))
-              in
-                 A.wherePat({pat=ipPatFinal(pat,ot),guard=ipExpFinal(guard,ot),pos=pos})
-              end
-        | ipPatFinal(A.listPats({member_pats,pos}),ot) = A.listPats({member_pats=(map (fn p => ipPatFinal(p,ot)) member_pats),pos=pos})
-        | ipPatFinal(A.listPat({head_pat,tail_pat,pos}),ot) = A.listPat({head_pat=ipPatFinal(head_pat,ot),tail_pat=ipPatFinal(tail_pat,ot),pos=pos})
-        | ipPatFinal(A.cellPat({pat,pos}),ot) = A.cellPat({pat=ipPatFinal(pat,ot),pos=pos})
-        | ipPatFinal(A.splitPat({pats,pos,code,re_form}),ot) = 
-             A.splitPat({pats=(map (fn p => ipPatFinal(p,ot)) pats),pos=pos,code=code,re_form=A.applyToRE(fn e => ipExpFinal(e,ot),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPatFinal(A.reStarPat({pat,code,pos,re_form}),ot) = 
-             A.reStarPat({pat=ipPatFinal(pat,ot),code=code,pos=pos,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPatFinal(A.rePlusPat({pat,pos,code,re_form}),ot) = 
-             A.rePlusPat({pat=ipPatFinal(pat,ot),pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPatFinal(A.reRangePat({from_pat,to_pat,lo,hi,pos}),ot) = 
-             A.reRangePat({from_pat=ipPatFinal(from_pat,ot),to_pat=ipPatFinal(to_pat,ot),lo=lo,hi=hi,pos=pos})
-
-        | ipPatFinal(A.reOptPat({pat,pos,code,re_form}),ot) = 
-             A.reOptPat({pat=ipPatFinal(pat,ot),code=code,pos=pos,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPatFinal(A.reRepPat({pat,times,pos,code,re_form}),ot) = 
-             A.reRepPat({pat=ipPatFinal(pat,ot),times=times,pos=pos,code=code,re_form=A.applyToRE((fn e => ipExpFinal(e,ot)),(fn p => ipPatFinal(p,ot)),re_form)})
-
-        | ipPatFinal(A.namedPat({name,pat,pos}),ot) = A.namedPat({name=name,pat=ipPatFinal(pat,ot),pos=pos})
-        | ipPatFinal(A.compoundPat({head_pat,rest_pats,pos}),ot) = A.compoundPat({head_pat=ipPatFinal(head_pat,ot),rest_pats=(map (fn p => ipPatFinal(p,ot)) rest_pats),pos=pos})
-        | ipPatFinal(A.disjPat({pats,pos}),ot) = A.disjPat({pats=(map (fn p => ipPatFinal(p,ot)) pats),pos=pos})
-        | ipPatFinal(p,_) = p 
-      and ipExpFinal(e,ot) = A.phraseToExp(A.splitApps(A.exp(ipExp(e,ot))))
-      and ipFinal(p) =      
-              let val p':A.phrase = if !Options.infix_parsing_option then ipPhrase(p,MS.empty_mapping) else p 
-                  val res = A.splitApps(p')  
-              in
-                 res
-              end
-  in
-     ipFinal(p)
-  end
 
 fun processPhraseAndReturn(p,eval_env,fids) = 
               let val ip = infixProcess(p,top_val_env,fids) 
@@ -3289,6 +3114,7 @@ fun processPhraseAndReturn(p,eval_env,fids) =
 
 val default_ufv_pa_for_procs = SemanticValues.default_ufv_pa_for_procs
 val default_bfv_pa_for_procs = SemanticValues.default_bfv_pa_for_procs
+
 
 fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref) = 
                            let val stream = TextIO.openString (str)
@@ -3311,7 +3137,7 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                                               processPhraseAndReturn(new_phrase,env',fids) 
                                            end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
                                    in
-                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg
+                                      if error_msg = "" then Semantics.prettyValToStringWithSpecialStringTreatment(res_val) else error_msg
                                    end
                                | _ => 
                                    let val (res_val,error_msg) = 
@@ -3321,17 +3147,19 @@ fun processPhraseDirectlyFromString(str,env:SemanticValues.value_environment ref
                                             unitVal
    				          end, "") handle e => (unitVal,Semantics.exceptionToString(e)))
                                    in
-                                      if error_msg = "" then Semantics.prettyValToString(res_val) else error_msg                                     
+                                      if error_msg = "" then Semantics.prettyValToStringWithSpecialStringTreatment(res_val) else error_msg                                     
  				   end)
                            end
-
 
 local
 open Semantics
 in
 fun processPhraseFromStringFun([v],env:SemanticValues.value_environment ref,_) = 
            (case Semantics.isStringValConstructive(v) of
-               SOME(str) => let val stream = TextIO.openString (str)
+               SOME(str) => let (* If the given string literal has comments, we must remove them before we can evaluate the content *)
+                                val str = removeCommentsFromString(str)
+                                (* val _ = displayStringCharByChar(str)  *)
+                                val stream = TextIO.openString (str)
                                 val inputs  = Parse.parse_from_stream(stream)
                                 val input = hd(inputs)
                                 val res_val = (case input of
@@ -3545,7 +3373,9 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (S.symbol("clear-tccs"),funVal(clearTCCsFun,"clear-tccs",default_fv_pa_for_procs 0)),
                          (S.symbol("restart-athena"),funVal(restartAthenaFun,"restart-athena",default_fv_pa_for_procs 0)),
                          (N.catchFun_symbol,primBFunVal(catchPrimBFun,default_bfv_pa_for_procs N.catchFun_name)),
-                         (N.catchMethod_symbol,primBMethodVal(catchPrimBMethod,N.catchMethod_symbol)),
+                         (N.timeoutFun_symbol,primBFunVal(timeOutPrimBFun,default_bfv_pa_for_procs N.timeoutFun_name)),
+                         (N.timeoutMethod_symbol,primBMethodVal(timeOutPrimBMethod,N.timeoutMethod_symbol)),
+                         (N.catchMethod_symbol,  primBMethodVal(catchPrimBMethod,N.catchMethod_symbol)),
                          (Symbol.symbol("lub"),primBFunVal(lubPrimBFun,default_bfv_pa_for_procs "lub")),
                          (Symbol.symbol("glb"),primBFunVal(glbPrimBFun,default_bfv_pa_for_procs "glb")),
                          (Symbol.symbol("prop-count"),funVal(propCountFun,"prop-count",default_fv_pa_for_procs 0)),
@@ -3663,6 +3493,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (Symbol.symbol("tsat0"),funVal(satSolve0,"tsat0",default_fv_pa_for_procs 1)),
                          (N.fastSatFun_symbol,funVal(fastSatFun,N.fastSatFun_name,default_fv_pa_for_procs 2)),
                          (N.getABFun_symbol,funVal(getABFun,N.getABFun_name,default_fv_pa_for_procs 0)),     
+                         (N.abToStringFun_symbol,funVal(abToStringFun,N.abToStringFun_name,default_fv_pa_for_procs 0)),     
                          (Symbol.symbol "get-bucket-sizes",funVal(getBucketSizesFun,"get-bucket-sizes",default_fv_pa_for_procs 0)),
                          (Symbol.symbol "show-bucket-stats",funVal(showBucketStatisticsFun,"show-bucket-stats",default_fv_pa_for_procs 0)),
                          (N.concatFun_symbol,funVal(concatFun,N.concatFun_name,default_fv_pa_for_procs 2)),
@@ -3717,11 +3548,12 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.max_int_symbol,max_int_val),
                          (N.mpPrimMethod_symbol,SV.primBMethodVal(mpPrimBMethod,N.mpPrimMethod_symbol)),
                          (N.claimPrimMethod_symbol,SV.primUMethodVal(claimPrimUMethod,N.claimPrimMethod_symbol)),
+                         (N.commentPrimMethod_symbol,SV.primUMethodVal(commentPrimUMethod,N.commentPrimMethod_symbol)),
                          (N.absurdPrimMethod_symbol,primBMethodVal(absurdPrimBMethod,N.absurdPrimMethod_symbol)),
                          (N.bothPrimMethod_symbol,SV.primBMethodVal(bothPrimBMethod,N.bothPrimMethod_symbol)),
                          (N.leftAndPrimMethod_symbol,primUMethodVal(leftAndPrimUMethod,N.leftAndPrimMethod_symbol)),
                          (N.rightAndPrimMethod_symbol,primUMethodVal(rightAndPrimUMethod,N.rightAndPrimMethod_symbol)),
-                         (N.conjIntroPrimMethod_symbol,primUMethodVal(conjIntroPrimUMethod,N.conjIntroPrimMethod_symbol)),
+                         (N.conjIntroPrimMethod_symbol,methodVal(conjIntroPrimMethod,N.conjIntroPrimMethod_symbol)),
                          (N.dnPrimMethod_symbol,primUMethodVal(dnPrimUMethod,N.dnPrimMethod_symbol)),
                          (N.eitherPrimMethod_symbol,methodVal(eitherPrimMethod,N.eitherPrimMethod_symbol)),
                          (N.leftEitherPrimMethod_symbol,primBMethodVal(leftEitherPrimBMethod,N.leftEitherPrimMethod_symbol)),
@@ -3739,6 +3571,10 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.built_in_merge_sort_symbol',primBFunVal(mergeSortPrimBFun,default_bfv_pa_for_procs N.built_in_merge_sort_name')),
                          (N.built_in_merge_sort_symbol,primBFunVal(mergeSortPrimBFun',default_bfv_pa_for_procs N.built_in_merge_sort_name)),
                          (N.getAlphaCertFun_symbol,primBFunVal(getAlphaCertFun,default_bfv_pa_for_procs N.getAlphaCertFun_name)),
+                         (N.analyzeAlphaCertFun_symbol,primBFunVal(analyzeAlphaCertFun,default_bfv_pa_for_procs N.analyzeAlphaCertFun_name)),
+
+                         (N.processAlphaCertFun_symbol,funVal(processCertificateFun,N.processAlphaCertFun_name, default_fv_pa_for_procs 2)),
+
                          (N.uspecPrimMethod_symbol,SV.primBMethodVal(uSpecPrimBMethod,N.uspecPrimMethod_symbol)),
                          (N.proofErrorMethod_symbol,SV.primUMethodVal(proofErrorPrimUMethod,N.proofErrorMethod_symbol)),
                          (N.compErrorFun_symbol,primUFunVal(compErrorPrimUFun,default_ufv_pa_for_procs N.compErrorFun_name)),
@@ -3755,6 +3591,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                           primUFunVal(qualifySortNamePrimUFun,default_ufv_pa_for_procs "qualify-sort-name")),
                          (N.satFun_symbol,primUFunVal(satPrimUFun,default_ufv_pa_for_procs N.satFun_name)),
                          (N.unparseFun_symbol,primUFunVal(unparsePrimUFun,default_ufv_pa_for_procs N.unparseFun_name)),
+                         (N.unparsePlainFun_symbol,primUFunVal(unparsePlainPrimUFun,default_ufv_pa_for_procs N.unparsePlainFun_name)),
                          (N.true_intro_PrimMethod_symbol,methodVal(trueIntroPrimMethod,
 			  N.true_intro_PrimMethod_symbol)),                         
                          (N.is_assertion_symbol,primUFunVal(isAssertionPrimUFun,default_ufv_pa_for_procs N.is_assertion_name)),
@@ -3784,6 +3621,10 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.mapFoldlFun_symbol,funVal(mapFoldlFun,N.mapFoldlFun_name,default_fv_pa_for_procs 3)),
                          (N.makeMapFromListFun_symbol,primUFunVal(makeMapFromListPrimUFun,default_ufv_pa_for_procs N.makeMapFromListFun_name)),
                          (N.removeTableFun_symbol,primBFunVal(removeTablePrimBFun,default_bfv_pa_for_procs N.removeTableFun_name)),
+
+                         (N.astJsonFun_symbol,primBFunVal(astJsonPrimBFun,default_bfv_pa_for_procs N.astJsonFun_name)),
+
+
                          (N.findTableFun_symbol,primBFunVal(findTablePrimBFun,default_bfv_pa_for_procs N.findTableFun_name)),
                          (N.findMapFun_symbol,primBFunVal(findMapPrimBFun,default_bfv_pa_for_procs N.findMapFun_name)),
                          (N.tableSizeFun_symbol,primUFunVal(tableSizePrimUFun,default_ufv_pa_for_procs N.tableSizeFun_name)),
@@ -3793,6 +3634,7 @@ val init_val_bindings = [(N.not_symbol,propConVal(A.notCon)),(N.and_symbol,propC
                          (N.nnf_fun_symbol,primUFunVal(nnfFun,default_ufv_pa_for_procs N.nnf_fun_name)),
                          (N.cnfFun_symbol,primBFunVal(cnfPrimBFun,default_bfv_pa_for_procs N.cnfFun_name)),
                          (N.hasMonoSortFun_symbol,primUFunVal(hasMonoSortPrimUFun,default_ufv_pa_for_procs N.hasMonoSortFun_name)),
+
                          (N.escapeStringFun_symbol,primUFunVal(escapeStringPrimUFun,default_ufv_pa_for_procs N.escapeStringFun_name)),
                          (Symbol.symbol("make-private"),primUFunVal(makePrivatePrimUFun,default_ufv_pa_for_procs "make-private")),
  			 (N.eqTranPrimMethod_symbol,SV.primBMethodVal(eqTranPrimBMethod,N.eqTranPrimMethod_symbol)),

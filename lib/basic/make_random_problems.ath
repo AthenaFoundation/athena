@@ -1,0 +1,277 @@
+declare A, B, C, D, E, F, G, H, I, J, K: Boolean
+
+module Random_Sentences { 
+
+define M := |{ 1 := ?A:Boolean, 2 := ?B:Boolean , 3 := ?C:Boolean, 4 := ?D:Boolean, 5 := ?E:Boolean, 6 := ?F:Boolean, 7 := ?G:Boolean, 8 := ?H:Boolean, 9 := ?I:Boolean, 10 := ?J:Boolean, 11 := ?K:Boolean}|
+
+define [lp rp] := ["(" ")"]
+
+define (sc->string sc) :=
+  match sc {
+    and => "&"
+  | or  =>  "|"
+  | if  =>  "==>"
+  | iff  =>  "<==>"  
+  }
+  
+define (all-different L) := (equal? (length L) (length (dedup L)))
+
+define (unparse-aux p) :=
+  match p {
+    (not (some-sentence q)) => check {(atom? q) => (join "~" (val->string q)) | else => (join "(~ " (unparse-aux q) ")") }
+  | ((some-sent-con sc) (some-sentence p1) (some-sentence p2)) => (join lp (unparse-aux p1) " " (sc->string sc) " " (unparse-aux p2) rp)
+  | _ => (val->string p)
+  }
+
+define (unparse p) :=
+ match p {
+   (not ((some-sentence q) where (atom? q))) => (join "(~ " (val->string q) ")")
+ | _ => (unparse-aux p)
+ }
+
+define (wait) := (map-proc lambda (_) (plus 1 2) (1 to 10000))
+
+define (mini-unsat? props) :=
+  let {D := (sat-solve props);
+       res := (D 'satisfiable)}
+    (equal? res false)
+
+define (tableau-unsat? props) := 
+  match (tsat props) {
+    false => true
+  | _     => false
+  }
+
+define (tableau-sat? props) :=  (negate (tableau-unsat? props))
+                      
+define (unsatisfiable? props) :=
+  let {first-res := (tableau-unsat? props)}
+    check {first-res => let {verification-result := first-res} #(mini-unsat? props)}
+                          check {verification-result => first-res
+                               | else => let {_ := (print "\nTableau result disagreeing with mini-sat on these arguments:\n " props "\n")}
+                                          false}
+         | else => first-res}
+ 
+define (make-atom N) := (M (random-int N))
+
+define (random-list-element L) :=
+  let {i := (random-int (length L))}
+    (nth i L)
+    
+define (biased-choice L1 cutoff-percentage L2) :=
+  check {(leq? (random-int 100) cutoff-percentage) => (random-list-element L1) | else => (random-list-element L2)}
+
+
+define (choose-randomly L) := (random-list-element L)
+
+define (choose-sent-con) :=
+   (biased-choice [and or if not] 98 [iff])
+
+define (get-sent-con p) :=
+  match p {
+    ((some-sent-con sc) (some-list _)) => sc
+  | _ => ()
+  }
+  
+define (choose-sent-con' sc1 sc2) := 
+    (biased-choice (list-remove* [sc1 sc2] [and or if not]) 94
+        [(biased-choice [and or if not] 90 [iff])])
+   
+define (choose-binary-sent-con) :=
+   (biased-choice [and or if] 95 [iff])   
+
+
+define tweak := lambda (n)
+          # decide between returning n, or n-1, or n+1
+                  (biased-choice [n] 30 [(minus n 2) (minus n 1) (plus n 1)])
+                                  
+define (make-random-sentence-old sz atom-count) :=
+  check {(sz less? 2) => (make-atom atom-count)
+       | else => let {sc := (choose-sent-con);
+                      max-branch-for-and-or := 2;
+                      children-count := match sc {
+                                          not => 1
+                                        | (|| if iff) => 2
+                                        | _ => match (random-int max-branch-for-and-or) {1 => 2 | res => res}
+                                        };
+                      sz' := lambda ()
+                               match sc {
+                                 not => (sz minus 1)
+                               | _ => (tweak (sz div children-count))
+                               };
+                      children-sizes := (map lambda (_) (sz') 
+                                             (1 to children-count));
+                      make-children := lambda (children-sizes)
+                                        letrec {loop := lambda (remaining-sizes children-so-far)
+                                                          match remaining-sizes {
+                                                            [] => children-so-far
+                                                          | (list-of sz more) => let {child := (make-random-sentence-old sz atom-count)}
+                                                                                  check {(member? child children-so-far) =>
+                                                                                            check {(leq? (random-int 10) 9) => (loop remaining-sizes children-so-far)
+                                                                                                 | else => (loop more (add child children-so-far))}
+                                                                                       | else => (loop more (add child children-so-far))}
+                                                          }}
+                                           (loop children-sizes []);                                                          
+                      children := (make-children children-sizes)}
+                   (sc children)
+        }
+
+
+define (make-random-sentence-core size-bound atom-count) :=
+ letrec {loop := lambda (sz)
+                   check {(sz less? 2) => (make-atom atom-count)
+                        | (equal? sz 2) => let {atom' := (make-atom atom-count)}
+                                            (biased-choice [atom'] 90 [(not atom')])
+                        | else => let {
+                                       midpoint := (sz div 2);
+                                       [left right] := (make-args midpoint sz);
+                                       sc := (choose-sent-con' (root left) (root right))}
+                                    check {(equal? sc not) => let {sc := (choose-binary-sent-con)}
+                                                               (biased-choice [(sc left right) (sc (not left) right) (sc left (not right))] 95 [(not (sc left right))])
+                                         | else => (sc left right)}};
+        make-args := lambda (midpoint sz)
+                       let {left := (loop midpoint);
+                            right := (loop (minus sz midpoint))}
+                         check {(unequal? left right) => [left right]
+                              # Otherwise try again: 
+                              | else => (make-args midpoint sz)}}
+   (loop size-bound)                                    
+
+
+define (does-not-follow p props) := (|| (tableau-unsat? props)
+                                        (tableau-sat? (add (not p) props)))
+
+define (logically-independent props) :=
+  letrec {loop := lambda (left done)
+                    match left {
+                      [] => true
+                    | (list-of p more) => (&& (does-not-follow p (join more done))
+                                              (loop more (add p done)))
+                    }}
+    (loop props [])
+                    
+define (kosher? p) :=
+   let {[disjuncts conjuncts] := [(get-disjuncts p) (get-conjuncts p)]}
+     (&& (all-different disjuncts) (logically-independent conjuncts))
+
+           
+define (make-random-sentence size-bound atom-count) :=     
+    let {p := (make-random-sentence-core size-bound atom-count)}
+      check {(kosher? p) => p
+           | else => (make-random-sentence size-bound atom-count)}
+
+define (all-premises-needed? premises goal) :=
+  let {negated-goal := (not goal)}
+    (for-each premises
+              lambda (premise)
+                (negate (tableau-unsat? (add negated-goal (list-remove premise premises)))))
+
+define (consistent? premises) := (tsat premises)
+
+define (no-extra-letters premises negated-goal) :=
+  let {goal-vars := (vars negated-goal);
+       premise-vars := (dedup (flatten (map vars premises)))}
+    (for-each goal-vars lambda (v) (member? v premise-vars))
+       
+define (make-problem-aux premise-number attempt) :=
+ check {(greater? attempt 2000) => let {_ := (print "\nGiving up...")} () 
+   | else => 
+  let {atom-number       := (biased-choice [2 3] 90 (1 to 7));
+       #_ := (print "\nAttempt: #" attempt);
+       first-bound       := 5;                                       
+       get-size := lambda (first-bound) (biased-choice (1 to first-bound) 70 (6 to 10));
+       make-premise      := lambda (first-size-bound)
+                              let {sz         := (get-size first-size-bound);
+                                   max-branch := (biased-choice [2] 90 [(biased-choice [3] 80 [4])])}
+                                (make-random-sentence sz atom-number);
+       premises          := (map lambda (_) (make-premise first-bound)
+                                 (1 to premise-number));
+       goal              := letrec {loop := lambda ()
+                                              let {candidate := (make-random-sentence (biased-choice (1 to 4) 90 [5 6]) atom-number)}
+                                                check {(member? candidate premises) => (loop)
+                                                     | else => candidate}}
+                              (loop)}                                                     
+     check {(&& (all-different (add goal premises))
+                (unsatisfiable? (add (not goal) premises))
+                (all-premises-needed? premises goal) 
+                (no-extra-letters premises (not goal))
+                (consistent? premises)
+                (consistent? [(not goal)])                
+                )=>   |{'premises := premises, 'goal := goal}|
+          | else => (make-problem-aux premise-number (plus attempt 1))}
+     }
+
+define var-letters := [?A:Boolean ?B:Boolean ?C:Boolean ?D:Boolean ?E:Boolean ?F:Boolean ?G:Boolean]
+
+define fsyms := [A B C D E F G]
+
+define (make-problem) :=
+  let {premise-number := (biased-choice [2 3] 90 [(biased-choice [1 4] 80 [5])]);
+       res := (make-problem-aux premise-number 1)}
+    check {(equal? res ()) => (make-problem)
+        | else => 
+     |{'premises := (map lambda (p) (replace-vars var-letters fsyms p)
+                         (res 'premises)),
+       'goal := (replace-vars var-letters fsyms (res 'goal))}|
+     }
+
+define (make-random-sentence-with-fsyms size-bound atom-count) :=
+  (replace-vars var-letters fsyms (make-random-sentence size-bound atom-count))
+
+
+           
+define (equal-problems? p1 p2) :=
+  (equal-lists-as-sets (add (p1 'goal) (p1 'premises))
+                       (add (p2 'goal) (p2 'premises)))
+                       
+define (already-seen? problem problems) :=
+  let {res := (member-eq? problem problems equal-problems?)}
+    res       
+
+
+define problem->string :=
+  lambda (problem)
+    let {premise-string := (separate (map unparse (problem 'premises)) " # ")}
+      (join premise-string " |-- " (unparse (problem 'goal)))
+
+                              
+define (make-problems how-many) :=
+  let {ht              := (HashTable.table 50000);
+       already-seen?   := lambda (problem)
+                            try {(HashTable.lookup ht (problem->string problem)) | false};
+       memoize-problem := lambda (problem)
+                            (HashTable.add ht [(problem->string problem) true])}
+    letrec {loop := lambda (N so-far) 
+                      let {#_ := (print "\nGenerated " (minus how-many N) " problems so far...");
+                           _ := ()}
+                        check {(less? N 1) => so-far
+                             | else => let {new := (make-problem)}
+                                         check {(already-seen? new) => (loop N so-far)
+                                              | else => let {_ := (memoize-problem new)}
+                                                         (loop (minus N 1) (add new so-far))}}}
+      (loop how-many [])                                          
+
+define (make-problems-and-write-to-file how-many file-name) :=
+  let {R := (make-problems how-many);
+       str := (separate (map problem->string R) "\n");
+       _ := (delete-file file-name)}
+    (write-file file-name str)
+      
+define (test) :=
+  let {res := (make-problem);
+       goal := (res 'goal);
+       single-premise := (and (res 'premises));
+       c := (if single-premise goal);
+       _ := (print res);
+       final-res := try { let {th := (!vpf c [] 100)} th | 'error } }
+    final-res       
+
+# (make-problems-and-write-to-file 10000 "problems10K.txt")
+
+}
+
+EOF
+
+load "lib/basic/make_random_problems"
+
+(make-problems-and-write-to-file 5000 "problems5K.txt")
