@@ -452,8 +452,8 @@ and processInput(user_input,mod_path,env,eval_env,file,loaded_files_ht) =
              SM.processStructuresDefinition(
              SM.expandSortAbbreviationsInStrucDefLst(some_absyn_structure_list,mod_path),env,eval_env,mod_path)
            | A.subSortDeclaration(domain1,pos1,domain2,pos2) => 
-	     SM.processSubSortDeclaration(domain1,pos1,domain2,pos2,"\nOK.\n")
-           | A.subSortsDeclaration(domains_and_positions,(domain,pos)) => SM.processSubSortsDeclaration(domains_and_positions,domain,pos)
+	     SM.processSubSortDeclaration(domain1,pos1,domain2,pos2,"\nOK.\n",mod_path)
+           | A.subSortsDeclaration(domains_and_positions,(domain,pos)) => SM.processSubSortsDeclaration(domains_and_positions,domain,pos,mod_path)
            | A.moduleInput(m) => processModule(m,mod_path,env,eval_env,loaded_files_ht)
            | A.moduleExtension(m) => processModuleExtension(m,mod_path,env,eval_env,loaded_files_ht)
            | A.domainInput(some_absyn_domain) => 

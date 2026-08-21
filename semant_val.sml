@@ -734,6 +734,18 @@ fun qualifyName(name,mod_path) =
                       ModSymbol.makeModSymbol(mod_path,name,Symbol.symbol str)
                     end)
 
+(* Tries qualifying name with each path in turn, from the given list of candidate
+   module paths, returning the first candidate for which exists_check holds. *)
+fun resolveOverOpenModules(name,exists_check,paths) =
+     let fun loop([]) = NONE
+           | loop(path::rest) = let val candidate = qualifyName(name,path)
+                                 in
+                                    if exists_check(candidate) then SOME(candidate) else loop(rest)
+                                 end
+     in
+        loop(paths)
+     end
+
 (***
 Use fullyQualifySort (or the qualifySort immediately below) to qualify a sort term,
 such as (List-Of (Pair-Of N.Nat A.B.Foo) Int). Use fullyQualifySortString below
@@ -742,22 +754,21 @@ to qualify a simple structure or domain name, such as "List-Of".
 
 fun fullyQualifySort(absyn_type) = 
       let fun debugPrint(str) = ()
-          fun decide(sort_name) =  
+          fun decide(sort_name) =
                 let val sort_name_as_symbol = MS.nameAsSymbol(sort_name)
-                    fun loop([]) = sort_name
-                      | loop(path::rest) = let val sort_name' = qualifyName(sort_name_as_symbol,path)
-                                           in
-                                             if Data.isAnySortFlexible(sort_name') then sort_name' 
-                                             else (case MS.find(Data.sort_abbreviations,sort_name') of
-                                                      SOME(_) => sort_name'
-                                                    | _ => loop(rest))
-                                           end
+                    fun existsAsSortAbbreviation(cand) =
+                          Data.isAnySortFlexible(cand) orelse
+                          (case MS.find(Data.sort_abbreviations,cand) of SOME(_) => true | _ => false)
+                    fun resolveOrElseOriginal() =
+                          (case resolveOverOpenModules(sort_name_as_symbol,existsAsSortAbbreviation,!(Paths.open_mod_paths)) of
+                              SOME(sort_name') => sort_name'
+                            | NONE => sort_name)
                 in
                    (case MS.split(sort_name) of
-                       (first_mod::rest_mods,main_name) => if Symbol.symEq(first_mod,N.top_module_symbol) then 
+                       (first_mod::rest_mods,main_name) => if Symbol.symEq(first_mod,N.top_module_symbol) then
                                                               MS.makeModSymbol'(rest_mods,main_name)
-                                                           else loop(!(Paths.open_mod_paths))
-                     | _ => loop(!(Paths.open_mod_paths)))
+                                                           else resolveOrElseOriginal()
+                     | _ => resolveOrElseOriginal())
 
                 end
           fun transformSortName(sort_name) = decide(sort_name)
