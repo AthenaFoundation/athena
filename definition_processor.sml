@@ -886,6 +886,7 @@ fun isFunDefExhaustive(f,equations) =
 val qualifyName = SV.qualifyName
 val qualifySort = SV.qualifySort
 val qualifyFSym = SV.qualifyFSym
+val resolveOverOpenModules = SV.resolveOverOpenModules
               
 fun addSelectorAxioms({name,...}:ath_structure,mod_path,env,eval_env) = 
                     let val name_str = MS.name(name)
@@ -1157,7 +1158,31 @@ fun checkSubsortIntegrity(pos) =
      List.app check sorts
   end
 
-fun processSubSortDeclaration(name1,pos1,name2,pos2,str) = 
+(* A subsort operand is a bare name as produced by the parser (no module
+   qualification, since it never had a literal dot to split on), so it must be
+   resolved against the enclosing module before it can be found in sort_table/
+   structure_table, exactly as ordinary sort references already are via
+   fullyQualifySort. If the name already resolves as given (e.g. it was already
+   fully qualified by a caller), it is left untouched. *)
+fun resolveSortNameInModule(name,mod_path) =
+     let fun existsAsSort(cand) = MS.exists(sort_table,cand) orelse MS.exists(structure_table,cand)
+     in
+        if existsAsSort(name) then name
+        else
+           let val name_sym = MS.nameAsSymbol(name)
+               val direct = qualifyName(name_sym,mod_path)
+           in
+              if existsAsSort(direct) then direct
+              else (case resolveOverOpenModules(name_sym,existsAsSort,!(Paths.open_mod_paths)) of
+                       SOME(name') => name'
+                     | NONE => name)
+           end
+     end
+
+fun processSubSortDeclaration(name1,pos1,name2,pos2,str,mod_path) =
+ let val name1 = resolveSortNameInModule(name1,mod_path)
+     val name2 = resolveSortNameInModule(name2,mod_path)
+ in
  if MS.modSymEq(name1,name2) then
     myPrint("\nThis holds by default.\n")
  else
@@ -1184,9 +1209,10 @@ fun processSubSortDeclaration(name1,pos1,name2,pos2,str) =
 	 	    if str = "" then () else myPrint("\nOK.\n"))
               | _ => evError("Invalid sort name: "^(MS.name name2),SOME(pos2)))
       | _ => evError("Invalid sort name: "^MS.name(name1),SOME(pos1)))
+ end
 
-fun processSubSortsDeclaration(domains_and_positions,dom,pos) =  
-    (List.app (fn (d,d_pos) => processSubSortDeclaration(d,d_pos,dom,pos,"")) domains_and_positions;
+fun processSubSortsDeclaration(domains_and_positions,dom,pos,mod_path) =
+    (List.app (fn (d,d_pos) => processSubSortDeclaration(d,d_pos,dom,pos,"",mod_path)) domains_and_positions;
      myPrint("\nOK.\n"))
 	handle Semantics.EvalError(msg,_) => myPrint(msg)
 
@@ -1246,7 +1272,7 @@ fun processDomainDeclaration(d as {name,arity,pos,sort_predicate,...}:A.absyn_do
                                  val _ = HashTable.insert Prop.sort_predicate_table (full_name,(super_sort_root,makeBody))
                                  val _ = FTerm.addSortWithPredicate(full_name,arity)
                              in
-                                (processSubSortDeclaration(full_name,pos,super_sort_root,pos,"");
+                                (processSubSortDeclaration(full_name,pos,super_sort_root,pos,"",mod_path);
                                  print("\nNew domain "^(MS.name(full_name))^" introduced, as a subsort of "^(MS.name(super_sort_root))^".\n"))
                              end
                         else evError("Wrong kind of sort predicate "^fsym_name,SOME(pos))
