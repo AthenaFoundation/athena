@@ -34,7 +34,9 @@ algebra_test_files = ['algebra/Z-poly','algebra/Z-as-integral-domain','algebra/Z
 chapters = ['01','03','08','09','11','12','13','14','15','04','05','06','07','10','17','18']
 book_test_files = ['tests/regression/book/chapter' + c for c in chapters] 
 
-test_files = basic_test_files + main_test_files + search_test_files + memory_test_files + algebra_test_files + book_test_files
+module_test_files = ['tests/regression/subsorts_in_modules']
+
+test_files = basic_test_files + main_test_files + search_test_files + memory_test_files + algebra_test_files + book_test_files + module_test_files
 
 def readLines(file_name):
     with open(file_name,'r',errors='ignore') as file:

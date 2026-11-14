@@ -1185,8 +1185,16 @@ fun processSubSortDeclaration(name1,pos1,name2,pos2,str) =
               | _ => evError("Invalid sort name: "^(MS.name name2),SOME(pos2)))
       | _ => evError("Invalid sort name: "^MS.name(name1),SOME(pos1)))
 
-fun processSubSortsDeclaration(domains_and_positions,dom,pos) =  
-    (List.app (fn (d,d_pos) => processSubSortDeclaration(d,d_pos,dom,pos,"")) domains_and_positions;
+(* Same lookup order as fullyQualifySort, so a module's own sort shadows a top-level one. *)
+fun resolveSortName(name) =
+      getOpt(SV.resolveOverOpenModules(MS.nameAsSymbol(name),Data.isAnySort,
+                                       !(Paths.open_mod_paths)),
+             name)
+
+fun processSubSortsDeclaration(domains_and_positions,dom,pos) =
+    (List.app (fn (d,d_pos) => processSubSortDeclaration(resolveSortName(d),d_pos,
+                                                         resolveSortName(dom),pos,""))
+              domains_and_positions;
      myPrint("\nOK.\n"))
 	handle Semantics.EvalError(msg,_) => myPrint(msg)
 

@@ -1,0 +1,41 @@
+# Subsort declarations must resolve sort names like every other sort reference:
+# the current module first, then enclosing and opened modules, the top level last.
+# Each case ends in a term that only sort-checks if the subsort was resolved correctly.
+
+# Issue #5: subsorts declared inside the module that introduced the sorts.
+module Issue5 {
+  datatype (BTree T) := null | (leaf T) | (root (BTree T) (BTree T))
+  domains Sort1, Sort2, Sort
+  subsorts (Sort1 Sort2) Sort
+  declare data1: Sort1
+  declare data2: Sort2
+  define tree := (root (leaf data1) (leaf data2))
+}
+
+# A module's own sort shadows a top-level sort with the same name.
+domain Shadowed
+module Shadow {
+  domains Sub, Shadowed
+  subsort Sub Shadowed
+  declare sub-value: Sub
+  declare P: [Shadowed] -> Boolean
+  define shadow-term := (P sub-value)
+}
+
+# The supersort was introduced in the enclosing module.
+module Outer {
+  domain S
+  module Inner {
+    domain T
+    subsort T S
+    declare t-value: T
+    declare Q: [S] -> Boolean
+    define nested-term := (Q t-value)
+  }
+}
+
+# A fully qualified operand still works from the top level.
+domain Outside
+subsort Outside Shadow.Shadowed
+declare outside-value: Outside
+define outside-term := (Shadow.P outside-value)
