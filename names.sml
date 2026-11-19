@@ -1,3 +1,5 @@
+
+
 (*======================================================================
 
 A structure containing the names of all of Athena's predefined values.
@@ -179,6 +181,12 @@ val fsymsInFunDefTableFun_symbol = Symbol.symbol fsymsInFunDefTableFun_name
 val getAlphaCertFun_name = "get-alpha-cert"
 val getAlphaCertFun_symbol = Symbol.symbol getAlphaCertFun_name
 
+val analyzeAlphaCertFun_name = "analyze-alpha-cert"
+val analyzeAlphaCertFun_symbol = Symbol.symbol analyzeAlphaCertFun_name
+
+val processAlphaCertFun_name = "get-and-process-alpha-cert"
+val processAlphaCertFun_symbol = Symbol.symbol processAlphaCertFun_name
+
 val subtermsFun_name = "subterms"
 val subtermsFun_symbol = Symbol.symbol subtermsFun_name
 
@@ -190,6 +198,9 @@ val sortVarsFun_symbol = Symbol.symbol sortVarsFun_name
 
 val monoInstanceFun_name = "make-monomorphic-instance"
 val monoInstanceFun_symbol = Symbol.symbol monoInstanceFun_name
+
+val astJsonFun_name = "ast-json"
+val astJsonFun_symbol = Symbol.symbol astJsonFun_name
 
 val holdsFun_name = "holds?"
 val holdsFun_symbol = Symbol.symbol holdsFun_name
@@ -203,6 +214,9 @@ val dependenciesFun_symbol = Symbol.symbol dependenciesFun_name
 
 val dependenciesTranFun_name = "dependencies*"
 val dependenciesTranFun_symbol = Symbol.symbol dependenciesTranFun_name
+
+val abToStringFun_name = "ab->string"
+val abToStringFun_symbol = Symbol.symbol abToStringFun_name
 
 val symCodeFun_name = "symbol-code"
 val symCodeFun_symbol = Symbol.symbol symCodeFun_name
@@ -326,6 +340,9 @@ val valToString_symbol' = Symbol.symbol valToString_name'
 
 val transOntologyFun_name = "translate-ontology"
 val transOntologyFun_symbol = Symbol.symbol transOntologyFun_name
+
+val clientConnect_name = "client"
+val clientConnect_symbol = Symbol.symbol clientConnect_name
 
 val getABFun_name = "get-ab"
 val getABFun_symbol =  Symbol.symbol getABFun_name
@@ -635,6 +652,9 @@ val moption_structure_symbol = ModSymbol.makeModSymbol([],option_structure_symbo
 val mpPrimMethod_name = "mp"
 val mpPrimMethod_symbol = Symbol.symbol mpPrimMethod_name
 
+val commentPrimMethod_name = "comment"
+val commentPrimMethod_symbol = Symbol.symbol commentPrimMethod_name
+
 val pfPrimMethod_name = "prove-from"
 val pfPrimMethod_symbol = Symbol.symbol pfPrimMethod_name
 
@@ -848,6 +868,12 @@ val option_valued_selectors_flag_symbol =  Symbol.symbol option_valued_selectors
 val demons_active_flag = "demons"
 val demons_active_flag_symbol = Symbol.symbol demons_active_flag
 
+val decompose_assertions_flag = "decompose-assertions"
+val decompose_assertions_flag_symbol = Symbol.symbol decompose_assertions_flag
+
+val conclusion_annotated_certificates_flag = "conclusion-annotated-certificates"
+val conclusion_annotated_certificates_flag_symbol = Symbol.symbol conclusion_annotated_certificates_flag 
+
 val silent_mode_flag_name = "silent-mode"
 val silent_mode_flag_symbol = Symbol.symbol silent_mode_flag_name
 
@@ -871,6 +897,9 @@ val explicit_wildcard_patterns_flag_symbol = Symbol.symbol explicit_wildcard_pat
 
 val compile_mode_flag = "incremental-compile-mode"
 val compile_mode_flag_symbol = Symbol.symbol compile_mode_flag
+
+val prohibit_large_proof_steps_flag = "prohibit-large-proof-steps"
+val prohibit_large_proof_steps_flag_symbol = Symbol.symbol prohibit_large_proof_steps_flag
 
 val dom_as_dt_default_size_flag = "dom-dt-default-size"
 val dom_as_dt_default_size_flag_symbol = Symbol.symbol dom_as_dt_default_size_flag
@@ -939,6 +968,9 @@ val makeTermHTFun_symbol = Symbol.symbol makeTermHTFun_name
 val unparseFun_name = "unparse"
 val unparseFun_symbol = S.symbol unparseFun_name
 
+val unparsePlainFun_name = "unparse-plain"
+val unparsePlainFun_symbol = S.symbol unparsePlainFun_name
+
 val satFun_name = "sat-solve"
 val satFun_symbol = S.symbol satFun_name 
 
@@ -959,6 +991,12 @@ val epfPrimMethod_symbol = S.symbol epfPrimMethod_name
     
 val timeFun_name = "time"
 val timeFun_symbol = Symbol.symbol timeFun_name
+
+val timeoutFun_name = "time-out"
+val timeoutFun_symbol = Symbol.symbol timeoutFun_name
+
+val timeoutMethod_name = "dtime-out"
+val timeoutMethod_symbol = Symbol.symbol timeoutMethod_name
 
 val lenFun_name = "length"
 val lenFun_symbol = Symbol.symbol lenFun_name
@@ -985,6 +1023,9 @@ val makeServerFun_symbol = Symbol.symbol makeServerFun_name
 
 val evalFun_name = "evaluate"
 val evalFun_symbol = Symbol.symbol evalFun_name
+
+val unparseFun_name = "unparse"
+val unparseFun_symbol = Symbol.symbol unparseFun_name
 
 val processInputFun_name = "process-input-from-string"
 val processInputFun_symbol = Symbol.symbol processInputFun_name
@@ -1161,7 +1202,7 @@ val spass_windows_binary = (case Paths.findFileWithPossibleSuffix("SPASS",".exe"
 
 val spass_binary = if (Paths.is_unix) then Paths.findIterated(["spass","SPASS"],"./SPASS") else spass_windows_binary
 
-val vampire_linux_binary = Paths.findIterated(["vampire_z3_rel_static_sledge_5980"],"./vampire_z3_rel_static_sledge_5980")
+val vampire_linux_binary = Paths.findIterated(["dvampire_z3_rel_static_sledge_5980"],"./vampire_z3_rel_static_sledge_5980")
 			     
 val vampire_binary = (case Paths.findFileWithPossibleSuffix("vampire",".exe") of
                                    SOME(str) => str

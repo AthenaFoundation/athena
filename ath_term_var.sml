@@ -115,6 +115,7 @@ val fresh_counter:InfNum.inf_num ref = ref (InfNum.makeInfNum())
 
 fun name(a,_) = Atom.toString(a)
 
+
 fun compare((a1,s1),(a2,s2)) = 
       let val r = Atom.compare(a1,a2)
       in
@@ -179,6 +180,12 @@ val toStringDefault = toStringWithSort
      end
 
   fun varInstance(v1 as (a1,s1),v2 as (a2,s2)) = Atom.sameAtom(a1,a2) andalso F.matches(s1,s2)
+
+
+fun toJson(v) = JSON.OBJECT([("type", JSON.STRING("term")),
+	  	 	     ("subtype", JSON.STRING("variable")),
+	  	 	     ("root", JSON.STRING(toStringDefault(v))),
+	  	 	     ("children", JSON.ARRAY([]))])
 
   structure ATVKey : ORD_KEY = 
   struct

@@ -132,6 +132,8 @@
 
 (define (list-remove x L) (remove x L))
 
+define (list-remove* to-be-removed L) := (list-diff L to-be-removed)
+
 (define (remove-and-preserve-order a L)
   (letrec ((loop (lambda (rest already-seen)
                    (match rest 
@@ -241,6 +243,23 @@
                      ((list-of [x y] rest) (loop rest (add x L1) (add y L2)))))))
     (loop L [] [])))
 
+
+# For thread method, each application of M requires a continuation as its second argument, because it might produce multiple conclusions. 
+
+(define (thread-method M L K)
+  (dletrec ((loop (method (L results-so-far)
+            		    (dmatch L
+           		        ([] (!K (rev results-so-far)))
+     		              ((list-of x more) (!M x (method (new-results) (!loop more (join new-results results-so-far)))))))))
+    (!loop L [])))
+
+
+define (try-all L) :=
+  match L {
+      [(some-method M)] => (!M)
+    | (list-of (some-method M) (rest as (list-of _ _))) => try { (!M) | (!try-all rest) }
+  }
+     
 ## Here the input method M is a regular method
 ## that takes an input x (usually a sentence) and produces 
 ## a theorem. We apply M to all elements of the input list L,
@@ -767,6 +786,55 @@ define (first-image L f) :=
                                                 (else (search rest))))))))
      (search L)))
 
+(define (find-element* L pred success failure)
+  (letrec ((search (lambda (list)
+                     (match list
+                       ([] (failure))
+                       ((list-of x rest) (check ((pred x) (try (success x) (search rest)))
+                                                (else (search rest))))))))
+     (search L)))
+     
+(define (dfind-element L pred success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dcheck ((pred x) (!success x))
+                                                  (else (!search rest))))))))
+     (!search L)))
+
+(define (dfind-element* L pred success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dcheck ((pred x) (dtry (!success x) (!search rest)))
+                                                  (else (!search rest))))))))
+     (!search L)))
+     
+# Find the first x in L such that (f x) returns something other than the unit (). If such an x is found, call (!success x (f x)),
+# i.e. apply the binary method sucess both to x and to the result (f x). Otherwise, if there's no such x, call (!failure):
+
+(define (dfind-element' L f success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dmatch (f x)
+                                            (() (!search rest))
+                                            (res (!success x res))))))))
+
+     (!search L)))
+
+
+(define (dfind-element'* L f success failure)
+  (dletrec ((search (method (list)
+                      (dmatch list
+                        ([] (!failure))
+                        ((list-of x rest) (dmatch (f x)
+                                            (() (!search rest))
+                                            (res (dtry (!success x res) (!search rest)))))))))
+     (!search L)))
+
+          
+
 ##  (find-element' L pred f success failure) finds the first element
 ##  x of L such that (pred (f x)) holds, if such x exists in L.
 ##  If so, then (success (f x)) is called, otherwise (failure) is called.
@@ -817,6 +885,9 @@ define (first-image L f) :=
     ([] (!K))
     ((list-of x rest) (dtry (!M x)
                             (!find-some rest M K)))))
+
+
+                            
 
 
 # (find-in-list L P) takes finds the first element y in L such
@@ -1044,4 +1115,25 @@ define (list->counts L) :=
 		      [] => M
                     | (list-of x rest) => (loop rest (Map.add M [[x try {(1 plus (M x)) | 1}]]))		     
 		    }}
-   (loop L (Map.make []))		    
+   (loop L (Map.make []))
+
+
+define white-space-chars := (map char [9 10 11 12 13 32])
+
+define (white-space-character? c) := (member? (char-ord c) [9 10 11 12 13 32 133 160])
+
+define (white-space? str) := (for-each str white-space-character?)
+
+define (trim str chars-to-be-trimmed) :=
+   check {(null? str) => str
+        | (member? (first str) chars-to-be-trimmed) => (trim (tail str) chars-to-be-trimmed)
+        | (member? (last str) chars-to-be-trimmed)  => (trim (all-but-last str) chars-to-be-trimmed)
+        | else => str}
+
+define (trim-ws str) := (trim str white-space-chars)
+
+define strip := trim-ws
+
+
+
+

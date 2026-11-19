@@ -17,6 +17,8 @@ sig
 
     val insert: Prop.prop * assum_base -> assum_base
 
+    val insertAlongWithConjuncts: Prop.prop * assum_base -> assum_base
+
     val remove: assum_base * Prop.prop  -> assum_base
 
     val augment: assum_base * Prop.prop list -> assum_base
@@ -43,11 +45,14 @@ sig
 
     val look_ups: int ref
 
+    val abToString: assum_base -> string
+
     val bucketSizes: unit -> int list 
     val getBucketSizeStatistics: unit -> string
 
     val getAssertions: assum_base -> Prop.prop list
     val addAssertion: Prop.prop * assum_base -> assum_base
+    val addAssertionAlongWithConjuncts: Prop.prop * assum_base -> assum_base
     val addAssertions: Prop.prop list * assum_base -> assum_base
     val isAssertion: Prop.prop * assum_base -> bool 
 

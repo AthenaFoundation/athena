@@ -18,6 +18,7 @@ val SUBSORT:  'a * 'a -> (svalue,'a) token
 val DATATYPE_CASES_ON_TERM:  'a * 'a -> (svalue,'a) token
 val DATATYPE_CASES:  'a * 'a -> (svalue,'a) token
 val EX_GENERALIZE:  'a * 'a -> (svalue,'a) token
+val TRUE_INTRODUCTION:  'a * 'a -> (svalue,'a) token
 val SET_FLAG:  'a * 'a -> (svalue,'a) token
 val SPECIALIZE:  'a * 'a -> (svalue,'a) token
 val END:  'a * 'a -> (svalue,'a) token
@@ -116,6 +117,7 @@ val LET:  'a * 'a -> (svalue,'a) token
 val MATCH:  'a * 'a -> (svalue,'a) token
 val METHOD:  'a * 'a -> (svalue,'a) token
 val FUNCTION:  'a * 'a -> (svalue,'a) token
+val APPLYING:  'a * 'a -> (svalue,'a) token
 val SOME_CHAR:  'a * 'a -> (svalue,'a) token
 val WILDCARD:  'a * 'a -> (svalue,'a) token
 val ARROW:  'a * 'a -> (svalue,'a) token

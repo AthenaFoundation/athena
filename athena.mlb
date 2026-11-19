@@ -1,13 +1,17 @@
 local
 	$(SML_LIB)/basis/basis.mlb
+	$(SML_LIB)/smlnj-lib/JSON/json-lib.mlb	
 	$(SML_LIB)/smlnj-lib/Util/smlnj-lib.mlb
 	$(SML_LIB)/basis/unsafe.mlb 
 	$(SML_LIB)/mlyacc-lib/mlyacc-lib.mlb
         $(SML_LIB)/cml/cml.mlb
         $(SML_LIB)/basis/mlton.mlb	
 	$(SML_LIB)/smlnj-lib/INet/inet-lib.mlb
+	$(SML_LIB)/smlnj-lib/Util/time-limit.mlb
 in
 	compat_11072.sml
+	mt.sig
+	mt.sml
 	base.sig
 	base.sml
 	ord_map.sig
@@ -74,8 +78,6 @@ in
 	parse.sml
 	infix_parser.sml
 	structure_analysis.sml
-	mt.sig
-	mt.sml
 	state_space.sig
 	state_search.sig
 	state_search.sml
@@ -85,6 +87,7 @@ in
 	smt_output.sml
 	compiler.sml
 	server.sml 
+        simp.sml
 	topenv_part1.sml
 	topenv_part2.sml
 	definition_processor.sml

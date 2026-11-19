@@ -38,6 +38,8 @@ sig
 
    val getTag: 'a tagged_term * int list -> 'a 
 
+   val taggedTermToJson: 'a tagged_term * ('a -> string) -> JSON.value
+
    val getNthTaggedSubterm: 'a tagged_term * int list -> 'a tagged_term
 
 
@@ -147,6 +149,9 @@ sig
    val unifyExLst: term list * term list -> sub
 
    val getOccurences: term * term -> int list list
+
+
+   val toJson: term -> JSON.value 					 
 
 (* The call getOccurences(t1,t2) returns a list of all and only   *)
 (* those positions in Dom(t2) such that t1 occurs in t2 at those  *)

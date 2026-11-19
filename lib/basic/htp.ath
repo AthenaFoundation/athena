@@ -1,0 +1,464 @@
+load "polarities"
+
+define (elide p) := (!force p)
+
+(declare (A B C D E F G H I J) Boolean)
+define proof-error-0 := proof-error
+
+define debug := (cell false)
+
+define (proof-error msg) :=
+     let {_ := match (ref debug) {true => (print "\n" msg "\n") | _ => ()}}
+       (!proof-error-0 msg)
+       
+define (inconsistent? abase inconsistent-pair-cell) :=
+  let {#_     := (print "Checking if this is ab inconsistent:\n" abase "\n");
+       is-in := lambda (x x' L) check {(member? x' L) => (seq (set! inconsistent-pair-cell [x x']) true) | else => false}}
+    letrec {loop := lambda (p rest)
+                      match rest {
+                        [] => false
+                      | (list-of h t) => (|| (is-in p (complement p) rest) (loop h t))
+                      }}
+       match abase {
+         [] => false
+       | (list-of p more) => (loop p more)
+       }
+
+define UPPER-BOUND := 1000000
+define MAX-ITERS := (cell 1000000)
+define TIMEOUT_LIMIT := 600000 # 60 seconds (60K milliseconds) timeout limit
+
+define (transform-forward hyp K) :=
+  match hyp {
+# Turning off conversions of conditionals into disjunctions, too prolific 
+#   (if p q) => let {p1 := (!cond-def hyp)}
+#                 (!K [p1])
+  | (or (not _) _) => let {p1 := (!cond-def hyp)} (!K [p1])
+  | (or _ (not _)) => let {p1 := (!cond-def hyp)} (!K [p1])      
+  | (and (some-list props)) => (!decompose hyp K)
+  | (iff p q) =>  let {p1 := (!both (!left-iff hyp) (!right-iff hyp));
+                       p2 := (!bicond-def' hyp)}
+                   (!K [p1 p2])
+  | (not (if p q)) => let {th := (!neg-cond hyp)}
+                       (!K [th])
+  | (not (iff p q)) => let {th := (!force (or (and p (complement q)) (and q (complement p))))}
+                         (!K [th])                       
+  | (not (and p q)) => let {p1 := (!dm hyp)}
+                         (!K [p1])
+  | (not (or p q)) => let {p1 := (!dm hyp)}
+                        (!K [p1])
+  | (not (not p)) => let {p1 := (!dn hyp)}
+                       (!K [p1])
+  | _ => let {p1 := (!claim hyp)} (!K [p1])                       
+  }
+
+define (transform-forward* props K) := (!thread-method transform-forward props K)
+
+define K1 := (method (results) let {_ := (print "\nRESULTS:\n" results "\n")}
+                (!true-intro))
+
+define (forward-inference p K) :=
+  letrec {combine := method (premise) 
+                       match premise {
+                         (if p1 p2) => check {(equal? p p1) => (!mp premise p)
+                                            | (equal? p (complement p2)) => (!mt premise p)}
+                       ### | (or p1 p2) => check {(|| (equal? p (complement p1)) (equal? p (complement p2))) => (!dsyl premise p)}
+                       }}
+    (!map-method-non-strictly combine (ab) K)
+  
+(define (forward-inference* props K)
+   (!thread-method forward-inference props K))
+                   
+(define (process-hyps props K)
+ letrec {loop := (method (props results i)
+                    check {(greater? i 3) => (!forward-inference* results K)
+                         | else => (!transform-forward* props
+                                                        (method (results')
+                                                          (!loop results' (join results' results) (plus i 1))))})}
+    (!loop props [] 0))
+
+define (replace-atoms-by-vars p) :=
+  let {make-var := lambda (atom)
+                    (evaluate (join "?" (val->string atom) ":Boolean"))}
+  match p {
+    ((some-sent-con sc) (some-list args)) => (sc (map replace-atoms-by-vars args))
+  | _ => (make-var p)
+  }
+
+define (tsat' L) := (tsat (map replace-atoms-by-vars L))
+
+define (implies? p q) := (negate (tsat' [p (not q)]))
+
+define (equivalent? p q) := (&& (implies? p q) (implies? q p))
+
+define (truncate props) := 
+   match props {
+     [] => []
+   | (list-of p more) =>
+         let {rest := (filter-out more (lambda (q) (equivalent? q p)));
+             delta := (minus (length props) (length rest));
+                 _ := check {(greater? delta 0) => (print "\nEliminated" delta "candidates!") | else => ()}}
+        (add p )
+   }
+
+define (string->id' str) := 
+  let {toks := (tokenize str " ")}
+    (string->id (separate toks "@"))
+   
+define (encode-comment L) :=
+   (map lambda (x) check {(string? x) => (string->id' x) | else => x}
+        L)
+
+#define (encode-comment L) := ['foo]
+        
+define (truncate props) := props
+
+(define (process-hyps given-props K)
+ letrec {loop := (method (props results i)
+                    check {(greater? i 3) => let {results' := (list-diff (dedup results) given-props)}                                                 
+                                              (!K results')
+                         | else => (!transform-forward* props
+                                                        (method (results')
+                                                          (!forward-inference* results'
+                                                             (method (results'')
+                                                                    let {#_ := (print "\nNew results:\n" results');
+                                                                         #_ := (print "\nOld results:\n" results);                                                                    
+                                                                         D := (list-diff results'' results');
+                                                                         #_ := (print "\nDIFF:\n" D "\n");
+                                                                         R := (join results' results'')}
+                                                                      (!loop R (join R results) (plus i 1))))))})}
+    (!loop given-props [] 0))
+
+
+define (all-disjunctions) := (merge-sort (filter (ab) disjunction?) (lambda (p1 p2) (less? (size p1) (size p2))))
+
+define (increment i) := #let {_ := (print "\nIncrementing iteration to: " (plus i 1))}
+                         (plus i 1)
+
+define (pr x) :=
+  match x {
+    (some-sentence p) => 
+       let {s := (replace-string "\n" " " (athena->tptp p))}
+         (replace-string "  " " " s)
+  | (some-list L) => (join "[" (separate (map pr L) ", ") "]")        
+  }
+
+define (decide L) :=
+  match L {
+     [] => ""
+   | _ => (join " -- namely:" (pr L))
+  }
+
+
+
+define order := (cell ['extract 'back 'case-analysis 'contradiction])
+
+(set! order ['back 'extract 'case-analysis 'contradiction])
+
+define (choose-strategy goal iteration method-map) :=
+  let {keys := ['back 'extract 'case-analysis 'contradiction];
+       random-key-order := check {(flip-coin) => ['extract 'back 'case-analysis 'contradiction]
+                                | else => ['back 'extract 'case-analysis 'contradiction]};
+       random-key-order := (ref order);
+       chosen-methods := (map lambda (method-key) (method-map method-key)
+                              random-key-order)}
+    (!try-all chosen-methods)                                                          
+
+define (htp goal) :=
+  let {inconsistent-pair-cell := (cell []);
+       table := (HashTable.table 1000);
+       goal->string := lambda (goal) (join (ab->string) "|-" (pr goal)); 
+       memoize := lambda (goal) (HashTable.add table [(goal->string goal) true]);
+       cached? := lambda (goal) try {(HashTable.lookup table (goal->string goal)) | false };
+       _                      := (execute-command "clear-assumption-base");
+       #_ := (print "\nLength of ab after clearing it: " (length (ab)));
+       _ := ()
+       }
+     letrec {backward-tp := method (goal iteration)
+                              let {spaces0 := (join (copies "    " iteration));
+                                   spaces := (join "\n" spaces0)}
+                              match goal {
+                                (and (some-list args)) => (!map-method (method (arg)
+                                                                          (!tp arg (increment iteration)))
+                                                                       args 
+                                                                       method (_)
+                                                                         match args {
+                                                                           [(some-sentence p)] => (!claim p)
+                                                                            | [p1 p2] => (!both p1 p2)
+                                                                            | _ => (!conj-intro args)
+                                                                          })
+                              | (not (not p)) => let {_ := (!dn goal);
+                                                      _ := (!tp p (increment iteration))}
+                                                  (!bdn p)
+                              | (if p q) => assume p
+                                             (!process-hyps [p] (method (results)
+                                                                  let {#_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr p) (decide results));
+                                                                       #_ := (print spaces "\nWill now go on to prove the consequent: " (pr q));
+                                                                        _ := ()}
+                                                                  (!tp q (increment iteration))))
+                              | (iff p q) => let {dir1 := (!tp (if p q) (increment iteration));
+                                                  dir2 := (!tp (if q p) (increment iteration))}
+                                              (!equiv dir1 dir2)
+                              | (or p q) => try {(!left-either (!tp p (increment iteration)) q)
+                                               | (!right-either p (!tp q (increment iteration)))
+                                               | let {transformed    := (if (complement p) q);
+                                                      transformed-th := (!tp transformed (increment iteration))}
+                                                  (!cond-def transformed-th)
+                                            }
+                              };
+             backward-attempt := method (goal iteration spaces)
+                                   let {#_    := (print spaces "Trying a backward tactic on this goal:" (pr goal));
+                                        res := (cell false);
+                                        b-th  := try {let {th := #let {_ := (!comment (encode-comment ["We tackle " goal " backwards..."]))}
+                                                                  (!backward-tp goal (plus 1 iteration));
+                                                            _ := (set! res true)}
+                                                        (!claim th) 
+                                                    | let {_ := (set! res false)}
+                                                        (!true-intro)}}
+                                      match (ref res) {
+                                        true => (!claim b-th)
+                                         | _ => (!proof-error "Backward tactic failed...")};
+             extract := method (goal premise polarity-result iteration)
+                          match polarity-result {
+                            [(some-sentence parent) parent-position-in-premise theta] =>
+                              let {instantiated-parent := (theta parent);
+                                   parent-polarity-in-premise := (Polarities.get-polarity parent-position-in-premise premise);
+                                   negative-parent-polarity := (Polarities.negative-pol? parent-polarity-in-premise);       
+                                   non-negative-parent-polarity := (negate negative-parent-polarity)}
+                                match instantiated-parent {
+                                  (and (some-list props)) =>
+                                    let {parent-th := (!tp instantiated-parent (increment iteration))}
+                                      match parent-th {
+                                        (and (val-of goal) (some-sentence _)) => (!left-and parent-th)
+                                      | (and (some-sentence _) (val-of goal)) => (!right-and parent-th)
+                                      | (and (some-list _)) => (!conj-elim goal instantiated-parent) 
+                                      }
+                                | (or (some-list _))  =>
+                                    let {disjuncts := (get-disjuncts instantiated-parent)}
+                                      check {(member? goal disjuncts) =>
+                                        let {disjunction-theorem := (!tp instantiated-parent (increment iteration))}
+                                          (!map-method method (d) (!tp (if d goal) (increment iteration))
+                                                       disjuncts
+                                                        method (disjunct-conditionals)
+                                                          (!cases disjunction-theorem
+                                                                  disjunct-conditionals))}
+                                | (if antecedent (val-of goal)) =>
+                                    let {conditional-th := (!tp instantiated-parent (increment iteration));
+                                         ant-th := (!tp antecedent  (increment iteration))}
+                                      (!mp conditional-th ant-th)
+                                | ((iff  left right) where non-negative-parent-polarity) =>
+                                    let {bi-cond-th  := (!tp instantiated-parent (increment iteration))}
+                                      check {(equal? goal left) =>  let {cond-th  := (!left-iff bi-cond-th);
+                                                                         left-ant := (!tp left (increment iteration))}
+                                                                      (!mp cond-th left-ant)
+                                           | (equal? goal right) => let {cond-th  := (!right-iff bi-cond-th);
+                                                                         right-ant := (!tp right (increment iteration))}
+                                                                      (!mp cond-th right-ant)
+                                      }
+                                | ((|| (not (some-sentence body)) (if (val-of goal) (some-sentence consequent))) where negative-parent-polarity) =>
+                                    let {dn-parent := (!tp (not instantiated-parent) (increment iteration))}
+                                      match instantiated-parent {
+                                        (not _)  => (!dn dn-parent)
+                                      | (if _ _) => let {nc-th := (!neg-cond dn-parent)}
+                                                     (!left-and nc-th)
+                                    }
+                                }
+                          };
+             extraction-attempt := method (goal iteration spaces)
+                                     let {cands := (filter (ab) lambda (premise) (unequal? (Polarities.find-universally-positive-parent goal premise) ()));
+                                          cands := (truncate (merge-sort cands (lambda (p1 p2) (leq? (size p1) (size p2)))));
+                                          #_ := (print spaces "For the goal" (pr goal) "there are" (length cands) "extraction candidates:" (pr cands));
+                                          _ := ()}
+                                       (!dfind-element'*
+                                         cands 
+                                         lambda (premise) (Polarities.find-universally-positive-parent goal premise)
+                                         method (premise polarity-result) let {#_ := (print spaces "{About to try extraction on this goal:" (pr goal) "from this premise:" (pr premise));
+                                                                               e-th := (!extract goal premise polarity-result iteration);
+                                                                               #   _ := (print spaces "Extraction worked...\n")
+                                                                                   _ := ()
+                                                                               }
+                                                                            (!claim e-th)                                                                                    
+                                         method () # let {_ := (print spaces "Failed all extraction attempts for this goal: " (pr goal) "}")}
+                                                     (!proof-error "Failed application of extraction..."));
+             case-analysis-attempt := method (goal iteration spaces)
+                                        let {AD := (all-disjunctions);
+                                             #     _ := (print spaces "For the goal" (pr goal) ", there are" (length AD) "candidates for case analysis:" (pr AD));                                        
+                                             cands := (truncate (merge-sort AD (lambda (p1 p2) (leq? (size p1) (size p2)))));
+                                             cands := (take cands 2);                                             
+                                              _ := ()
+                                             }
+                                          (!find-some AD 
+                                                      (method (d)
+                                                         let {_ := ();
+                                                              # _ := (print spaces "Will try a case analysis on this goal:" (pr goal) " using this disjunction:" (pr d));
+                                                              _ := (!comment (encode-comment ["We will try to derive " goal " by a case analysis of this disjunction: " d]));
+                                                              _ := ()
+                                                             }
+                                                           (!map-method (method (disjunct)
+                                                                           (assume disjunct
+                                                                              (!process-hyps
+                                                                                 [disjunct]
+                                                                                 (method (results)
+                                                                                    #let {_ := (print spaces "** Derived" (length results) "new results by processing this disjunct:" (pr disjunct) (decide results))}
+                                                                                      (!tp goal (increment iteration))))))
+                                                                        (get-disjuncts d)
+                                                                        (method (case-conditionals)
+                                                                          (!cases d case-conditionals))))
+                                                      (method () #let {_ := (print spaces "No case analysis succeeded on this goal:" (pr goal))}
+                                                                    (!proof-error "All case analysis failed.")));
+             contradiction-attempt := method (goal iteration spaces)
+                                        check {(equal? goal false) => (!proof-error "")
+                                             | else => let {#_ := (print spaces "Trying a proof by contradiction on this goal: " (pr goal));
+                                                            _ := (!comment (encode-comment ["We will derive " goal " by way of contradiction"]));
+                                                            _ := ()
+                                                            } 
+                                                         (!by-contradiction goal
+                                                            assume h := (complement goal)
+                                                              (!process-hyps [h] (method (results)
+                                                                                   #let {_ := (print spaces "** Derived" (length results) "new results by processing this hypothesis:" (pr h) (decide results))}
+                                                                                     (!tp false (increment iteration)))))};
+             try-tactics := method (goal iteration spaces)
+                              let {method-map := |{'back          := method () (!backward-attempt goal iteration spaces),
+                                                   'extract       := method () (!extraction-attempt goal iteration spaces),
+                                                   'case-analysis := method () (!case-analysis-attempt goal iteration spaces),
+                                                   'contradiction := method () (!contradiction-attempt goal iteration spaces)}|}
+                               (!choose-strategy goal iteration method-map);
+             prove := method (goal limit) 
+                       check {(greater? limit UPPER-BOUND) => (!dhalt) 
+                            | else => let {_ := (set! MAX-ITERS limit);
+                                           #_ := (print "\nTheorem-proving attempt with max iterations set at: " limit "... \n");
+                                           _ := ()
+                                          }
+                                        try {(!tp goal 1)
+                                           | (!prove goal (times limit 2))}};
+             tp := method (goal iteration)
+                     let {abase := (ab);
+                          #_ := (print "\nIteration: " iteration);
+                          spaces := (join "\n" (copies "    " iteration)) 
+                          #_ := (print spaces "Given goal: " (pr goal) " and ab:\n" abase ", hence (member? goal (ab)) is: " (member? goal abase))
+                          }
+                     check {(cached? goal) => # let {_ := (print "\nC DETECTED!")}
+                                                (!proof-error "")
+                          | else => 
+                     let {_ := (memoize goal)}
+                       check {(greater? iteration (ref MAX-ITERS)) => (!proof-error "Reached max iterations")
+                            | (member? goal abase) => (!claim goal)
+                            | (inconsistent? abase inconsistent-pair-cell) =>
+                                  let {_ := (!absurd (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))}
+                                    (!from-false goal)
+                                    #(!from-complements goal (first (ref inconsistent-pair-cell)) (second (ref inconsistent-pair-cell)))
+                            | else => (!try-tactics goal iteration spaces)
+                            # try { (!backward-attempt goal iteration spaces)
+                            #               | (!extraction-attempt goal iteration spaces)
+                            #               | (!case-analysis-attempt goal iteration spaces)
+                            #               | (!contradiction-attempt goal iteration spaces)}
+                              }}}
+       (!prove goal 8)
+
+define (make-problem line) := 
+ let {toks := (map trim-ws (tokenize line "#"));
+      goal := (evaluate (last toks));
+      premises := (map evaluate (all-but-last toks))}
+    (if (and* premises) goal)
+
+define (solve line) :=
+ let {problem := (make-problem line)}
+   (!htp problem)
+
+# (!solve "((E | (B ==> ~A)) ==> (C ==> (~ (C & D)))) # D # (C | E) # ((A ==> E) & (D | B)) # (E | (B & E))")
+
+define (sleep N) :=
+  letrec {loop := lambda (x i)
+                   check {(greater? i 10000000) => ()
+                        | else =>
+                                  let {y := (div (x times x) x)}
+                                   (loop y (plus i 1))}}
+     (repeat (lambda () (loop 10483 0)) N)
+
+define (solve-and-report-outcome random-line) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       res := try { let {_ := (!dtime-out (method () (!htp problem)) TIMEOUT_LIMIT);
+                        _ := (set! success true)}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+
+define (solve-with-certificate-and-report-outcome random-line) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       res := try { let {res := (time-out (lambda () (get-alpha-cert (method () (!htp problem))
+                                                                     (lambda (s) (print "\nCertificate\n" s))))
+                                          TIMEOUT_LIMIT);
+                         _ := check {(equal? (res 'outcome) 'timeout) => (print "\nTIMEOUT on this problem: " random-line "\n")
+                                   | else => let {_ := (set! success true)}
+                                               (print "\nSuccessful outcome: " res "\n")}}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+
+define problem-counter := (cell 1);
+
+define (solve-and-save-certificate-and-report-outcome random-line cert-out-file) :=
+  let {problem := (make-problem random-line);
+       success := (cell false);
+       continuation := lambda (s)
+                         let {output := (join "\n#" (copies "*" 120) "\n# -- Problem " (val->string (inc problem-counter)) ": " random-line "\n# Proof:\n" s)}
+                           (write-file cert-out-file output);
+       res := try { let {resp := (time-out (lambda () (get-alpha-cert (method () (!htp problem)) continuation))
+                                         TIMEOUT_LIMIT);
+                         _ :=  check {(equal? (resp 'outcome) 'timeout) => (print "\nTIMEOUT on this problem: " random-line "\n")
+                                   | else => let {_ := (set! success true)}
+                                               (print "\nSuccessful outcome: " resp "\n")}}
+                      (!true-intro)
+                  | let {_ := (print "\nFailed on this problem: " random-line "\n")}
+                      (!true-intro)}}
+    (ref success)
+        
+define (solve-all random-problem-file N) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-and-report-outcome line) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+
+define (solve-all-with-certificates random-problem-file N) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-with-certificate-and-report-outcome line) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+
+define (solve-all-and-store-certificates random-problem-file N cert-out-file) :=
+  let {lines := (tokenize (read-file random-problem-file) "\n");
+       failures := (cell 0);
+       counter := (cell 1);
+       _ := (set! problem-counter 1);
+       _ := (map-proc (lambda (line)
+                         let {_ := (execute-command "clear-assumption-base"); 
+                              _ := check {(equal? (mod (ref counter) 10) 0) => (print "\nProcessed " (ref counter) " problems, with " (ref failures) " failures...") | else => ()};
+                              _ := (inc counter)}
+                         check {(solve-and-save-certificate-and-report-outcome line cert-out-file) => ()
+                              | else => (inc failures)})
+                      (take lines N));
+       _ := (print "\n\nTotal number of failures:" (ref failures) "out of" N "\n")}
+    (ref failures)       
+    
+EOF
+load "lib/basic/htp"
